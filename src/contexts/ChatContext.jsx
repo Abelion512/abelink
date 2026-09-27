@@ -1,9 +1,7 @@
-import { createContext, useContext } from 'react'
 import { useAbelinkAgent } from '../hooks/useAbelinkAgent'
+import { ChatContext, useChat } from './useChat'
 
-export const ChatContext = createContext(null)
-
-export const useChat = () => useContext(ChatContext)
+export { ChatContext, useChat }
 
 export const ChatProvider = ({ children }) => {
   const abelinkAgent = useAbelinkAgent()

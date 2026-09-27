@@ -2,19 +2,17 @@
 
 ## 1. Project Overview
 
-**Project Name:** Abelink (formerly ABELINK Linux fork), independent version line 1.x (current: **1.0.0-alpha.3**, single source of truth: `src-tauri/tauri.conf.json`)
+**Project Name:** Abelink, independent version line 1.x (current: **1.0.0-alpha.3**, single source of truth: `src-tauri/tauri.conf.json`)
 
 **Branch Strategy:**
-- `main` (primary / default for private repo `origin` git@github.com:Abelion512/abelink.git): Standard default branch on Git/GitHub, menerima seluruh pengembangan aktif dan commit.
-- `linux`: Cabang pelacak untuk remote publik `public-upstream` (Abelion512/mark-agent-linux).
-- `master`: Melacak upstream resmi Mazees/mark-agent untuk keperluan sinkronisasi berkala.
+- `main`: Branch pengembangan aktif dan satu-satunya branch default (private repo `origin` git@github.com:Abelion512/abelink.git). Tidak ada branch pelacak upstream — sinkronisasi upstream dihentikan (2026-09-27).
 - Version bumping: jalankan `bun run sync-version` setelah bump di `tauri.conf.json` (propagasi: package.json + Cargo.toml + extension/manifest.json). Skema penomoran: [docs/RELEASE-VERSIONING.md](docs/RELEASE-VERSIONING.md) (SemVer penuh, basis ikut commit, counter alpha monoton, extension ikut app).
 - Aturan PR: SEMUA perubahan selain patch kecil wajib lewat branch + open PR ke `main` (jangan commit langsung ke `main`). Patch kecil = typo/komentar/format satu-dua baris tanpa ubah perilaku.
 - Pedoman Kontribusi Agent: baca [docs/AGENT_CONTRIBUTION_GUIDELINES.md](docs/AGENT_CONTRIBUTION_GUIDELINES.md)
 - RFC Arsitektur Masa Depan: baca [docs/ARCHITECTURAL_DIRECTION.md](docs/ARCHITECTURAL_DIRECTION.md)
 **Description:** A privacy-first, local-based autonomous AI OS companion designed to assist user productivity, automate tasks, and provide lifelike companionship. It uses a hybrid AI engine (Local LLM via LM Studio or Cloud API, plus a native Gemini Web RPC Engine) and features agentic planning with ReAct loop execution, **Autonomous Multi-Agent Sub-Agent Engine** (UI: **Sub-Agents**, branding: **Mission Control**) with concurrent isolated browser sessions, **Durable Agent Tasks** (UI: **Agent Workflows**) for persistent multi-step work, autonomous physical browser automation with multi-session support, a persistent OS-level desktop automation daemon, a hybrid Full-Text & Vector Memory Management System (MMS) with Orama & Dexie, document RAG pipeline, OS-level Awareness Engine, dynamic 4D Relational Growth, a native Plugin System with Monaco Editor, Telegram Bot integration via Telegraf, Voice Activity Detection with Groq Whisper STT plus local Whisper, Edge-TTS, and webcam vision capabilities.
-**Environment:** Linux-only Tauri v2 desktop application ("Abelink Linux"): a fork of Mazees/mark-agent, mid-migration from Electron to the Tauri shell + Node sidecar layout.
-**Maintainer:** Abelion512 | **Homepage:** https://github.com/Abelion512/abelink | **Upstream:** https://github.com/Mazees/mark-agent/
+**Environment:** Linux-only Tauri v2 desktop application, hasil restorasi besar dari basis kode warisan (era pre-Abelink) (fork tidak lagi disinkronkan dengan upstream sejak 2026-09-27; infrastruktur sync dihapus).
+**Maintainer:** Abelion512 | **Homepage:** https://github.com/Abelion512/abelink | **Lisensi:** turunan MARK Agent Source Available License v1.0 (lihat LICENSE — notice lisensi upstream dipertahankan sesuai ketentuannya)
 
 ## 2. Technology Stack & Core Dependencies
 
@@ -29,8 +27,8 @@
 - **Communication:** `telegraf` (Telegram Bot Framework, `sidecar/main/telegram/telegram-service.js`)
 - **Document Parsing:** `mammoth` (.docx) + `pdf-parse` (.pdf) behind the sidecar `parse-document` channel
 - **Runtime & Toolchain:** Rust + Bun. Rust menaungi shell Tauri (`src-tauri/`); Bun adalah package manager, script runner, dan runtime sidecar (`bun sidecar/engine.mjs`). Semua script first-party (`.mjs`) dijalankan dengan `bun`, bukan `node`; CI memakai `bun install --frozen-lockfile`.
-- **Packaging & CI:** Tauri bundler (`bundle.targets: "all"`, sidecar engine shipped as bundled resources); GitHub Actions workflows `tauri.yml`, `release.yml`, `codeql.yml`, `upstream-sync.yml`, `branch-guard.yml` (PR ber-base `master` digagalkan otomatis); Dependabot mingguan untuk cargo + npm + github-actions.
-- **Evaluation (AbelinkBench):** harness evaluasi di `evaluation/`: adapter agent via sidecar RPC (`abelink-adapter.mjs`), task Terminal-Bench-style dengan verifier deterministik (`terminal-bench.mjs`), metrik sekunder opsional via DeepEval (`deepeval-runner.mjs`, dynamic-import, tanpa dependensi keras), smoke gate tanpa network di CI (`bun evaluation/smoke.mjs`).
+- **Packaging & CI:** Tauri bundler (`bundle.targets: "all"`, sidecar engine shipped as bundled resources); GitHub Actions workflows `tauri.yml`, `release.yml`, `codeql.yml`; Dependabot mingguan untuk cargo + npm + github-actions. (Workflows upstream-sync/branch-guard dihapus 2026-09-27 saat detach upstream.)
+- **Evaluation (AbelinkBench):** harness evaluasi di `evaluation/`: adapter agent via sidecar RPC (`abelink-adapter.mjs`), task Terminal-Bench-style dengan verifier deterministik (`terminal-bench.mjs`), metrik sekunder opsional via DeepEval (`deepeval-runner.mjs`, dynamic-import, tanpa dependensi keras), smoke gate tanpa network di CI (`bun evaluation/smoke.mjs`). **Measurement plane PR46:** `evidence.mjs` (normalizer bukti in-memory), `metrics.mjs` (`abelinkbench-measurement-report`), `pr46-matrix.mjs` (30 fixture, 6/5/5/5/5/4), `pr46-experiments.mjs` (integritas eksperimen); dijalankan lewat `evaluation/run.mjs --suite pr46`. Kontrak: [docs/PLANNED/2026-09-21_agent-benchmark-matrix.md](docs/PLANNED/2026-09-21_agent-benchmark-matrix.md).
 
 ## 3. Project Architecture & File Structure
 
@@ -43,6 +41,7 @@ abelink-agent/
 ├── src/                 # React 19 renderer: UI + core logic (no Node APIs)
 ├── src-tauri/           # Rust shell: window/tray/shortcuts + native commands
 ├── sidecar/             # Node engine (fase A/B): stdio dispatcher + migrated modules
+├── cli/                 # Headless CLI/TUI core: cli/core (parser/store/hooks/writer), cli/tui (TUI v2)
 └── scripts/             # sync-version.mjs, verify.sh, release helpers
 ```
 
@@ -60,6 +59,7 @@ abelink-agent/
 | `api/scraping.js`                      | Web scraping engine: `scrapeGoogle()` + `deepSearch()`, DOM cleanup, article text extraction, 1500 char cap.                                                                                                                                                            |
 | `api/taskStore.js` + `taskExecutor.js` | Durable Agent Tasks persistence + step checkpoint validation/content-hash dedup (statuses pending through completed).                                                                                                                                                    |
 | `api/harness.js`                       | Always-on local JSONL logging client -> Rust `harness_append` (100% local, no cloud; old Developer toggle is a no-op).                                                                                                                                                |
+| `api/harnessCore.js`                   | Pure harness event contract shared by GUI and headless: `makeHarness{ToolCall,TurnStart,TurnEnd}` (tool-call writes `ok` GUI-parity + `success` schema field), `normalizeHarnessSessionId`; zero I/O (Node writer lives in `cli/core/harness-writer.mjs`).               |
 | `api/semverLite.js`                    | Zero-dependency SemVer 2.0.0 engine (`parse`, `valid`, `compare`, `gt`, `lt`, `eq`, `rcompare`): single source of truth shared by renderer, sidecar and scripts. `scripts/semver-lite.mjs` is only a CLI wrapper over it; the `semver` npm package was never a declared dependency. |
 | `api/workspaceRag.js`                  | Workspace `.abelink/` codebase RAG + working-memory injection into system prompts (sidecar `workspace:*`).                                                                                                                                                                 |
 | `api/groq.js` + `localWhisper.js` / `whisperWorker.js` | Speech-to-text engines: Groq cloud Whisper or local Whisper running in a worker.                                                                                                                                                                         |
@@ -72,10 +72,10 @@ abelink-agent/
 | `api/ai/persona.js`                    | Character & personality: Linux PC companion identity, sarcasm scaling (`<0.65` subtle, `>=0.65` roasting), adaptive tone (lu/gue vs Saya/Anda), TTS formatting, mood types; injects trait context.                                                                       |
 | `api/ai/relationship.js`               | Relational growth evaluator: 5 trait keys (warmth/sarcasm_level/trust/energy/obedience), `MAX_DRIFT=0.05` per step, floors warmth/trust at 0.15, clamps 0-1.                                                                                                            |
 | `api/ai/awareness.js`                  | Autonomous awareness AI over the OS activity buffer; JSON output: `should_act`, `message`, `autonomous_prompt`, `mood`.                                                                                                                                                 |
-| `api/ai/chatSummarizer.js`             | Distills recent chats into archived summaries with embedding vectors (dual-save Dexie + Orama).                                                                                                                                                                         |
+| `api/ai/agentRunner.js`                | Pure framework-agnostic ReAct loop (`runAgentLoop`) for CLI/TUI/bench; environment adapter `{fetchAI, executeTool, onStep, onThought}`; maps tool evidence (`result` -> `fullResult`) so the objective verifier sees headless proof. GUI keeps its own loop — parity is locked by shared governance gates + `tests/loopParity.test.mjs` (ADR-001). |
 | `api/ai/memoryGroomer.js`              | Batch consolidation merging profile/preference memories without losing history.                                                                                                                                                                                        |
 | `api/ai/contextCompactor.js`           | Compacts long conversation context before planner calls.                                                                                                                                                                                                               |
-| `api/ai/sessionCompactor.js`           | Session compaction ATM upstream (budget 525K, pointer `lastCompactedMessageId`, prune→ringkas→rakit; store `sessionCompacts`; flag `sessionCompactionEnabled` default ON; prompt-only, non-destruktif). **Delineasi: compactor = jendela kerja prompt; `chatSummarizer`/archiver = memori jangka panjang; jangan campur.** |
+| `api/ai/sessionCompactor.js`           | Session compaction ATM upstream (budget 525K, pointer `lastCompactedMessageId`, prune→ringkas→rakit; store `sessionCompacts`; flag `sessionCompactionEnabled` default ON; prompt-only, non-destruktif). **Delineasi: compactor = jendela kerja prompt; archiver (`useChatArchiver`) = memori jangka panjang; jangan campur.** |
 | `api/ai/skillSynthesizer.js`           | Synthesizes learned skills into the `learnedSkills` store.                                                                                                                                                                                                             |
 | `api/ai/trajectorySupervisor.js`       | Tool-governance supervisor (Fase 1): detects repeat/stagnation, emits `directive` + `hintText` staged observations and the `nextStrategy` trace tag; never throws (internal fault degrades to CONTINUE). Consumes Fase 1 fields only; caller scores are ignored.                                                                                  |
 | `api/ai/strategyLib.js`                | Pure adaptive ladder, single entry point `getNextStrategy(current, { repeat, verificationBlocked, hasPriorSuccess })` returning MODIFY / EXPLORE / RETRIEVE / VERIFY / STOP. Replaces the removed Fase 2 closed 6-taxonomy set.                                               |
@@ -131,7 +131,7 @@ abelink-agent/
 - Lint is a hard gate: `bun run lint` must exit 0 (warnings are registered tech debt, not failures). CI `tauri.yml` runs lint in the frontend job before vitest, so an undefined rule name or an unpreservable `useCallback` dependency fails the build instead of sitting unnoticed.
 - Rust lint is a hard gate too: `cargo clippy --all-targets -- -D warnings` must be clean and runs in both `scripts/verify.sh` and the `rust` CI job.
 - ESLint does NOT read `.gitignore`, so build output must be listed in `eslint.config.mjs` `ignores` (`**/target`, `**/dist`, `**/dist-sidecar`, `**/out`, `**/coverage`, `**/graphify-out`). Without this, copies under `src-tauri/target/debug/_up_/` get linted and inflate the warning baseline.
-- `.github/workflows/`: `tauri.yml` (build/check + lint + clippy), `release.yml` (tagged releases), `codeql.yml` (security scan), `upstream-sync.yml` (upstream tracker).
+- `.github/workflows/`: `tauri.yml` (build/check + lint + clippy), `release.yml` (tagged releases), `codeql.yml` (security scan).
 - **Harness logs (baca langsung, jangan minta paste):** diagnosis SELALU dari file, tidak pernah dari copas user. Log: `$XDG_DATA_HOME/abelink/harness/<YYYY-MM-DD>/<kind>.jsonl` (`~/.local/share/...` prod, `~/.local/share/abelink-dev/abelink/...` bila `ABELINK_DATA_HOME` dev, karena Rust selalu append brand `abelink`). Tiap baris = envelope skema v1 (`docs/HARNESS-LOG-SCHEMA.md`): filter sesi via `sessionId`, urut via `ts`/`seq`. Perintah baku: `bun run harness:diagnose --session <id>` (digest hemat-token + red-flag scan; tanpa argumen = sesi tersibuk hari itu), `bun run harness:export --session <id>` (artefak JSONL penuh). Turn-start tanpa turn-end = interupsi/stuck. DILARANG meminta user mem-paste log/devtools kecuali file log tidak ada.
 - **Dev/prod coexistence:** `bash scripts/dev.sh` isolates dev into its own namespace (`ABELINK_DATA_HOME=~/.local/share/abelink-dev`, bridge port 49713, identifier `abelink.linux.dev` via `src-tauri/tauri.dev.json` overlay (`tauri dev -c`), global shortcuts skipped in debug builds, title "Abelink (dev)", `abelink-dev.desktop`) so dev and the installed prod run side by side without fighting over data, single-instance lock, or taskbar grouping. Prod never sees these vars. Per-flavor: token bridge strict (`tokenPathFor`), Telegram `Telegram-dev/`, Plugins `Abelink Plugins-dev/`, tmp `*-dev/`. PENGECUALIAN by OS design (sengaja bersama): `~/Documents` root, WebKitGTK cache di luar identifier, `/tmp` file tanpa prefix abelink. The browser extension pairs to ONE instance at a time - switch port in the extension popup (dev 49713, prod 49712).
 
@@ -148,6 +148,17 @@ abelink-agent/
 - **No Turn Limit (`maxTurns`)**: Sub-agents execute autonomously until their goal is fulfilled (action: null, answer provided) or until explicitly aborted/killed.
 - **Session-Isolated Browser Sessions (design invariant)**: each sub-agent operates its own browser session keyed by its unique id, without cross-agent contamination. `browser:*` is LIVE through the extension bridge (Fase C3 Jalur A) and fails fast with an explicit error plus install hint when no extension session is connected: never fake a success response. Keep the sessionId propagation intact for the Jalur B (spawn Chromium per profile) fallback.
 - **Proactive Orchestration**: Lead Agent (Abelink) is instructed to proactively split multi-topic research into parallel batch spawns (`spawn_subagent` in batch array) and gather aggregated insights via `wait_subagents`.
+
+### PR46 Measurement Plane (`evaluation/`) — aturan anti-fabrikasi
+- **Oracle otoritatif, jawaban model cuma klaim.** Setiap run membawa `finalAnswerIsClaim: true`; `independentlyVerifiedSuccess` hanya true bila oracle independen (world-state). Jangan pernah menjadikan teks jawaban akhir model sebagai sinyal sukses.
+- **Perbandingan butuh DUA arm terukur, dan SEMUA dimensi tetap dicek.** Satu invokasi `run.mjs` = satu arm; arm kedua diberikan lewat `--baseline-report <report-arm-pertama.json>`. `comparison.valid` hanya `true` bila (1) kedua arm adalah `abelinkbench-measurement-report` dengan minimal satu eksekusi — `kind` + `aggregate.runCount > 0`, karena identitas saja bukan bukti ada yang berjalan (`arm-not-measured`); (2) seluruh dimensi tetap kontrak terrekam di kedua arm dan identik — `provider`, `modelId`, `modelVersion`, `systemPrompt` (`identity.promptTemplate`), `protocol`, `tools` (`toolConfig`), `permissions`, `fixture` (`fixtureSet`), `effort`, `budget`, `environment`, `verifier`, plus jumlah run berulang; dimensi yang tidak terekam dilaporkan `unverifiable` dan perbandingan tetap tidak valid (`dimension-unverifiable`) karena "tidak diperiksa" bukan "cocok"; (3) `architecture` benar-benar berbeda (`same-architecture` jika tidak). Alasannya selalu eksplisit: `arms-incomplete` / `arm-not-measured` / `dimension-unverifiable` / `identity-mismatch` / `same-architecture`. Dimensi ditulis saat run (mis. `--permissions`, default `bench-default`), jangan disimpulkan belakangan. Arm = `vanilla` (kontrol arsitektur dimatikan pada runtime yang SAMA — bukan snapshot historis pre-PR45) vs `basic` (runtime PR45). Label `pr45` bukan nilai `ARCH_VALUES` — jangan pakai sebagai arm.
+- **Identitas model exact.** `makeModelIdentity()` menolak `latest`/`default`/`stable`/`current`/`newest`/`auto`; tanpa `--provider` + `--model` + `--model-version` identitas dicatat `null` (tidak difabrikasi).
+- **Identitas eksekusi dipisah.** `benchmarkRunId` = sesi benchmark, `executionId` = `<sesi>-<taskId>-r<n>@<effort>` (dipakai di evidence record + metrik); agregat melaporkan `executionCount`. Jangan pakai id sesi sebagai id run.
+- **Commit arsitektur ikut dilaporkan.** `identity.architectureCommit` (+`…Short`, `…Dirty`) diambil dari `git rev-parse HEAD` saat run; `null` bila git tidak tersedia.
+- **Switch representasi observasi browser harus nyata.** `representation` fixture (`raw`|`semantic-first`) → `taskDef` → env `ABELINK_BROWSER_OBSERVATION` → `sidecar/main/tools/browserTools.mjs` → `renderBrowserObservation()` (`extension/browser-observation.mjs`). Env kosong = `semantic-first` (perilaku app tidak berubah); nilai tak dikenal throw. `validateAblationPair()` menolak representasi yang tidak bisa dirender (`runtimeSupported`) — jangan kembalikan representasi menjadi label fixture saja.
+- **Metrik tanpa fabrikasi.** Token cost & intervensi manusia = `available:false`/`null` (adapter belum mengekspos). `repeatActionRate` = aksi berulang / tool call; `unnecessaryActionRate` tetap `null` + `unnecessaryActionRateReason` selama tidak ada instrumentasi yang membedakan aksi tidak perlu dari pengulangan yang sah. Verdict `objectiveVerifier` runtime belum diekspos ke adapter → `runtimeVerificationState` biasanya `not_run`.
+- **Sumbu arsitektur DISEKUSI harness (Task 6).** Loop bench menghormati `getArchPolicy` (`src/api/ai/archPolicy.js`) dan menjalankan modul governance ASLI — `createTrajectorySupervisor` per observasi tool, `evaluateEvidence/gateCompletion/buildReplanObservation` bounded `MAX_VERIFY_REPLANS` saat klaim selesai. `ARCH_AXIS_IN_BENCH_PATH = true` direkam sebagai `identity.architectureAxisWired`, dan `compareArmReports()` menerima dua arm terukur sebagai valid (`both-arms-present`). Batas jujur: loop bench BUKAN loop renderer — hasil berarti "modul governance asli pada loop bench", fidelitas penuh butuh ekstraksi loop terpisah.
+- **Lane reuse bersifat artifact-mediated.** `pr46-reuse-*` menyemai artefak sesi sebelumnya di world fixture; tiap fixture mencatat `reuseKind: 'artifact-mediated'` + `notMeasured`. Jangan laporkan sebagai bukti reuse memory/skill persisten.
 
 ### Critical Constants & Thresholds (verified against current files)
 
@@ -179,7 +190,31 @@ Removed from the old table: Category Router threshold 0.35 (`CATEGORY_TEXTS` no 
 - **Fase 2 cognitive runtime** (2026-09-12): `src/api/ai/trajLineage.js`, `src/api/ai/scoring.js`, the closed 6-strategy taxonomy (`rankNextStrategy`) and their tests were deleted. `trajectorySupervisor.js` now carries only Fase 1 fields plus the thin ladder from `strategyLib.js`. The `avo` value was removed from `ARCH_VALUES` (now `vanilla`/`basic`), so `--arch avo` fails fast with exit 2 instead of silently running `basic`; old report files that still carry `"arch": "avo"` are history and compare as `basic` runs.
 - **rtk output compression**: the `rtk` binary was an undeclared external toolchain dependency (silent no-op when missing). Tool output is clamped at the bridge instead (`tauri-bridge.js`, ~20k chars). `rtkFilter`/`_rtkFilterForTest` and `tests/rtkFilter.test.mjs` are gone.
 - **`open` and `driver.js` npm dependencies**: external links go through the native `misc_open_external` command, the Google OAuth browser launch uses `spawn('xdg-open')` from stdlib, and the guided tour (`src/utils/driverTour.js`) was removed.
+- **`chatSummarizer.js`, `updateChecker.js`, `AppleSwitch.jsx`, `assets/icon.svg` (2026-09-26 cleanup)**: all four verified unreferenced at export level (incl. dynamic `import()` patterns) before deletion; archived summaries are produced by the archiver path (`useChatArchiver`).
 - **Electron-era `main/browser-agent.js`**: replaced by the extension bridge under `sidecar/main/browser/` (see the sidecar table).
+
+## 5. Research Reference Hierarchy for Agent Runtime Work
+
+For agentic-runtime, harness, context, browser, memory, and autonomy design, use primary references before blogs or derivative summaries:
+
+1. **Anthropic** — agent and context-engineering guidance, especially Engineering posts and Claude developer documentation.
+   - https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
+2. **OpenAI** — official Agents/Responses documentation, Agent SDK material, and the OpenAI Cookbook for implementation patterns, tools, evaluation, tracing, browser/computer use, and long-running agents.
+   - https://platform.openai.com/docs
+   - https://cookbook.openai.com/
+3. **Hermes Agent / Nous Research** — architecture, skills, memory, tool gateways, delegation, autonomous learning, and practical agent-runtime patterns.
+   - https://hermes-agent.nousresearch.com/docs/
+   - https://github.com/NousResearch/hermes-agent
+4. **NVIDIA AVO** — reference for iterative hypothesis -> execution -> evaluation -> revision loops and long-horizon autonomous search. Treat it as one architectural pattern, not as Abelink's complete architecture.
+5. Secondary sources are allowed for discovery, but implementation decisions must be traced back to a primary source, repository code, benchmark, or reproducible experiment.
+
+### Coding-Agent Boundary
+
+Opencode and Hermes already cover software-engineering/delegated-coding workflows. Do not duplicate those capabilities in Abelink's General Agentic Runtime unless a concrete runtime integration problem requires it. Abelink's primary differentiation in this area is general-purpose orchestration across research, browser, OS automation, learning, memory, and long-horizon recovery.
+
+### Browser Representation Principle
+
+A browser observation is an information representation for the model, not a UI dump. Prefer semantic page content and relevant state over large collections of decorative or low-value UI controls. The runtime must preserve page identity, main text, task-relevant structure, and only the interactive elements needed for the next action. Use screenshot/visual evidence on demand when text/DOM representation is insufficient. Treat excessive UI density as an observability/context-engineering failure candidate before attributing it to model intelligence.
 
 ## 5. Development Guidelines for AI Agents
 
@@ -197,4 +232,8 @@ Removed from the old table: Category Router threshold 0.35 (`CATEGORY_TEXTS` no 
 - **Linux-Only Toolchain Policy:** ABELINK Linux menargetkan Debian/Ubuntu dengan bash/zsh. Dilarang menambah tool Windows-era (`.ps1`, PowerShell command, `notepad`/`cmd.exe` sebagai contoh tool). Shell tool kanonik adalah `run-shell` (alias `run-bash`); `run-powershell` hanya alias kompatibilitas warisan upstream. Referensi eksternal mengikuti peta **load-when-needed** di `docs/REFERENCE-LIBRARY.md`: jangan vendor massal.
 - **UI Design System:** The UI uses Tailwind CSS 4 + DaisyUI 5 (`abelink` theme) with custom holographic/glassmorphic design tokens in `src/assets/main.css`.
 - **Strict Emoji Rule:** Dilarang keras menggunakan emoji apapun di dalam respon output, dialog, maupun UI.
+- **Anti-AI-Slop Directive (Wajib):**
+  - Dilarang keras menggunakan atau menambahkan icon Sparkles/Spark (`Sparkles` dari lucide-react atau SVG magic stars) di bagian mana pun dari UI/UX Abelink. Simbol ini diklasifikasikan sebagai AI-slop. Gunakan icon fungsional/teknis (`Terminal`, `Activity`, `Cpu`, `Layers`, `Bot`, `FileText`) atau tipografi bersih.
+  - Borderless Glassmorphism: Dilarang membungkus container dengan border bersarang (`border border-white/10` berlapis-lapis). Gunakan tonal contrast, surface elevation, backdrop-blur (`backdrop-blur-xl`), dan rounded corners (`rounded-2xl`) yang clean dan modern ala Apple.
+  - Otonomi Proaktif: Agent wajib memanggil tool secara otonom tanpa menunggu atau meminta izin rutin, dan wajib menyajikan laporan komprehensif berstandar 5W1H.
 - **Change Documentation (wajib):** setiap sesi kerja yang mengubah kode WAJIB ditutup dengan session log di `docs/PLANNED/sessions/YYYY-MM-DD_<topik>.md` (keputusan, berkas berubah, hasil verifikasi, batasan dikenal). Perubahan arsitektur WAJIB memperbarui `docs/ARCHITECTURE.md` di PR yang sama, bukan PR susulan. Aturan branch/PR: kerja di branch, hapus branch lokal setelah merge, jangan biarkan branch merged menumpuk.

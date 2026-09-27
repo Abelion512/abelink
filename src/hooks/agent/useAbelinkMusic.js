@@ -1,8 +1,24 @@
 import { getBestMusicMatch, trustworthyTopHit } from '../../api/ai/tools'
 import { db, insertMemory } from '../../api/db'
+import { extractVideoId, parseQueueAdd, parseLoopMode, isVagueMusicQuery, buildDirectTrack } from './musicQuery'
 
 export const useAbelinkMusic = (setChatData, abortControllerRef, youtubeMusicTools) => {
-  const { playUrl, nextTrack, prevTrack, playPause } = youtubeMusicTools
+  const { playUrl, playTrack, nextTrack, prevTrack, playPause } = youtubeMusicTools
+
+  // Direct-play jalur cepat: mainkan ID video TANPA search ulang.
+  // Dipakai URL exact-play + pilihan user dari tombol (mediaTools).
+  const playDirect = async (id, meta, targetSet) => {
+    if (!id) return null
+    const track = buildDirectTrack(id, meta)
+    const started = (typeof playTrack === 'function' ? playTrack(track) : false)
+      || playUrl(`https://music.youtube.com/watch?v=${id}`, track)
+    if (!started) {
+      targetSet((prev) => prev.filter((item) => !item.isSearchingMusic))
+      return '[SYSTEM LOG] GAGAL memutar lagu: engine pemutar musik belum siap. Laporkan ke user bahwa musik tidak bisa diputar saat ini.'
+    }
+    targetSet((prev) => prev.filter((item) => !item.isSearchingMusic))
+    return `[SYSTEM LOG] Berhasil memutar lagu: ${track.title} oleh ${track.artist}`
+  }
 
   const handleMusic = async (action, query, customSetChatData) => {
     const targetSet = customSetChatData || setChatData
@@ -20,11 +36,107 @@ export const useAbelinkMusic = (setChatData, abortControllerRef, youtubeMusicToo
       if (state === 'paused') return 'Lagu dijeda.'
       return '[SYSTEM LOG] Engine pemutar musik belum siap — coba lagi sebentar atau putar ulang lagunya.'
     }
+    // Stream B: 4 tool antrean/loop. Ops ke queue Stream A bila tersedia
+    // (cycleRepeatMode/setRepeatMode, queue.repeat); bila belum ada, lapor jujur.
+    if (action === 'music-loop') {
+      const parsed = parseLoopMode(query)
+      if (!parsed) return '[SYSTEM LOG] Argumen music-loop tidak dikenal. Pakai: one | one <N>x | all | off.'
+      if (parsed.mode === 'off') {
+        youtubeMusicTools.setRepeatMode?.('off')
+        return 'Repeat dimatikan.'
+      }
+      if (parsed.mode === 'all') {
+        if (typeof youtubeMusicTools.setRepeatMode === 'function') {
+          youtubeMusicTools.setRepeatMode('all')
+          return 'Repeat antrean (all) dinyalakan.'
+        }
+        if (typeof youtubeMusicTools.cycleRepeatMode === 'function') {
+          youtubeMusicTools.cycleRepeatMode()
+          return 'Repeat antrean (all) dinyalakan.'
+        }
+        return '[SYSTEM LOG] Engine belum mendukung repeat — butuh Stream A (cycleRepeatMode/setRepeatMode).'
+      }
+      // mode one (+ limit opsional "one Nx")
+      if (typeof youtubeMusicTools.setRepeatMode === 'function') {
+        youtubeMusicTools.setRepeatMode('one', parsed.limit ?? undefined)
+        return parsed.limit ? `Repeat lagu ini ${parsed.limit}x dinyalakan.` : 'Repeat lagu ini (one) dinyalakan.'
+      }
+      if (typeof youtubeMusicTools.cycleRepeatMode === 'function') {
+        youtubeMusicTools.cycleRepeatMode()
+        return parsed.limit ? `Repeat lagu ini ${parsed.limit}x dinyalakan.` : 'Repeat lagu ini (one) dinyalakan.'
+      }
+      return '[SYSTEM LOG] Engine belum mendukung repeat — butuh Stream A (cycleRepeatMode/setRepeatMode).'
+    }
+    if (action === 'music-queue-add') {
+      const { query: title, repeat } = parseQueueAdd(query)
+      if (!title) return '[SYSTEM LOG] Judul lagu kosong — sebutkan judul yang mau ditambahkan.'
+      const q = Array.isArray(youtubeMusicTools.queue) ? youtubeMusicTools.queue : []
+      const wasEmpty = q.length === 0
+      // Resolve judul -> ID nyata DULU (tanpa ID, enqueue diam-diam drop item
+      // dan klaim sukses palsu). Cari via searchMusic, pakai top hit.
+      let resolved = null
+      try {
+        const hits = await window.api?.searchMusic?.(title)
+        const top = Array.isArray(hits) && hits.length > 0 ? hits[0] : null
+        if (top?.id && !String(top.id).startsWith('pending:')) resolved = top
+      } catch (_) { resolved = null }
+      if (!resolved) {
+        return `[SYSTEM LOG] Tidak menemukan "${title}" — antrean tidak berubah. Coba judul/artis lebih spesifik.`
+      }
+      const track = { ...resolved, repeat }
+      if (typeof youtubeMusicTools.enqueueTrack === 'function') {
+        youtubeMusicTools.enqueueTrack(track, false)
+      } else if (typeof youtubeMusicTools.enqueuePlaylist === 'function') {
+        youtubeMusicTools.enqueuePlaylist([track], false)
+      } else {
+        return '[SYSTEM LOG] Engine belum mendukung antrean.'
+      }
+      if (wasEmpty) {
+        // Antrean tadinya kosong -> putar langsung agar tidak diam.
+        return handleMusic('music-play', title, customSetChatData)
+      }
+      return repeat > 1
+        ? `Menambahkan "${track.title || title}" x${repeat} ke antrean.`
+        : `Menambahkan "${track.title || title}" ke antrean.`
+    }
+    if (action === 'music-queue-remove') {
+      const needle = String(query || '').trim().toLowerCase()
+      if (!needle) return '[SYSTEM LOG] Sebutkan judul/id lagu yang mau dihapus dari antrean.'
+      const q = Array.isArray(youtubeMusicTools.queue) ? youtubeMusicTools.queue : []
+      const hit = q.find((t) => String(t?.title || '').toLowerCase().includes(needle) || String(t?.id || '').toLowerCase() === needle)
+      if (!hit) return `[SYSTEM LOG] "${query}" tidak ada di antrean.`
+      if (typeof youtubeMusicTools.removeFromQueue === 'function') {
+        youtubeMusicTools.removeFromQueue(hit.id)
+        return `Menghapus "${hit.title || hit.id}" dari antrean.`
+      }
+      if (typeof youtubeMusicTools.reorderQueue === 'function') {
+        youtubeMusicTools.reorderQueue(q.filter((t) => t.id !== hit.id))
+        return `Menghapus "${hit.title || hit.id}" dari antrean.`
+      }
+      return '[SYSTEM LOG] Engine belum mendukung hapus antrean.'
+    }
+    if (action === 'music-queue-clear') {
+      const q = Array.isArray(youtubeMusicTools.queue) ? youtubeMusicTools.queue : []
+      if (q.length === 0) return 'Antrean sudah kosong.'
+      if (typeof youtubeMusicTools.reorderQueue === 'function') {
+        youtubeMusicTools.reorderQueue([])
+        return `Menghapus ${q.length} lagu dari antrean.`
+      }
+      return '[SYSTEM LOG] Engine belum mendukung clear antrean.'
+    }
 
     let effectiveQuery = (query || '').trim()
 
+    // URL exact-play: mainkan ID video LANGSUNG, tanpa search/substitusi.
+    const urlId = extractVideoId(effectiveQuery)
+    if (urlId) {
+      targetSet((prev) => [...prev, { role: 'ai', content: 'Memutar dari tautan YouTube...', isSearchingMusic: true }])
+      // Metadata opsional: jangan ganti ID; playDirect pakai ID apa adanya.
+      return playDirect(urlId, null, targetSet)
+    }
+
     // Self-improvement (Hermes-style): Resolve vague preference queries from memory
-    const isVagueQuery = !effectiveQuery || /^(lagu favorit|musik favorit|lagu kesukaan|musik kesukaan|lagu santai|musik santai|lagu biasa|musik biasa|favorit|kesukaan|biasa|bebas|apa aja)$/i.test(effectiveQuery)
+    const isVagueQuery = isVagueMusicQuery(effectiveQuery)
     if (isVagueQuery) {
       try {
         const savedMusic = await db.memory

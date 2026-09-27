@@ -66,8 +66,19 @@ describe('trial gate empiris (R1b)', () => {
     expect((await db.learnedSkills.get(s.id)).state).toBe('active')
   })
 
-  it('evalPassed meluluskan trial tanpa reuse', async () => {
+  it('evalPassed alone does not promote an unverified trial', async () => {
     const s = await saveLearnedSkill({ name: 'trial-eval', description: 'd', content: 'isi', state: 'trial' })
+    expect(await graduateTrialSkill(s.id, { evalPassed: true })).toBe('trial')
+  })
+
+  it('evalPassed promotes a trial when originating evidence was verified', async () => {
+    const s = await saveLearnedSkill({
+      name: 'trial-eval-verified',
+      description: 'd',
+      content: 'isi',
+      state: 'trial',
+      evidenceVerified: true
+    })
     expect(await graduateTrialSkill(s.id, { evalPassed: true })).toBe('active')
   })
 

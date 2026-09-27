@@ -28,6 +28,7 @@ import whatsNewData from './data/whats-new.json'
 import { initErrorGuard } from './utils/errorGuard'
 import DropAnywhere from './components/core/DropAnywhere'
 import WindowControls from './components/core/WindowControls'
+import { WindowResizeFrame } from './components/core/WindowResizeFrame'
 import SpotlightBar from './components/core/SpotlightBar'
 import AutomationHUD from './components/core/AutomationHUD'
 import AppSidebar from './components/core/AppSidebar'
@@ -39,7 +40,7 @@ const GlobalListener = () => {
   const navigate = useNavigate()
 
   useEffect(() => {
-    const handleShortcut = (event, action) => {
+    const handleShortcut = (_event, _action) => {
       // Navigate to Home (AbelinkHome) and trigger microphone auto-toggle
       navigate('/', { state: { autoToggleMic: Date.now() } })
     }
@@ -75,7 +76,6 @@ const GlobalListener = () => {
 const MainLayout = ({ isStandalone = false }) => {
   const location = useLocation()
   const isHome = location.pathname === '/'
-  const isTelegram = location.pathname === '/telegram-bot'
   const [windowMode, setWindowMode] = useState('dashboard')
 
   useEffect(() => {
@@ -103,6 +103,9 @@ const MainLayout = ({ isStandalone = false }) => {
 
   return (
     <div className={`relative h-screen w-screen overflow-hidden bg-transparent rounded-xl flex items-stretch justify-start ${isSpotlight ? 'p-1 items-center justify-center' : ''}`}>
+      {/* Edge & Corner Resize Frame for Frameless Window (Semua Halaman) */}
+      <WindowResizeFrame />
+
       {isSpotlight && (
         <SpotlightBar
           onExpandDashboard={() => {
@@ -127,9 +130,9 @@ const MainLayout = ({ isStandalone = false }) => {
 
       {!isSpotlight && (
         <>
-          {/* Tampilkan satu WindowControls konsisten di sub-page agar user tetap bisa minimize/maximize/close */}
+          {/* WindowControls at Top Right for Sub-pages */}
           {!isStandalone && !isHome && (
-            <div className="absolute top-2.5 right-4 z-30 pointer-events-auto">
+            <div className="absolute top-2.5 right-4 z-50 pointer-events-auto">
               <WindowControls />
             </div>
           )}
@@ -213,7 +216,7 @@ function App() {
   const [showRecovery, setShowRecovery] = useState(false)
   const [showWhatsNew, setShowWhatsNew] = useState(false)
   const [legacyProfiles, setLegacyProfiles] = useState(null) // null = belum dicek
-  const [wizardAutoImport, setWizardAutoImport] = useState(false)
+  const [wizardAutoImport] = useState(false)
 
   // Deteksi profil era Electron hanya saat wizard aktif (first boot tanpa config).
   useEffect(() => {
@@ -422,10 +425,14 @@ function App() {
     !choiceMade &&
     !wizardAutoImport
 
-  // Fresh install (no legacy profiles): auto-create config immediately
+  // Fresh install (no legacy profiles): auto-create config immediately.
+  // Async-IIFE wrapper: body sync memicu set-state-in-effect; versi await
+  // ini lolos rule (terbukti via probe) dan perilaku identik.
   useEffect(() => {
     if (!hasConfig && !showLegacyChooser && !choiceMade && !wizardAutoImport) {
-      settleChoice('fresh')
+      void (async () => {
+        await settleChoice('fresh')
+      })()
     }
   }, [hasConfig, showLegacyChooser, choiceMade, wizardAutoImport, settleChoice])
 

@@ -48,6 +48,20 @@ export const OBJECTIVE_KINDS = [
 // Prevents an unverified-claim ping-pong against paid APIs.
 export const MAX_VERIFY_REPLANS = 2
 
+/**
+ * Determine whether evidence gathering / verification replan is allowed.
+ * Productive work with new tool evidence is permitted to continue across steps,
+ * whereas consecutive unproven claims without intervening actions are strictly bounded.
+ */
+export function canAttemptEvidenceRecovery({
+  consecutiveRejections = 0,
+  hasNewEvidence = false,
+  maxConsecutiveRejections = MAX_VERIFY_REPLANS
+} = {}) {
+  if (hasNewEvidence) return true
+  return consecutiveRejections <= maxConsecutiveRejections
+}
+
 // ---------------------------------------------------------------------------
 // Evidence text classifiers (tool-level failure markers only; observation
 // bodies such as web DOM may legitimately contain words like "timeout", so
@@ -705,7 +719,33 @@ export function gateCompletion({
 }
 
 // ---------------------------------------------------------------------------
-// 5. Replan observation builder (tells the model exactly what is unproven)
+// 5. Exemption vs. evidence (what may count as proven world state)
+// ---------------------------------------------------------------------------
+
+/**
+ * Is this verdict real, independently obtained world-state verification?
+ *
+ * `evaluateEvidence` reports conversational objectives as `verified` WITH zero
+ * criteria and zero ops: that is an EXEMPTION from verification, not proof.
+ * Completion may accept an exemption (there is no external world to check), but
+ * consumers that reward "trusted evidence" — notably learned-skill promotion,
+ * where a false positive mints a reusable procedure from an unverified chat —
+ * must require a verified state that came from observable criteria.
+ *
+ * A `verified` state for a non-conversational kind already implies at least one
+ * real criterion passed: `aggregateCriteria` returns NOT_RUN when every
+ * criterion is `na`. So the two conditions below are sufficient, and the model's
+ * final answer can never influence the result.
+ *
+ * Pure and deterministic: no window/db/network access.
+ */
+export function isIndependentlyVerified({ verification = '', kind = 'general' } = {}) {
+  if (String(verification || '') !== VERIFICATION_STATE.VERIFIED) return false
+  return String(kind || 'general') !== 'conversational'
+}
+
+// ---------------------------------------------------------------------------
+// 6. Replan observation builder (tells the model exactly what is unproven)
 // ---------------------------------------------------------------------------
 
 const KIND_VERIFY_HINT = {
@@ -754,7 +794,9 @@ export default {
   deriveSuccessCriteria,
   evaluateEvidence,
   gateCompletion,
+  isIndependentlyVerified,
   buildReplanObservation,
   isMultiActionObjective,
-  escalateKindFromEvidence
+  escalateKindFromEvidence,
+  canAttemptEvidenceRecovery
 }
