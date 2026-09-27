@@ -331,26 +331,6 @@ pub struct LegacyPick {
     pub content: String,
 }
 
-/// Deteksi profil Electron lama (IndexedDB / Local Storage Chromium)
-#[tauri::command]
-pub fn fs_detect_legacy_profiles() -> Vec<String> {
-    let home = std::env::var("HOME").unwrap_or_default();
-    let candidates = ["Mark Agent", "mark-agent", "mark-agent-fork", "Electron", "mark", "Mark"];
-    let mut found = Vec::new();
-    for c in candidates {
-        let base = format!("{home}/.config/{c}");
-        let markers = [
-            format!("{base}/IndexedDB"),
-            format!("{base}/Local Storage"),
-            format!("{base}/Session Storage"),
-        ];
-        if markers.iter().any(|m| Path::new(m).exists()) {
-            found.push(base);
-        }
-    }
-    found
-}
-
 /// Picker file export JSON (dexie-export-import) + baca isinya.
 /// Aman secara desain: path dipilih user lewat dialog native (command sinkron
 /// di main thread), bukan dikirim dari renderer/AI.

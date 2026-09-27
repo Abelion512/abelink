@@ -215,7 +215,7 @@
       <span class="chip">versi <b>1.1.0-alpha.5</b></span>
       <span class="chip">branch <b>refactor/m2c-headless-observability</b></span>
       <span class="chip">arah refactor <b>TS + Rust + Linux + CLI engine</b></span>
-      <span class="chip">status <b>fork sudah jauh dari mark-agent</b></span>
+      <span class="chip">status <b>fork sudah jauh dari basis warisan</b></span>
       <span class="chip">dibuat <b>2026-09-26</b></span>
     </div>
   </div>
@@ -257,8 +257,8 @@
       <div class="card">
         <h3><span class="tag">WHO</span> Siapa &amp; dari mana asalnya?</h3>
         <div class="cvr">
-          <div class="cvr-row"><span class="k k-real">real</span><p>Fork dari Mazees/mark-agent, tetapi <b>sudah menyimpang jauh</b> — hampir tidak ada sisa mark-agent yang relevan. Identitas proyek sebagai "fork" sudah kedaluwarsa dan perlu diperbaiki sepenuhnya di seluruh dokumen.</p></div>
-          <div class="cvr-row"><span class="k k-dir">arah</span><p>Kepemilikan penuh Abelion512; baseline pembanding resmi kini adalah <b>Abelink sendiri</b>, bukan upstream. Dokumen yang masih menyebut "fork of mark-agent" sebagai identitas aktif harus ditulis ulang.</p></div>
+          <div class="cvr-row"><span class="k k-real">real</span><p>Berdiri di atas basis warisan, tetapi <b>sudah menyimpang jauh</b> — hampir tidak ada sisa kode warisan yang relevan. Identitas proyek sebagai "fork" sudah kedaluwarsa dan perlu diperbaiki sepenuhnya di seluruh dokumen.</p></div>
+          <div class="cvr-row"><span class="k k-dir">arah</span><p>Kepemilikan penuh Abelion512; baseline pembanding resmi kini adalah <b>Abelink sendiri</b>, bukan upstream. Dokumen yang masih menyebut "fork dari basis warisan" sebagai identitas aktif harus ditulis ulang.</p></div>
         </div>
       </div>
 
@@ -294,7 +294,7 @@
 <section id="arch">
   <div class="wrap">
     <h2><span class="idx">02</span> Snapshot Arsitektur</h2>
-    <p class="lead">Kompleksitas Abelink sebagian <b>disengaja dan dibenarkan</b> (sandboxing, approval native, isolasi), sebagian <b>kebetulan sejarah</b> (warisan Electron + mark-agent). Membedakan keduanya adalah inti diagnosis di bawah.</p>
+    <p class="lead">Kompleksitas Abelink sebagian <b>disengaja dan dibenarkan</b> (sandboxing, approval native, isolasi), sebagian <b>kebetulan sejarah</b> (warisan era pre-Abelink). Membedakan keduanya adalah inti diagnosis di bawah.</p>
 
     <div class="arch">
       <div class="arch-node">
@@ -407,7 +407,7 @@
         <li><b>R1 — <code>needs_user</code> tidak lagi terminal.</b> Jendela ask_human + default "lanjut heuristik". Loop tidak mati hanya karena model bertanya. (M5)</li>
         <li><b>R2 — Konsumsi <code>evaluateProgress</code> atau hapus.</b> Aturan tegas: "bukti progres nyata menolak penutupan dini". Bila setelah wiring masih tak mengubah keputusan apa pun, hapus modulnya. (M5)</li>
         <li><b>R3 — Jalur work-resume bounded</b> saat bukti progres nyata ada, tanpa membakar budget replan verifikasi. (M5)</li>
-        <li><b>Perbaiki identitas dokumen</b> (ikut P1 karena murah): AGENTS.md disinkron ke 1.1.0-alpha.5, identitas "fork mark-agent" ditulis ulang sebagai sejarah, arah refactor TS+Rust+Linux+CLI engine dicatat sebagai keputusan.</li>
+        <li><b>Perbaiki identitas dokumen</b> (ikut P1 karena murah): AGENTS.md disinkron ke 1.1.0-alpha.5, identitas "fork dari basis warisan" ditulis ulang sebagai sejarah, arah refactor TS+Rust+Linux+CLI engine dicatat sebagai keputusan.</li>
       </ol>
     </div>
 

@@ -583,9 +583,9 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 - Update release data
 - Lazy-load googleapis dan telegraf untuk pangkas startup
 - Update release data
-- Detach identitas mazees/mark-agent
+- Detach identitas era warisan
 - Zamanikan timeout anti-flake cli-tui E2E + gmail-list handler
-- Detach identitas mazees/mark-agent
+- Detach identitas era warisan
 - Update release data
 - Zamanikan timeout integrasi/FS-scan
 - Update release data
@@ -798,9 +798,9 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 - Completion pass — REFERENCES, license, upstream removal, archive
 - Update status triase yt-search untuk penerimaan risiko minimatch
 - Lazy-load googleapis dan telegraf untuk pangkas startup
-- Detach identitas mazees/mark-agent
+- Detach identitas era warisan
 - Zamanikan timeout anti-flake cli-tui E2E + gmail-list handler
-- Detach identitas mazees/mark-agent
+- Detach identitas era warisan
 - Zamanikan timeout integrasi/FS-scan
 - Hapus 4 berkas unreferenced
 - Pemicu ulang setelah retarget base ke main
@@ -1084,8 +1084,8 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 - Phase 0 — steer buffer, configurable turns, approval modes, package cleanup
 - Memory architecture v16 — autonomousTasks, taskHistory, auditLog, primingLog + checkpoint manager
 - Memory architecture v16 — autonomousTasks, taskHistory, auditLog, primingLog + checkpoint manager
-- Enhance user interaction and context awareness in Mark Agent's greeting sequence
-- Enhance user interaction and context awareness in Mark Agent's greeting sequence
+- Enhance user interaction and context awareness in Abelink's greeting sequence
+- Enhance user interaction and context awareness in Abelink's greeting sequence
 - Enhance memory management with Orama integration for real-time updates and deduplication
 - Enhance memory management with Orama integration for real-time updates and deduplication
 - Replace YT webview with BrowserWindow — context + component rewritten
@@ -1105,7 +1105,7 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 - Model combo 'abelink' + dynamic retry + RSI observability
 - Enhance YouTube Music integration by refining request headers and improving UI handling for login prompts
 - Update Guidebook content and add AGENTS.md for project overview and technology stack
-- Update license to MARK Agent Source Available License v1.0 and modify README warning section
+- Update ketentuan lisensi dan ubah bagian peringatan README
 - Inject OS platform awareness into AI system prompt
 - Linux adaptation + RSI coding tool orchestration
 - Linux adaptation — cross-platform fixes
@@ -1131,7 +1131,7 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 - Add configuration handlers for AI provider, models, and admin management
 - Update README and enhance planning functionality with new AI features and commands
 - Enhance user experience with boot sequence greeting and mood-based visual feedback
-- Implement AI greeting functionality in useMarkAgent hook
+- Implement AI greeting functionality in agent hook
 - Add browser automation features with IPC handlers and native tools
 - WhatsApp agent and enhance memory visualizer
 - Integrate memory visualization feature and remove chat archive page
@@ -1305,7 +1305,7 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 - Restore plugin/skills/tg channels with approval gates, dependency hardening, migration-gap
 - Deterministic drain-exit, correlated ask_user, honest TG commands
 - Real durations, executed verifier, persistent sidecar RPC
-- Point homepage to mark-agent-linux fork
+- Point homepage to repo Abelink
 - Restore stale branches in tauri.yml
 - Remove stray closing brace in dispatchReleaseWorkflow
 - Gh workflow run --ref linux -f tag=TAG, remove dependency on master branch for workflow_dispatch
@@ -1321,7 +1321,7 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 - Use full tag-matching regex for script/style stripping
 - Improve HTML sanitization regex to match closing tags with optional whitespace
 - Add permissions blocks to workflow, improve HTML sanitization regex
-- Persona identity — strip upstream 'Mazees'/'Mada' defaults on linux fork
+- Persona identity — hapus default nama era warisan di fork linux
 - Simplify Configuration labels, restore occupation, rename AI Engine to Model
 - Remove easter egg, clean memory button, first-boot flow final
 - FirstBootChoiceScreen as modal overlay, auto-skip config wizard
@@ -1462,7 +1462,7 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 - Correct music category text and refine browser automation guidelines
 - Improve memory management and output formatting in AI processing functions
 - Optimize message handling and memory management in WhatsApp bot
-- Update loading condition to check isAgentBusy in useMarkAgent hook
+- Update loading condition to check isAgentBusy in agent hook
 - Adjust autonomous message handling in useMarkPlan and enable tools in useAwareness
 - Memory leak and json scheme
 - Ensure memory key is trimmed and lowercased before insertion and update
@@ -1560,7 +1560,7 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 - Register P5 preload .mjs
 - LINUX_PATCHES.md — overlay patch registry + merge-upstream workflow
 - Reset src/ to upstream/master
-- Drift manifest mark-agent-fork vs upstream/master
+- Drift manifest vs master era warisan
 - Glass UI sweep checkpoint pre-drift-cutoff
 - Clarify Groq is STT-only, not a chat provider
 - Replace LM Studio UI references with Custom API/General
@@ -1775,7 +1775,7 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 - Restore plugin/skills/tg channels with approval gates, dependency hardening, migration-gap
 - Deterministic drain-exit, correlated ask_user, honest TG commands
 - Real durations, executed verifier, persistent sidecar RPC
-- Point homepage to mark-agent-linux fork
+- Point homepage to repo Abelink
 - Restore stale branches in tauri.yml
 - Remove stray closing brace in dispatchReleaseWorkflow
 - Gh workflow run --ref linux -f tag=TAG, remove dependency on master branch for workflow_dispatch
@@ -1791,7 +1791,7 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 - Use full tag-matching regex for script/style stripping
 - Improve HTML sanitization regex to match closing tags with optional whitespace
 - Add permissions blocks to workflow, improve HTML sanitization regex
-- Persona identity — strip upstream 'Mazees'/'Mada' defaults on linux fork
+- Persona identity — hapus default nama era warisan di fork linux
 - Simplify Configuration labels, restore occupation, rename AI Engine to Model
 - Remove easter egg, clean memory button, first-boot flow final
 - FirstBootChoiceScreen as modal overlay, auto-skip config wizard
