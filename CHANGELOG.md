@@ -2,11 +2,12 @@
 
 Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — jangan diedit manual.
 
-## v1.2.0-alpha.6 — 23 September 2026
+## v1.2.0-alpha.6 — 27 September 2026
 
-**Ringkasan:** 71 fitur baru, 28 perbaikan dan 59 pembaruan dokumentasi.
+**Ringkasan:** 72 fitur baru, 31 perbaikan dan 69 pembaruan dokumentasi.
 
 ### Fitur Baru
+- ADR-001 divergensi loop + paritas kontrak; flake ts monotonik; sweep
 - Jarvis slice 1-7 archPolicy tunggal + bench hormat policy
 - Fase 4 cron scheduler
 - Fase 3 telegram gateway
@@ -80,6 +81,9 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 - Gemini-latest alias, fallback Gemini->custom, warning model tak dikenal
 
 ### Perbaikan
+- Anti-latch bridge lifecycle + resume self-heal 401
+- Anti-latch bridge lifecycle + resume self-heal 401
+- Bukti verifier terlihat di headless + semantik turn per run + e2e hermetik
 - Selaraskan approval dengan Auto Mode f86b17b
 - Loop survivability popup-close disconnect
 - Unblock Intercom button, make topology borderless, ban sparkle icons, and enforce proactive 5W1H autonomy
@@ -110,6 +114,16 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 - EnsureGitIdentity di syncWithReleaseBase
 
 ### Dokumentasi
+- Bukti e2e spawn -> tool nyata -> wait COMPLETE
+- Session log long-horizon inspect--verify-e2e
+- Trajectory headless + tool hooks H5 di cli/core
+- Skrip pengganti aset ikon dari satu sumber
+- Ekstrak cli/core supaya cli/tui tidak mengimpor bin/
+- Beri tipe cli/tui sampai nol error tsc
+- Toolchain TypeScript dengan gate zona bersih
+- Bersihkan blocker migrasi JS->TS + adopsi Hermes
+- Buat uji /models deterministik, bukan bergantung 9Router hidup
+- Snapshot WIP TUI v2 + CLI engine + rencana migrasi JS->TS/Hermes
 - Riset Claude frontier + session logs TUI/ext/CLI
 - Tracker T0-T4 selesai + session log commit parsial
 - Fase 5 kontrak 4fase + roadmap + session logs CLI
