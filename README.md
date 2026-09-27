@@ -38,7 +38,7 @@ abelink/
 
 ---
 
-## Fitur Inti (v1.1.0-alpha.5)
+## Fitur Inti
 
 ### 1. Multi-Provider Hybrid AI Routing (Prioritas Lokal)
 - **Lokal pertama**: LM Studio atau Ollama (`localhost:1234`) - 100% inference lokal tanpa data keluar ke cloud.
