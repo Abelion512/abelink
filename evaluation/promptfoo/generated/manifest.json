@@ -1,0 +1,27 @@
+{
+  "generator": "evaluation/promptfoo/generate-matrix.mjs",
+  "generatedAt": "2026-09-27T15:49:17.549Z",
+  "suite": "pr46",
+  "totalFixtures": 30,
+  "expectedTotal": 30,
+  "laneCounts": {
+    "research": 6,
+    "browser": 5,
+    "os": 5,
+    "study": 5,
+    "recovery": 5,
+    "reuse": 4
+  },
+  "minimalOffline": [
+    "pr46-os-01",
+    "pr46-os-03",
+    "pr46-os-05"
+  ],
+  "ablationPairs": [
+    {
+      "id": "browser-representation",
+      "raw": "pr46-browser-04",
+      "semanticFirst": "pr46-browser-05"
+    }
+  ]
+}

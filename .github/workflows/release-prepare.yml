@@ -1,9 +1,12 @@
 name: Release Prepare
 
-# Manual-only: rilis dipicu owner (Actions > Release Prepare > Run workflow).
-# Sebelumnya on:push ke main -> setiap merge membuat PR alpha baru
-# (rilis yang merilis rilis). Finalize tetap otomatis utk Release PR.
+# Manual + kadens mingguan: workflow_dispatch (tombol owner) ATAU cron Senin
+# 02:00 UTC. Guard bawaan release-helper: bila tak ada commit releasable sejak
+# tag terakhir, run selesai tanpa membuat apa pun -> minggu sepi = no-op.
+# Setiap PR rilis berlabel `release` (label grup, dipasang release-helper).
 on:
+  schedule:
+    - cron: '0 2 * * 1'
   workflow_dispatch: {}
 
 permissions:
