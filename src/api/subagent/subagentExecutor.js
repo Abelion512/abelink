@@ -104,6 +104,7 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
 
   const groupToolsText = GROUP_TOOLS_DEFINITION
     ? Object.entries(GROUP_TOOLS_DEFINITION)
+        .filter(([, v]) => !v.dormant)
         .map(([k, v]) => `- ${k}: ${v.description}`)
         .join('\n')
     : ''

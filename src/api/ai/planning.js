@@ -348,11 +348,12 @@ ${Object.entries(core_tools)
 
 # KELOMPOK TOOL TAMBAHAN (DEFERRED LOADING & SEARCH)
 Jika kamu butuh melakukan aksi-aksi kompleks di bawah ini, KAMU WAJIB MEMANGGIL "read-tools" TERLEBIH DAHULU untuk melihat format parameter dan contoh pemakaian konkret yang tepat! Jangan asal tebak parameternya!
-- Format memuat grup: {"tool": "read-tools", "query": "nama_grup"} (misal: "advanced_browser", "git_vcs", "pc_automation", "task_terminal")
+- Format memuat grup: {"tool": "read-tools", "query": "nama_grup"} (misal: "advanced_browser", "git_vcs", "task_terminal")
 - Format detail 1 tool: {"tool": "read-tools", "query": "nama_tool"} (misal: "browser-click", "git-commit", "replace-content")
 - Format pencarian tool: {"tool": "read-tools", "query": "search: kata_kunci"} (misal: "search: snapshot", "search: terminal background")
 Daftar grup kapabilitas deferred:
 ${Object.entries(groupToolsObj)
+  .filter(([, v]) => !v.dormant)
   .map(([k, v]) => `- ${k}: ${v.description}`)
   .join('\n')}
 
