@@ -35,6 +35,25 @@ const digest = (value = '') => {
   return (h >>> 0).toString(16)
 }
 
+// Shared text-based failure classifier (superset of trajectoryLearning's
+// FAILURE_RE): denial/cancel/blocked markers all mean "no forward progress"
+// for governance feeds (supervisor, breaker-adjacent predicates, harness ok).
+// Pure, no I/O, no imports — safe to import from hooks and sidecar-adjacent code.
+const FAILURE_RE = /^\s*\[(?:ERROR|DITOLAK[^\]]*|DIBATALKAN|FORMAT SALAH|BLOCKED|SEARCH-ERROR|CIRCUIT-OPEN|SPIRAL-STOP|REPEAT-CACHE|NO-RESULTS)\]/i
+
+export const isFailure = (resultString = '') =>
+  FAILURE_RE.test(String(resultString ?? ''))
+
+// Narrower: true MALFUNCTION for the circuit breaker. Human decisions
+// ([DITOLAK-*], [DIBATALKAN], [BLOCKED]) and benign empty results
+// ([NO-RESULTS]) are zero-progress but NOT malfunction — the breaker contract
+// (circuitBreaker.js) says a refusal is a decision, not a malfunction.
+// Supervisor/harness keep the broad isFailure; only breaker.record narrows.
+const MALFUNCTION_RE = /^\s*\[(?:ERROR|FORMAT SALAH|SEARCH-ERROR|CIRCUIT-OPEN|SPIRAL-STOP|REPEAT-CACHE)\]/i
+
+export const isMalfunction = (resultString = '') =>
+  MALFUNCTION_RE.test(String(resultString ?? ''))
+
 export const normalizeProgressKey = (tool = '', query = '') =>
   normalize(tool).slice(0, 80) + ':' + normalize(query).slice(0, 240)
 
@@ -92,4 +111,4 @@ export function evaluateProgress({ previous = null, current = null } = {}) {
   return { outcome: PROGRESS_OUTCOME.NEUTRAL, verificationImproved, newStrategy, newEvidence, sameEvidence, repeatedStrategy, currentKey, currentFingerprint }
 }
 
-export default { PROGRESS_OUTCOME, normalizeProgressKey, observationFingerprint, evaluateProgress }
+export default { PROGRESS_OUTCOME, isFailure, isMalfunction, normalizeProgressKey, observationFingerprint, evaluateProgress }

@@ -1,8 +1,10 @@
 // harness-common.mjs — helper bersama harness-export + harness-diagnose.
 // Selaras writer Rust cmd_harness.rs: data_home().join("abelink").join("harness").
-// ABELINK_DATA_HOME (.../abelink-dev) belum termasuk brand.
-import { homedir } from 'os'
+// M2c: formula data-home didelegasikan ke sumber TUNGGAL
+// sidecar/main/utils/dataHome.mjs (resolveDataHome: ABELINK_DATA_HOME trim >
+// XDG > ~/.local/share) — dulu duplikat inline di sini.
 import path from 'path'
+import { resolveDataHome } from '../sidecar/main/utils/dataHome.mjs'
 
 export const parseArgs = (argv) => {
   const out = {}
@@ -19,7 +21,5 @@ export const parseArgs = (argv) => {
 
 export const harnessRoot = (overrideDir) => {
   if (overrideDir) return overrideDir
-  const base =
-    process.env.ABELINK_DATA_HOME || process.env.XDG_DATA_HOME || path.join(homedir(), '.local', 'share')
-  return path.join(base, 'abelink', 'harness')
+  return path.join(resolveDataHome(process.env), 'abelink', 'harness')
 }

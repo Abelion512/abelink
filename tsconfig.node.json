@@ -1,0 +1,27 @@
+{
+  // tsconfig.node.json — permukaan NODE (sidecar, scripts, evaluation, tests).
+  //
+  // Dipakai oleh script `bun run typecheck:node`. Sengaja dipisah dari gate
+  // payung: permukaan ini boleh memakai API Node (fs, path, child_process),
+  // sedangkan renderer DILARANG (invariant Tauri boundary). `lib` sengaja TANPA
+  // DOM supaya `window`/`document` di sisi Node langsung jadi error, bukan lolos.
+  //
+  // cli/** dan bin/**/*.tsx SUDAH masuk (M2a, 2026-09-26): sebelumnya 114 error,
+  // sekarang 0. Lihat docs/PLANNED/2026-09-26_master-migration-program.md (§ M2).
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022"],
+    "types": ["node"]
+  },
+  "include": [
+    "sidecar/**/*.ts",
+    "scripts/**/*.ts",
+    "evaluation/**/*.ts",
+    "tests/**/*.ts",
+    "tests/**/*.tsx",
+    "cli/**/*.ts",
+    "cli/**/*.tsx",
+    "bin/**/*.ts",
+    "bin/**/*.tsx"
+  ]
+}

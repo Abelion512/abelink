@@ -106,15 +106,6 @@ const call = async (action, ...args) => {
     }
   }
 }
-const callSafe = async (action, ...args) => {
-  try {
-    return await call(action, ...args)
-  } catch (err) {
-    console.warn(`[tauri-bridge] ${action}:`, err.message)
-    return null
-  }
-}
-
 // channel yang butuh akses file/OS → dikirim sebagai path string, bukan ArrayBuffer
 const toPayload = (v) => {
   if (v instanceof ArrayBuffer) return Array.from(new Uint8Array(v))
@@ -649,7 +640,7 @@ export function installTauriBridge() {
       {
         get: (_t, key) => {
           if (typeof key === 'string' && key.startsWith('on')) {
-            return (cb) => {
+            return (_cb) => {
               warnOnce()
               return () => {}
             }

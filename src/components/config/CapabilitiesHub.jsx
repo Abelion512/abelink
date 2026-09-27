@@ -27,13 +27,14 @@ import {
 } from 'lucide-react'
 import { useConfirm } from '../../hooks/useConfirm'
 import { getCachedSkills } from '../../api/skillsCache'
+import { tx, localeTag } from '../../api/locale'
 
 const PLANNED_MCP_CONNECTORS = [
   {
     id: 'context7',
     name: 'Context7 MCP',
     url: 'https://mcp.context7.com/mcp/oauth',
-    description: 'Dokumentasi pustaka, snippet kode real-time, dan referensi API resmi.'
+    description: 'Library docs, real-time code snippets, and official API references.'
   }
 ]
 
@@ -41,28 +42,35 @@ const BUILTIN_SKILLS = [
   {
     id: 'systematic-engineering',
     name: 'Systematic Engineering',
-    desc: 'Disiplin investigasi bertahap sebelum modifikasi kode.',
+    desc: 'Staged investigation discipline before code changes.',
     icon: Boxes
   },
   {
     id: 'execution-discipline',
     name: 'Execution Discipline',
-    desc: 'Verifikasi deterministik via test suite sebelum commit.',
+    desc: 'Deterministic verification via test suite before commit.',
     icon: Terminal
   },
   {
     id: 'durable-planner',
     name: 'Durable Task Planner (/plan)',
-    desc: 'Rencana kerja persisten untuk tugas bertahap multi-langkah.',
+    desc: 'Persistent work plans for staged multi-step tasks.',
     icon: Brain
   },
   {
     id: 'root-cause-debugger',
     name: 'Root-Cause Debugger',
-    desc: 'Analisis akar masalah mendalam sebelum memberikan solusi.',
+    desc: 'Deep root-cause analysis before offering solutions.',
     icon: Search
   }
 ]
+
+const BUILTIN_SKILL_KEYS = {
+  'systematic-engineering': ['cap.skillSystematic', 'cap.skillSystematicDesc'],
+  'execution-discipline': ['cap.skillExecution', 'cap.skillExecutionDesc'],
+  'durable-planner': ['cap.skillPlanner', 'cap.skillPlannerDesc'],
+  'root-cause-debugger': ['cap.skillDebugger', 'cap.skillDebuggerDesc']
+}
 
 export default function CapabilitiesHub({
   config,
@@ -71,7 +79,8 @@ export default function CapabilitiesHub({
   handleCompactionEnabledChange,
   handleBuiltinPluginChange,
   handleRtkCompressChange,
-  isDevMode = false
+  isDevMode = false,
+  language = 'en'
 }) {
   const { confirm, ModalComponent } = useConfirm()
   const [activeTab, setActiveTab] = useState('connectors')
@@ -107,29 +116,29 @@ export default function CapabilitiesHub({
       const r = await window.api?.runNodeFunction('browser:reconnect')
       if (r?.ok) {
         setBrowserConnected(true)
-        setBrowserNote(r.reused ? 'Extension tersambung (sesi dipakai ulang).' : 'Extension tersambung kembali.')
+        setBrowserNote(r.reused ? tx(language, 'cap.extReused') : tx(language, 'cap.extReconnected'))
       } else {
         setBrowserConnected(false)
         setBrowserNote(
           r?.reason === 'launch-budget-exhausted'
-            ? 'Batas peluncuran tercapai — tunggu ~1 menit atau klik Connect di popup extension.'
+            ? tx(language, 'cap.launchBudget')
             : r?.reason === 'auto-launch-off'
-              ? 'Auto-launch nonaktif — aktifkan toggle di atas atau buka browser manual.'
-              : `Reconnect gagal (${r?.reason || 'no-handshake'}) — pastikan extension aktif.`
+              ? tx(language, 'cap.autoLaunchOff')
+              : tx(language, 'cap.reconnectFailed')(r?.reason)
         )
       }
     } catch (e) {
       setBrowserConnected(false)
-      setBrowserNote(`Reconnect gagal: ${e?.message || String(e)}`)
+      setBrowserNote(tx(language, 'cap.reconnectError')(e?.message || String(e)))
     } finally {
       setBrowserReconnecting(false)
     }
-  }, [browserReconnecting])
+  }, [browserReconnecting, language])
 
   const handleInitExtension = async () => {
     try {
       if (!window.api?.ensureExtensionFiles) {
-        setExtInstall({ error: 'Runtime desktop belum mendukung.' })
+        setExtInstall({ error: tx(language, 'cap.runtimeUnsupported') })
         return
       }
       const dir = await window.api.ensureExtensionFiles()
@@ -160,7 +169,7 @@ export default function CapabilitiesHub({
 
   const handleGoogleConnect = async () => {
     if (!googleClientId.trim() || !googleClientSecret.trim()) {
-      alert('Client ID dan Client Secret wajib diisi.')
+      alert(tx(language, 'cap.googleRequired'))
       return
     }
     setGoogleLoading(true)
@@ -170,10 +179,10 @@ export default function CapabilitiesHub({
         setGoogleConnected(true)
         setGoogleModalOpen(false)
       } else {
-        alert(`Otorisasi Google gagal: ${res?.error || 'Periksa kredensial OAuth Anda'}`)
+        alert(tx(language, 'cap.googleAuthFailed')(res?.error))
       }
     } catch (e) {
-      alert(`Gagal menghubungkan Google: ${e.message || e}`)
+      alert(tx(language, 'cap.googleConnectFailed')(e.message || e))
     } finally {
       setGoogleLoading(false)
     }
@@ -181,9 +190,9 @@ export default function CapabilitiesHub({
 
   const handleGoogleDisconnect = async () => {
     const res = await confirm({
-      title: 'Putuskan Google Workspace?',
-      message: 'Akses ke Google Calendar, Drive, dan Gmail akan dinonaktifkan.',
-      confirmText: 'Putuskan',
+      title: tx(language, 'cap.googleDisconnectTitle'),
+      message: tx(language, 'cap.googleDisconnectMsg'),
+      confirmText: tx(language, 'cap.disconnect'),
       isError: true
     })
     if (!res.isConfirmed) return
@@ -192,7 +201,7 @@ export default function CapabilitiesHub({
       await window.api?.googleDisconnect?.()
       setGoogleConnected(false)
     } catch (e) {
-      alert(`Gagal memutuskan Google: ${e.message || e}`)
+      alert(tx(language, 'cap.googleDisconnectFailed')(e.message || e))
     }
   }
 
@@ -286,7 +295,7 @@ export default function CapabilitiesHub({
       await window.api?.authorizeCapability?.(connectorId, scopes)
       await refreshCapabilityState()
     } catch (e) {
-      alert(`Gagal otorisasi: ${e.message || e}`)
+      alert(tx(language, 'cap.mcpAuthFailed')(e.message || e))
     } finally {
       setBusyConnectorKey(null)
     }
@@ -294,9 +303,9 @@ export default function CapabilitiesHub({
 
   const handleRevokeConnector = async (connectorId) => {
     const res = await confirm({
-      title: 'Putuskan Koneksi MCP?',
-      message: `Putuskan koneksi dari connector "${connectorId}"?`,
-      confirmText: 'Putuskan',
+      title: tx(language, 'cap.mcpRevokeTitle'),
+      message: tx(language, 'cap.mcpRevokeMsg')(connectorId),
+      confirmText: tx(language, 'cap.revoke'),
       isError: true
     })
     if (!res.isConfirmed) return
@@ -306,7 +315,7 @@ export default function CapabilitiesHub({
       await window.api?.revokeCapability?.(connectorId)
       await refreshCapabilityState()
     } catch (e) {
-      alert(`Gagal memutuskan: ${e.message || e}`)
+      alert(tx(language, 'cap.mcpRevokeFailed')(e.message || e))
     } finally {
       setBusyConnectorKey(null)
     }
@@ -314,7 +323,7 @@ export default function CapabilitiesHub({
 
   const handleSaveNewMcp = () => {
     if (!newMcpForm.id.trim() || !newMcpForm.url.trim()) {
-      alert('ID dan URL MCP server wajib diisi.')
+      alert(tx(language, 'cap.mcpIdUrlRequired'))
       return
     }
     try {
@@ -327,7 +336,7 @@ export default function CapabilitiesHub({
           }
           parsedHeaders = parsed
         } catch (_) {
-          alert('Header harus JSON objek, misal {"CONTEXT7_API_KEY": "..."}.')
+          alert(tx(language, 'cap.mcpHeaderFormat'))
           return
         }
       }
@@ -347,7 +356,7 @@ export default function CapabilitiesHub({
       setNewMcpForm({ id: '', name: '', url: '', description: '', headers: '' })
       loadMcpData()
     } catch (e) {
-      alert(`Gagal menyimpan server MCP: ${e.message || e}`)
+      alert(tx(language, 'cap.mcpSaveFailed')(e.message || e))
     }
   }
 
@@ -375,7 +384,7 @@ export default function CapabilitiesHub({
       const data = await window.api.getPlugins()
       setPlugins(Array.isArray(data) ? data : [])
     } catch (e) {
-      console.error('[CapabilitiesHub] Gagal memuat plugin:', e)
+      console.error('[CapabilitiesHub] Failed to load plugins:', e)
     } finally {
       setPluginsLoading(false)
     }
@@ -383,29 +392,32 @@ export default function CapabilitiesHub({
 
   useEffect(() => {
     if (!editingPlugin) return
-    const errors = []
-    pluginForm.actions.forEach((act, idx) => {
-      if (act.code) {
-        try {
-          // Compile-check sintaks SAJA — konstruktor tidak mengeksekusi body.
-          // Kode connector user tidak pernah dijalankan di renderer.
-          const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
-          new AsyncFunction('query', act.code)
+    // Validasi sync dibungkus async agar lolos set-state-in-effect.
+    void (async () => {
+      const errors = []
+      pluginForm.actions.forEach((act, idx) => {
+        if (act.code) {
+          try {
+            // Compile-check sintaks SAJA — konstruktor tidak mengeksekusi body.
+            // Kode connector user tidak pernah dijalankan di renderer.
+            const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
+            new AsyncFunction('query', act.code)
+            errors[idx] = null
+          } catch (err) {
+            errors[idx] = err.message
+          }
+        } else {
           errors[idx] = null
-        } catch (err) {
-          errors[idx] = err.message
         }
-      } else {
-        errors[idx] = null
-      }
-    })
-    setPluginSyntaxErrors(errors)
+      })
+      setPluginSyntaxErrors(errors)
+    })()
   }, [pluginForm.actions, editingPlugin])
 
   const handleInstallGitPlugin = async () => {
     const url = gitPluginUrl.trim()
     if (!url) {
-      alert('Masukkan shorthand GitHub (owner/repo) atau tautan URL.')
+      alert(tx(language, 'cap.gitUrlRequired'))
       return
     }
     setGitPluginLoading(true)
@@ -416,13 +428,13 @@ export default function CapabilitiesHub({
           setGitPluginUrl('')
           await loadPlugins()
         } else {
-          alert(`Gagal memasang plugin: ${res?.error || 'Kesalahan repositori'}`)
+          alert(tx(language, 'cap.pluginInstallFailed')(res?.error || tx(language, 'cap.pluginRepoError')))
         }
       } else {
-        alert('Fitur instalasi git plugin belum aktif di runtime sidecar.')
+        alert(tx(language, 'cap.gitInstallUnsupported'))
       }
     } catch (e) {
-      alert(`Gagal mengunduh plugin: ${e.message || e}`)
+      alert(tx(language, 'cap.pluginDownloadFailed')(e.message || e))
     } finally {
       setGitPluginLoading(false)
     }
@@ -435,9 +447,9 @@ export default function CapabilitiesHub({
       actions: [
         {
           name: 'run',
-          description: 'Fungsi utama plugin',
-          triggerHint: 'ketika user meminta ...',
-          code: `// query berisi argumen dari pengguna\nreturn "Hasil eksekusi plugin";`
+          description: 'Main plugin function',
+          triggerHint: 'when the user asks for ...',
+          code: `// query holds user arguments\nreturn "Plugin execution result";`
         }
       ],
       isEdit: false
@@ -460,11 +472,11 @@ export default function CapabilitiesHub({
 
   const handleSavePlugin = async () => {
     if (!pluginForm.name.trim()) {
-      alert('Nama plugin wajib diisi.')
+      alert(tx(language, 'cap.pluginNameRequired'))
       return
     }
     if (pluginSyntaxErrors.some(Boolean)) {
-      alert('Perbaiki syntax error JavaScript pada aksi sebelum menyimpan.')
+      alert(tx(language, 'cap.pluginSyntaxFix'))
       return
     }
 
@@ -478,15 +490,15 @@ export default function CapabilitiesHub({
       setEditingPlugin(null)
       await loadPlugins()
     } catch (e) {
-      alert(`Gagal menyimpan plugin: ${e.message || e}`)
+      alert(tx(language, 'cap.pluginSaveFailed')(e.message || e))
     }
   }
 
   const handleDeletePlugin = async (name) => {
     const res = await confirm({
-      title: 'Hapus Plugin?',
-      message: `Hapus plugin "${name}" secara permanen dari sistem?`,
-      confirmText: 'Ya, Hapus',
+      title: tx(language, 'cap.pluginDeleteTitle'),
+      message: tx(language, 'cap.pluginDeleteMsg')(name),
+      confirmText: tx(language, 'cap.pluginDeleteYes'),
       isError: true
     })
     if (!res.isConfirmed) return
@@ -495,7 +507,7 @@ export default function CapabilitiesHub({
       await window.api?.deletePlugin?.(name)
       await loadPlugins()
     } catch (e) {
-      alert(`Gagal menghapus plugin: ${e.message || e}`)
+      alert(tx(language, 'cap.pluginDeleteFailed')(e.message || e))
     }
   }
 
@@ -504,7 +516,7 @@ export default function CapabilitiesHub({
       await window.api?.togglePlugin?.(name, !currentStatus)
       await loadPlugins()
     } catch (e) {
-      alert(`Gagal mengubah status: ${e.message || e}`)
+      alert(tx(language, 'cap.pluginToggleFailed')(e.message || e))
     }
   }
 
@@ -521,7 +533,7 @@ export default function CapabilitiesHub({
       const list = await getCachedSkills({ force: true })
       setSkills(Array.isArray(list) ? list : [])
     } catch (e) {
-      console.error('[CapabilitiesHub] Gagal memuat skills:', e)
+      console.error('[CapabilitiesHub] Failed to load skills:', e)
     } finally {
       setSkillsLoading(false)
     }
@@ -529,18 +541,18 @@ export default function CapabilitiesHub({
 
   const handleOpenNewSkill = () => {
     const defaultTemplate = `---
-name: skill-baru
-description: Deskripsi singkat keahlian operasional ini...
+name: new-skill
+description: ${tx(language, 'cap.skillTemplateDesc')}
 ---
 
-# Panduan Operasional
+${tx(language, 'cap.skillTemplateTitle')}
 
-Petunjuk eksekusi dan batasan tindakan untuk AI:
-1. Langkah inspeksi awal
-2. Langkah eksekusi solusi
+${tx(language, 'cap.skillTemplateBody')}
+1. ${tx(language, 'cap.skillTemplateStep1')}
+2. ${tx(language, 'cap.skillTemplateStep2')}
 
-## Critical Rules
-- Selalu uji asumsi sebelum melakukan modifikasi file.
+## ${tx(language, 'cap.skillTemplateRules')}
+- ${tx(language, 'cap.skillTemplateRule1')}
 `
     setSkillFormName('')
     setSkillFormContent(defaultTemplate)
@@ -554,14 +566,14 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
       setSkillFormContent(content)
       setEditingSkill({ isNew: false, originalName: skillName })
     } catch (e) {
-      alert(`Gagal membaca skill: ${e.message || e}`)
+      alert(tx(language, 'cap.skillReadFailed')(e.message || e))
     }
   }
 
   const handleSaveSkill = async () => {
     const rawName = skillFormName.trim().replace(/\s+/g, '-').toLowerCase()
     if (!rawName) {
-      alert('Nama skill tidak boleh kosong.')
+      alert(tx(language, 'cap.skillNameRequired'))
       return
     }
     try {
@@ -569,15 +581,15 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
       setEditingSkill(null)
       await loadSkills()
     } catch (e) {
-      alert(`Gagal menyimpan skill: ${e.message || e}`)
+      alert(tx(language, 'cap.skillSaveFailed')(e.message || e))
     }
   }
 
   const handleDeleteSkill = async (skillName) => {
     const res = await confirm({
-      title: 'Hapus Skill?',
-      message: `Hapus skill "${skillName}" dari direktori lokal?`,
-      confirmText: 'Ya, Hapus',
+      title: tx(language, 'cap.skillDeleteTitle'),
+      message: tx(language, 'cap.skillDeleteMsg')(skillName),
+      confirmText: tx(language, 'cap.skillDeleteYes'),
       isError: true
     })
     if (!res.isConfirmed) return
@@ -586,7 +598,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
       await window.api?.deleteSkill?.(skillName)
       await loadSkills()
     } catch (e) {
-      alert(`Gagal menghapus skill: ${e.message || e}`)
+      alert(tx(language, 'cap.skillDeleteFailed')(e.message || e))
     }
   }
 
@@ -600,7 +612,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
         await loadSkills()
       }
     } catch (e) {
-      alert(`Gagal menginstal package skill: ${e.message || e}`)
+      alert(tx(language, 'cap.skillInstallFailed')(e.message || e))
     }
   }
 
@@ -618,20 +630,23 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
       const list = await window.api.approvalPolicyList()
       setApprovalPolicies(Array.isArray(list) ? list : [])
     } catch (e) {
-      console.error('[CapabilitiesHub] Gagal memuat kebijakan:', e)
+      console.error('[CapabilitiesHub] Failed to load policies:', e)
     } finally {
       setPoliciesLoading(false)
     }
   }, [])
 
   // ── Initial Mount ─────────────────────────────────────────────────────────
+  // Mount-load dibungkus async agar lolos set-state-in-effect.
   useEffect(() => {
-    checkGoogleStatus()
-    checkBrowserStatus()
-    loadMcpData()
-    loadPlugins()
-    loadSkills()
-    loadApprovalPolicies()
+    void (async () => {
+      await checkGoogleStatus()
+      await checkBrowserStatus()
+      await loadMcpData()
+      await loadPlugins()
+      await loadSkills()
+      await loadApprovalPolicies()
+    })()
   }, [checkGoogleStatus, checkBrowserStatus, loadMcpData, loadPlugins, loadSkills, loadApprovalPolicies])
 
   // Progres launch/reconnect dari sidecar (pola ai:status): tampilkan sebagai
@@ -667,7 +682,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-all ${activeTab === 'connectors' ? 'bg-primary/20 text-primary border border-primary/30 shadow-sm' : 'text-white/60 hover:text-white hover:bg-white/[0.04]'}`}
         >
           <Plug size={12} />
-          <span>Connectors</span>
+          <span>{tx(language, 'cap.tabConnectors')}</span>
           <span className="badge badge-xs badge-neutral opacity-80">
             {connectors.length + (googleConnected ? 3 : 0) + 1}
           </span>
@@ -679,7 +694,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-all ${activeTab === 'plugins' ? 'bg-primary/20 text-primary border border-primary/30 shadow-sm' : 'text-white/60 hover:text-white hover:bg-white/[0.04]'}`}
         >
           <Boxes size={12} />
-          <span>Plugins</span>
+          <span>{tx(language, 'cap.tabPlugins')}</span>
           {plugins.length > 0 && (
             <span className="badge badge-xs badge-neutral opacity-80">{plugins.length}</span>
           )}
@@ -691,7 +706,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-all ${activeTab === 'skills' ? 'bg-primary/20 text-primary border border-primary/30 shadow-sm' : 'text-white/60 hover:text-white hover:bg-white/[0.04]'}`}
         >
           <Brain size={12} />
-          <span>Skills</span>
+          <span>{tx(language, 'cap.tabSkills')}</span>
           <span className="badge badge-xs badge-neutral opacity-80">
             {BUILTIN_SKILLS.length + skills.length}
           </span>
@@ -703,7 +718,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-all ${activeTab === 'security' ? 'bg-primary/20 text-primary border border-primary/30 shadow-sm' : 'text-white/60 hover:text-white hover:bg-white/[0.04]'}`}
         >
           <Shield size={12} />
-          <span>Keamanan</span>
+          <span>{tx(language, 'cap.security')}</span>
         </button>
       </div>
 
@@ -714,17 +729,17 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
           <div className="rounded-2xl border border-white/5 bg-base-200/40 backdrop-blur-md p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-white/90">Browse Use</span>
+                <span className="text-sm font-semibold text-white/90">{tx(language, 'cap.browseUse')}</span>
                 {browserConnected === true ? (
                   <span className="badge badge-xs badge-success gap-1 text-[10px]">
-                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> Tersambung
+                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> {tx(language, 'cap.connected')}
                   </span>
                 ) : browserConnected === false ? (
-                  <span className="badge badge-xs badge-ghost border-white/10 opacity-70 text-[10px]">Terputus</span>
+                  <span className="badge badge-xs badge-ghost border-white/10 opacity-70 text-[10px]">{tx(language, 'cap.disconnected')}</span>
                 ) : null}
               </div>
               <p className="text-xs text-white/50">
-                Control Chrome via extension
+                {tx(language, 'cap.controlChrome')}
               </p>
               {browserNote ? (
                 <p className="text-[11px] text-white/50">{browserNote}</p>
@@ -743,7 +758,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                       })
                     }
                   />
-                  <span>Tutup tab grup otomatis saat tugas selesai</span>
+                  <span>{tx(language, 'cap.autoCloseTabs')}</span>
                 </label>
               </div>
               <div className="flex items-center gap-2 pt-1">
@@ -756,7 +771,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                       setConfig((prev) => ({ ...prev, browserAutoLaunch: e.target.checked }))
                     }
                   />
-                  <span>Bukakan browser OS otomatis bila extension belum tersambung</span>
+                  <span>{tx(language, 'cap.autoLaunchBrowser')}</span>
                 </label>
               </div>
             </div>
@@ -767,27 +782,27 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                 onClick={handleBrowserReconnect}
                 disabled={browserReconnecting}
                 className="btn btn-xs btn-primary rounded-xl gap-1"
-                title="Sapu sesi mati lalu sambungkan ulang extension (bounded, hormati throttle)"
+                title={tx(language, 'cap.reconnectTitle')}
               >
                 <RefreshCw size={10} className={browserReconnecting ? 'animate-spin' : ''} />
-                <span>{browserReconnecting ? 'Menghubungkan...' : 'Hubungkan Ulang'}</span>
+                <span>{browserReconnecting ? tx(language, 'cap.reconnecting') : tx(language, 'cap.reconnect')}</span>
               </button>
               <button
                 type="button"
                 onClick={handleInitExtension}
                 className="btn btn-xs btn-outline border-white/10 hover:border-primary/50 text-white/80 rounded-xl"
               >
-                Panduan Pemasangan
+                {tx(language, 'cap.installGuide')}
               </button>
               {extInstall?.dir && (
                 <button
                   type="button"
                   onClick={() => window.api?.openFolder?.(extInstall.dir)}
                   className="btn btn-xs btn-ghost border border-white/10 text-white/70 rounded-xl gap-1.5"
-                  title="Buka folder berkas ekstensi di file manager"
+                  title={tx(language, 'cap.openExtFolderTitle')}
                 >
                   <FolderOpen size={11} />
-                  <span>Buka Folder</span>
+                  <span>{tx(language, 'cap.openFolder')}</span>
                 </button>
               )}
             </div>
@@ -798,17 +813,17 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="space-y-0.5">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-white/90">Google Workspace</span>
+                  <span className="text-sm font-semibold text-white/90">{tx(language, 'cap.googleWorkspace')}</span>
                   {googleConnected ? (
                     <span className="badge badge-xs badge-info gap-1 text-[10px]">
-                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> Terhubung
+                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> {tx(language, 'cap.connected')}
                     </span>
                   ) : (
-                    <span className="badge badge-xs badge-ghost border-white/10 opacity-70 text-[10px]">Offline</span>
-                  )}
-                </div>
+                    <span className="badge badge-xs badge-ghost border-white/10 opacity-70 text-[10px]">{tx(language, 'cap.offline')}</span>
+                    )}
+                  </div>
                 <p className="text-xs text-white/50">
-                  Sinkronisasi Google Calendar, Drive, dan Gmail via OAuth 2.0 resmi.
+                  {tx(language, 'cap.googleSyncDesc')}
                 </p>
               </div>
 
@@ -820,7 +835,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                     className="btn btn-xs btn-outline border-error/40 text-error hover:bg-error/10 rounded-xl gap-1"
                   >
                     <Unlock size={10} />
-                    <span>Putuskan</span>
+                    <span>{tx(language, 'cap.disconnect')}</span>
                   </button>
                 ) : (
                   <button
@@ -829,7 +844,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                     className="btn btn-xs btn-primary rounded-xl gap-1"
                   >
                     <Lock size={10} />
-                    <span>Hubungkan</span>
+                    <span>{tx(language, 'cap.connect')}</span>
                   </button>
                 )}
               </div>
@@ -866,7 +881,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="space-y-0.5">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-white/90">MCP Connectors</span>
+                  <span className="text-sm font-semibold text-white/90">{tx(language, 'cap.mcpConnectors')}</span>
                   <span className="badge badge-xs badge-neutral opacity-80">{filteredConnectors.length}</span>
                 </div>
               </div>
@@ -875,7 +890,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                 <div className="relative">
                   <input
                     type="text"
-                    placeholder="Cari connector..."
+                    placeholder={tx(language, 'cap.searchConnectors')}
                     value={mcpSearch}
                     onChange={(e) => setMcpSearch(e.target.value)}
                     className="input input-xs input-bordered rounded-xl pl-7 pr-3 bg-base-100/60 border-white/10 text-xs w-40 focus:w-48 transition-all"
@@ -888,14 +903,14 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                   className="btn btn-xs btn-primary rounded-xl gap-1"
                 >
                   <Plus size={9} />
-                  <span>Tambah MCP</span>
+                  <span>{tx(language, 'cap.addMcp')}</span>
                 </button>
                 <button
                   type="button"
                   onClick={loadMcpData}
                   disabled={mcpLoading}
                   className="btn btn-xs btn-ghost border border-white/10 hover:bg-white/5 rounded-xl"
-                  title="Segarkan daftar"
+                  title={tx(language, 'cap.refreshTitle')}
                 >
                   <RefreshCw size={10} className={mcpLoading ? 'animate-spin text-primary' : ''} />
                 </button>
@@ -905,11 +920,11 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
             {mcpLoading ? (
               <div className="p-6 text-center text-white/40 text-xs flex flex-col items-center gap-2">
                 <span className="loading loading-spinner loading-sm text-primary"></span>
-                Memuat katalog MCP...
+                {tx(language, 'cap.loadingMcp')}
               </div>
             ) : filteredConnectors.length === 0 ? (
               <div className="p-6 text-center rounded-xl bg-base-100/30 border border-dashed border-white/10 text-xs text-white/50">
-                Tidak ada connector MCP yang cocok dengan pencarian.
+                {tx(language, 'cap.noMcpMatch')}
               </div>
             ) : (
               <div className="grid gap-2">
@@ -926,16 +941,16 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                           <span className="text-xs font-semibold text-white/90">{c.name || c.id}</span>
                           <span className="font-mono text-[10px] text-white/40">{c.id}</span>
                           {c.custom && (
-                            <span className="badge badge-xs badge-info text-[9px]" title="Terdaftar & terotorisasi; eksekusi tool menyusul Fase F3">MCP</span>
+                            <span className="badge badge-xs badge-info text-[9px]" title={tx(language, 'cap.mcpCustomNote')}>MCP</span>
                           )}
                           {isConnected ? (
-                            <span className="badge badge-xs badge-info text-[9px]">Terhubung</span>
+                            <span className="badge badge-xs badge-info text-[9px]">{tx(language, 'cap.connected')}</span>
                           ) : (
-                            <span className="badge badge-xs badge-ghost border-white/10 text-[9px] opacity-60">Offline</span>
+                            <span className="badge badge-xs badge-ghost border-white/10 text-[9px] opacity-60">{tx(language, 'cap.offline')}</span>
                           )}
                         </div>
                         <p className="text-[11px] text-white/50 truncate max-w-xl">
-                          {c.description || c.url || 'Tidak ada deskripsi.'}
+                          {(c.id === 'context7' ? tx(language, 'cap.context7Desc') : c.description) || c.url || tx(language, 'cap.noDesc')}
                         </p>
                       </div>
 
@@ -947,7 +962,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                             onClick={() => handleRevokeConnector(c.id)}
                             className="btn btn-xs btn-outline border-error/40 text-error hover:bg-error/10 rounded-xl"
                           >
-                            Putus
+                            {tx(language, 'cap.revoke')}
                           </button>
                         ) : (
                           <button
@@ -956,7 +971,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                             onClick={() => handleAuthorizeConnector(c.id, c.scopes || [])}
                             className="btn btn-xs btn-ghost border border-white/10 hover:border-primary/40 text-white/80 rounded-xl"
                           >
-                            Otorisasi
+                            {tx(language, 'cap.authorize')}
                           </button>
                         )}
                       </div>
@@ -975,7 +990,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
               >
                 <span className="flex items-center gap-2">
                   <History size={11} className="text-info" />
-                  <span>Riwayat Audit Eksekusi MCP</span>
+                  <span>{tx(language, 'cap.auditHistory')}</span>
                   <span className="badge badge-xs badge-neutral text-[9px]">{auditLogs.length}</span>
                 </span>
                 {showAuditDrawer ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
@@ -984,7 +999,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
               {showAuditDrawer && (
                 <div className="mt-3 space-y-1.5 max-h-40 overflow-y-auto custom-scrollbar pr-1">
                   {auditLogs.length === 0 ? (
-                    <p className="text-[11px] text-white/40 italic py-1">Belum ada jejak eksekusi.</p>
+                    <p className="text-[11px] text-white/40 italic py-1">{tx(language, 'cap.noAudit')}</p>
                   ) : (
                     <>
                       {auditLogs.map((log, idx) => (
@@ -1001,7 +1016,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                             </span>
                           </div>
                           <span className="text-white/40 text-[10px]">
-                            {log.ts ? new Date(log.ts).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : (log.timestamp ? new Date(log.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '-')}
+                            {log.ts ? new Date(log.ts).toLocaleTimeString(localeTag(language), { hour: '2-digit', minute: '2-digit' }) : (log.timestamp ? new Date(log.timestamp).toLocaleTimeString(localeTag(language), { hour: '2-digit', minute: '2-digit' }) : '-')}
                           </span>
                         </div>
                       ))}
@@ -1010,7 +1025,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                         onClick={handleLoadMoreAudit}
                         className="w-full py-1 text-[11px] text-white/50 hover:text-white/80 transition-colors"
                       >
-                        Muat lagi
+                        {tx(language, 'cap.loadMore')}
                       </button>
                     </>
                   )}
@@ -1027,16 +1042,16 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
           {/* Built-in Automations (Compact Grid) */}
           <div className="rounded-2xl border border-white/5 bg-base-200/40 backdrop-blur-md p-5 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-white/90">Built-in Automations</span>
-              <span className="badge badge-xs badge-neutral opacity-80">4 Aktif</span>
+              <span className="text-sm font-semibold text-white/90">{tx(language, 'cap.builtinAutomations')}</span>
+              <span className="badge badge-xs badge-neutral opacity-80">{tx(language, 'cap.activeCount')(4)}</span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-1">
               {/* Awareness */}
               <div className="p-3 rounded-xl bg-base-100/40 border border-white/5 flex items-center justify-between gap-3">
                 <div className="min-w-0 space-y-0.5">
-                  <div className="text-xs font-semibold text-white/90">Awareness Engine</div>
-                  <p className="text-[11px] text-white/50 truncate">Pantau window aktif untuk inisiatif proaktif.</p>
+                  <div className="text-xs font-semibold text-white/90">{tx(language, 'cap.awareness')}</div>
+                  <p className="text-[11px] text-white/50 truncate">{tx(language, 'cap.awarenessDesc')}</p>
                 </div>
                 <input
                   type="checkbox"
@@ -1049,8 +1064,8 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
               {/* Session Compaction */}
               <div className="p-3 rounded-xl bg-base-100/40 border border-white/5 flex items-center justify-between gap-3">
                 <div className="min-w-0 space-y-0.5">
-                  <div className="text-xs font-semibold text-white/90">Session Compaction</div>
-                  <p className="text-[11px] text-white/50 truncate">Ringkas konteks sesi (budget 525K) agar debat panjang tetap muat.</p>
+                  <div className="text-xs font-semibold text-white/90">{tx(language, 'cap.compaction')}</div>
+                  <p className="text-[11px] text-white/50 truncate">{tx(language, 'cap.compactionDesc')}</p>
                 </div>
                 <input
                   type="checkbox"
@@ -1063,8 +1078,8 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
               {/* Caveman */}
               <div className="p-3 rounded-xl bg-base-100/40 border border-white/5 flex items-center justify-between gap-3">
                 <div className="min-w-0 space-y-0.5">
-                  <div className="text-xs font-semibold text-white/90">Caveman Mode</div>
-                  <p className="text-[11px] text-white/50 truncate">Kompresi respons padat tanpa basa-basi pengantar.</p>
+                  <div className="text-xs font-semibold text-white/90">{tx(language, 'cap.caveman')}</div>
+                  <p className="text-[11px] text-white/50 truncate">{tx(language, 'cap.cavemanDesc')}</p>
                 </div>
                 <input
                   type="checkbox"
@@ -1077,8 +1092,8 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
               {/* Ponytail */}
               <div className="p-3 rounded-xl bg-base-100/40 border border-white/5 flex items-center justify-between gap-3">
                 <div className="min-w-0 space-y-0.5">
-                  <div className="text-xs font-semibold text-white/90">Ponytail (YAGNI)</div>
-                  <p className="text-[11px] text-white/50 truncate">Prioritaskan modul yang sudah ada di sistem.</p>
+                  <div className="text-xs font-semibold text-white/90">{tx(language, 'cap.ponytail')}</div>
+                  <p className="text-[11px] text-white/50 truncate">{tx(language, 'cap.ponytailDesc')}</p>
                 </div>
                 <input
                   type="checkbox"
@@ -1091,8 +1106,8 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
               {/* Internet-First (D1) */}
               <div className="p-3 rounded-xl bg-base-100/40 border border-white/5 flex items-center justify-between gap-3">
                 <div className="min-w-0 space-y-0.5">
-                  <div className="text-xs font-semibold text-white/90">Internet-First Research</div>
-                  <p className="text-[11px] text-white/50 truncate">Fakta dunia luar wajib cari referensi dulu sebelum klaim.</p>
+                  <div className="text-xs font-semibold text-white/90">{tx(language, 'cap.internetFirst')}</div>
+                  <p className="text-[11px] text-white/50 truncate">{tx(language, 'cap.internetFirstDesc')}</p>
                 </div>
                 <input
                   type="checkbox"
@@ -1105,8 +1120,8 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
               {/* Rtk */}
               <div className="p-3 rounded-xl bg-base-100/40 border border-white/5 flex items-center justify-between gap-3">
                 <div className="min-w-0 space-y-0.5">
-                  <div className="text-xs font-semibold text-white/90">Rtk Output Compression</div>
-                  <p className="text-[11px] text-white/50 truncate">Kompresi cerdas pada luaran terminal masif.</p>
+                  <div className="text-xs font-semibold text-white/90">{tx(language, 'cap.rtk')}</div>
+                  <p className="text-[11px] text-white/50 truncate">{tx(language, 'cap.rtkDesc')}</p>
                 </div>
                 <input
                   type="checkbox"
@@ -1123,11 +1138,11 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="space-y-0.5">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-white/90">Custom Plugins</span>
+                  <span className="text-sm font-semibold text-white/90">{tx(language, 'cap.customPlugins')}</span>
                   <span className="badge badge-xs badge-neutral opacity-80">{plugins.length}</span>
                 </div>
                 <p className="text-xs text-white/50">
-                  Ekstensi JavaScript mandiri untuk menambah kemampuan agen.
+                  {tx(language, 'cap.customPluginsDesc')}
                 </p>
               </div>
 
@@ -1138,7 +1153,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                   className="btn btn-xs btn-ghost border border-white/10 text-white/70 rounded-xl gap-1.5"
                 >
                   <FolderOpen size={11} />
-                  <span>Buka Folder</span>
+                  <span>{tx(language, 'cap.openFolder')}</span>
                 </button>
                 {isDevMode && (
                   <button
@@ -1147,7 +1162,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                     className="btn btn-xs btn-primary rounded-xl gap-1"
                   >
                     <Code size={10} />
-                    <span>Tulis Kode</span>
+                    <span>{tx(language, 'cap.writeCode')}</span>
                   </button>
                 )}
               </div>
@@ -1157,7 +1172,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
             <div className="flex items-center gap-2">
               <input
                 type="text"
-                placeholder="Pasang via GitHub (contoh: owner/repo)..."
+                placeholder={tx(language, 'cap.gitPlaceholder')}
                 value={gitPluginUrl}
                 onChange={(e) => setGitPluginUrl(e.target.value)}
                 className="input input-xs input-bordered rounded-xl bg-base-100/60 border-white/10 font-mono text-xs flex-1"
@@ -1168,18 +1183,18 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                 disabled={gitPluginLoading || !gitPluginUrl.trim()}
                 className="btn btn-xs btn-primary rounded-xl shrink-0"
               >
-                {gitPluginLoading ? 'Mengunduh...' : 'Pasang'}
+                {gitPluginLoading ? tx(language, 'cap.downloading') : tx(language, 'cap.installBtn')}
               </button>
             </div>
 
             {pluginsLoading ? (
               <div className="p-6 text-center text-white/40 text-xs flex flex-col items-center gap-2">
                 <span className="loading loading-spinner loading-sm text-primary"></span>
-                Memuat plugin kustom...
+                {tx(language, 'cap.loadingPlugins')}
               </div>
             ) : plugins.length === 0 ? (
               <div className="p-6 text-center rounded-xl bg-base-100/30 border border-dashed border-white/10 text-xs text-white/50">
-                Belum ada plugin kustom yang terpasang.
+                {tx(language, 'cap.noPlugins')}
               </div>
             ) : (
               <div className="grid gap-2">
@@ -1193,13 +1208,13 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                       <div className="min-w-0 flex-1 space-y-0.5">
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-semibold text-white/90">{p.name}</span>
-                          <span className="badge badge-xs badge-neutral text-[9px]">{p.actions?.length || 0} aksi</span>
+                          <span className="badge badge-xs badge-neutral text-[9px]">{tx(language, 'cap.actionsCount')(p.actions?.length || 0)}</span>
                           <span className={`badge badge-xs text-[9px] ${isEnabled ? 'badge-info' : 'badge-ghost opacity-50'}`}>
-                            {isEnabled ? 'Aktif' : 'Mati'}
+                            {isEnabled ? tx(language, 'cap.enabled') : tx(language, 'cap.disabled')}
                           </span>
                         </div>
                         <p className="text-[11px] text-white/50 truncate">
-                          {p.description || 'Tidak ada deskripsi.'}
+                          {p.description || tx(language, 'cap.noDesc')}
                         </p>
                       </div>
 
@@ -1209,14 +1224,14 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                           onClick={() => handleTogglePlugin(p.name, isEnabled)}
                           className="btn btn-xs btn-ghost border border-white/10 text-white/70 rounded-xl text-[11px]"
                         >
-                          {isEnabled ? 'Nonaktifkan' : 'Aktifkan'}
+                          {isEnabled ? tx(language, 'cap.disable') : tx(language, 'cap.enable')}
                         </button>
                         {isDevMode && (
                           <button
                             type="button"
                             onClick={() => handleOpenEditPluginModal(p)}
                             className="btn btn-xs btn-ghost border border-white/10 text-white/70 rounded-xl"
-                            title="Edit kode plugin"
+                            title={tx(language, 'cap.editPluginTitle')}
                           >
                             <Pencil size={11} />
                           </button>
@@ -1225,7 +1240,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                           type="button"
                           onClick={() => handleDeletePlugin(p.name)}
                           className="btn btn-xs btn-ghost border border-white/10 text-error hover:bg-error/10 rounded-xl"
-                          title="Hapus plugin"
+                          title={tx(language, 'cap.deletePluginTitle')}
                         >
                           <Trash2 size={11} />
                         </button>
@@ -1245,14 +1260,17 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
           {/* Built-in Skills */}
           <div className="rounded-2xl border border-white/5 bg-base-200/40 backdrop-blur-md p-5 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-white/90">Built-in Superpowers</span>
-              <span className="badge badge-xs badge-neutral opacity-80">4 Pola</span>
+              <span className="text-sm font-semibold text-white/90">{tx(language, 'cap.builtinSuperpowers')}</span>
+              <span className="badge badge-xs badge-neutral opacity-80">{tx(language, 'cap.patternsCount')(4)}</span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-1">
               {BUILTIN_SKILLS.map((skill) => {
                 const SkillIcon = skill.icon
                 const isSkillActive = config?.builtinSkills?.[skill.id] !== false
+                const skillKeys = BUILTIN_SKILL_KEYS[skill.id] || []
+                const skillName = skillKeys[0] ? tx(language, skillKeys[0]) : skill.name
+                const skillDesc = skillKeys[1] ? tx(language, skillKeys[1]) : skill.desc
                 return (
                   <div
                     key={skill.id}
@@ -1261,8 +1279,8 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                     <div className="flex items-center gap-2.5 min-w-0">
                       <SkillIcon className="text-primary shrink-0" size={13} />
                       <div className="min-w-0 space-y-0.5">
-                        <div className="text-xs font-semibold text-white/90 truncate">{skill.name}</div>
-                        <p className="text-[11px] text-white/50 truncate">{skill.desc}</p>
+                        <div className="text-xs font-semibold text-white/90 truncate">{skillName}</div>
+                        <p className="text-[11px] text-white/50 truncate">{skillDesc}</p>
                       </div>
                     </div>
 
@@ -1291,11 +1309,11 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="space-y-0.5">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-white/90">Custom Skills (SKILL.md)</span>
+                  <span className="text-sm font-semibold text-white/90">{tx(language, 'cap.customSkills')}</span>
                   <span className="badge badge-xs badge-neutral opacity-80">{skills.length}</span>
                 </div>
                 <p className="text-xs text-white/50">
-                  Keahlian operasional berbasis berkas instruksi Markdown terstruktur.
+                  {tx(language, 'cap.customSkillsDesc')}
                 </p>
               </div>
 
@@ -1306,15 +1324,15 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                   className="btn btn-xs btn-ghost border border-white/10 text-white/70 rounded-xl gap-1.5"
                 >
                   <FolderOpen size={11} />
-                  <span>Buka Folder</span>
+                  <span>{tx(language, 'cap.openFolder')}</span>
                 </button>
                 <button
                   type="button"
                   onClick={handleInstallSkillPackage}
                   className="btn btn-xs btn-ghost border border-white/10 text-white/70 rounded-xl"
-                  title="Impor arsip skill .zip atau .tar.gz"
+                  title={tx(language, 'cap.importArchiveTitle')}
                 >
-                  <span>Impor Arsip</span>
+                  <span>{tx(language, 'cap.importArchive')}</span>
                 </button>
                 <button
                   type="button"
@@ -1322,7 +1340,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                   className="btn btn-xs btn-primary rounded-xl gap-1"
                 >
                   <Plus size={9} />
-                  <span>Skill Baru</span>
+                  <span>{tx(language, 'cap.newSkill')}</span>
                 </button>
               </div>
             </div>
@@ -1330,11 +1348,11 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
             {skillsLoading ? (
               <div className="p-6 text-center text-white/40 text-xs flex flex-col items-center gap-2">
                 <span className="loading loading-spinner loading-sm text-primary"></span>
-                Memuat skills...
+                {tx(language, 'cap.loadingSkills')}
               </div>
             ) : skills.length === 0 ? (
               <div className="p-6 text-center rounded-xl bg-base-100/30 border border-dashed border-white/10 text-xs text-white/50">
-                Belum ada skill kustom tersimpan. Klik "Skill Baru" untuk menulis instruksi.
+                {tx(language, 'cap.noSkills')}
               </div>
             ) : (
               <div className="grid gap-2">
@@ -1349,7 +1367,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                         <span className="badge badge-xs badge-ghost border-white/10 font-mono text-[9px]">XDG</span>
                       </div>
                       <p className="text-[11px] text-white/50 truncate">
-                        {s.description || 'Tidak ada deskripsi.'}
+                        {s.description || tx(language, 'cap.noDesc')}
                       </p>
                     </div>
 
@@ -1358,7 +1376,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                         type="button"
                         onClick={() => handleOpenEditSkill(s.name)}
                         className="btn btn-xs btn-ghost border border-white/10 text-white/70 rounded-xl"
-                        title="Edit instruksi skill"
+                        title={tx(language, 'cap.editSkillTitle')}
                       >
                         <Pencil size={11} />
                       </button>
@@ -1366,7 +1384,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                         type="button"
                         onClick={() => handleDeleteSkill(s.name)}
                         className="btn btn-xs btn-ghost border border-white/10 text-error hover:bg-error/10 rounded-xl"
-                        title="Hapus skill"
+                        title={tx(language, 'cap.deleteSkillTitle')}
                       >
                         <Trash2 size={11} />
                       </button>
@@ -1386,31 +1404,31 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="p-4 rounded-2xl bg-base-200/40 border border-white/5 space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-info">Tier 1: Read-Only</span>
-                <span className="badge badge-xs badge-info text-[9px]">Otomatis</span>
+                <span className="text-xs font-semibold text-info">{tx(language, 'cap.tier1')}</span>
+                <span className="badge badge-xs badge-info text-[9px]">{tx(language, 'cap.auto')}</span>
               </div>
               <p className="text-[11px] text-white/50 leading-relaxed">
-                Membaca file, cek status sistem, dan inspeksi window aktif tanpa konfirmasi.
+                {tx(language, 'cap.tier1Desc')}
               </p>
             </div>
 
             <div className="p-4 rounded-2xl bg-base-200/40 border border-white/5 space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-info">Tier 2: Netral</span>
-                <span className="badge badge-xs badge-info text-[9px]">Per Sesi</span>
+                <span className="text-xs font-semibold text-info">{tx(language, 'cap.tier2')}</span>
+                <span className="badge badge-xs badge-info text-[9px]">{tx(language, 'cap.perSession')}</span>
               </div>
               <p className="text-[11px] text-white/50 leading-relaxed">
-                Perintah shell non-destruktif dan scraping web. Izin diberikan sekali per sesi.
+                {tx(language, 'cap.tier2Desc')}
               </p>
             </div>
 
             <div className="p-4 rounded-2xl bg-base-200/40 border border-white/5 space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-error">Tier 3: Destruktif</span>
-                <span className="badge badge-xs badge-error text-[9px]">Native RFD</span>
+                <span className="text-xs font-semibold text-error">{tx(language, 'cap.tier3')}</span>
+                <span className="badge badge-xs badge-error text-[9px]">{tx(language, 'cap.nativeRfd')}</span>
               </div>
               <p className="text-[11px] text-white/50 leading-relaxed">
-                Menulis/hapus file OS, git commit, dan plugin. Selalu verifikasi dialog sistem.
+                {tx(language, 'cap.tier3Desc')}
               </p>
             </div>
           </div>
@@ -1419,9 +1437,9 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
           <div className="rounded-2xl border border-white/5 bg-base-200/40 backdrop-blur-md p-5 space-y-3">
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <span className="text-sm font-semibold text-white/90">Kebijakan Approval Granular</span>
+                <span className="text-sm font-semibold text-white/90">{tx(language, 'cap.granularPolicies')}</span>
                 <p className="text-xs text-white/50">
-                  Tentukan respon konfirmasi untuk tiap kategori aksi sidecar.
+                  {tx(language, 'cap.granularDesc')}
                 </p>
               </div>
 
@@ -1435,12 +1453,12 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                   } catch {}
                 }}
               >
-                Reset Izin Sesi
+                {tx(language, 'cap.resetSession')}
               </button>
             </div>
 
             {policiesLoading ? (
-              <div className="p-6 text-center text-white/40 text-xs">Memuat kebijakan...</div>
+              <div className="p-6 text-center text-white/40 text-xs">{tx(language, 'cap.loadingPolicies')}</div>
             ) : (
               <div className="grid gap-2 pt-1">
                 {approvalPolicies.map((p) => (
@@ -1462,9 +1480,9 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                         } catch {}
                       }}
                     >
-                      <option value="ask">Tanya tiap kali</option>
-                      <option value="session">Sekali per sesi</option>
-                      <option value="always">Selalu izinkan</option>
+                      <option value="ask">{tx(language, 'cap.askEach')}</option>
+                      <option value="session">{tx(language, 'cap.oncePerSession')}</option>
+                      <option value="always">{tx(language, 'cap.alwaysAllow')}</option>
                     </select>
                   </div>
                 ))}
@@ -1481,7 +1499,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
             <div className="flex items-center justify-between border-b border-white/5 pb-3">
               <h3 className="text-sm font-bold text-white/90 flex items-center gap-2">
                 <Plug className="text-primary" size={13} />
-                Pemasangan Ekstensi Browser
+                {tx(language, 'cap.extGuideTitle')}
               </h3>
               <button
                 type="button"
@@ -1494,10 +1512,10 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
 
             <div className="space-y-3 text-xs text-white/70">
               <div className="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1.5">
-                <span className="text-[11px] text-white/40 block">Folder Berkas Ekstensi:</span>
+                <span className="text-[11px] text-white/40 block">{tx(language, 'cap.extFolderLabel')}</span>
                 <div className="flex items-center justify-between gap-2">
                   <code className="font-mono text-[10px] text-primary truncate">
-                    {extInstall?.dir || 'Memeriksa folder...'}
+                    {extInstall?.dir || tx(language, 'cap.extFolderChecking')}
                   </code>
                   {extInstall?.dir && (
                     <button
@@ -1508,7 +1526,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                         setTimeout(() => setCopiedPath(false), 2000)
                       }}
                       className="btn btn-xs btn-ghost border border-white/10 rounded-lg shrink-0"
-                      title="Salin path folder"
+                      title={tx(language, 'cap.copyPathTitle')}
                     >
                       {copiedPath ? <CheckCircle2 size={10} className="text-info" /> : <Copy size={10} />}
                     </button>
@@ -1516,11 +1534,11 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                 </div>
               </div>
 
-              <p className="font-medium text-white/90">3 Langkah Mudah di Chrome / Brave / Edge:</p>
+              <p className="font-medium text-white/90">{tx(language, 'cap.extStepsTitle')}</p>
               <ol className="list-decimal list-inside space-y-1 pl-1 text-white/70">
-                <li>Buka <code className="font-mono text-primary px-1 py-0.5 rounded bg-black/40">chrome://extensions</code> di browser Anda.</li>
-                <li>Aktifkan sakelar <b>Developer mode</b> di pojok kanan atas.</li>
-                <li>Klik tombol <b>Load unpacked</b> dan pilih folder di atas.</li>
+                <li>{tx(language, 'cap.extStep1a')} <code className="font-mono text-primary px-1 py-0.5 rounded bg-black/40">chrome://extensions</code> {tx(language, 'cap.extStep1b')}</li>
+                <li>{tx(language, 'cap.extStep2a')} <b>Developer mode</b> {tx(language, 'cap.extStep2b')}</li>
+                <li>{tx(language, 'cap.extStep3a')} <b>Load unpacked</b> {tx(language, 'cap.extStep3b')}</li>
               </ol>
             </div>
 
@@ -1532,7 +1550,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                   className="btn btn-sm btn-ghost rounded-xl gap-1.5"
                 >
                   <FolderOpen size={11} />
-                  <span>Buka di File Manager</span>
+                  <span>{tx(language, 'cap.openInFileManager')}</span>
                 </button>
               )}
               <button
@@ -1540,7 +1558,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                 onClick={() => setExtGuideOpen(false)}
                 className="btn btn-sm btn-primary rounded-xl"
               >
-                Selesai
+                {tx(language, 'cap.done')}
               </button>
             </div>
           </div>
@@ -1554,7 +1572,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
             <div className="flex items-center justify-between border-b border-white/5 pb-3">
               <h3 className="text-sm font-bold text-white/90 flex items-center gap-2">
                 <Plug className="text-primary" size={13} />
-                Tambah Server MCP Kustom
+                {tx(language, 'cap.addCustomMcp')}
               </h3>
               <button
                 type="button"
@@ -1567,10 +1585,10 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
 
             <div className="space-y-3 text-xs">
               <div className="space-y-1">
-                <label className="font-semibold text-white/70">ID Server (kebab-case)</label>
+                <label className="font-semibold text-white/70">{tx(language, 'cap.mcpIdLabel')}</label>
                 <input
                   type="text"
-                  placeholder="contoh: sqlite-mcp"
+                  placeholder={tx(language, 'cap.mcpIdPh')}
                   value={newMcpForm.id}
                   onChange={(e) => setNewMcpForm({ ...newMcpForm, id: e.target.value })}
                   className="input input-sm input-bordered w-full rounded-xl bg-base-200 border-white/10 font-mono text-xs"
@@ -1578,10 +1596,10 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
               </div>
 
               <div className="space-y-1">
-                <label className="font-semibold text-white/70">Nama Tampilan</label>
+                <label className="font-semibold text-white/70">{tx(language, 'cap.mcpNameLabel')}</label>
                 <input
                   type="text"
-                  placeholder="contoh: SQLite Database Connector"
+                  placeholder={tx(language, 'cap.mcpNamePh')}
                   value={newMcpForm.name}
                   onChange={(e) => setNewMcpForm({ ...newMcpForm, name: e.target.value })}
                   className="input input-sm input-bordered w-full rounded-xl bg-base-200 border-white/10 text-xs"
@@ -1589,10 +1607,10 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
               </div>
 
               <div className="space-y-1">
-                <label className="font-semibold text-white/70">URL Endpoint Gateway</label>
+                <label className="font-semibold text-white/70">{tx(language, 'cap.mcpUrlLabel')}</label>
                 <input
                   type="text"
-                  placeholder="https://... atau http://localhost:..."
+                  placeholder={tx(language, 'cap.mcpUrlPh')}
                   value={newMcpForm.url}
                   onChange={(e) => setNewMcpForm({ ...newMcpForm, url: e.target.value })}
                   className="input input-sm input-bordered w-full rounded-xl bg-base-200 border-white/10 font-mono text-xs"
@@ -1600,10 +1618,10 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
               </div>
 
               <div className="space-y-1">
-                <label className="font-semibold text-white/70">Deskripsi Singkat</label>
+                <label className="font-semibold text-white/70">{tx(language, 'cap.mcpDescLabel')}</label>
                 <input
                   type="text"
-                  placeholder="Deskripsi alat atau scope akses..."
+                  placeholder={tx(language, 'cap.mcpDescPh')}
                   value={newMcpForm.description}
                   onChange={(e) => setNewMcpForm({ ...newMcpForm, description: e.target.value })}
                   className="input input-sm input-bordered w-full rounded-xl bg-base-200 border-white/10 text-xs"
@@ -1611,15 +1629,15 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
               </div>
 
               <div className="space-y-1">
-                <label className="font-semibold text-white/70">Header Auth (opsional, JSON)</label>
+                <label className="font-semibold text-white/70">{tx(language, 'cap.mcpHeadersLabel')}</label>
                 <input
                   type="text"
-                  placeholder='misal {"CONTEXT7_API_KEY": "..."}'
+                  placeholder={tx(language, 'cap.mcpHeadersPh')}
                   value={newMcpForm.headers}
                   onChange={(e) => setNewMcpForm({ ...newMcpForm, headers: e.target.value })}
                   className="input input-sm input-bordered w-full rounded-xl bg-base-200 border-white/10 font-mono text-xs"
                 />
-                <p className="text-[10px] text-white/40">Disimpan lokal + sidecar saja, tidak pernah ke chat/model.</p>
+                <p className="text-[10px] text-white/40">{tx(language, 'cap.mcpHeadersNote')}</p>
               </div>
             </div>
 
@@ -1629,14 +1647,14 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                 onClick={() => setAddMcpModalOpen(false)}
                 className="btn btn-sm btn-ghost rounded-xl"
               >
-                Batal
+                {tx(language, 'cap.cancel')}
               </button>
               <button
                 type="button"
                 onClick={handleSaveNewMcp}
                 className="btn btn-sm btn-primary rounded-xl"
               >
-                Simpan Connector
+                {tx(language, 'cap.saveConnector')}
               </button>
             </div>
           </div>
@@ -1650,7 +1668,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
             <div className="flex items-center justify-between border-b border-white/5 pb-3">
               <h3 className="text-sm font-bold text-white/90 flex items-center gap-2">
                 <Lock className="text-primary" size={13} />
-                Hubungkan Google Workspace
+                {tx(language, 'cap.connectGoogleTitle')}
               </h3>
               <button
                 type="button"
@@ -1663,7 +1681,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
 
             <div className="space-y-3 text-xs">
               <p className="text-white/60 leading-relaxed">
-                Masukkan Client ID dan Client Secret dari Google Cloud Console dengan scope Calendar, Drive, dan Gmail.
+                {tx(language, 'cap.googleOAuthDesc')}
               </p>
               <div className="space-y-1">
                 <label className="font-semibold text-white/70">Client ID</label>
@@ -1693,7 +1711,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                 onClick={() => setGoogleModalOpen(false)}
                 className="btn btn-sm btn-ghost rounded-xl"
               >
-                Batal
+                {tx(language, 'cap.cancel')}
               </button>
               <button
                 type="button"
@@ -1701,7 +1719,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                 onClick={handleGoogleConnect}
                 className="btn btn-sm btn-primary rounded-xl"
               >
-                {googleLoading ? 'Menghubungkan...' : 'Otorisasi Akun'}
+                {googleLoading ? tx(language, 'cap.connecting') : tx(language, 'cap.authorizeAccount')}
               </button>
             </div>
           </div>
@@ -1716,7 +1734,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
               <div className="flex items-center gap-2">
                 <Boxes className="text-primary" size={16} />
                 <h3 className="text-base font-bold text-white/90">
-                  {editingPlugin.mode === 'new' ? 'Buat Plugin Baru' : `Edit Plugin: ${pluginForm.name}`}
+                  {editingPlugin.mode === 'new' ? tx(language, 'cap.newPlugin') : tx(language, 'cap.editPlugin')(pluginForm.name)}
                 </h3>
               </div>
               <button
@@ -1731,21 +1749,21 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
             <div className="flex-1 overflow-y-auto custom-scrollbar space-y-4 pr-1">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-white/70">Nama Plugin</label>
+                  <label className="text-xs font-semibold text-white/70">{tx(language, 'cap.pluginName')}</label>
                   <input
                     type="text"
                     disabled={editingPlugin.mode === 'edit'}
-                    placeholder="misal: stock-checker"
+                    placeholder={tx(language, 'cap.pluginNamePh')}
                     value={pluginForm.name}
                     onChange={(e) => setPluginForm({ ...pluginForm, name: e.target.value })}
                     className="input input-sm input-bordered w-full rounded-xl bg-base-200 border-white/10 text-xs"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-white/70">Deskripsi Singkat</label>
+                  <label className="text-xs font-semibold text-white/70">{tx(language, 'cap.pluginDesc')}</label>
                   <input
                     type="text"
-                    placeholder="Fungsi utama plugin..."
+                    placeholder={tx(language, 'cap.pluginDescPh')}
                     value={pluginForm.description}
                     onChange={(e) => setPluginForm({ ...pluginForm, description: e.target.value })}
                     className="input input-sm input-bordered w-full rounded-xl bg-base-200 border-white/10 text-xs"
@@ -1755,7 +1773,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
 
               <div className="space-y-3 pt-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-white/70 uppercase tracking-wider">Aksi &amp; Kode JS</span>
+                  <span className="text-xs font-semibold text-white/70 uppercase tracking-wider">{tx(language, 'cap.actionsAndCode')}</span>
                   <button
                     type="button"
                     onClick={() =>
@@ -1769,7 +1787,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                     }
                     className="btn btn-xs btn-ghost border border-white/10 rounded-xl gap-1"
                   >
-                    <Plus size={9} /> Tambah Aksi
+                    <Plus size={9} /> {tx(language, 'cap.addAction')}
                   </button>
                 </div>
 
@@ -1778,7 +1796,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                     <div className="flex items-center gap-2">
                       <input
                         type="text"
-                        placeholder="Nama aksi (misal: query)"
+                        placeholder={tx(language, 'cap.actionNamePh')}
                         value={act.name}
                         onChange={(e) => {
                           const updated = [...pluginForm.actions]
@@ -1789,7 +1807,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                       />
                       <input
                         type="text"
-                        placeholder="Trigger hint..."
+                        placeholder={tx(language, 'cap.triggerHintPh')}
                         value={act.triggerHint}
                         onChange={(e) => {
                           const updated = [...pluginForm.actions]
@@ -1816,7 +1834,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                       <textarea
                         rows={6}
                         spellCheck={false}
-                        placeholder="// kode aksi JavaScript (query)"
+                        placeholder={tx(language, 'cap.actionCodePh')}
                         value={act.code}
                         onChange={(e) => {
                           const updated = [...pluginForm.actions]
@@ -1830,7 +1848,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                     {pluginSyntaxErrors[index] && (
                       <p className="text-xs text-error font-mono flex items-center gap-1.5">
                         <AlertTriangle size={11} />
-                        Syntax Error: {pluginSyntaxErrors[index]}
+                        {tx(language, 'cap.syntaxError')(pluginSyntaxErrors[index])}
                       </p>
                     )}
                   </div>
@@ -1844,14 +1862,14 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                 onClick={() => setEditingPlugin(null)}
                 className="btn btn-sm btn-ghost rounded-xl"
               >
-                Batal
+                {tx(language, 'cap.cancel')}
               </button>
               <button
                 type="button"
                 onClick={handleSavePlugin}
                 className="btn btn-sm btn-primary rounded-xl"
               >
-                Simpan Plugin
+                {tx(language, 'cap.savePlugin')}
               </button>
             </div>
           </div>
@@ -1866,7 +1884,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
               <div className="flex items-center gap-2">
                 <Brain className="text-primary" size={16} />
                 <h3 className="text-base font-bold text-white/90">
-                  {editingSkill.isNew ? 'Buat Skill Baru' : `Edit Skill: ${skillFormName}`}
+                  {editingSkill.isNew ? tx(language, 'cap.newSkillTitle') : tx(language, 'cap.editSkill')(skillFormName)}
                 </h3>
               </div>
               <button
@@ -1880,11 +1898,11 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
 
             <div className="flex-1 overflow-y-auto custom-scrollbar space-y-4 pr-1">
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-white/70">Nama Skill (kebab-case)</label>
+                <label className="text-xs font-semibold text-white/70">{tx(language, 'cap.skillNameLabel')}</label>
                 <input
                   type="text"
                   disabled={!editingSkill.isNew}
-                  placeholder="misal: git-commit-helper"
+                  placeholder={tx(language, 'cap.skillNamePh')}
                   value={skillFormName}
                   onChange={(e) => setSkillFormName(e.target.value)}
                   className="input input-sm input-bordered w-full rounded-xl bg-base-200 border-white/10 font-mono text-xs"
@@ -1892,7 +1910,7 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-white/70">Isi Berkas SKILL.md</label>
+                <label className="text-xs font-semibold text-white/70">{tx(language, 'cap.skillFileLabel')}</label>
                 <div className="rounded-xl overflow-hidden border border-white/10">
                   <textarea
                     rows={14}
@@ -1912,14 +1930,14 @@ Petunjuk eksekusi dan batasan tindakan untuk AI:
                 onClick={() => setEditingSkill(null)}
                 className="btn btn-sm btn-ghost rounded-xl"
               >
-                Batal
+                {tx(language, 'cap.cancel')}
               </button>
               <button
                 type="button"
                 onClick={handleSaveSkill}
                 className="btn btn-sm btn-primary rounded-xl"
               >
-                Simpan Skill
+                {tx(language, 'cap.saveSkill')}
               </button>
             </div>
           </div>

@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useCallback, useRef, useEffect } from 'react'
+import { createContext, useState, useContext, useCallback, useRef, useEffect } from 'react'
 import { ShieldAlert } from 'lucide-react'
 import { getAlwaysAllowedPaths, addAlwaysAllowedPath } from '../api/db'
 
@@ -70,7 +70,7 @@ export const ApprovalProvider = ({ children }) => {
   const [alwaysAllowedPaths, setAlwaysAllowedPaths] = useState([])
   // Grant per family: session (RAM, hilang saat reload) + always (localStorage).
   const sessionGrantedRef = useRef(new Set())
-  const [alwaysTools, setAlwaysTools] = useState(loadAlwaysTools)
+  const [, setAlwaysTools] = useState(loadAlwaysTools)
 
   const alwaysAllowedPathsRef = useRef(alwaysAllowedPaths)
   useEffect(() => {

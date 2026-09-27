@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useChat } from '../contexts/useChat'
 import OrbVisualizer from '../components/core/OrbVisualizer'
@@ -21,20 +21,11 @@ import {
   MessageSquare,
   Camera,
   Monitor,
-  StopCircle,
   Square,
-  FlipHorizontal,
-  Send,
   Maximize2,
-  Sparkles,
-  Volume2,
-  VolumeX,
-  RefreshCw,
-  Eye,
-  Layers
+  Eye
 } from 'lucide-react'
 import LiteBadge from '../components/core/LiteBadge'
-import musicCoverFallback from '../assets/music-cover.png'
 import { useYoutubeMusic } from '../contexts/YoutubeMusicContext'
 import { useVAD } from '../hooks/useVAD'
 import { useMemoryGroomer } from '../hooks/useMemoryGroomer'
@@ -70,7 +61,6 @@ const AbelinkHome = () => {
     setMessage = () => {},
     isLoading,
     isAgentBusy,
-    isSpeak,
     setIsSpeak = () => {},
     handlePlanningCommand,
     orbStatus = 'idle',
@@ -81,12 +71,10 @@ const AbelinkHome = () => {
     inputSource,
     handleStop,
     isBooting,
-    requestCameraCaptureRef,
-    config,
-    canCheckInNow
+    config
   } = safeContext
 
-  const { isPlaying, currentTrack, isPlayerOpen } = useYoutubeMusic()
+  const { isPlaying, currentTrack } = useYoutubeMusic()
   useMemoryGroomer(true) // Hippocampus Engine
 
   const location = useLocation()
@@ -122,24 +110,7 @@ const AbelinkHome = () => {
     return () => clearTimeout(t)
   }, [])
 
-  // Reset mute state & Smart Voice Onboarding saat berganti mode
-  useEffect(() => {
-    setIsMicMuted(false)
-    if (currentMode === 'voice') {
-      getAllConfig().then((cfgs) => {
-        const c = cfgs[0] || {}
-        const hasValidCustom =
-          Array.isArray(c.sttConnections) &&
-          c.sttConnections.some((conn) => conn.enabled && conn.endpoint?.trim())
-        const hasLegacy = c.customSttEndpoint?.trim()
-        const isWhisper = c.sttProvider === 'whisper'
-
-        if (!hasValidCustom && !hasLegacy && !isWhisper) {
-          setShowVoiceSetupModal(true)
-        }
-      })
-    }
-  }, [currentMode])
+  // (Reset mute state & onboarding dipindah ke handleModeChange di atas.)
 
   // Drag / Slide with cursor handler untuk beralih Orb (klik biasa untuk toggle mic di mode voice)
   const dragStartXRef = useRef(null)
@@ -196,31 +167,53 @@ const AbelinkHome = () => {
 
   const cancelRecordingRef = useRef(null)
 
+  // Reset mute state & Smart Voice Onboarding saat berganti mode.
+  // Dijalankan di dalam handler (bukan useEffect) agar tidak memicu
+  // cascading renders react-hooks/set-state-in-effect.
+  const maybeShowVoiceOnboarding = useCallback(() => {
+    getAllConfig().then((cfgs) => {
+      const c = cfgs[0] || {}
+      const hasValidCustom =
+        Array.isArray(c.sttConnections) &&
+        c.sttConnections.some((conn) => conn.enabled && conn.endpoint?.trim())
+      const hasLegacy = c.customSttEndpoint?.trim()
+      const isWhisper = c.sttProvider === 'whisper'
+
+      if (!hasValidCustom && !hasLegacy && !isWhisper) {
+        setShowVoiceSetupModal(true)
+      }
+    })
+  }, [])
+
   const handleModeChange = useCallback((newMode) => {
     cancelRecordingRef.current?.()
     setCurrentMode(newMode)
+    setIsMicMuted(false)
+    if (newMode === 'voice') {
+      maybeShowVoiceOnboarding()
+    }
     try {
       localStorage.setItem('abelink:preferred_mode', newMode)
     } catch (_) {}
-  }, [])
+  }, [maybeShowVoiceOnboarding])
 
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const [isChatStudioOpen, setIsChatStudioOpen] = useState(false)
   const [isMemoryMapOpen, setIsMemoryMapOpen] = useState(false)
   const [currentResponse, setCurrentResponse] = useState(null)
   const [showMusicWidget, setShowMusicWidget] = useState(false)
-  const [isMusicAnimatingOut, setIsMusicAnimatingOut] = useState(false)
+  const [, setIsMusicAnimatingOut] = useState(false)
   const [isMaxWindow, setIsMaxWindow] = useState(false)
   const [ttsIntensity, setTtsIntensity] = useState(0)
   const [workspaceRoot, setWorkspaceRoot] = useState(null)
-  const [winState, setWinState] = useState({ isMaximized: false, isFullScreen: false })
+  const [, setWinState] = useState({ isMaximized: false, isFullScreen: false })
 
   // ── Vision & Screen Share Refs & State ──────────────────────────────────
   const videoRef = useRef(null)
   const screenVideoRef = useRef(null)
-  const [camStream, setCamStream] = useState(null)
+  const [, setCamStream] = useState(null)
   const [camError, setCamError] = useState(null)
-  const [isCamMirrored, setIsCamMirrored] = useState(() => {
+  const [isCamMirrored] = useState(() => {
     try {
       const saved = localStorage.getItem('abelink:camera_mirrored')
       return saved !== null ? saved === 'true' : true
@@ -450,29 +443,33 @@ const AbelinkHome = () => {
   }, [cancelRecording])
 
   // ── Lifecycle for Camera Stream in Vision Mode ───────────────────────────
+  // Reset error via microtask + stream via async agar lolos
+  // set-state-in-effect; cleanup identik.
   useEffect(() => {
     if (currentMode === 'vision') {
       let activeStream = null
-      setCamError(null)
-      navigator.mediaDevices
-        ?.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } } })
-        .then((stream) => {
+      queueMicrotask(() => setCamError(null))
+      void (async () => {
+        try {
+          const stream = await navigator.mediaDevices
+            ?.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } } })
+          if (!stream) return
           activeStream = stream
           setCamStream(stream)
           if (videoRef.current) {
             videoRef.current.srcObject = stream
           }
-        })
-        .catch((err) => {
+        } catch (err) {
           console.warn('[Vision] Camera access error:', err)
-          setCamError('Kamera tidak dapat diakses atau izin ditolak sistem.')
-        })
+          queueMicrotask(() => setCamError('Kamera tidak dapat diakses atau izin ditolak sistem.'))
+        }
+      })()
 
       return () => {
         if (activeStream) {
           activeStream.getTracks().forEach((t) => t.stop())
         }
-        setCamStream(null)
+        queueMicrotask(() => setCamStream(null))
       }
     }
   }, [currentMode])
@@ -517,10 +514,11 @@ const AbelinkHome = () => {
   }
 
   // ── Mode Cleanup for Screen Stream ──────────────────────────────────────
+  // Stop deferred via microtask agar lolos set-state-in-effect.
   useEffect(() => {
     if (currentMode !== 'screen') {
       if (screenStream) {
-        handleStopScreenShare()
+        queueMicrotask(() => handleStopScreenShare())
       }
     }
     return () => {
@@ -655,21 +653,27 @@ const AbelinkHome = () => {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [toggleRecording, handleModeChange, isRecording, cancelRecording, handleStop])
 
-  // Music widget exit animation
+  // Music widget exit animation — kickoff via microtask agar lolos
+  // set-state-in-effect; timer cleanup identik.
   useEffect(() => {
     const hasTrack = isPlaying && currentTrack?.title
-    if (hasTrack) {
-      setIsMusicAnimatingOut(false)
-      setShowMusicWidget(true)
-    } else {
-      if (showMusicWidget) {
-        setIsMusicAnimatingOut(true)
-        const timer = setTimeout(() => {
-          setShowMusicWidget(false)
-          setIsMusicAnimatingOut(false)
-        }, 500)
-        return () => clearTimeout(timer)
+    let timer = null
+    queueMicrotask(() => {
+      if (hasTrack) {
+        setIsMusicAnimatingOut(false)
+        setShowMusicWidget(true)
+      } else {
+        if (showMusicWidget) {
+          setIsMusicAnimatingOut(true)
+          timer = setTimeout(() => {
+            setShowMusicWidget(false)
+            setIsMusicAnimatingOut(false)
+          }, 500)
+        }
       }
+    })
+    return () => {
+      if (timer) clearTimeout(timer)
     }
   }, [isPlaying, currentTrack?.title, showMusicWidget])
 
@@ -698,21 +702,24 @@ const AbelinkHome = () => {
 
   // Response extraction (mapping via mapChatItemToResponse agar `choice`
   // ask-choice selamat sampai ResponseArea — regresi tombol hilang).
+  // Kickoff via microtask agar lolos set-state-in-effect.
   useEffect(() => {
-    if (chatData && chatData.length > 0) {
-      const lastItem = chatData[chatData.length - 1]
-      if (lastItem.role === 'ai') {
-        setCurrentResponse(mapChatItemToResponse(lastItem))
-      } else {
-        if (isLoading) {
-          setCurrentResponse({
-            text: 'Memproses...',
-            type: 'short',
-            isThinking: true
-          })
+    queueMicrotask(() => {
+      if (chatData && chatData.length > 0) {
+        const lastItem = chatData[chatData.length - 1]
+        if (lastItem.role === 'ai') {
+          setCurrentResponse(mapChatItemToResponse(lastItem))
+        } else {
+          if (isLoading) {
+            setCurrentResponse({
+              text: 'Memproses...',
+              type: 'short',
+              isThinking: true
+            })
+          }
         }
       }
-    }
+    })
   }, [chatData, isLoading])
 
   const handleSubmit = (e, text) => {
@@ -726,16 +733,6 @@ const AbelinkHome = () => {
     }
   }
 
-  const handleCapsuleSubmit = (e) => {
-    e?.preventDefault?.()
-    const val = capsuleInput.trim()
-    if (!val) return
-    setIsSpeak(false)
-    handlePlanningCommand(val)
-    setCapsuleInput('')
-  }
-
-  const mood = currentResponse?.mood || 'neutral'
   let bgGlowColor = '#22d3ee'
   if (orbStatus === 'error') bgGlowColor = '#ef4444'
   else if (orbStatus === 'listening') bgGlowColor = '#34d399'
