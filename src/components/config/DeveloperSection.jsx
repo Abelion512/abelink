@@ -1,9 +1,13 @@
+import { tx } from '../../api/locale'
+
 export default function DeveloperSection({
   activeSection,
-  devHarness,
-  setDevHarness,
-  onDumpPrompt
+  devHarness: _devHarness,
+  setDevHarness: _setDevHarness,
+  onDumpPrompt,
+  language = 'en'
 }) {
+  const t = (k) => tx(language, k)
   return (
     <section
       id="cfg-developer"
@@ -11,23 +15,23 @@ export default function DeveloperSection({
     >
       <div>
         <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
-          Developer
+          {t('dev.title')}
         </h2>
       </div>
 
       <div className="space-y-2">
-        <p className="text-sm font-semibold">Debug Logging (JSONL)</p>
+        <p className="text-sm font-semibold">{t('dev.debugLogging')}</p>
         <p className="text-xs opacity-60">
-          Rekam reasoning &amp; tool-call ke file JSONL di folder data aplikasi. Selalu aktif (100% lokal, tanpa cloud). Rotasi otomatis 50MB.
+          {t('dev.debugDesc')}
         </p>
-        <label className="flex items-center gap-3 cursor-pointer w-fit opacity-50" title="Logging selalu aktif — toggle ini peninggalan versi lama">
+        <label className="flex items-center gap-3 cursor-pointer w-fit opacity-50" title={t('dev.alwaysOnTitle')}>
           <input
             type="checkbox"
             className="toggle toggle-warning toggle-sm"
             checked
             readOnly
           />
-          <span className="text-sm font-mono">AKTIF (selalu)</span>
+          <span className="text-sm font-mono">{t('dev.alwaysOn')}</span>
         </label>
       </div>
 
@@ -37,10 +41,10 @@ export default function DeveloperSection({
           className="btn btn-outline btn-sm rounded-xl font-mono text-xs"
           onClick={onDumpPrompt}
         >
-          Dump System Prompt (Audit)
+          {t('dev.dumpPrompt')}
         </button>
         <a href="#/trajectory" className="btn btn-outline btn-sm rounded-xl font-mono text-xs">
-          Buka Trajectory
+          {t('dev.openTrajectory')}
         </a>
       </div>
     </section>

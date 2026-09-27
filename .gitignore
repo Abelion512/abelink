@@ -10,6 +10,10 @@
 /sidecar/node_modules/*
 !/sidecar/node_modules/electron/
 
+# Clone referensi pihak ketiga (sst/opencode) untuk riset pola TUI.
+# Bukan bagian build — jangan pernah ikut ter-commit.
+/opencode/
+
 # ─────────────────────────────────────────────────────────────────
 # Build output
 # ─────────────────────────────────────────────────────────────────
@@ -50,6 +54,9 @@
 .env.production.local
 *.token
 *token*.json
+# MCP server config lokal: memuat API key (mis. TestSprite) dalam bentuk polos.
+# Tiap mesin punya file sendiri; jangan pernah ikut ter-commit.
+mcp.json
 oauth*.json
 client_secret*.json
 credentials.json

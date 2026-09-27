@@ -710,6 +710,38 @@ export const DEFERRED_GROUP_SPECS = {
         queryFormat: 'kosong',
         examples: [{ query: '', description: 'Kembali ke lagu sebelumnya' }],
         tags: ['music', 'prev']
+      },
+      'music-loop': {
+        summary: 'Mengatur mode repeat pemutar musik.',
+        queryFormat: 'one atau one <N>x atau all atau off',
+        examples: [
+          { query: 'one', description: 'Ulangi lagu saat ini' },
+          { query: 'one 3x', description: 'Ulangi lagu saat ini 3 kali' },
+          { query: 'all', description: 'Ulangi seluruh antrean' },
+          { query: 'off', description: 'Matikan repeat' }
+        ],
+        tags: ['music', 'loop', 'repeat']
+      },
+      'music-queue-add': {
+        summary: 'Menambahkan lagu ke antrean tanpa autoplay (kecuali antrean kosong).',
+        queryFormat: '"judul lagu"[ xN]',
+        examples: [
+          { query: 'Komang', description: 'Tambah satu lagu ke antrean' },
+          { query: 'Lagu A x2', description: 'Tambah lagu dengan repeat 2 ke antrean' }
+        ],
+        tags: ['music', 'queue', 'add', 'enqueue']
+      },
+      'music-queue-remove': {
+        summary: 'Menghapus lagu dari antrean berdasarkan judul atau id.',
+        queryFormat: 'judul_lagu atau id',
+        examples: [{ query: 'Komang', description: 'Hapus lagu dari antrean' }],
+        tags: ['music', 'queue', 'remove', 'delete']
+      },
+      'music-queue-clear': {
+        summary: 'Mengosongkan seluruh antrean lagu.',
+        queryFormat: 'kosong',
+        examples: [{ query: '', description: 'Hapus semua lagu di antrean' }],
+        tags: ['music', 'queue', 'clear']
       }
     }
   },
@@ -1136,8 +1168,26 @@ export async function resolveReadToolsQuery(query, { customGroups = null } = {})
     }
   }
 
-  // 2. Cek apakah query adalah nama grup terdaftar (case-insensitive)
+  // 1b. Grup DORMAN (mis. pc_automation, keputusan owner 2026-09-27): jawab
+  // jujur SEBELUM pencocokan grup biasa, bukan miss senyap — agen tahu
+  // grupnya ada dan bagaimana keadaannya.
+  const DORMANT_GROUPS = {
+    pc_automation:
+      'Grup otomasi PC visual (os-read/os-click/os-type/os-key/os-scroll) DORMAN: tidak direkrut ke prompt karena belum pernah dipakai agen secara nyata (0 call di harness) dan menambah permukaan risiko tanpa pemakaian. os-open (buka file/URL) dan emergency-stop TETAP tersedia. Pengaktifan: keputusan owner + set dormant:false pada group pc_automation di group-tools.js (jalur X11; Wayland belum didukung).'
+  }
   const normalizedLower = raw.toLowerCase()
+  const dormantHit = DORMANT_GROUPS[normalizedLower]
+  if (dormantHit) {
+    return {
+      success: false,
+      isDormant: true,
+      groupName: normalizedLower,
+      available_sources: Object.keys(DEFERRED_GROUP_SPECS),
+      message: dormantHit
+    }
+  }
+
+  // 2. Cek apakah query adalah nama grup terdaftar (case-insensitive)
   const matchedGroupName = Object.keys(DEFERRED_GROUP_SPECS).find(
     (g) => g.toLowerCase() === normalizedLower
   )

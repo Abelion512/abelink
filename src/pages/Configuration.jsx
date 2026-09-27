@@ -1,11 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import {
-  getAllMemory,
   getAllConfig,
   saveConfiguration,
   db
 } from '../api/db'
-import { getExtractor } from '../api/vectorMemory'
 import { useLocation } from 'react-router-dom'
 import { useConfirm } from '../hooks/useConfirm'
 import { useChat } from '../contexts/useChat'
@@ -21,12 +19,13 @@ import DeveloperSection from '../components/config/DeveloperSection'
 import { getHardwareSttSupport, transcribeToEndpoint } from '../api/sttRouter'
 import { loadWhisper } from '../api/localWhisper'
 import { DEFAULT_STT_MODEL } from '../api/sttGuard'
+import { tx, localeTag } from '../api/locale'
 
 let mediaInfoLogged = false
 
 const Configuration = ({
   isFirstSetup = false,
-  onSetupComplete = null,
+  onSetupComplete: _onSetupComplete = null,
   initialLegacyImport = false
 }) => {
   const [config, setConfig] = useState({
@@ -60,8 +59,6 @@ const Configuration = ({
 
   const [audioDevices, setAudioDevices] = useState([])
   const [videoDevices, setVideoDevices] = useState([])
-  const [isDownloadingModel, setIsDownloadingModel] = useState(false)
-  const [downloadProgress, setDownloadProgress] = useState(0)
   const [fullMode, setFullMode] = useState(() => {
     try {
       return localStorage.getItem('abelink:fullmode') === '1'
@@ -70,13 +67,19 @@ const Configuration = ({
     }
   })
   const { confirm, ModalComponent } = useConfirm()
-  const chatContext = useChat()
+  // Setter dari useState stabil — dep pada fn ini, bukan pada objek context
+  // yang identitasnya berubah tiap render (menambahkannya = loop autosave).
+  const chatSetConfig = useChat()?.setConfig
 
   const [activeSection, setActiveSection] = useState('cfg-general')
   const [saveStatus, setSaveStatus] = useState(null)
   const savedSnapshotRef = useRef('')
   const hydratedRef = useRef(false)
   const autosaveTimerRef = useRef(null)
+  // Snapshot initial state untuk hydration mount-time (efek [] membaca ini,
+  // bukan `config`, agar exhaustive-deps terpenuhi tanpa loop).
+  const initialConfigRef = useRef(null)
+  if (initialConfigRef.current === null) initialConfigRef.current = config
   const devicesLoadedRef = useRef(false)
   const legacyImportFiredRef = useRef(false)
   const [devHarness, setDevHarness] = useState(
@@ -96,20 +99,20 @@ const Configuration = ({
 
   const handleDownloadWhisper = async () => {
     setWhisperLoading(true)
-    setWhisperProgress('Mengunduh model Whisper lokal...')
+    setWhisperProgress(tx(config, 'cfg.whisperDownloading'))
     try {
       await loadWhisper((progress) => {
         if (progress?.status === 'progress' && progress?.total) {
           const pct = Math.round((progress.loaded / progress.total) * 100)
-          setWhisperProgress(`Mengunduh ${progress.file || 'model'}: ${pct}%`)
+          setWhisperProgress(tx(config, 'cfg.downloadingPct')(progress.file || 'model', pct))
         } else if (progress?.status === 'done') {
-          setWhisperProgress('Model berhasil dimuat ke memori.')
+          setWhisperProgress(tx(config, 'cfg.whisperLoadedMem'))
         }
       }, config.localWhisperModel || 'whisper-small')
       setWhisperLoaded(true)
-      setWhisperProgress('Model Whisper lokal siap digunakan!')
+      setWhisperProgress(tx(config, 'cfg.whisperReady'))
     } catch (err) {
-      setWhisperProgress(`Gagal memuat model: ${err.message}`)
+      setWhisperProgress(tx(config, 'cfg.whisperLoadFailed')(err.message))
     } finally {
       setWhisperLoading(false)
     }
@@ -119,7 +122,7 @@ const Configuration = ({
     if (!conn.endpoint || !conn.endpoint.trim()) {
       setConnTestResults((prev) => ({
         ...prev,
-        [conn.id]: { ok: false, msg: 'Endpoint URL belum diisi.' }
+        [conn.id]: { ok: false, msg: tx(config, 'cfg.connNoEndpoint') }
       }))
       return
     }
@@ -144,7 +147,7 @@ const Configuration = ({
         [conn.id]: {
           ok: true,
           latency,
-          msg: `Aktif (${latency}ms): "${text || 'Audio diterima'}"`
+          msg: tx(config, 'cfg.connActive')(latency, text)
         }
       }))
     } catch (err) {
@@ -200,7 +203,27 @@ const Configuration = ({
   }
 
   useEffect(() => {
-    loadConfig()
+    // Mount-time hydration: initial config dibaca via ref (efek jalan sekali),
+    // jadi tidak ada dep eksternal — behavior-identical, tanpa loop.
+    const hydrate = async () => {
+      const data = await getAllConfig()
+      if (data.length > 0) {
+        const merged = {
+          ...initialConfigRef.current,
+          ...data[0],
+          effortLevel: data[0].effortLevel || 'auto',
+          aiProvider: data[0].aiProvider || 'gemini-web',
+          geminiWebModel: data[0].geminiWebModel || 'gemini-latest',
+          micDeviceId: data[0].micDeviceId || 'default',
+          awarenessEnabled: data[0].awarenessEnabled ?? true,
+          sessionCompactionEnabled: data[0].sessionCompactionEnabled ?? true
+        }
+        setConfig(merged)
+        savedSnapshotRef.current = JSON.stringify(merged)
+      }
+      hydratedRef.current = true
+    }
+    hydrate()
   }, [])
 
   useEffect(() => {
@@ -214,25 +237,6 @@ const Configuration = ({
     }
   }, [activeSection])
 
-  const loadConfig = async () => {
-    const data = await getAllConfig()
-    if (data.length > 0) {
-      const merged = {
-        ...config,
-        ...data[0],
-        effortLevel: data[0].effortLevel || 'auto',
-        aiProvider: data[0].aiProvider || 'gemini-web',
-        geminiWebModel: data[0].geminiWebModel || 'gemini-latest',
-        micDeviceId: data[0].micDeviceId || 'default',
-        awarenessEnabled: data[0].awarenessEnabled ?? true,
-        sessionCompactionEnabled: data[0].sessionCompactionEnabled ?? true
-      }
-      setConfig(merged)
-      savedSnapshotRef.current = JSON.stringify(merged)
-    }
-    hydratedRef.current = true
-  }
-
   useEffect(() => {
     if (!hydratedRef.current || isFirstSetup) return
     const snap = JSON.stringify(config)
@@ -245,7 +249,7 @@ const Configuration = ({
         const eff = config
         await saveConfiguration(eff)
         savedSnapshotRef.current = JSON.stringify(eff)
-        if (chatContext?.setConfig) chatContext.setConfig([eff])
+        if (chatSetConfig) chatSetConfig([eff])
         setSaveStatus({ state: 'saved', at: new Date() })
       } catch (e) {
         console.error('[Config] Autosave gagal:', e)
@@ -253,9 +257,11 @@ const Configuration = ({
       }
     }, 700)
     return () => clearTimeout(autosaveTimerRef.current)
-  }, [config, isFirstSetup])
+  }, [config, isFirstSetup, chatSetConfig])
 
-  const handleImportLegacy = async () => {
+  // useCallback agar efek legacy-import di bawah stabil; one-shot dijaga
+  // legacyImportFiredRef sehingga perubahan identitas aman (tanpa re-fire).
+  const handleImportLegacy = useCallback(async () => {
     try {
       const pick = await window.api?.legacyImportPickAndRead?.()
       if (!pick?.content) return
@@ -263,34 +269,34 @@ const Configuration = ({
       const { importInto } = await import('dexie-export-import')
       await importInto(db, parsed, { overwriteValues: true })
       await confirm({
-        title: 'Impor Berhasil',
-        message: 'Data lama sudah digabung ke database ini. Halaman akan dimuat ulang.',
+        title: tx(config, 'cfg.importOkTitle'),
+        message: tx(config, 'cfg.importOkMsg'),
         hideCancel: true,
-        confirmText: 'Muat Ulang'
+        confirmText: tx(config, 'cfg.reload')
       })
       window.location.reload()
     } catch (err) {
       if (String(err).includes('__canceled__')) return
       console.error('[Config] Import legacy gagal:', err)
       await confirm({
-        title: 'Impor Gagal',
+        title: tx(config, 'cfg.importFailTitle'),
         message: String(err?.message || err),
         isError: true,
         hideCancel: true,
-        confirmText: 'Tutup'
+        confirmText: tx(config, 'cfg.close')
       })
     }
-  }
+  }, [config, confirm])
 
   const handleDumpPrompt = async () => {
     const { getLastSystemPrompt } = await import('../api/ai/planning')
     const prompt = getLastSystemPrompt()
     if (!prompt) {
       await confirm({
-        title: 'Dump System Prompt',
-        message: 'Belum ada prompt tersimpan - jalankan satu giliran obrolan dulu.',
+        title: tx(config, 'cfg.dumpTitle'),
+        message: tx(config, 'cfg.dumpEmpty'),
         hideCancel: true,
-        confirmText: 'Tutup'
+        confirmText: tx(config, 'cfg.close')
       })
       return
     }
@@ -305,15 +311,13 @@ const Configuration = ({
       !!ownerName &&
       new RegExp(`\\b(${ownerName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})\\b`, 'i').test(prompt)
     await confirm({
-      title: 'Dump System Prompt',
+      title: tx(config, 'cfg.dumpTitle'),
       message:
-        `Panjang: ${prompt.length} chars.${copied ? ' Disalin ke clipboard.' : ' Clipboard tidak tersedia.'}` +
-        (leak
-          ? `\n\nPERINGATAN: terdeteksi nama ${config.ownerName || 'owner'} di prompt padahal ownerName kosong - lacak blok sumbernya lewat isi clipboard.`
-          : ''),
+        tx(config, 'cfg.dumpLen')(prompt.length, copied) +
+        (leak ? tx(config, 'cfg.dumpLeakWarn')(config.ownerName) : ''),
       isError: leak,
       hideCancel: true,
-      confirmText: 'Tutup'
+      confirmText: tx(config, 'cfg.close')
     })
   }
 
@@ -334,14 +338,15 @@ const Configuration = ({
         )
       }
     }
-  }, [initialLegacyImport, location.search])
+  // legacyImportFiredRef guard membuat re-run aman (one-shot).
+  }, [initialLegacyImport, location.search, handleImportLegacy])
 
   const handleClearAllChat = async () => {
     const result = await confirm({
-      title: 'Hapus Semua Chat?',
-      message: 'Semua riwayat sesi chat akan dihapus permanen dan tidak bisa dikembalikan.',
+      title: tx(config, 'cfg.clearChatTitle'),
+      message: tx(config, 'cfg.clearChatMsg'),
       isError: true,
-      confirmText: 'Ya, Hapus Semua'
+      confirmText: tx(config, 'cfg.clearChatYes')
     })
 
     if (result.isConfirmed) {
@@ -397,16 +402,13 @@ const Configuration = ({
           onNavigate={setActiveSection}
           occupation={config.occupation}
           isDevMode={devHarness}
+          language={config.language}
         />
         <div className="flex-1 overflow-y-auto overflow-x-hidden min-w-0 custom-scrollbar">
           <div className="p-6 sm:p-8 w-full">
             {/* Page Header */}
             <header className="flex items-center justify-between gap-4 mb-8 pb-4 border-b border-white/[0.06]">
-              <div className="flex items-center gap-3.5">
-                <div>
-                  <h1 className="text-xl font-bold tracking-tight text-white/90">Pengaturan Abelink</h1>
-                </div>
-              </div>
+              <div className="flex items-center gap-3.5"></div>
               <div className="flex items-center gap-2">
                 {saveStatus && !isFirstSetup && (
                   <span
@@ -419,12 +421,12 @@ const Configuration = ({
                     }`}
                   >
                     {saveStatus.state === 'pending'
-                      ? 'Menunggu simpan…'
+                      ? tx(config, 'cfg.savedWaiting')
                       : saveStatus.state === 'saving'
-                        ? 'Menyimpan…'
+                        ? tx(config, 'cfg.savedSaving')
                         : saveStatus.state === 'error'
-                          ? 'Gagal autosave'
-                          : `Tersimpan ${saveStatus.at.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`}
+                          ? tx(config, 'cfg.savedError')
+                          : tx(config, 'cfg.savedAt')(saveStatus.at.toLocaleTimeString(localeTag(config), { hour: '2-digit', minute: '2-digit' }))}
                   </span>
                 )}
               </div>
@@ -489,7 +491,7 @@ const Configuration = ({
             >
               <div>
                 <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
-                  Capabilities &amp; Integrations
+                  {tx(config, 'cfg.capabilitiesTitle')}
                 </h2>
               </div>
 
@@ -501,6 +503,7 @@ const Configuration = ({
                 handleBuiltinPluginChange={handleBuiltinPluginChange}
                 handleRtkCompressChange={handleRtkCompressChange}
                 isDevMode={devHarness}
+                language={config.language}
               />
             </div>
 
@@ -519,6 +522,7 @@ const Configuration = ({
                   onClearAllChat={handleClearAllChat}
                   onExportChat={handleExportChat}
                   onImportLegacy={handleImportLegacy}
+                  language={config.language}
                 />
 
                 <DeveloperSection
@@ -526,23 +530,11 @@ const Configuration = ({
                   devHarness={devHarness}
                   setDevHarness={setDevHarness}
                   onDumpPrompt={handleDumpPrompt}
+                  language={config.language}
                 />
               </>
             )}
 
-            {isDownloadingModel && (
-              <div className="w-full max-w-xs my-4 ml-auto">
-                <div className="flex justify-between text-xs mb-1">
-                  <span>Mengunduh Model Embeddings...</span>
-                  <span>{downloadProgress}%</span>
-                </div>
-                <progress
-                  className="progress progress-primary w-full"
-                  value={downloadProgress}
-                  max="100"
-                ></progress>
-              </div>
-            )}
           </div>
         </div>
         <ModalComponent />

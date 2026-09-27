@@ -18,6 +18,7 @@ export const fetchAI = async (
   let override = configOverride
 
   let onToken = null
+  let transport = null
   if (
     signalOrOptions &&
     typeof signalOrOptions === 'object' &&
@@ -29,6 +30,7 @@ export const fetchAI = async (
     schema = signalOrOptions.jsonSchema ?? jsonSchema
     override = signalOrOptions.configOverride ?? configOverride
     onToken = typeof signalOrOptions.onToken === 'function' ? signalOrOptions.onToken : null
+    transport = signalOrOptions.transport || signalOrOptions.fetchAI || null
   }
   if (!onToken && typeof onTokenPositional === 'function') onToken = onTokenPositional
 
@@ -143,11 +145,11 @@ export const fetchAI = async (
     }
     releaseTokenEarly = releaseToken
 
-    const fetchTransport = api?.fetchAI || globalThis.__ABELINK_AI_FETCH__
+    const fetchTransport = transport || api?.fetchAI || globalThis.__ABELINK_AI_FETCH__
     if (!fetchTransport) {
       hasResolved = true
       releaseToken()
-      reject(new Error('AI transport tidak tersedia (window.api.fetchAI dan __ABELINK_AI_FETCH__ tidak terpasang).'))
+      reject(new Error('AI transport tidak tersedia (window.api.fetchAI, transport session, dan __ABELINK_AI_FETCH__ tidak terpasang).'))
       return
     }
 
@@ -308,7 +310,7 @@ export const cleanAndParse = (rawResponse) => {
       return JSON.parse(cleaned)
     } catch (_) {}
 
-    cleaned = cleaned.replace(/\\(?!(["\\\/bfnrt]|u[a-fA-F0-9]{4}))/g, '\\\\')
+    cleaned = cleaned.replace(/\\(?!(["\\/bfnrt]|u[a-fA-F0-9]{4}))/g, '\\\\')
 
     try {
       return JSON.parse(cleaned)
@@ -342,7 +344,7 @@ export const cleanAndParse = (rawResponse) => {
       const lastResort = rawResponse.trim().replace(/^\xEF\xBB\xBF/, '')
       const match = lastResort.match(/\{[\s\S]*\}/)
       return match ? JSON.parse(match[0]) : null
-    } catch (e) {
+    } catch {
       return null
     }
   }

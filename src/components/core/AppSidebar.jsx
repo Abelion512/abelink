@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
   Home,
@@ -22,16 +22,24 @@ const AppSidebar = ({ onOpenHistory }) => {
   const location = useLocation()
   const [isOpen, setIsOpen] = useState(false)
   const [tgLive, setTgLive] = useState('disconnected')
-  const [hasNew, setHasNew] = useState(false)
-  const drawerRef = useRef(null)
-
-  useEffect(() => {
+  // Badge "What's New": hitung dari localStorage saat render (sync read,
+  // bukan effect) — lolos set-state-in-effect, perilaku identik.
+  const [hasNew, setHasNew] = useState(() => {
     try {
-      setHasNew(
-        (whatsNewData.version || '') !== (localStorage.getItem('abelink:last-seen-whats-new') || '')
-      )
+      return (whatsNewData.version || '') !== (localStorage.getItem('abelink:last-seen-whats-new') || '')
+    } catch (_) {
+      return false
+    }
+  })
+  const [prevPath, setPrevPath] = useState(location.pathname)
+  if (location.pathname !== prevPath) {
+    setPrevPath(location.pathname)
+    try {
+      const v = (whatsNewData.version || '') !== (localStorage.getItem('abelink:last-seen-whats-new') || '')
+      if (v !== hasNew) setHasNew(v)
     } catch (_) {}
-  }, [location.pathname])
+  }
+  const drawerRef = useRef(null)
 
   useEffect(() => {
     let alive = true
@@ -134,7 +142,7 @@ const AppSidebar = ({ onOpenHistory }) => {
         >
           {/* Header Title & Close */}
           <div className="flex items-center justify-between px-2 pt-1 pb-1 border-b border-white/[0.06]">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-white/40">Abelink Menu</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-white/40">Abelink</span>
             <span className="text-[10px] font-mono text-white/30">Ctrl+B</span>
           </div>
 
@@ -142,12 +150,12 @@ const AppSidebar = ({ onOpenHistory }) => {
           <div className="space-y-1">
             <button type="button" onClick={() => handleNav('/')} className={navItemClass('/')}>
               <Home className="w-4 h-4 text-[#0a84ff]" />
-              <span>Beranda Voice</span>
+              <span>Home</span>
             </button>
 
             <button type="button" onClick={() => handleNav('/chat')} className={navItemClass('/chat')}>
               <Bot className="w-4 h-4 text-[#0a84ff]" />
-              <span>Chat Studio</span>
+              <span>Studio</span>
             </button>
 
             <button type="button" onClick={() => handleNav('/subagents')} className={navItemClass('/subagents')}>
@@ -157,7 +165,7 @@ const AppSidebar = ({ onOpenHistory }) => {
 
             <button type="button" onClick={() => handleNav('/knowledge')} className={navItemClass('/knowledge')}>
               <Database className="w-4 h-4 text-[#0a84ff]" />
-              <span>Knowledge (RAG)</span>
+              <span>RAG</span>
             </button>
 
             <button type="button" onClick={() => handleNav('/trajectory')} className={navItemClass('/trajectory')}>
@@ -177,7 +185,7 @@ const AppSidebar = ({ onOpenHistory }) => {
 
             <button type="button" onClick={() => handleNav('/config')} className={navItemClass('/config')}>
               <Settings className="w-4 h-4 text-[#0a84ff]" />
-              <span>Pengaturan</span>
+              <span>Settings</span>
             </button>
           </div>
 
@@ -204,7 +212,7 @@ const AppSidebar = ({ onOpenHistory }) => {
               className="flex items-center gap-3 w-full h-[36px] px-3 rounded-xl text-xs font-medium text-white/70 hover:text-white hover:bg-white/[0.08] transition-all text-left cursor-pointer"
             >
               <Network className="w-4 h-4 text-[#0a84ff]" />
-              <span>Peta Memori (Visualizer)</span>
+              <span>Memory</span>
             </button>
 
             <button
@@ -220,7 +228,7 @@ const AppSidebar = ({ onOpenHistory }) => {
               className="flex items-center gap-3 w-full h-[36px] px-3 rounded-xl text-xs font-medium text-white/70 hover:text-white hover:bg-white/[0.08] transition-all text-left cursor-pointer"
             >
               <History className="w-4 h-4 text-[#0a84ff]" />
-              <span>Riwayat Chat</span>
+              <span>History</span>
             </button>
 
             <button
@@ -232,7 +240,7 @@ const AppSidebar = ({ onOpenHistory }) => {
               className="flex items-center gap-3 w-full h-[36px] px-3 rounded-xl text-xs font-medium text-white/70 hover:text-white hover:bg-white/[0.08] transition-all text-left cursor-pointer"
             >
               <Gift className="w-4 h-4 text-[#0a84ff]" />
-              <span className="flex-1">What's New</span>
+              <span className="flex-1">What&apos;s New</span>
               {hasNew && <span className="w-2 h-2 rounded-full bg-[#ff453a]" />}
             </button>
           </div>

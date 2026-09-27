@@ -268,27 +268,54 @@ describe('STRESS: core bridge di bawah beban', () => {
 })
 
 // ---------------------------------------------------------------------------
-// RC3 — latch startError dijalankan di PROSES TERPISAH agar latch tidak
-// merusak modul server milik file test ini.
+// RC3 — latch startError (FIX 2026-09-27): dulu EADDRINUSE sekali membuat
+// startError PERMANEN (port bebas pun start tidak dicoba lagi). Kini
+// startError hanyalah deskripsi kegagalan terakhir: attempt berikutnya selalu
+// mencoba ulang, stopBrowserBridge() me-reset, dan start selalu Promise.
+// Dijalankan di PROSES TERPISAH agar tidak menyentuh modul server milik file
+// test ini (pola lama dipertahankan).
 // ---------------------------------------------------------------------------
-describe('RC3: startError meng latch (EADDRINUSE lalu port bebas tetap gagal)', () => {
-  it('RC3-A skenario port sibuk -> bebas di proses child', () => {
+describe('RC3: startError tidak lagi latch (anti-latch + stop-reset)', () => {
+  it('RC3-A matriks lifecycle di proses child: gagal EADDRINUSE -> pulih saat port bebas -> idempoten -> stop-reset -> pulih lagi', () => {
     const script = `
       import http from 'node:http'
-      const { startBrowserBridge, stopBrowserBridge } = await import(${JSON.stringify(
+      const { startBrowserBridge, stopBrowserBridge, bridgeReady } = await import(${JSON.stringify(
         pathToFileURL(path.resolve('sidecar/main/browser/server.mjs')).href
       )})
-      const blocker = http.createServer(() => {}).listen(${TEST_PORT - 1}, '127.0.0.1')
+      const PORT = ${TEST_PORT - 1}
+      // Fase 1: port diblokir -> start gagal EADDRINUSE.
+      const blocker = http.createServer(() => {}).listen(PORT, '127.0.0.1')
       await new Promise((r) => blocker.once('listening', r))
       const r1 = await startBrowserBridge()
+      // Fase 2: port dibebaskan -> start BERIKUTNYA harus benar-benar mencoba
+      // ulang dan sukses (dulu: latch error lama, ok:false permanen).
       await new Promise((r) => blocker.close(r))
       const r2 = await startBrowserBridge()
+      // Fase 3: start saat listening -> idempoten sukses (bukan error).
       const r3 = await startBrowserBridge()
+      const readyWhenListening = bridgeReady()
+      // Fase 4: stop -> start -> pulih lagi (stop reset state bersih).
+      stopBrowserBridge()
+      const readyAfterStop = bridgeReady()
+      const r4 = await startBrowserBridge()
+      // Fase 5: gagal -> stop -> start (bukti stop-reset: dulu startError
+      // permanen bahkan setelah stop).
+      stopBrowserBridge()
+      const blocker2 = http.createServer(() => {}).listen(PORT, '127.0.0.1')
+      await new Promise((r) => blocker2.once('listening', r))
+      const r5 = await startBrowserBridge()
+      stopBrowserBridge() // stop SAAT GAGAL = reset latch
+      await new Promise((r) => blocker2.close(r))
+      const r6 = await startBrowserBridge()
       console.log(JSON.stringify({
-        firstOk: r1.ok, firstErr: r1.error || null,
-        secondOk: r2.ok, secondErr: r2.error || null,
-        thirdOk: r3.ok,
-        latched: !r1.ok && !r2.ok && r2.error === r1.error && !r3.ok,
+        firstFailedWithInuse: !r1.ok && /sudah dipakai/.test(r1.error || ''),
+        recoversWhenPortFree: !!r2.ok,                       // anti-latch inti
+        idempotent: !!r3.ok,                                 // start 2x saat hidup
+        readyWhenListening,
+        readyAfterStop,
+        recoversAfterStopRestart: !!r4.ok,
+        failedAgainWhenBusy: !r5.ok,
+        recoversAfterFailThenStop: !!r6.ok,                  // stop-reset inti
       }))
       process.exit(0)
     `
@@ -302,11 +329,25 @@ describe('RC3: startError meng latch (EADDRINUSE lalu port bebas tetap gagal)', 
       })
       const line = out.trim().split('\n').filter((l) => l.startsWith('{')).pop()
       const result = JSON.parse(line)
-      // Klaim audit: startError di-latch permanen; port sudah bebas pun
-      // start tidak dicoba lagi.
-      expect(result.latched).toBe(true)
+      expect(result.firstFailedWithInuse).toBe(true)
+      expect(result.recoversWhenPortFree).toBe(true) // dulu: false (latch)
+      expect(result.idempotent).toBe(true)
+      expect(result.readyWhenListening).toBe(true)
+      expect(result.readyAfterStop).toBe(false)
+      expect(result.recoversAfterStopRestart).toBe(true)
+      expect(result.failedAgainWhenBusy).toBe(true)
+      expect(result.recoversAfterFailThenStop).toBe(true) // dulu: false (latch)
     } finally {
       fs.rmSync(tmp, { force: true })
     }
   }, 45000)
+
+  it('RC3-B startBrowserBridge selalu mengembalikan Promise (kontrak pemanggil .catch() di engine channel)', async () => {
+    // Bridge sedang listening di file ini -> jalur "sudah hidup". Dulu jalur
+    // ini mengembalikan object polos; engine/channels/browser.mjs memanggil
+    // .catch() atas hasilnya -> TypeError laten di jalur sync lama.
+    const r = startBrowserBridge()
+    expect(r).toBeInstanceOf(Promise)
+    await expect(r).resolves.toMatchObject({ ok: true })
+  })
 })
