@@ -1,12 +1,18 @@
 {
-  "generatedAt": "2026-09-27T07:41:35.041Z",
+  "generatedAt": "2026-09-27T07:55:13.546Z",
   "releases": [
     {
       "version": "1.2.0-alpha.6",
       "date": "27 September 2026",
-      "summary": "72 fitur baru, 31 perbaikan dan 69 pembaruan dokumentasi.",
+      "summary": "74 fitur baru, 31 perbaikan dan 70 pembaruan dokumentasi.",
       "sections": {
         "features": [
+          {
+            "msg": "Dorman default untuk surface otomasi PC visual"
+          },
+          {
+            "msg": "Dorman default untuk surface otomasi PC visual"
+          },
           {
             "msg": "ADR-001 divergensi loop + paritas kontrak; flake ts monotonik; sweep"
           },
@@ -321,6 +327,9 @@
         ],
         "security": [],
         "docs": [
+          {
+            "msg": "Pemicu ulang setelah retarget base ke main"
+          },
           {
             "msg": "Bukti e2e spawn -> tool nyata -> wait COMPLETE"
           },
