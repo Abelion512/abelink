@@ -4,7 +4,7 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 
 ## v1.2.0-alpha.6 — 27 September 2026
 
-**Ringkasan:** 76 fitur baru, 32 perbaikan dan 76 pembaruan dokumentasi.
+**Ringkasan:** 76 fitur baru, 34 perbaikan dan 79 pembaruan dokumentasi.
 
 ### Fitur Baru
 - Canonical session protocol, adaptive long-horizon budget, and fail-closed recovery
@@ -85,6 +85,7 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 - Gemini-latest alias, fallback Gemini->custom, warning model tak dikenal
 
 ### Perbaikan
+- Samakan bun ke 1.4.2
 - Anti-latch bridge lifecycle + resume self-heal 401
 - Anti-latch bridge lifecycle + resume self-heal 401
 - Fail-closed checkpoint persistence and clamp hard ceiling to 512
@@ -100,6 +101,7 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 - Reapply precise observation patch
 - Restore full file after partial-fetch edit
 - Restore full file after partial-fetch edit
+- Upgrade @huggingface/transformers to 4.3.0 to pin sharp 0.35.4
 - Remove stray brace from adoptOrphanTab edit
 - Honor adoptUserTab flag, never steal user tabs by default
 - Explicit empty-extract contract, prose validator bypass, gmail regression
@@ -119,6 +121,7 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 - EnsureGitIdentity di syncWithReleaseBase
 
 ### Dokumentasi
+- Lazy-load googleapis dan telegraf untuk pangkas startup
 - Detach identitas mazees/mark-agent
 - Zamanikan timeout anti-flake cli-tui E2E + gmail-list handler
 - Detach identitas mazees/mark-agent
@@ -152,6 +155,8 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 - Establish primary research references and boundaries
 - Add general autonomy plan
 - Cover grounded trajectory learning
+- Lazy-load googleapis and telegraf to reduce startup overhead
+- Separate pre-existing budget/wallet failures into known-issues suite
 - Resolve 16 konflik -> apple-design + cleanup intact
 - Ponytail cleanup P1+P2
 - Drop manualChunks mati
