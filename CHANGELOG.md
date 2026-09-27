@@ -4,7 +4,7 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 
 ## v1.2.0-alpha.6 — 27 September 2026
 
-**Ringkasan:** 76 fitur baru, 34 perbaikan dan 79 pembaruan dokumentasi.
+**Ringkasan:** 76 fitur baru, 34 perbaikan dan 81 pembaruan dokumentasi.
 
 ### Fitur Baru
 - Canonical session protocol, adaptive long-horizon budget, and fail-closed recovery
@@ -121,6 +121,7 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 - EnsureGitIdentity di syncWithReleaseBase
 
 ### Dokumentasi
+- Update status triase yt-search untuk penerimaan risiko minimatch
 - Lazy-load googleapis dan telegraf untuk pangkas startup
 - Detach identitas mazees/mark-agent
 - Zamanikan timeout anti-flake cli-tui E2E + gmail-list handler
@@ -155,6 +156,7 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 - Establish primary research references and boundaries
 - Add general autonomy plan
 - Cover grounded trajectory learning
+- Update yt-search last-checked status for minimatch risk acceptance
 - Lazy-load googleapis and telegraf to reduce startup overhead
 - Separate pre-existing budget/wallet failures into known-issues suite
 - Resolve 16 konflik -> apple-design + cleanup intact
