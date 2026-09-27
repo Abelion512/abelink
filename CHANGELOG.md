@@ -4,7 +4,7 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 
 ## v1.2.0-alpha.6 — 27 September 2026
 
-**Ringkasan:** 76 fitur baru, 32 perbaikan dan 73 pembaruan dokumentasi.
+**Ringkasan:** 76 fitur baru, 32 perbaikan dan 76 pembaruan dokumentasi.
 
 ### Fitur Baru
 - Canonical session protocol, adaptive long-horizon budget, and fail-closed recovery
@@ -119,6 +119,9 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 - EnsureGitIdentity di syncWithReleaseBase
 
 ### Dokumentasi
+- Detach identitas mazees/mark-agent
+- Zamanikan timeout anti-flake cli-tui E2E + gmail-list handler
+- Detach identitas mazees/mark-agent
 - Zamanikan timeout integrasi/FS-scan
 - Hapus 4 berkas unreferenced
 - Pemicu ulang setelah retarget base ke main
