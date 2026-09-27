@@ -1,7 +1,7 @@
 {
-  "version": "1.2.0-alpha.6",
+  "version": "1.3.0-alpha.7",
   "date": "27 September 2026",
-  "summary": "78 fitur baru, 34 perbaikan dan 84 pembaruan dokumentasi.",
+  "summary": "78 fitur baru, 34 perbaikan dan 98 pembaruan dokumentasi.",
   "founderReport": "Yang baru untuk Anda: Local restore pages + capability manager + bridge token; Canonical session protocol, adaptive long-horizon budget, and fail-closed recovery; Dorman default untuk surface otomasi PC visual. Lebih stabil: Samakan bun ke 1.4.2; Anti-latch bridge lifecycle + resume self-heal 401; Anti-latch bridge lifecycle + resume self-heal 401.",
   "linearUrl": "https://linear.app/abelion/project/abelink-agent-for-linux-10ceec65c326",
   "changes": [
@@ -455,7 +455,19 @@
     },
     {
       "type": "DOCS",
+      "msg": "Update release data"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Update release data"
+    },
+    {
+      "type": "DOCS",
       "msg": "Completion pass — REFERENCES, license, upstream removal, archive"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Update release data"
     },
     {
       "type": "DOCS",
@@ -463,7 +475,15 @@
     },
     {
       "type": "DOCS",
+      "msg": "Update release data"
+    },
+    {
+      "type": "DOCS",
       "msg": "Lazy-load googleapis dan telegraf untuk pangkas startup"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Update release data"
     },
     {
       "type": "DOCS",
@@ -479,7 +499,15 @@
     },
     {
       "type": "DOCS",
+      "msg": "Update release data"
+    },
+    {
+      "type": "DOCS",
       "msg": "Zamanikan timeout integrasi/FS-scan"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Update release data"
     },
     {
       "type": "DOCS",
@@ -487,7 +515,15 @@
     },
     {
       "type": "DOCS",
+      "msg": "Update release data"
+    },
+    {
+      "type": "DOCS",
       "msg": "Pemicu ulang setelah retarget base ke main"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Update release data"
     },
     {
       "type": "DOCS",
@@ -539,6 +575,10 @@
     },
     {
       "type": "DOCS",
+      "msg": "Update release data"
+    },
+    {
+      "type": "DOCS",
       "msg": "Riset Claude frontier + session logs TUI/ext/CLI"
     },
     {
@@ -551,11 +591,23 @@
     },
     {
       "type": "DOCS",
+      "msg": "Update release data"
+    },
+    {
+      "type": "DOCS",
       "msg": "Plan wiring the architecture axis into the benchmark execution path"
     },
     {
       "type": "DOCS",
+      "msg": "Update release data"
+    },
+    {
+      "type": "DOCS",
       "msg": "Superpowers cockpit prototype + distillation system notes"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Update release data"
     },
     {
       "type": "DOCS",
@@ -616,6 +668,10 @@
     {
       "type": "DOCS",
       "msg": "Separate pre-existing budget/wallet failures into known-issues suite"
+    },
+    {
+      "type": "DOCS",
+      "msg": "V1.2.0-alpha.6"
     },
     {
       "type": "DOCS",
