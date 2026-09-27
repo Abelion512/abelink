@@ -56,9 +56,9 @@
 3. **Sisa brand non-gambar** (bisa dikerjakan setelah nomor 2):
    `src/api/appIdentity.js` (masih `author: 'Mazees'` + repo mark-agent, dan ini
    masuk ke prompt identitas diri), README baris 3/9/125, `scripts/dev.sh`,
-   `src-tauri/src/cmd_fs.rs` (kandidat migrasi legacy). Catatan:
-   `.github/workflows/upstream-sync.yml` = mekanisme pembanding upstream yang
-   memang dipertahankan (cron mati, `workflow_dispatch` manual).
+   `src-tauri/src/cmd_fs.rs` (kandidat migrasi legacy).   Catatan: `.github/workflows/upstream-sync.yml` + `branch-guard.yml` dan
+   `scripts/auto-detect-upstream.mjs` + `abelink-update.mjs` DIHAPUS 2026-09-27
+   (detach upstream; lisensi tidak tersentuh).
 
 ## Topik berikutnya (pilih SATU)
 
