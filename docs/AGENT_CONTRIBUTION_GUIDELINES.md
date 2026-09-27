@@ -136,6 +136,15 @@ Empat invariant di bawah ditegakkan kode di `objectiveVerifier.js`,
    sebagai `isNativeBacked`: tool baru wajib diklasifikasikan di sana,
    bukan dengan menduplikasi tabel di caller. Batch record membawa nama
    tool individu, bukan hanya `batch:N`.
+5. **Sitasi riset tanpa URL visitable = halusinasi.** Setiap klaim faktual
+   hasil riset wajib ketiganya: (a) URL sumber yang manusia bisa buka di
+   browser dan ketemu isinya, (b) verbatim quote yang cocok eksak dengan
+   isi URL tersebut, (c) passage ID `[P-X]` terikat ke keduanya. Sitasi
+   tanpa URL, URL mati, atau quote tak cocok = klaim DITOLAK (fail-closed);
+   agent jujur "sumber tak terverifikasi", bukan karang pengganti.
+   Mengarang URL/kutipan/passage = pelanggaran kontrak. Wiring kode
+   (`citationEngine` wajibkan URL, verifier tolak sitasi tanpa URL
+   visitable) = sesi implementasi tersendiri dengan regression test.
 
 ---
 
@@ -153,6 +162,8 @@ dianggap belum selesai. Isi minimal:
 Perubahan arsitektur WAJIB memperbarui `docs/ARCHITECTURE.md` di PR yang sama,
 bukan PR susulan. Aturan branch: kerja di branch, hapus branch lokal setelah
 merge, jangan biarkan branch merged menumpuk.
+Standarisasi status kerja: SATU file `TASK.md` di root (tanpa duplikat
+`task.md` kecil); status jalan sesi di `docs/PLANNED/sessions/`.
 
 ---
 

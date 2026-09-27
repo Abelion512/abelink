@@ -1,6 +1,6 @@
 /**
  * Gemini Web RPC Engine for ABELINK
- * Ported from gemini-core.js by Mazees (https://github.com/Mazees)
+ * Gemini Web RPC engine — bagian dari Abelink (Abelion Group).
  */
 import https from 'https'
 import crypto from 'crypto'

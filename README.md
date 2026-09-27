@@ -6,7 +6,7 @@
 > **Abelink** (berbasis arsitektur **ABELINK: Metacognitive Artificial Relational Knowledge**) adalah asisten otonom berbasis Linux dengan fokus pada privasi, otomatisasi sistem operasi, dan eksekusi tugas multi-langkah. Berjalan langsung di workstation lokal menggunakan arsitektur hybrid Tauri v2 (Rust) dan Bun runtime sidecar.
 
 > [!NOTE]
-> Proyek ini merupakan Linux-only fork independen dari basis fondasi [Mazees/mark-agent](https://github.com/Mazees/mark-agent).
+> Abelink adalah produk eksklusif Abelion Group. Fondasi awal dari mark-agent kini murni sejarah, bukan identitas aktif.
 
 ---
 
@@ -115,11 +115,11 @@ abelink/
 
 Untuk pedoman kontribusi agen dan pengembang, baca dokumen referensi berikut:
 - [Agent Contribution Guidelines](docs/AGENT_CONTRIBUTION_GUIDELINES.md): Protokol kerja agen, arsitektur boundary, dan aturan anti-regresi.
-- [Architectural Direction RFC](docs/ARCHITECTURAL_DIRECTION.md): Analisis teknis jangka panjang antara Rust rewrite, Pure Web, dan Hybrid runtime.
+- [Referensi ATM](REFERENCES.md): Peta sinkron multi-sumber (DO NOT DELETE, wajib baca sebelum edit).
 - [Contributing](CONTRIBUTING.md): Alur branching dan commit conventions.
 
 ---
 
 ## Lisensi & Atribusi
 
-Lisensi mengacu pada lisensi proyek upstream [Mazees/mark-agent](https://github.com/Mazees/mark-agent). Port Linux dan pemeliharaan arsitektur Abelink dikelola oleh Abelion512.
+Lisensi proprietary Abelion Group — lihat [LICENSE](LICENSE). Produk eksklusif Abelion Group; tidak ada hak pakai pihak lain tanpa izin tertulis.

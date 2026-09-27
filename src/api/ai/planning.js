@@ -22,8 +22,8 @@ let auditNameWarned = false
 export const getLastSystemPrompt = () => lastSystemPrompt
 
 // Cari nama upstream di system prompt DI LUAR blok identitas diri.
-// Blok IDENTITAS DIRI memang wajib menyebut atribusi kreator (appIdentity.js)
-// sehingga bukan kebocoran — yang dicurigai hanya kemunculan di blok lain
+// Blok IDENTITAS DIRI memang wajib menyebut identitas produk (appIdentity.js)
+// sehingga bukan kebocoran — yang dicurigai hanya kemunculan nama warisan di blok lain
 // (memori/riwayat/tools). Murni string, testable.
 export function findSuspiciousName(systemPrompt) {
   const text = String(systemPrompt || '')
