@@ -1,7 +1,7 @@
 {
-  "version": "1.3.0-alpha.7",
+  "version": "1.4.0-alpha.8",
   "date": "27 September 2026",
-  "summary": "78 fitur baru, 34 perbaikan dan 98 pembaruan dokumentasi.",
+  "summary": "78 fitur baru, 34 perbaikan dan 101 pembaruan dokumentasi.",
   "founderReport": "Yang baru untuk Anda: Local restore pages + capability manager + bridge token; Canonical session protocol, adaptive long-horizon budget, and fail-closed recovery; Dorman default untuk surface otomasi PC visual. Lebih stabil: Samakan bun ke 1.4.2; Anti-latch bridge lifecycle + resume self-heal 401; Anti-latch bridge lifecycle + resume self-heal 401.",
   "linearUrl": "https://linear.app/abelion/project/abelink-agent-for-linux-10ceec65c326",
   "changes": [
@@ -339,7 +339,7 @@
     },
     {
       "type": "ATM",
-      "msg": "Selaraskan approval dengan Auto Mode f86b17b"
+      "msg": "Selaraskan approval dengan Auto Mode 5f765fd"
     },
     {
       "type": "ATM",
@@ -455,6 +455,18 @@
     },
     {
       "type": "DOCS",
+      "msg": "Refresh baseline perf-gate + session log sweep PR"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Refresh baseline perf-gate + session log sweep PR 2026-09-27"
+    },
+    {
+      "type": "DOCS",
+      "msg": "V1.3.0-alpha.7"
+    },
+    {
+      "type": "DOCS",
       "msg": "Update release data"
     },
     {
@@ -487,7 +499,7 @@
     },
     {
       "type": "DOCS",
-      "msg": "Detach identitas mazees/mark-agent"
+      "msg": "Detach identitas Abelion512/abelink"
     },
     {
       "type": "DOCS",
@@ -495,7 +507,7 @@
     },
     {
       "type": "DOCS",
-      "msg": "Detach identitas mazees/mark-agent"
+      "msg": "Detach identitas Abelion512/abelink"
     },
     {
       "type": "DOCS",
