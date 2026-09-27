@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-09-27T09:15:14.204Z",
+  "generatedAt": "2026-09-27T09:32:26.841Z",
   "releases": [
     {
       "version": "1.2.0-alpha.6",
       "date": "27 September 2026",
-      "summary": "76 fitur baru, 32 perbaikan dan 73 pembaruan dokumentasi.",
+      "summary": "76 fitur baru, 32 perbaikan dan 76 pembaruan dokumentasi.",
       "sections": {
         "features": [
           {
@@ -336,6 +336,15 @@
         ],
         "security": [],
         "docs": [
+          {
+            "msg": "Detach identitas mazees/mark-agent"
+          },
+          {
+            "msg": "Zamanikan timeout anti-flake cli-tui E2E + gmail-list handler"
+          },
+          {
+            "msg": "Detach identitas mazees/mark-agent"
+          },
           {
             "msg": "Zamanikan timeout integrasi/FS-scan"
           },
