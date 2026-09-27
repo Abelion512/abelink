@@ -1,7 +1,7 @@
 {
   "version": "1.2.0-alpha.6",
   "date": "27 September 2026",
-  "summary": "76 fitur baru, 34 perbaikan dan 81 pembaruan dokumentasi.",
+  "summary": "76 fitur baru, 34 perbaikan dan 83 pembaruan dokumentasi.",
   "founderReport": "Yang baru untuk Anda: Canonical session protocol, adaptive long-horizon budget, and fail-closed recovery; Dorman default untuk surface otomasi PC visual; Dorman default untuk surface otomasi PC visual. Lebih stabil: Samakan bun ke 1.4.2; Anti-latch bridge lifecycle + resume self-heal 401; Anti-latch bridge lifecycle + resume self-heal 401.",
   "linearUrl": "https://linear.app/abelion/project/abelink-agent-for-linux-10ceec65c326",
   "changes": [
@@ -447,6 +447,10 @@
     },
     {
       "type": "DOCS",
+      "msg": "Completion pass — REFERENCES, license, upstream removal, archive"
+    },
+    {
+      "type": "DOCS",
       "msg": "Update status triase yt-search untuk penerimaan risiko minimatch"
     },
     {
@@ -480,6 +484,10 @@
     {
       "type": "DOCS",
       "msg": "Bukti e2e spawn -> tool nyata -> wait COMPLETE"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Completion pass — REFERENCES, license, upstream removal, archive, anti-hallucination contract"
     },
     {
       "type": "DOCS",

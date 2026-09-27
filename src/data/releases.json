@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-09-27T11:36:31.931Z",
+  "generatedAt": "2026-09-27T12:24:08.611Z",
   "releases": [
     {
       "version": "1.2.0-alpha.6",
       "date": "27 September 2026",
-      "summary": "76 fitur baru, 34 perbaikan dan 81 pembaruan dokumentasi.",
+      "summary": "76 fitur baru, 34 perbaikan dan 83 pembaruan dokumentasi.",
       "sections": {
         "features": [
           {
@@ -343,6 +343,9 @@
         "security": [],
         "docs": [
           {
+            "msg": "Completion pass — REFERENCES, license, upstream removal, archive"
+          },
+          {
             "msg": "Update status triase yt-search untuk penerimaan risiko minimatch"
           },
           {
@@ -368,6 +371,9 @@
           },
           {
             "msg": "Bukti e2e spawn -> tool nyata -> wait COMPLETE"
+          },
+          {
+            "msg": "Completion pass — REFERENCES, license, upstream removal, archive, anti-hallucination contract"
           },
           {
             "msg": "Session log long-horizon inspect--verify-e2e"

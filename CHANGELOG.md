@@ -4,7 +4,7 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 
 ## v1.2.0-alpha.6 — 27 September 2026
 
-**Ringkasan:** 76 fitur baru, 34 perbaikan dan 81 pembaruan dokumentasi.
+**Ringkasan:** 76 fitur baru, 34 perbaikan dan 83 pembaruan dokumentasi.
 
 ### Fitur Baru
 - Canonical session protocol, adaptive long-horizon budget, and fail-closed recovery
@@ -121,6 +121,7 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 - EnsureGitIdentity di syncWithReleaseBase
 
 ### Dokumentasi
+- Completion pass — REFERENCES, license, upstream removal, archive
 - Update status triase yt-search untuk penerimaan risiko minimatch
 - Lazy-load googleapis dan telegraf untuk pangkas startup
 - Detach identitas mazees/mark-agent
@@ -130,6 +131,7 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 - Hapus 4 berkas unreferenced
 - Pemicu ulang setelah retarget base ke main
 - Bukti e2e spawn -> tool nyata -> wait COMPLETE
+- Completion pass — REFERENCES, license, upstream removal, archive, anti-hallucination contract
 - Session log long-horizon inspect--verify-e2e
 - Hapus 4 berkas unreferenced
 - Trajectory headless + tool hooks H5 di cli/core
