@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-09-27T11:28:40.130Z",
+  "generatedAt": "2026-09-27T11:36:31.931Z",
   "releases": [
     {
       "version": "1.2.0-alpha.6",
       "date": "27 September 2026",
-      "summary": "76 fitur baru, 34 perbaikan dan 79 pembaruan dokumentasi.",
+      "summary": "76 fitur baru, 34 perbaikan dan 81 pembaruan dokumentasi.",
       "sections": {
         "features": [
           {
@@ -343,6 +343,9 @@
         "security": [],
         "docs": [
           {
+            "msg": "Update status triase yt-search untuk penerimaan risiko minimatch"
+          },
+          {
             "msg": "Lazy-load googleapis dan telegraf untuk pangkas startup"
           },
           {
@@ -443,6 +446,9 @@
           },
           {
             "msg": "Cover grounded trajectory learning"
+          },
+          {
+            "msg": "Update yt-search last-checked status for minimatch risk acceptance"
           },
           {
             "msg": "Lazy-load googleapis and telegraf to reduce startup overhead"
