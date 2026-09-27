@@ -7,7 +7,7 @@ import { spawn } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { ABELINK_THEME, TUI_COMMANDS, filterCompletions, shortModel, SIDEBAR_WIDTH, isWide, messageColor, messagePrefix, PROMPT_KEY_BINDINGS, autocompleteTrigger, applyCompletion, moveCompletionIndex, visibleWindow } from '../cli/tui/theme.ts'
+import { ABELINK_THEME, TUI_COMMANDS, AUTOCOMPLETE_MAX_ROWS, filterCompletions, shortModel, SIDEBAR_WIDTH, isWide, messageColor, messagePrefix, PROMPT_KEY_BINDINGS, autocompleteTrigger, applyCompletion, moveCompletionIndex, visibleWindow } from '../cli/tui/theme.ts'
 import { parseSlashCommand } from '../bin/abelink-tui.mjs'
 import { createTuiState, submitLine } from '../cli/tui/engine.mjs'
 
@@ -39,8 +39,11 @@ describe('ABELINK_THEME', () => {
 })
 
 describe('filterCompletions', () => {
-  it('/ kosong = semua perintah', () => {
-    expect(filterCompletions('/').length).toBe(TUI_COMMANDS.length)
+  it('/ kosong = 10 baris pertama (cap popup)', () => {
+    expect(filterCompletions('/').length).toBe(AUTOCOMPLETE_MAX_ROWS)
+    expect(filterCompletions('/').map((c) => c.name)).toEqual(
+      TUI_COMMANDS.slice(0, AUTOCOMPLETE_MAX_ROWS).map((c) => c.name),
+    )
   })
   it('/m = /model + /models', () => {
     const names = filterCompletions('/m').map((c) => c.name)
@@ -51,6 +54,18 @@ describe('filterCompletions', () => {
   })
   it('/x = [] (tak ada perintah itu)', () => {
     expect(filterCompletions('/x')).toEqual([])
+  })
+  it('fuzzy: /mdl cocok /model + /models (subsequence nama)', () => {
+    const names = filterCompletions('/mdl').map((c) => c.name)
+    expect(names).toEqual(expect.arrayContaining(['/model', '/models']))
+  })
+  it('fuzzy atas deskripsi: /sesi cocok /sessions + /continue', () => {
+    const names = filterCompletions('/sesi').map((c) => c.name)
+    expect(names).toEqual(expect.arrayContaining(['/sessions', '/continue']))
+  })
+  it('cap 10 baris (AUTOCOMPLETE_MAX_ROWS)', () => {
+    expect(AUTOCOMPLETE_MAX_ROWS).toBe(10)
+    expect(filterCompletions('/').length).toBeLessThanOrEqual(10)
   })
   it('tanpa leading / = [] (prompt biasa)', () => {
     expect(filterCompletions('halo')).toEqual([])

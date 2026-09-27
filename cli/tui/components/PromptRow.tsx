@@ -8,6 +8,7 @@
 import { For, Show, createSignal, createMemo, createEffect } from 'solid-js'
 import {
   ABELINK_THEME,
+  AUTOCOMPLETE_MAX_ROWS,
   filterCompletions,
   autocompleteTrigger,
   applyCompletion,
@@ -57,10 +58,20 @@ export function PromptRow(props: PromptRowProps) {
     const q = t.query.toLowerCase()
     return files
       .filter((f) => f.toLowerCase().includes(q))
+      .slice(0, AUTOCOMPLETE_MAX_ROWS)
       .map((f) => ({ name: '@' + f, desc: 'file' }))
   }
   const completions = createMemo(() => completionsFor(readTextSignal()))
-  const popupOpen = createMemo(() => completions().length > 0)
+  // Esc tutup popup tanpa ubah teks (ala opencode autocomplete.cancel):
+  // flag ini yang menutup, bukan teks — ketikan berikutnya buka lagi.
+  const [dismissed, setDismissed] = createSignal(false)
+  const popupOpen = createMemo(() => completions().length > 0 && !dismissed())
+  // Cap 10 baris ala opencode (height max 10): popup tak tumbuh tanpa batas.
+  const popupRows = createMemo(() => completions().slice(0, AUTOCOMPLETE_MAX_ROWS))
+  // Daftar yang TERLIHAT untuk logika tombol: dismissed = dianggap tutup
+  // (Enter submit apa adanya, Up/Down/Tab tembus ke textarea).
+  const visibleFor = (text: string): PromptCompletion[] =>
+    (dismissed() ? [] : completionsFor(text))
 
   const setTextareaText = (text: string) => {
     try {
@@ -74,11 +85,12 @@ export function PromptRow(props: PromptRowProps) {
 
   const acceptSelected = (text: string | null = null) => {
     const current = text ?? readText()
-    const list = completionsFor(current)
+    const list = visibleFor(current)
     if (!list.length) return false
     const item = list[selected() % list.length]
     const next = applyCompletion(current, autocompleteTrigger(current), item.name)
     setSelected(0)
+    setDismissed(false)
     setTextareaText(next)
     props.onInput?.(next)
     return true
@@ -96,6 +108,7 @@ export function PromptRow(props: PromptRowProps) {
   const submitNow = (text: string) => {
     const t = String(text ?? '')
     setSelected(0)
+    setDismissed(false)
     clearTextarea()
     props.onInput?.('')
     props.onSubmit?.(t)
@@ -106,7 +119,7 @@ export function PromptRow(props: PromptRowProps) {
   // selamanya. Terukur PTY 2026-09-26: `/model` + Enter tak pernah jalan.
   // Jadi exact-match = jalankan; selain itu = pilih completions.
   const resolveEnter = (buf: string) => {
-    const list = completionsFor(buf)
+    const list = visibleFor(buf)
     if (!list.length) {
       submitNow(buf)
       return
@@ -127,6 +140,7 @@ export function PromptRow(props: PromptRowProps) {
       clearTextarea()
       props.onInput?.('')
       setSelected(0)
+      setDismissed(false)
     }
     wasPickerOpen = open
   })
@@ -146,7 +160,7 @@ export function PromptRow(props: PromptRowProps) {
       return
     }
     const buf = readText()
-    const popup = completionsFor(buf).length > 0
+    const popup = visibleFor(buf).length > 0
     if (e.name === 'return' || e.name === 'linefeed') {
       // Enter polos: popup buka -> pilih/jalankan; tutup -> submit. Modifier
       // (shift/ctrl/meta) -> newline via binding, jangan sentuh.
@@ -162,42 +176,65 @@ export function PromptRow(props: PromptRowProps) {
     }
     if (e.name === 'up' || (e.name === 'p' && e.ctrl)) {
       e.preventDefault?.()
-      const n = completionsFor(buf).length
+      const n = visibleFor(buf).length
       setSelected((s) => moveCompletionIndex(s, -1, n))
     } else if (e.name === 'down' || (e.name === 'n' && e.ctrl)) {
       e.preventDefault?.()
-      const n = completionsFor(buf).length
+      const n = visibleFor(buf).length
       setSelected((s) => moveCompletionIndex(s, 1, n))
     } else if (e.name === 'tab') {
       e.preventDefault?.()
       acceptSelected(buf)
     } else if (e.name === 'escape') {
+      // Esc tutup popup (dismissed) tanpa ubah teks; Enter berikutnya
+      // submit apa adanya. Ketikan berikutnya buka lagi (reset di
+      // onContentChange). onEscape tetap dipanggil (kontrak lama: App/entry
+      // pakai untuk batal/keluar).
       e.preventDefault?.()
       setSelected(0)
+      setDismissed(true)
       props.onEscape?.()
     }
   }
 
   return (
     <box style={{ flexDirection: 'column', width: '100%' }}>
+      {/* Floating overlay ala opencode prompt/autocomplete.tsx:724-736:
+          position absolute -> keluar dari flex flow, buka/tutup popup TIDAK
+          dorong layout prompt di bawahnya. bottom 100% = di atas prompt box.
+          (Polanya sama dengan picker overlay di App.tsx.)
+          Esc tutup popup (ditangani onKeyDown: reset selected + onEscape). */}
       <Show when={popupOpen()}>
         <box
           style={{
-            // flexShrink 0 WAJIB: default 1 memeras box teks-saja sampai
-            // tinggi < jumlah baris -> baris menumpuk (terukur PTY 2026-09-26).
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: '100%',
+            zIndex: 100,
             flexShrink: 0,
             flexDirection: 'column',
-            width: '100%',
+            border: true,
+            borderColor: ABELINK_THEME.border,
             backgroundColor: ABELINK_THEME.backgroundMenu,
-            paddingLeft: 2,
-            paddingRight: 2,
           }}
         >
-          <For each={completions()}>
+          <For each={popupRows()}>
             {(c, i) => (
-              <text fg={i() === selected() % completions().length ? ABELINK_THEME.primary : undefined}>
-                {(i() === selected() % completions().length ? '> ' : '  ') + c.name + ' — ' + (c.desc ?? '')}
-              </text>
+              <box
+                style={{
+                  flexDirection: 'row',
+                  flexShrink: 0,
+                  paddingLeft: 1,
+                  paddingRight: 1,
+                  backgroundColor:
+                    i() === selected() % popupRows().length ? ABELINK_THEME.primary : undefined,
+                }}
+              >
+                <text fg={i() === selected() % popupRows().length ? ABELINK_THEME.text : undefined}>
+                  {(i() === selected() % popupRows().length ? '> ' : '  ') + c.name + ' — ' + (c.desc ?? '')}
+                </text>
+              </box>
             )}
           </For>
         </box>
@@ -235,6 +272,8 @@ export function PromptRow(props: PromptRowProps) {
             ref={(r: TextareaHandle) => { ta = r }}
             onContentChange={() => {
               setSelected(0)
+              // Ketikan baru = niat baru: buka lagi popup yang tadi di-Esc.
+              setDismissed(false)
               const t = readText()
               props.onInput?.(t)
               // Picker buka: ketikan jadi filter (pola fuzzy opencode).

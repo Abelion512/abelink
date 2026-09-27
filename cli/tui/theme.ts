@@ -141,14 +141,38 @@ export function messagePrefix(role: string = ''): string {
   }
 }
 
-// Filter autocomplete murni + testable: prefix match case-insensitive atas
-// nama slash; baris tanpa leading `/` tidak memicu saran (return []).
+// Cap baris popup autocomplete (ikut opencode height max 10).
+export const AUTOCOMPLETE_MAX_ROWS = 10
+
+// Subsequence case-insensitive (fuzzy minimal): cukup untuk typo ringan
+// (`/mdl` -> /model) tanpa membawa skor/bobot yang butuh tuning.
+function subsequenceMatch(hay: string = '', needle: string = ''): boolean {
+  const h = String(hay)
+  const n = String(needle)
+  let j = 0
+  for (let i = 0; i < h.length && j < n.length; i++) {
+    if (h[i] === n[j]) j++
+  }
+  return j === n.length
+}
+
+// Filter autocomplete murni + testable: prefix match atas nama slash,
+// ditambah fuzzy subsequence atas nama + deskripsi untuk query >= 2 huruf
+// (satu huruf prefix-only: minim noise, pertahankan kontrak lama /m, /x).
+// Hasil di-cap AUTOCOMPLETE_MAX_ROWS; baris tanpa leading `/` -> [].
 /** Item autocomplete dari baris yang diawali '/'. */
 export function filterCompletions(line: string = ''): TuiCommand[] {
   const text = String(line ?? '')
   if (!text.startsWith('/')) return []
   const q = text.slice(1).toLowerCase()
-  return TUI_COMMANDS.filter((c) => c.name.slice(1).toLowerCase().startsWith(q))
+  if (!q) return TUI_COMMANDS.slice(0, AUTOCOMPLETE_MAX_ROWS)
+  const isPrefix = (c: TuiCommand) => c.name.slice(1).toLowerCase().startsWith(q)
+  const prefix = TUI_COMMANDS.filter(isPrefix)
+  if (q.length < 2) return prefix.slice(0, AUTOCOMPLETE_MAX_ROWS)
+  const fuzzy = TUI_COMMANDS.filter(
+    (c) => !isPrefix(c) && subsequenceMatch(`${c.name} ${c.desc}`.toLowerCase(), q),
+  )
+  return [...prefix, ...fuzzy].slice(0, AUTOCOMPLETE_MAX_ROWS)
 }
 
 export interface AutocompleteTrigger {
