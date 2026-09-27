@@ -1,10 +1,14 @@
 {
   "version": "1.2.0-alpha.6",
   "date": "27 September 2026",
-  "summary": "76 fitur baru, 34 perbaikan dan 83 pembaruan dokumentasi.",
-  "founderReport": "Yang baru untuk Anda: Canonical session protocol, adaptive long-horizon budget, and fail-closed recovery; Dorman default untuk surface otomasi PC visual; Dorman default untuk surface otomasi PC visual. Lebih stabil: Samakan bun ke 1.4.2; Anti-latch bridge lifecycle + resume self-heal 401; Anti-latch bridge lifecycle + resume self-heal 401.",
+  "summary": "78 fitur baru, 34 perbaikan dan 84 pembaruan dokumentasi.",
+  "founderReport": "Yang baru untuk Anda: Local restore pages + capability manager + bridge token; Canonical session protocol, adaptive long-horizon budget, and fail-closed recovery; Dorman default untuk surface otomasi PC visual. Lebih stabil: Samakan bun ke 1.4.2; Anti-latch bridge lifecycle + resume self-heal 401; Anti-latch bridge lifecycle + resume self-heal 401.",
   "linearUrl": "https://linear.app/abelion/project/abelink-agent-for-linux-10ceec65c326",
   "changes": [
+    {
+      "type": "AUTO",
+      "msg": "Local restore pages + capability manager + bridge token"
+    },
     {
       "type": "AUTO",
       "msg": "Canonical session protocol, adaptive long-horizon budget, and fail-closed recovery"
@@ -56,6 +60,10 @@
     {
       "type": "AUTO",
       "msg": "Measurement plane + 30-fixture benchmark matrix"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Local restore UI pages + capability manager + bridge token"
     },
     {
       "type": "AUTO",
@@ -544,6 +552,10 @@
     {
       "type": "DOCS",
       "msg": "Plan wiring the architecture axis into the benchmark execution path"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Superpowers cockpit prototype + distillation system notes"
     },
     {
       "type": "DOCS",

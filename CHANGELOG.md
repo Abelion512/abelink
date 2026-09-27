@@ -4,9 +4,10 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 
 ## v1.2.0-alpha.6 — 27 September 2026
 
-**Ringkasan:** 76 fitur baru, 34 perbaikan dan 83 pembaruan dokumentasi.
+**Ringkasan:** 78 fitur baru, 34 perbaikan dan 84 pembaruan dokumentasi.
 
 ### Fitur Baru
+- Local restore pages + capability manager + bridge token
 - Canonical session protocol, adaptive long-horizon budget, and fail-closed recovery
 - Dorman default untuk surface otomasi PC visual
 - Dorman default untuk surface otomasi PC visual
@@ -20,6 +21,7 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 - Implement default Auto Mode and universal window drag/resize frame
 - Implement headless autonomous agent runner and browser click routing
 - Measurement plane + 30-fixture benchmark matrix
+- Local restore UI pages + capability manager + bridge token
 - General agentic runtime for long-horizon autonomy
 - Require grounded evidence for skill promotion
 - Include semantic page text in DOM observations
@@ -146,6 +148,7 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 - Tracker T0-T4 selesai + session log commit parsial
 - Fase 5 kontrak 4fase + roadmap + session logs CLI
 - Plan wiring the architecture axis into the benchmark execution path
+- Superpowers cockpit prototype + distillation system notes
 - Record benchmark and standards adaptation session
 - Define runtime standards adaptation strategy
 - Define Abelink benchmark inventory and PR46 contract
