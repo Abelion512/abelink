@@ -61,22 +61,39 @@ export function PromptRow(props: PromptRowProps) {
       .slice(0, AUTOCOMPLETE_MAX_ROWS)
       .map((f) => ({ name: '@' + f, desc: 'file' }))
   }
-  const completions = createMemo(() => completionsFor(readTextSignal()))
   // Esc tutup popup tanpa ubah teks (ala opencode autocomplete.cancel):
   // flag ini yang menutup, bukan teks — ketikan berikutnya buka lagi.
   const [dismissed, setDismissed] = createSignal(false)
-  const popupOpen = createMemo(() => completions().length > 0 && !dismissed())
-  // Cap 10 baris ala opencode (height max 10): popup tak tumbuh tanpa batas.
-  const popupRows = createMemo(() => completions().slice(0, AUTOCOMPLETE_MAX_ROWS))
   // Daftar yang TERLIHAT untuk logika tombol: dismissed = dianggap tutup
   // (Enter submit apa adanya, Up/Down/Tab tembus ke textarea).
+  // SATU-SATUNYA sumber daftar popup — dipakai logika tombol (buffer live)
+  // maupun render di bawah, sehingga baris tampil tak pernah basi relatif
+  // terhadap apa yang Enter tindaklanjuti (exact-match rule aman).
   const visibleFor = (text: string): PromptCompletion[] =>
     (dismissed() ? [] : completionsFor(text))
+  // Render WAJIB dari sumber yang sama dengan logika tombol (buffer live via
+  // readText(), bukan signal props.value yang tertinggal 1 tick — terukur PTY:
+  // SUBMIT fire sebelum IN). Memo tetap butuh dependensi reaktif, jadi
+  // bufTick (naik tiap onContentChange) + readTextSignal (perubahan via
+  // parent/setText) memicu evaluasi ulang; NILAI selalu dibaca dari buffer.
+  const [bufTick, setBufTick] = createSignal(0)
+  const renderList = createMemo(() => {
+    bufTick()
+    readTextSignal()
+    return visibleFor(readText())
+  })
+  const popupOpen = createMemo(() => renderList().length > 0)
+  // Cap 10 baris ala opencode (height max 10): popup tak tumbuh tanpa batas.
+  // (filterCompletions slash sudah cap; slice di sini menyeragamkan file-mode.)
+  const popupRows = createMemo(() => renderList().slice(0, AUTOCOMPLETE_MAX_ROWS))
 
   const setTextareaText = (text: string) => {
     try {
       if (ta && !ta.isDestroyed && typeof ta.setText === 'function') {
         ta.setText(text)
+        // setText programatik tak selalu picu onContentChange: sinkronkan
+        // render popup dari buffer baru (lihat renderList).
+        setBufTick((t) => t + 1)
         return
       }
     } catch {}
@@ -274,6 +291,8 @@ export function PromptRow(props: PromptRowProps) {
               setSelected(0)
               // Ketikan baru = niat baru: buka lagi popup yang tadi di-Esc.
               setDismissed(false)
+              // Picu render ulang popup dari buffer live (lihat renderList).
+              setBufTick((t) => t + 1)
               const t = readText()
               props.onInput?.(t)
               // Picker buka: ketikan jadi filter (pola fuzzy opencode).
