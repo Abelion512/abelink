@@ -60,11 +60,11 @@ baris tanpa ubah perilaku).
 | Branch     | Kegunaan                                              |
 |------------|-------------------------------------------------------|
 | `main`     | Mainline: semua fitur yang lolos testing di-merge ke sini |
-| `linux`    | Cabang pelacak remote publik `public-upstream`: jangan pakai untuk kerja fitur |
-| `master`   | Mirror upstream Mazees/mark-agent, sync-only: jangan sentuh manual |
 | `feat/*`   | Fitur baru (dibuat dari `main`)                      |
 | `fix/*`    | Bug fix                                               |
 | `chore/*`  | Tooling, deps, CI, refactoring                        |
+
+> Tidak ada branch upstream pelacak (`master`/`linux`) — sinkronisasi upstream dihentikan 2026-09-27; semua PR menargetkan `main`.
 
 Alur:
 
