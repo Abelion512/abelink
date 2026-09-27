@@ -2,6 +2,20 @@
 
 Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — jangan diedit manual.
 
+## v1.6.0-alpha.10 — 27 September 2026
+
+**Ringkasan:** 2 fitur baru dan 4 pembaruan dokumentasi.
+
+### Fitur Baru
+- Adapter Promptfoo tipis di atas abelink agent run
+- Adapter Promptfoo tipis di atas abelink agent run
+
+### Dokumentasi
+- Regenerasi aset brand dari sumber bersih
+- Regenerasi seluruh aset brand dari sumber bersih + hapus music-cover yatim
+- Sweep istilah era warisan + rilis jadi manual
+- Sweep istilah era warisan dari seluruh pohon + rilis jadi manual
+
 ## v1.5.0-alpha.9 — 27 September 2026
 
 **Ringkasan:** 78 fitur baru, 34 perbaikan dan 105 pembaruan dokumentasi.
