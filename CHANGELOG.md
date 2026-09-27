@@ -4,7 +4,7 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 
 ## v1.2.0-alpha.6 — 27 September 2026
 
-**Ringkasan:** 74 fitur baru, 31 perbaikan dan 70 pembaruan dokumentasi.
+**Ringkasan:** 74 fitur baru, 31 perbaikan dan 72 pembaruan dokumentasi.
 
 ### Fitur Baru
 - Dorman default untuk surface otomasi PC visual
@@ -116,9 +116,11 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 - EnsureGitIdentity di syncWithReleaseBase
 
 ### Dokumentasi
+- Hapus 4 berkas unreferenced
 - Pemicu ulang setelah retarget base ke main
 - Bukti e2e spawn -> tool nyata -> wait COMPLETE
 - Session log long-horizon inspect--verify-e2e
+- Hapus 4 berkas unreferenced
 - Trajectory headless + tool hooks H5 di cli/core
 - Skrip pengganti aset ikon dari satu sumber
 - Ekstrak cli/core supaya cli/tui tidak mengimpor bin/
