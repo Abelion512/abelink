@@ -39,7 +39,7 @@ stdin. Semua handler didaftarkan lewat `registry.mjs`.
 | Modul | Channel | Keterangan |
 | --- | --- | --- |
 | `registry.mjs` | — | `send`/`emit`/`ok`/`fail`, map `handlers`, `on()`, `lazy()` (helper `unsupported()` sudah dibuang; channel yang belum jalan mengembalikan `success: false` eksplisit atau `throw`) |
-| `channels/ai.mjs` | `ai:fetch`, `ai:abort-fetch`, `ai:list-models`, `sync-config`, `native-tool:*`, `parse-document` | `sync-config` juga menyalin config ke modul telegram (auto-start bot) |
+| `channels/ai.mjs` | `ai:fetch`, `ai:abort-fetch`, `ai:list-models`, `sync-config`, `native-tool:*`, `parse-document` | `sync-config` juga menyalin config ke modul telegram (auto-start bot) dan menulis snapshot AI ke `main/shared-config.js` |
 | `channels/media.mjs` | `tts-speak`, `get-youtube-transcript`, `youtube-search` | Edge-TTS + youtube-transcript-plus + yt-search (lazy) |
 | `channels/telegram.mjs` | `tg:*`, `benchmark:telegram`, `remote-music-command` | Dashboard benchmark + broadcast admin (config via `setLatestConfig`) |
 | `channels/services.mjs` | `plugin:*`, `plugins:list`, `google:*`, `workspace:*`, `awareness:*` | Plugin loader tanpa Electron; workspace RAG `.abelink/` |
@@ -48,6 +48,13 @@ stdin. Semua handler didaftarkan lewat `registry.mjs`.
 | `channels/browser.mjs` | `browser:navigate/read-dom/action/close/show/status` | Fase C3 Jalur A (ekstensi browser + bridge): perintah nyata via `main/browser/` — long-poll HTTP 127.0.0.1 token-auth ke ekstensi Abelink; tanpa ekstensi = error eksplisit + petunjuk pemasangan |
 | `channels/skills.mjs` | `skills:*` (15 channel) | Agent Skills store: SKILL.md + anti path-traversal; `skills:open-folder` (xdg-open ter-kontinemen) untuk workflow drop folder skill + auto-scan |
 | `channels/capabilities.mjs` | `capabilities:list/inspect/guide/execute/connections/authorize/revoke/audit` | Capability Manager (fase Kapabilitas, referensi OpenConnector): catalog connector → policy → eksekusi ter-audit. Connector built-in: `weather` (Open-Meteo), `time` (offline), `fs` (workspace via fsGuard), `shell-tool` (run-shell; dynamic dangerous-keyword check saat runtime). `capabilities:execute` WAJIB di `APPROVAL_ACTIONS` (rfd native). Kredensial koneksi di XDG mode 0600; audit JSONL append-only (trim 1MB). Implementasi: `main/capabilities/` (lazy import) |
+
+**Jembatan config GUI <-> CLI/TUI (satu produk):** `main/shared-config.js`
+menulis subset field AI dari config GUI ke `~/.config/abelink/shared.json`
+(0600) setiap `sync-config`; `headlessCli.loadCliFileConfig` membacanya sebagai
+lapis DASAR (di bawah `cli.json` yang eksplisit) lalu memetakannya ke bentuk
+CLI lewat `sharedConfigToCliConfig`. Provider GUI-only (`gemini-web`) tidak
+dipaksakan sehingga CLI jatuh ke default jujur, bukan gagal senyap.
 
 **Aturan menambah channel baru:** buat/ubah modul di `engine/channels/`,
 daftarkan dengan `on('nama:aksi', handler)`, lalu import modulnya di
@@ -247,7 +254,9 @@ Secondary material is for discovery. Implementation decisions should be traceabl
 
 ## 6. Batasan yang Masih Sengaja Dibiarkan (jangan "perbaiki" diam-diam)
 
-- `browser:*` → LIVE (Fase C3 Jalur A): `engine/channels/browser.mjs` + `main/browser/{bridge-core,server}.mjs` + ekstensi MV3 di `extension/`. Jalur B (spawn Chromium per profil) menyusul sebagai fallback; smoke frame end-to-end dengan browser sungguhan belum dijalankan — lihat `extension/README.md`.
+- `browser:*` → LIVE (Fase C3 Jalur A): `engine/channels/browser.mjs` + `main/browser/{bridge-core,server}.mjs` + ekstensi MV3 di `extension/`. Jalur B (spawn Chromium per profil) menyusul sebagai fallback. Pengukuran e2e Chrome sungguhan SUDAH dijalankan (2026-09-27, Chrome 153, CDP `loadUnpacked`, tanpa attach debugger ke SW): self-heal session-drop + token basi terbukti pulih otomatis (perintah tersaji 21ms–1.8s), alarm keepalive terukur 60.0s, suspensi SW ~30s saat idle — lapisan `chrome.*` tidak lagi murni runbook manual. Batas jujur: harness mengukur penyajian perintah (`read-dom` tanpa tab aktif dijawab jujur), bukan smoke interaktif navigate penuh di halaman nyata — itu tetap runbook `extension/README.md`. Detail + harness reusable: `scripts/mv3-keepalive-measure.mjs`, `scripts/mv3-native-host-probe.mjs`, session log `docs/PLANNED/sessions/2026-09-27_mv3-keepalive-measurement.md`.
+- **Bridge lifecycle anti-latch (RC3 fix, 2026-09-27):** `startError` di `main/browser/server.mjs` BUKAN latch permanen — attempt berikutnya selalu mencoba ulang (dulu: satu EADDRINUSE transien mematikan bridge hingga restart proses). `startPromise`/`startResolve` mendedupe attempt in-flight; `stopBrowserBridge()` me-reset state + me-resolve awaiter; `startBrowserBridge()` selalu Promise (jalur sync lama memicu TypeError laten di `engine/channels/browser.mjs`). Kontrak: `tests/browserAuditVerify.test.mjs` RC3-A/B.
+- **Resume self-heal G1 (2026-09-27):** `tryAutoResume()` (`extension/background.js`) kini punya pemulihan 401 token basi-terisi: konsultasi `getTokenViaNativeHost` sekali per attempt (guard `via.token !== cfg.token` anti-loop), tukar token, handshake ulang sekali, `loop()` hanya bila 200. Dulu: helper hanya dikonsultasi bila token kosong → 401 berulang selamanya. Pagar pairing tanpa auto-switch tidak berubah (`tests/browser-flavor.test.mjs`). Popup menerima query `?noprobe=1` untuk membaca status tanpa memicu auto-connect (kontrak internal alat ukur; perilaku user tidak berubah).
 - **Browser autonomy (2026-09-20, `apple-design`):** observasi tab beridentitas (`_tab={tabId,url,title,reused}`, `sessionFocusedUrl`, tolak primer yang URL-nya drift); tagger main-first cap 200/teks 120; `adoptUserTab` eksplisit (default: hanya blank/tab baru, tidak pernah curi tab user); `takeNext` tanpa drain lintas-sesi; HITL co-pilot = pause-state + pill pasif tanpa veil + resume `browser-read` tab sama (tanpa deadline); popup hijau hanya bila loop jalan; eval `hitl_discipline` (needs_user tanpa artefak = 0); validator lewati prosa `.md/.txt`. Detail: `docs/superpowers/plans/2026-09-20-browser-autonomy-restoration.md`, sesi: `docs/PLANNED/sessions/2026-09-20_browser-autonomy.md`.
 - `os:*` di sidecar sudah LIVE (Fase B6, `engine/channels/os.mjs`): alias tipis ke `NATIVE_TOOLS` dash; renderer tetap memakai Rust native `os_*` commands untuk jalur utamanya.
 - Dead code era Electron (skill-manager.js + 3 handler `ipcMain.on`
@@ -304,9 +313,23 @@ auto-restart + `utils.js` stempel `abelinkTtsEndedAt`).
 
 ## 9. Kontrak Path Harness (reader = writer)
 
-Writer tunggal: Rust `cmd_harness.rs` (`data_home()/abelink/harness/<tgl>/`,
-rotasi 50MB x 3). Reader WAJIB rumus sama: `scripts/harness-common.mjs`
-(`parseArgs` + `harnessRoot` bersama untuk export + diagnose).
+SATU SKEMA, DUA PENULIS (M2c, PLAN-T1):
+- **GUI**: Rust `cmd_harness.rs` (`data_home()/abelink/harness/<tgl>/`,
+  rotasi 50MB x 3).
+- **Headless (CLI/TUI)**: `cli/core/harness-writer.mjs` — fs langsung ke root
+  SAMA, envelope row `{ts,kind,line}` identik. Flag observability
+  `ABELINK_TRAJECTORY_HEADLESS=1` (default OFF = perilaku lama);
+  `ABELINK_HARNESS_DISABLE=1` mematikan semua tulis. Tanpa rotasi generasi:
+  file aktif >50MB fail-closed (skip, bukan timpa). Bentuk event di
+  `src/api/harnessCore.js`; tool-call menulis `ok` (paritas GUI) + `success`
+  (kontrak skema) sekaligus. Turn headless kontinu per SESI (offset akumulatif
+  di `createToolAuditLogger`) karena tiap runAgentLoop me-restart stepCount.
+- Reader WAJIB rumus sama: `scripts/harness-common.mjs` (`parseArgs` +
+  `harnessRoot` bersama untuk export + diagnose).
+- Choke point H5: `cli/core/tool-hooks.mjs` `executeToolWithHooks` membungkus
+  `environment.executeTool` di ketiga host headless (`bin/abelink.mjs`,
+  `bin/abelink-tui.mjs`, `cli/tui/engine.mjs`) — pre/post hook + audit JSONL
+  otomatis (termasuk tool yang di-deny), audit tak pernah fatal.
 Evaluasi: `evaluation/run.mjs` `sidecarWorkspaceRoot()` = rumus sama +
 `workspace`. Kategori log baca langsung dari file (`bun run
 harness:diagnose`), bukan copas user.

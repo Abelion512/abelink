@@ -367,7 +367,6 @@ export function resolve_effort(requested_level, options = {}) {
 
 function resolve_auto(requested_level, initial_level, options = {}) {
   const initial = initial_level || EffortLevel.MEDIUM
-  const policy = EffortPolicy.forLevel(initial)
   const escalations = []
   const AUTO_SEQUENCE = [
     EffortLevel.LOW,
@@ -425,7 +424,6 @@ export const AUTO_MAX = resolve_effort(EffortLevel.AUTO, { classifierInitial: Ef
  * the effective bound = min(canonical, runtime, provider, system).
  */
 export function applyLimits(policy, runtimeLimits = {}, providerLimits = {}, systemLimits = {}) {
-  const layers = [policy, runtimeLimits, providerLimits, systemLimits]
   const effective = {}
 
   // Copy canonical policy fields first, then clamp by min of applicable layers.

@@ -1,4 +1,4 @@
-import React from 'react'
+
 
 export const WindowResizeFrame = () => {
   const handleResize = (direction) => (e) => {

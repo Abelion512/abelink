@@ -4,8 +4,8 @@ import { indexSingleTurn } from '../api/turnPairMigrator'
 export const useChatArchiver = ({
   chatData,
   activeTopic,
-  config,
-  pushNotification,
+  config: _config,
+  pushNotification: _pushNotification,
   isLoading,
   sessionId = 1
 }) => {

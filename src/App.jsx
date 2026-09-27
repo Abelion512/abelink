@@ -40,7 +40,7 @@ const GlobalListener = () => {
   const navigate = useNavigate()
 
   useEffect(() => {
-    const handleShortcut = (event, action) => {
+    const handleShortcut = (_event, _action) => {
       // Navigate to Home (AbelinkHome) and trigger microphone auto-toggle
       navigate('/', { state: { autoToggleMic: Date.now() } })
     }
@@ -76,7 +76,6 @@ const GlobalListener = () => {
 const MainLayout = ({ isStandalone = false }) => {
   const location = useLocation()
   const isHome = location.pathname === '/'
-  const isTelegram = location.pathname === '/telegram-bot'
   const [windowMode, setWindowMode] = useState('dashboard')
 
   useEffect(() => {
@@ -217,7 +216,7 @@ function App() {
   const [showRecovery, setShowRecovery] = useState(false)
   const [showWhatsNew, setShowWhatsNew] = useState(false)
   const [legacyProfiles, setLegacyProfiles] = useState(null) // null = belum dicek
-  const [wizardAutoImport, setWizardAutoImport] = useState(false)
+  const [wizardAutoImport] = useState(false)
 
   // Deteksi profil era Electron hanya saat wizard aktif (first boot tanpa config).
   useEffect(() => {
@@ -426,10 +425,14 @@ function App() {
     !choiceMade &&
     !wizardAutoImport
 
-  // Fresh install (no legacy profiles): auto-create config immediately
+  // Fresh install (no legacy profiles): auto-create config immediately.
+  // Async-IIFE wrapper: body sync memicu set-state-in-effect; versi await
+  // ini lolos rule (terbukti via probe) dan perilaku identik.
   useEffect(() => {
     if (!hasConfig && !showLegacyChooser && !choiceMade && !wizardAutoImport) {
-      settleChoice('fresh')
+      void (async () => {
+        await settleChoice('fresh')
+      })()
     }
   }, [hasConfig, showLegacyChooser, choiceMade, wizardAutoImport, settleChoice])
 

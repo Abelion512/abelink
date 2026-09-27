@@ -1,0 +1,5 @@
+# Bun runtime config — WAJIB untuk TUI OpenTUI/Solid (cli/tui, bin/abelink-tui-v2.tsx).
+# Tanpa preload ini, transform JSX Solid tidak diterapkan: komponen render
+# statis sekali, signal tidak propagasi (popup autocomplete tak pernah muncul,
+# keybinding Enter/newline mati). Pola: sst/opencode packages/tui/bunfig.toml.
+preload = ["@opentui/solid/preload"]
