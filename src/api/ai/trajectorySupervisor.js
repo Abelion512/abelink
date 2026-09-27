@@ -240,6 +240,7 @@ const record = ({ tool, query, success, verificationState }) => {
         void currentKey
         const nextStrategy = getNextStrategy(null, {
           repeat: currentRepeat,
+          stagnantStreak: semanticStagnationCount,
           verificationBlocked:
             lastVerificationRank <= 1 &&
             /read-file|read-document|run-shell|run-task|browser-read|os-read/i.test(

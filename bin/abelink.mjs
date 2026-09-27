@@ -189,7 +189,8 @@ export function parseCliArgs(argv) {
     modelVersion: null,
     apiKey: null,
     effort: 'low',
-    maxTurns: 15,
+    maxTurns: null,
+    maxTurnsExplicit: false,
     workspace: process.cwd(),
     json: false,
     trace: false,
@@ -223,6 +224,7 @@ export function parseCliArgs(argv) {
         process.exit(3)
       }
       options.maxTurns = turns
+      options.maxTurnsExplicit = true
     } else if (arg === '--workspace') {
       options.workspace = path.resolve(args[++i])
     } else if (arg === '--json') {
