@@ -1857,6 +1857,40 @@ async function tryAutoResume() {
         loop()
         return
       }
+      if (hs.status === 401) {
+        // G1 fix (2026-09-27): token basi-terisi dulu terjebak di sini —
+        // resume handshake 401 berulang tanpa pernah bertanya helper
+        // (helper hanya dikonsultasi bila token session-storage KOSONG).
+        // Konsultasi native host SEKALI per attempt; bila helper memberi
+        // token yang benar-benar berbeda, handshake ulang SEKALI. Helper
+        // gagal / token sama = menyerah pada attempt ini (scheduleAutoResume
+        // di bawah tetap menjadwalkan percobaan berikutnya).
+        const via = await getTokenViaNativeHost(cfg.port)
+        if (via?.token && via.token !== cfg.token) {
+          cfg.token = via.token
+          await chrome.storage.session.set({ token: cfg.token })
+          await setPortToken(cfg.port, cfg.token)
+          try {
+            const hs2 = await apiGet(cfg, 'handshake')
+            if (hs2.status === 200) {
+              if (hs2.body?.newToken) {
+                cfg.token = hs2.body.newToken
+                await chrome.storage.session.set({ token: cfg.token })
+                await setPortToken(cfg.port, cfg.token)
+              }
+              running = true
+              await chrome.storage.session.set({ lastError: null })
+              console.log(
+                `[Abelink] auto-resume pulih via helper (token basi ditukar, session: ${cfg.session}, port: ${cfg.port}).`
+              )
+              loop()
+              return
+            }
+          } catch {
+            /* sidecar belum aktif / unreachable */
+          }
+        }
+      }
     } catch {
       /* sidecar belum aktif / unreachable */
     }
