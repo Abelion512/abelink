@@ -1,6 +1,6 @@
 [package]
 name = "abelink"
-version = "1.4.0-alpha.8"
+version = "1.5.0-alpha.9"
 description = "Abelink: Privacy-first Autonomous AI OS Companion for Linux (Tauri v2 shell)"
 authors = ["Abelion512"]
 edition = "2021"
