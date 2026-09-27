@@ -1,7 +1,7 @@
 {
   "version": "1.4.0-alpha.8",
   "date": "27 September 2026",
-  "summary": "78 fitur baru, 34 perbaikan dan 101 pembaruan dokumentasi.",
+  "summary": "78 fitur baru, 34 perbaikan dan 103 pembaruan dokumentasi.",
   "founderReport": "Yang baru untuk Anda: Local restore pages + capability manager + bridge token; Canonical session protocol, adaptive long-horizon budget, and fail-closed recovery; Dorman default untuk surface otomasi PC visual. Lebih stabil: Samakan bun ke 1.4.2; Anti-latch bridge lifecycle + resume self-heal 401; Anti-latch bridge lifecycle + resume self-heal 401.",
   "linearUrl": "https://linear.app/abelion/project/abelink-agent-for-linux-10ceec65c326",
   "changes": [
@@ -452,6 +452,14 @@
     {
       "type": "ATM",
       "msg": "EnsureGitIdentity di syncWithReleaseBase"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Log FASE 2 history rewrite"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Log FASE 2 history rewrite"
     },
     {
       "type": "DOCS",

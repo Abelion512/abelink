@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-09-27T13:58:07.755Z",
+  "generatedAt": "2026-09-27T14:02:02.255Z",
   "releases": [
     {
       "version": "1.4.0-alpha.8",
       "date": "27 September 2026",
-      "summary": "78 fitur baru, 34 perbaikan dan 101 pembaruan dokumentasi.",
+      "summary": "78 fitur baru, 34 perbaikan dan 103 pembaruan dokumentasi.",
       "sections": {
         "features": [
           {
@@ -348,6 +348,12 @@
         ],
         "security": [],
         "docs": [
+          {
+            "msg": "Log FASE 2 history rewrite"
+          },
+          {
+            "msg": "Log FASE 2 history rewrite"
+          },
           {
             "msg": "Refresh baseline perf-gate + session log sweep PR"
           },

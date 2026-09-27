@@ -4,7 +4,7 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 
 ## v1.4.0-alpha.8 — 27 September 2026
 
-**Ringkasan:** 78 fitur baru, 34 perbaikan dan 101 pembaruan dokumentasi.
+**Ringkasan:** 78 fitur baru, 34 perbaikan dan 103 pembaruan dokumentasi.
 
 ### Fitur Baru
 - Local restore pages + capability manager + bridge token
@@ -123,6 +123,8 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 - EnsureGitIdentity di syncWithReleaseBase
 
 ### Dokumentasi
+- Log FASE 2 history rewrite
+- Log FASE 2 history rewrite
 - Refresh baseline perf-gate + session log sweep PR
 - Refresh baseline perf-gate + session log sweep PR 2026-09-27
 - V1.3.0-alpha.7
