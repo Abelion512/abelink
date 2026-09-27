@@ -328,15 +328,17 @@ describe('bin/abelink-tui-v2.tsx (E2E pipe)', () => {
       c.stdin.write(input)
       c.stdin.end()
     })
+  // Timeout zamanikan: spawn bun + startup TUI di bawah beban suite paralel
+  // penuh bisa >30s (flake saat verify gate post-#62) — margin, bukan regressi.
   it('pipe kosong -> exit 0', async () => {
     const r = await run('')
     expect(r.code).toBe(0)
-  }, 30000)
+  }, 60000)
   it('pipe /model (tanpa sidecar) -> info + exit 0', async () => {
     const r = await run('/model\n')
     expect(r.code).toBe(0)
     expect(r.stdout).toContain('Model aktif')
-  }, 30000)
+  }, 60000)
   it('pipe /effort + /exit -> exit 0', async () => {
     const r = await run('/effort high\n/exit\n')
     expect(r.code).toBe(0)
