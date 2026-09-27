@@ -1,6 +1,37 @@
 {
-  "generatedAt": "2026-09-27T14:07:38.811Z",
+  "generatedAt": "2026-09-27T15:23:51.960Z",
   "releases": [
+    {
+      "version": "1.6.0-alpha.10",
+      "date": "27 September 2026",
+      "summary": "2 fitur baru dan 4 pembaruan dokumentasi.",
+      "sections": {
+        "features": [
+          {
+            "msg": "Adapter Promptfoo tipis di atas abelink agent run"
+          },
+          {
+            "msg": "Adapter Promptfoo tipis di atas abelink agent run"
+          }
+        ],
+        "fixes": [],
+        "security": [],
+        "docs": [
+          {
+            "msg": "Regenerasi aset brand dari sumber bersih"
+          },
+          {
+            "msg": "Regenerasi seluruh aset brand dari sumber bersih + hapus music-cover yatim"
+          },
+          {
+            "msg": "Sweep istilah era warisan + rilis jadi manual"
+          },
+          {
+            "msg": "Sweep istilah era warisan dari seluruh pohon + rilis jadi manual"
+          }
+        ]
+      }
+    },
     {
       "version": "1.5.0-alpha.9",
       "date": "27 September 2026",
