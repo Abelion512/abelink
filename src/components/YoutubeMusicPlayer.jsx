@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useYoutubeMusic } from '../contexts/YoutubeMusicContext'
-import { GripVertical, Trash2, ListMusic, Music2 } from 'lucide-react'
+import { GripVertical, Trash2, ListMusic, Music2, Repeat, Repeat1 } from 'lucide-react'
 
 /**
  * Kartu "Now Playing" — antarmuka musik gaya Apple Dark Glass minimalis.
@@ -21,6 +21,8 @@ export const YoutubeMusicPlayer = () => {
     playPause,
     reorderQueue,
     removeFromQueue,
+    repeatMode,
+    cycleRepeatMode,
     playbackError
   } = useYoutubeMusic()
 
@@ -29,10 +31,15 @@ export const YoutubeMusicPlayer = () => {
 
   // Thumbnail YT Music (lh3.googleusercontent) sering 429 (rate limit).
   // Gagal -> fallback ke thumbnail default img.youtube.com -> gagal lagi -> placeholder.
+  // Reset-on-track-change via adjust-during-render (pola resmi React):
+  // bandingkan key saat render, bukan setState di effect.
   const [thumbFailed, setThumbFailed] = useState(false)
-  useEffect(() => {
-    setThumbFailed(false)
-  }, [currentTrack.id, currentTrack.thumbnail])
+  const [prevThumbKey, setPrevThumbKey] = useState(null)
+  const thumbKey = `${currentTrack.id}::${currentTrack.thumbnail}`
+  if (thumbKey !== prevThumbKey) {
+    setPrevThumbKey(thumbKey)
+    if (thumbFailed) setThumbFailed(false)
+  }
 
   // Ref agar listener IPC selalu memanggil versi fungsi terbaru
   const playUrlRef = useRef(playUrl)
@@ -93,14 +100,14 @@ export const YoutubeMusicPlayer = () => {
             <div className="flex items-center gap-2">
               <div className={`w-2.5 h-2.5 rounded-full ${isPlaying ? 'bg-red-500 animate-pulse' : 'bg-white/30'}`}></div>
               <span className="text-xs font-medium text-white/60 select-none">
-                {isPlaying ? 'Sedang Memutar' : 'YouTube Music'}
+                {isPlaying ? 'Now Playing' : 'YouTube Music'}
               </span>
             </div>
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setShowQueue(!showQueue)}
                 className={`btn btn-ghost btn-xs btn-circle ${showQueue ? 'text-primary bg-primary/20' : 'text-white/60 hover:text-white'}`}
-                title={showQueue ? 'Tutup Antrean' : 'Buka Antrean Lagu'}
+                title={showQueue ? 'Close Queue' : 'Open Song Queue'}
               >
                 <ListMusic className="w-3.5 h-3.5" />
               </button>
@@ -119,11 +126,11 @@ export const YoutubeMusicPlayer = () => {
           {showQueue ? (
             <div className="p-3 max-h-[280px] overflow-y-auto space-y-2 select-none">
               <div className="flex items-center justify-between pb-1.5 border-b border-white/5">
-                <span className="text-[11px] font-semibold text-white/70 uppercase tracking-wider">Antrean Lagu ({queue.length})</span>
-                <span className="text-[10px] text-white/40">Tarik untuk urutkan</span>
+                <span className="text-[11px] font-semibold text-white/70 uppercase tracking-wider">Song Queue ({queue.length})</span>
+                <span className="text-[10px] text-white/40">Drag to reorder</span>
               </div>
               {queue.length === 0 ? (
-                <div className="py-6 text-center text-xs text-white/40">Belum ada antrean lagu</div>
+                <div className="py-6 text-center text-xs text-white/40">No songs in queue</div>
               ) : (
                 queue.map((track, idx) => {
                   const isCur = track.id === currentTrack.id
@@ -155,12 +162,17 @@ export const YoutubeMusicPlayer = () => {
                         onClick={() => playTrack(track)}
                         className="flex-1 min-w-0 cursor-pointer"
                       >
-                        <p className="text-xs font-medium truncate">{track.title || 'Lagu'}</p>
-                        <p className="text-[10px] text-white/50 truncate">{track.artist || 'Artis'}</p>
+                        <p className="text-xs font-medium truncate">{track.title || 'Song'}</p>
+                        <p className="text-[10px] text-white/50 truncate">{track.artist || 'Artist'}</p>
                       </div>
                       {isCur && (
                         <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-primary/30 text-primary font-semibold">
                           PLAYING
+                        </span>
+                      )}
+                      {Number(track.repeat ?? 1) > 1 && (
+                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-white/10 text-white/70 font-semibold" title={`Repeats ${track.repeat}x`}>
+                          x{track.repeat}
                         </span>
                       )}
                       <button
@@ -169,7 +181,7 @@ export const YoutubeMusicPlayer = () => {
                           removeFromQueue(track.id)
                         }}
                         className="opacity-0 group-hover:opacity-100 btn btn-ghost btn-xs btn-circle text-white/40 hover:text-red-400"
-                        title="Hapus dari antrean"
+                        title="Remove from queue"
                       >
                         <Trash2 className="w-3 h-3" />
                       </button>
@@ -203,25 +215,38 @@ export const YoutubeMusicPlayer = () => {
                 )}
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-white truncate" title={currentTrack.title}>
-                    {currentTrack.title || 'Belum ada lagu'}
+                    {currentTrack.title || 'No song yet'}
                   </p>
-                  <p className="text-xs text-white/60 truncate">{currentTrack.artist || 'Pilih lagu lewat chat'}</p>
+                  <p className="text-xs text-white/60 truncate">{currentTrack.artist || 'Pick a song via chat'}</p>
                 </div>
               </div>
 
               <div className="flex items-center justify-center gap-4 pt-1">
-                <button onClick={prevTrack} className="btn btn-ghost btn-sm btn-circle text-white/70 hover:text-white" title="Sebelumnya">
+                <button onClick={prevTrack} className="btn btn-ghost btn-sm btn-circle text-white/70 hover:text-white" title="Previous">
                   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z" /></svg>
                 </button>
-                <button onClick={playPause} className="btn btn-circle bg-red-600 hover:bg-red-700 border-none text-white shadow-lg shadow-red-500/20" title={isPlaying ? 'Jeda' : 'Putar'}>
+                <button onClick={playPause} className="btn btn-circle bg-red-600 hover:bg-red-700 border-none text-white shadow-lg shadow-red-500/20" title={isPlaying ? 'Pause' : 'Play'}>
                   {isPlaying ? (
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zm8 0h4v14h-4z" /></svg>
                   ) : (
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
                   )}
                 </button>
-                <button onClick={nextTrack} className="btn btn-ghost btn-sm btn-circle text-white/70 hover:text-white" title="Selanjutnya">
+                <button onClick={nextTrack} className="btn btn-ghost btn-sm btn-circle text-white/70 hover:text-white" title="Next">
                   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM6 18l8.5-6L6 6z" /></svg>
+                </button>
+                {/* Repeat mode cycle: Off -> All -> One (icon Repeat / Repeat1) */}
+                <button
+                  onClick={cycleRepeatMode}
+                  className={`btn btn-ghost btn-sm btn-circle relative ${repeatMode === 'off' ? 'text-white/30 hover:text-white/60' : 'text-primary'}`}
+                  title={repeatMode === 'one' ? 'Repeat: this track (click for Off)' : repeatMode === 'all' ? 'Repeat: all (click for One)' : 'Repeat: off (click for All)'}
+                >
+                  {repeatMode === 'one' ? <Repeat1 className="w-4 h-4" /> : <Repeat className="w-4 h-4" />}
+                  {repeatMode !== 'off' && (
+                    <span className="absolute -top-0.5 -right-0.5 text-[8px] font-mono font-bold px-1 rounded-full bg-primary text-white leading-tight">
+                      {repeatMode === 'one' ? '1' : 'A'}
+                    </span>
+                  )}
                 </button>
               </div>
 
@@ -234,13 +259,16 @@ export const YoutubeMusicPlayer = () => {
               <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[11px] text-white/60">
                 <span className="truncate flex items-center gap-1">
                   <Music2 className="w-3 h-3 text-red-400" />
-                  {queue.length > 0 ? `${queue.length} lagu di antrean` : 'Antrean kosong'}
+                  {queue.length > 0 ? `${queue.length} in queue` : 'Queue empty'}
+                  {repeatMode !== 'off' && (
+                    <span className="font-mono text-[10px] text-primary"> · {repeatMode === 'one' ? 'Repeat One' : 'Repeat All'}</span>
+                  )}
                 </span>
                 <button
                   onClick={() => setShowQueue(true)}
                   className="text-primary hover:underline font-mono text-[10px]"
                 >
-                  Kelola Antrean
+                  Manage Queue
                 </button>
               </div>
             </div>
@@ -263,7 +291,7 @@ export const YoutubeMusicPlayer = () => {
               : 'bg-linear-to-br from-red-600 to-red-800 hover:from-red-500 hover:to-red-700'
           }
         `}
-        title={isPlayerOpen ? 'Tutup Player' : 'Buka YouTube Music'}
+        title={isPlayerOpen ? 'Close Player' : 'Open YouTube Music'}
       >
         {!isPlayerOpen && (
           <span className="absolute inset-0 rounded-full bg-red-500/30 animate-ping pointer-events-none" />

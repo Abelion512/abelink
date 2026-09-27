@@ -95,6 +95,13 @@ export async function runAgentLoop({ prompt, options = {}, environment }) {
       }
     }
   }
+  // Prompt WAJIB masuk sebagai pesan user. planning.js hanya merakit
+  // `[system, ...loopMessages]` — `userInput` dipakai untuk klasifikasi/
+  // playbook, TIDAK pernah ditambahkan sebagai pesan. Tanpa baris ini model
+  // hanya menerima system prompt dan menjawab "input kosong / minta
+  // klarifikasi" meski user mengetik pertanyaan (bug terukur 2026-09-26).
+  // initialHistory = konteks lama saja (bukan prompt berjalan), jadi aman.
+  loopMessages.push({ role: 'user', content: String(prompt) })
   const executedToolsList = []
   const trace = []
   let stepCount = 0
@@ -319,7 +326,11 @@ export async function runAgentLoop({ prompt, options = {}, environment }) {
               kind: objectiveKind,
               objectiveText: prompt,
               answer: decision.answer,
-              tools: executedToolsList
+              // GUI menulis executedTools {tool, fullResult}; runner headless
+              // menyimpan {tool, result}. Petakan di sini agar bukti tool
+              // CLI/TUI TIDAK tak-terlihat oleh verifier (bug e2e M2c:
+              // gate selalu not_run di CLI/TUI meski tool sukses).
+              tools: executedToolsList.map((t) => ({ tool: t.tool, fullResult: t.result }))
             })
 
             const gate = gateCompletion({
@@ -350,7 +361,7 @@ export async function runAgentLoop({ prompt, options = {}, environment }) {
             lastTerminalReason = `verify-${evidence.state}`
             isDone = true
             break
-          } catch (verErr) {
+          } catch {
             // Verifier additive: errors never crash legitimate completion
             sessionOutcome = 'completed'
             lastTerminalReason = classification.reason || 'explicit-done'
@@ -448,7 +459,9 @@ export async function runAgentLoop({ prompt, options = {}, environment }) {
             } catch (_) {}
           }
 
-          // Deterministic progress evaluation
+          // Deterministic progress evaluation (side-effect: memutakhirkan
+          // previousProgressRecord; outcome belum dikonsumsi — lihat TODO).
+          // TODO: konsumsi outcome stagnasi untuk menghentikan loop lebih awal.
           try {
             const currentRecord = {
               tool: toolName,
@@ -457,7 +470,7 @@ export async function runAgentLoop({ prompt, options = {}, environment }) {
               result: obsText,
               verificationState: toolOk ? VERIFICATION_STATE.NOT_RUN : VERIFICATION_STATE.FAILED
             }
-            const progress = evaluateProgress({
+            const _progress = evaluateProgress({
               previous: previousProgressRecord,
               current: currentRecord
             })

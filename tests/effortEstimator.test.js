@@ -1,13 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import {
   estimateEffort,
-  resolveEffortLevel,
-  EFFORT_VALUES,
-  SYSTEM_DEFAULT_EFFORT
+  resolveEffortLevel
 } from '../src/api/ai/effortEstimator'
 import {
   EffortLevel,
-  EffortPolicy,
   resolve_effort,
   BudgetState,
   BudgetSnapshot,

@@ -37,8 +37,6 @@ export function useMemoryGroomer(enableAutoOnStartup = false) {
     }
   })
 
-  const hasAutoGroomedRef = useRef(false)
-
   useEffect(() => {
     const listener = (nextState) => {
       if (nextState.isGrooming !== undefined) setIsGrooming(nextState.isGrooming)
@@ -48,7 +46,7 @@ export function useMemoryGroomer(enableAutoOnStartup = false) {
     return () => groomListeners.delete(listener)
   }, [])
 
-  const triggerGrooming = useCallback(async (force = false) => {
+  const triggerGrooming = useCallback(async (_force = false) => {
     if (isGrooming) return null
     setIsGrooming(true)
     notifyListeners({ isGrooming: true })

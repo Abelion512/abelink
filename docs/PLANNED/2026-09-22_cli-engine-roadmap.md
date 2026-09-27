@@ -1,5 +1,10 @@
 # CLI-Engine Roadmap — Satu Inti, Banyak Host (ATM Hermes)
 
+> **SUPERSEDED (2026-09-26):** tabel "Pemetaan kini" di bawah ini digantikan oleh
+> `docs/PLANNED/2026-09-26_hermes-cli-engine-adoption.md` yang memakai status
+> terverifikasi (DONE / KODE-ADA-UNWIRED / PARTIAL / PLANNED / REJECTED) + task +
+> acceptance test per konsep (H1..H12). Dokumen ini dipertahankan sebagai riwayat.
+
 Date: 2026-09-22
 Status: roadmap doc. Sumber: Hermes agent-loop / session-storage /
 provider-runtime / gateway-internals / cron-internals (docs primer) +

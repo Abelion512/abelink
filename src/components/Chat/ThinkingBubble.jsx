@@ -1,12 +1,12 @@
-import React, { useEffect, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { Check, Music, Brain, ChevronRight, ListOrdered, SquarePlay } from 'lucide-react'
 
 export const ThinkingBubble = ({
-  isThinking = false,
+  _isThinking = false,
   isSummarizing = false,
   isSearchingMusic = false,
   content = '',
-  youtubeLink = '',
+  _youtubeLink = '',
   reasoning = null,
   executedTools = []
 }) => {

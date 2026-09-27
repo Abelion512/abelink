@@ -7,7 +7,7 @@ import { useYoutubeMusic } from '../../contexts/YoutubeMusicContext'
 // MessageBubble di chat DAN ResponseArea di home). Klik me-resolve janji
 // choiceBus sehingga loop agent lanjut otomatis, tanpa ketik.
 // Mendukung rendering kartu multimodal/music preview jika rawOptions membawa metadata.
-export const ChoiceButtons = React.memo(({ choice }) => {
+export const ChoiceButtons = React.memo(function ChoiceButtons({ choice }) {
   const [playingAudio, setPlayingAudio] = useState(null)
   const audioRef = useRef(null)
   const musicCtx = useYoutubeMusic()
