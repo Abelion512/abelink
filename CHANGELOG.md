@@ -4,9 +4,11 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 
 ## v1.2.0-alpha.6 — 27 September 2026
 
-**Ringkasan:** 72 fitur baru, 31 perbaikan dan 69 pembaruan dokumentasi.
+**Ringkasan:** 74 fitur baru, 31 perbaikan dan 70 pembaruan dokumentasi.
 
 ### Fitur Baru
+- Dorman default untuk surface otomasi PC visual
+- Dorman default untuk surface otomasi PC visual
 - ADR-001 divergensi loop + paritas kontrak; flake ts monotonik; sweep
 - Jarvis slice 1-7 archPolicy tunggal + bench hormat policy
 - Fase 4 cron scheduler
@@ -114,6 +116,7 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 - EnsureGitIdentity di syncWithReleaseBase
 
 ### Dokumentasi
+- Pemicu ulang setelah retarget base ke main
 - Bukti e2e spawn -> tool nyata -> wait COMPLETE
 - Session log long-horizon inspect--verify-e2e
 - Trajectory headless + tool hooks H5 di cli/core

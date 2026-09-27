@@ -1,10 +1,18 @@
 {
   "version": "1.2.0-alpha.6",
   "date": "27 September 2026",
-  "summary": "72 fitur baru, 31 perbaikan dan 69 pembaruan dokumentasi.",
-  "founderReport": "Yang baru untuk Anda: ADR-001 divergensi loop + paritas kontrak; flake ts monotonik; sweep; Jarvis slice 1-7 archPolicy tunggal + bench hormat policy; Fase 4 cron scheduler. Lebih stabil: Anti-latch bridge lifecycle + resume self-heal 401; Anti-latch bridge lifecycle + resume self-heal 401; Bukti verifier terlihat di headless + semantik turn per run + e2e hermetik.",
+  "summary": "74 fitur baru, 31 perbaikan dan 70 pembaruan dokumentasi.",
+  "founderReport": "Yang baru untuk Anda: Dorman default untuk surface otomasi PC visual; Dorman default untuk surface otomasi PC visual; ADR-001 divergensi loop + paritas kontrak; flake ts monotonik; sweep. Lebih stabil: Anti-latch bridge lifecycle + resume self-heal 401; Anti-latch bridge lifecycle + resume self-heal 401; Bukti verifier terlihat di headless + semantik turn per run + e2e hermetik.",
   "linearUrl": "https://linear.app/abelion/project/abelink-agent-for-linux-10ceec65c326",
   "changes": [
+    {
+      "type": "AUTO",
+      "msg": "Dorman default untuk surface otomasi PC visual"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Dorman default untuk surface otomasi PC visual"
+    },
     {
       "type": "AUTO",
       "msg": "ADR-001 divergensi loop + paritas kontrak; flake ts monotonik; sweep"
@@ -416,6 +424,10 @@
     {
       "type": "ATM",
       "msg": "EnsureGitIdentity di syncWithReleaseBase"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Pemicu ulang setelah retarget base ke main"
     },
     {
       "type": "DOCS",
