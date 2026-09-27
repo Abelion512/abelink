@@ -503,7 +503,18 @@ const Guidebook = () => {
                   </h3>
                   <div className="p-3 mb-4 rounded-xl bg-info/5 border border-info/20">
                     <p className="text-xs text-white/70">
-                      <strong className="text-info">Approval berjenjang (Linux):</strong> aksi
+                      <strong className="text-info">Status: DORMAN (2026-09-27).</strong> Grup
+                      otomasi PC visual (os-read/click/type/key/scroll) tidak direkrut ke
+                      agent — belum pernah dipakai secara nyata dan menambah permukaan
+                      risiko. Mesin tetap terpasang; aktivasi ulang = keputusan owner +
+                      hapus flag dormant di group pc_automation. os-open (buka file/URL)
+                      tetap berfungsi normal. Catatan: jalur visual X11-only — Wayland
+                      belum didukung.
+                    </p>
+                  </div>
+                  <div className="p-3 mb-4 rounded-xl bg-warning/5 border border-warning/20">
+                    <p className="text-xs text-white/70">
+                      <strong className="text-warning">Approval berjenjang (Linux):</strong> aksi
                       read-only (os-read, lihat layar) selalu bebas. Aksi kontrol
                       (klik, ketik, shortcut berbahaya) default minta konfirmasi sekali
                       per jenis aksi — kamu bisa atur ke “Always allow” atau “Session”
