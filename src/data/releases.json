@@ -1,17 +1,23 @@
 {
-  "generatedAt": "2026-09-27T08:02:01.172Z",
+  "generatedAt": "2026-09-27T09:15:14.204Z",
   "releases": [
     {
       "version": "1.2.0-alpha.6",
       "date": "27 September 2026",
-      "summary": "74 fitur baru, 31 perbaikan dan 72 pembaruan dokumentasi.",
+      "summary": "76 fitur baru, 32 perbaikan dan 73 pembaruan dokumentasi.",
       "sections": {
         "features": [
+          {
+            "msg": "Canonical session protocol, adaptive long-horizon budget, and fail-closed recovery"
+          },
           {
             "msg": "Dorman default untuk surface otomasi PC visual"
           },
           {
             "msg": "Dorman default untuk surface otomasi PC visual"
+          },
+          {
+            "msg": "Canonical session protocol, adaptive long-horizon budget, and fail-closed recovery"
           },
           {
             "msg": "ADR-001 divergensi loop + paritas kontrak; flake ts monotonik; sweep"
@@ -238,6 +244,9 @@
             "msg": "Anti-latch bridge lifecycle + resume self-heal 401"
           },
           {
+            "msg": "Fail-closed checkpoint persistence and clamp hard ceiling to 512"
+          },
+          {
             "msg": "Bukti verifier terlihat di headless + semantik turn per run + e2e hermetik"
           },
           {
@@ -327,6 +336,9 @@
         ],
         "security": [],
         "docs": [
+          {
+            "msg": "Zamanikan timeout integrasi/FS-scan"
+          },
           {
             "msg": "Hapus 4 berkas unreferenced"
           },
