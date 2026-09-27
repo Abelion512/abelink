@@ -1,12 +1,15 @@
 {
-  "generatedAt": "2026-09-27T12:24:08.611Z",
+  "generatedAt": "2026-09-27T13:16:10.437Z",
   "releases": [
     {
       "version": "1.2.0-alpha.6",
       "date": "27 September 2026",
-      "summary": "76 fitur baru, 34 perbaikan dan 83 pembaruan dokumentasi.",
+      "summary": "78 fitur baru, 34 perbaikan dan 84 pembaruan dokumentasi.",
       "sections": {
         "features": [
+          {
+            "msg": "Local restore pages + capability manager + bridge token"
+          },
           {
             "msg": "Canonical session protocol, adaptive long-horizon budget, and fail-closed recovery"
           },
@@ -45,6 +48,9 @@
           },
           {
             "msg": "Measurement plane + 30-fixture benchmark matrix"
+          },
+          {
+            "msg": "Local restore UI pages + capability manager + bridge token"
           },
           {
             "msg": "General agentic runtime for long-horizon autonomy"
@@ -416,6 +422,9 @@
           },
           {
             "msg": "Plan wiring the architecture axis into the benchmark execution path"
+          },
+          {
+            "msg": "Superpowers cockpit prototype + distillation system notes"
           },
           {
             "msg": "Record benchmark and standards adaptation session"
