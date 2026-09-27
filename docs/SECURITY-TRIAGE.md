@@ -23,6 +23,8 @@ Dokumen ini merekam keputusan triage atas temuan `bun audit` agar keputusan
 - **Upgrade path:** hapus/ganti `node-fzf` dari `yt-search` di upstream, atau
   migrasi pencarian YouTube ke `youtube-transcript-plus`/API lain. Re-evaluasi
   tiap kali `bun audit` menandai advisory ReDoS baru untuk minimatch < 3.1.3.
+- **Terakhir dicek:** 2026-09-20. Versi npm `yt-search` terbaru masih tetap
+  `2.13.1` (belum ada rilis upstream yang menghapus dependensi `node-fzf`/`redstar`).
 
 ## Diperbaiki
 
