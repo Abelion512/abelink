@@ -1,6 +1,6 @@
 // ponytail: wrapper tipis ke OrbVisualizer CSS (three.js dep dihapus).
 // API kompatibel: { status, intensity, size } — size piksel diskala ke hero/normal.
-import React from 'react'
+
 import OrbVisualizer from './OrbVisualizer'
 
 export default function JarvisOrb({ status = 'idle', intensity = 0, size = 540 }) {

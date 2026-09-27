@@ -112,7 +112,7 @@ export function extractCitations(text) {
   const raw = String(text || '')
 
   // 1. Format dalam kurung siku: [P-1: "quote"] atau [P-1]
-  const insideBracketRegex = /\[(P-\d+)(?:\s*[:\u2014\-]\s*["“']([^"”']+)["”'])?\s*\]/gi
+  const insideBracketRegex = /\[(P-\d+)(?:\s*[:\u2014-]\s*["“']([^"”']+)["”'])?\s*\]/gi
   let match
   while ((match = insideBracketRegex.exec(raw)) !== null) {
     const passageId = match[1].toUpperCase()
@@ -121,7 +121,7 @@ export function extractCitations(text) {
   }
 
   // 2. Format luar kurung siku: [P-1]: "quote" atau [P-1] "quote"
-  const outsideBracketRegex = /\[(P-\d+)\]\s*[:\u2014\-]?\s*["“']([^"”']+)["”']/gi
+  const outsideBracketRegex = /\[(P-\d+)\]\s*[:\u2014-]?\s*["“']([^"”']+)["”']/gi
   while ((match = outsideBracketRegex.exec(raw)) !== null) {
     const passageId = match[1].toUpperCase()
     const quote = match[2] ? match[2].trim() : ''

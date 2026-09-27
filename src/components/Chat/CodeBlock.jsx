@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 // ponytail: <pre><code> + CSS (react-syntax-highlighter dep dihapus);
 // highlight baris-per-baris tidak dibutuhkan di jalur chat.
 
-export const CodeBlock = React.memo(({ node, inline, className, children, ...props }) => {
+export const CodeBlock = React.memo(function CodeBlock({ _node, inline, className, children, ...props }) {
   const match = /language-(\w+)/.exec(className || '')
   const [isCopied, setIsCopied] = useState(false)
 

@@ -4,6 +4,7 @@ import {
   sessionKeyForEvent,
   isAllowed,
   createTelegramGateway,
+  resolveHeadlessTelegramEnabled,
 } from '../sidecar/main/telegram/gateway.mjs'
 
 const textUpdate = (over = {}) => ({
@@ -155,6 +156,28 @@ describe('dedup + running-guard + offline', () => {
     sender.mockResolvedValueOnce({ success: true })
     const flushed = await gw.flushOffline()
     expect(flushed).toMatchObject({ sent: 1, pending: 0 })
+  })
+})
+
+describe('gerbang headless (M0/B-6)', () => {
+  it('default OFF: env kosong/nilai aneh tidak menyalakan jalur headless', () => {
+    expect(resolveHeadlessTelegramEnabled({})).toBe(false)
+    expect(resolveHeadlessTelegramEnabled({ ABELINK_TELEGRAM_HEADLESS: '' })).toBe(false)
+    expect(resolveHeadlessTelegramEnabled({ ABELINK_TELEGRAM_HEADLESS: 'yes' })).toBe(false)
+    expect(resolveHeadlessTelegramEnabled({ ABELINK_TELEGRAM_HEADLESS: '0' })).toBe(false)
+  })
+
+  it('hanya "1"/"true" (case-insensitive) yang menyalakan', () => {
+    expect(resolveHeadlessTelegramEnabled({ ABELINK_TELEGRAM_HEADLESS: '1' })).toBe(true)
+    expect(resolveHeadlessTelegramEnabled({ ABELINK_TELEGRAM_HEADLESS: 'TRUE' })).toBe(true)
+  })
+
+  it('tanpa runner -> balasan [SKIP] jujur, bukan "selesai" palsu', async () => {
+    const sender = vi.fn(async () => ({ success: true }))
+    const gw = createTelegramGateway({ tgAdminIds: '111', sender })
+    await gw.handleUpdate(textUpdate())
+    expect(sender).toHaveBeenCalledTimes(1)
+    expect(sender.mock.calls[0][1]).toContain('[SKIP]')
   })
 })
 
