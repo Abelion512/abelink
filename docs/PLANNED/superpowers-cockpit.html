@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Abelink Superpowers Cockpit (Prototype)</title>
+  <style>
+    :root {
+      --bg-base: #0a0d12;
+      --bg-surface: rgba(18, 23, 33, 0.72);
+      --bg-surface-elevated: rgba(26, 33, 48, 0.85);
+      --bg-surface-glass: rgba(255, 255, 255, 0.04);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-focus: rgba(99, 179, 237, 0.5);
+      --accent-emerald: #10b981;
+      --accent-emerald-glow: rgba(16, 185, 129, 0.25);
+      --accent-cyan: #38bdf8;
+      --accent-purple: #a855f7;
+      --accent-amber: #f59e0b;
+      --accent-rose: #f43f5e;
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Menlo', monospace;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', sans-serif;
+      --radius-xl: 18px;
+      --radius-lg: 12px;
+      --radius-md: 8px;
+      --radius-sm: 6px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-base);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      background-image: 
+        radial-gradient(circle at 15% 15%, rgba(56, 189, 248, 0.08) 0%, transparent 40%),
+        radial-gradient(circle at 85% 85%, rgba(168, 85, 247, 0.08) 0%, transparent 40%),
+        radial-gradient(circle at 50% 50%, rgba(16, 185, 129, 0.04) 0%, transparent 60%);
+    }
+
+    /* Header Nav */
+    header {
+      height: 48px;
+      border-bottom: 1px solid var(--border-subtle);
+      background: var(--bg-surface);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      z-index: 50;
+    }
+
+    .brand-cluster {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .mac-dots {
+      display: flex;
+      gap: 7px;
+    }
+
+    .mac-dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+    }
+    .dot-red { background: #ef4444; }
+    .dot-yellow { background: #f59e0b; }
+    .dot-green { background: #10b981; }
+
+    .brand-title {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .pill-badge {
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 12px;
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent-cyan);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      font-family: var(--font-mono);
+      font-weight: 500;
+    }
+
+    .top-stats {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .stat-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent-emerald);
+      box-shadow: 0 0 8px var(--accent-emerald-glow);
+    }
+
+    /* 3-Zone Layout Grid */
+    .cockpit-grid {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 340px 1fr 380px;
+      gap: 12px;
+      padding: 12px;
+      height: calc(100vh - 48px - 44px);
+      overflow: hidden;
+    }
+
+    /* Card Panels with Glassmorphism */
+    .panel {
+      background: var(--bg-surface);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-xl);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.36);
+    }
+
+    .panel-header {
+      height: 42px;
+      padding: 0 14px;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .panel-title {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Zone 1: Chat & Intent */
+    .chat-stream {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .msg-bubble {
+      padding: 10px 14px;
+      border-radius: var(--radius-lg);
+      font-size: 13px;
+      line-height: 1.45;
+      max-width: 90%;
+    }
+
+    .msg-user {
+      align-self: flex-end;
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: #e0f2fe;
+    }
+
+    .msg-agent {
+      align-self: flex-start;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+    }
+
+    .agent-tag {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--accent-emerald);
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .input-box-wrapper {
+      padding: 12px;
+      border-top: 1px solid var(--border-subtle);
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    .quick-chips {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 8px;
+      overflow-x: auto;
+      padding-bottom: 2px;
+    }
+
+    .chip-btn {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s ease;
+      font-family: var(--font-mono);
+    }
+    .chip-btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: var(--text-primary);
+      border-color: var(--border-focus);
+    }
+
+    .chat-input {
+      width: 100%;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 10px 12px;
+      color: var(--text-primary);
+      font-size: 13px;
+      font-family: var(--font-sans);
+      outline: none;
+      resize: none;
+      height: 42px;
+      transition: border-color 0.2s;
+    }
+    .chat-input:focus {
+      border-color: var(--accent-cyan);
+    }
+
+    /* Zone 2: Workspace & Quality Gate */
+    .workspace-tabs {
+      display: flex;
+      gap: 8px;
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--border-subtle);
+      background: rgba(0, 0, 0, 0.15);
+      align-items: center;
+    }
+
+    .tab-item {
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: var(--radius-sm);
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.15s ease;
+    }
+    .tab-item.active {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text-primary);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .worktree-badge {
+      margin-left: auto;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      background: rgba(16, 185, 129, 0.12);
+      color: var(--accent-emerald);
+      padding: 3px 8px;
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .code-viewport {
+      flex: 1;
+      overflow: auto;
+      padding: 14px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      line-height: 1.6;
+      background: rgba(0, 0, 0, 0.25);
+    }
+
+    .diff-line {
+      display: flex;
+      gap: 12px;
+      padding: 1px 4px;
+      border-radius: 3px;
+    }
+    .diff-line.add { background: rgba(16, 185, 129, 0.12); color: #6ee7b7; }
+    .diff-line.del { background: rgba(244, 63, 94, 0.12); color: #fda4af; }
+    .diff-num { color: var(--text-muted); width: 28px; text-align: right; user-select: none; }
+
+    /* Quality Gate Matrix Bar */
+    .quality-gate-panel {
+      padding: 12px 14px;
+      border-top: 1px solid var(--border-subtle);
+      background: var(--bg-surface-elevated);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .gate-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .gate-metrics {
+      display: flex;
+      gap: 12px;
+      font-size: 12px;
+    }
+
+    .metric-chip {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 8px;
+      border-radius: var(--radius-sm);
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+    .chip-pass { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .chip-perf { background: rgba(56, 189, 248, 0.15); color: #7dd3fc; border: 1px solid rgba(56, 189, 248, 0.3); }
+    .chip-diff { background: rgba(168, 85, 247, 0.15); color: #d8b4fe; border: 1px solid rgba(168, 85, 247, 0.3); }
+
+    .action-btn-group {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn {
+      padding: 6px 14px;
+      border-radius: var(--radius-md);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.15s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-primary {
+      background: #0284c7;
+      color: #fff;
+    }
+    .btn-primary:hover { background: #0369a1; }
+    .btn-success {
+      background: #059669;
+      color: #fff;
+    }
+    .btn-success:hover { background: #047857; }
+    .btn-outline {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: var(--border-subtle);
+      color: var(--text-secondary);
+    }
+    .btn-outline:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text-primary);
+    }
+
+    /* Zone 3: Mission Control & Peers */
+    .peer-selector-bar {
+      display: flex;
+      gap: 4px;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border-subtle);
+      overflow-x: auto;
+      background: rgba(0, 0, 0, 0.15);
+    }
+
+    .peer-tab {
+      padding: 4px 10px;
+      font-size: 11px;
+      border-radius: var(--radius-sm);
+      color: var(--text-secondary);
+      cursor: pointer;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid transparent;
+    }
+    .peer-tab.active {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-primary);
+      border-color: var(--border-subtle);
+    }
+
+    .peer-content-view {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Embedded Terminal View */
+    .terminal-container {
+      flex: 1;
+      background: #05070a;
+      padding: 12px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: #94a3b8;
+      line-height: 1.5;
+      overflow-y: auto;
+    }
+    .t-prompt { color: var(--accent-cyan); }
+    .t-output { color: #cbd5e1; }
+    .t-success { color: var(--accent-emerald); }
+    .t-warn { color: var(--accent-amber); }
+
+    /* Web Peer DOM Drawer */
+    .web-peer-drawer {
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .peer-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .peer-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .peer-meta {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .peer-status-tag {
+      font-size: 10px;
+      font-family: var(--font-mono);
+      padding: 2px 6px;
+      border-radius: 10px;
+    }
+    .status-streaming { background: rgba(56, 189, 248, 0.15); color: var(--accent-cyan); border: 1px solid rgba(56, 189, 248, 0.3); }
+    .status-idle { background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald); border: 1px solid rgba(16, 185, 129, 0.3); }
+
+    .peer-body {
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.4;
+      background: rgba(0, 0, 0, 0.2);
+      padding: 8px 10px;
+      border-radius: var(--radius-sm);
+    }
+
+    /* Floating Status Dock */
+    .floating-dock {
+      height: 44px;
+      border-top: 1px solid var(--border-subtle);
+      background: var(--bg-surface);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      z-index: 50;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .dock-cluster {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .dock-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+      padding: 3px 9px;
+      border-radius: 20px;
+      font-family: var(--font-mono);
+      color: var(--text-secondary);
+    }
+
+    .btn-panic {
+      background: rgba(244, 63, 94, 0.15);
+      border: 1px solid rgba(244, 63, 94, 0.3);
+      color: #fb7185;
+      padding: 4px 10px;
+      border-radius: var(--radius-sm);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .btn-panic:hover {
+      background: rgba(244, 63, 94, 0.3);
+      color: #fff;
+    }
+
+    /* Scrollbars */
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.25);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Header -->
+  <header>
+    <div class="brand-cluster">
+      <div class="mac-dots">
+        <div class="mac-dot dot-red"></div>
+        <div class="mac-dot dot-yellow"></div>
+        <div class="mac-dot dot-green"></div>
+      </div>
+      <div class="brand-title">
+        Abelink OS Cockpit
+        <span class="pill-badge">v1.0.0-alpha.3</span>
+      </div>
+    </div>
+
+    <div class="top-stats">
+      <div class="stat-item">
+        <div class="status-dot"></div>
+        <span>Sidecar Bridge: 127.0.0.1:49713 [dev]</span>
+      </div>
+      <div class="stat-item">
+        <span>Active Worktrees: <strong>2</strong></span>
+      </div>
+      <div class="stat-item">
+        <span>Memory MMS: <strong>Dexie v22 + Orama</strong></span>
+      </div>
+    </div>
+  </header>
+
+  <!-- 3-Zone Interactive Cockpit Grid -->
+  <div class="cockpit-grid">
+    
+    <!-- Zone 1: Chat & Intent -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+          Chat & Intent
+        </span>
+        <span style="font-size: 11px; color: var(--accent-emerald); font-weight: 500;">Active Session</span>
+      </div>
+
+      <div class="chat-stream" id="chatStream">
+        <div class="msg-bubble msg-agent">
+          <div class="agent-tag">
+            <span class="status-dot"></span> Abelink Core
+          </div>
+          Auto-worktree engine siap. Perubahan kode Anda saat ini diisolasi pada worktree otomatis <code>feat-worktree-cleansing-8f2a</code>. Branch <code>main</code> sepenuhnya aman.
+        </div>
+        <div class="msg-bubble msg-user">
+          Tolong cek pruning policy dan pastikan integrasi peer terminal Hermes berjalan.
+        </div>
+        <div class="msg-bubble msg-agent">
+          <div class="agent-tag">
+            <span class="status-dot"></span> Abelink Core
+          </div>
+          Hermes PTY subprocess terhubung. Test suite quality gate sedang memverifikasi delta kode.
+        </div>
+      </div>
+
+      <div class="input-box-wrapper">
+        <div class="quick-chips">
+          <button class="chip-btn" onclick="injectPrompt('/worktree prune')">/worktree prune</button>
+          <button class="chip-btn" onclick="injectPrompt('/peer hermes')">/peer hermes</button>
+          <button class="chip-btn" onclick="injectPrompt('/brainstorm claude')">/brainstorm claude</button>
+          <button class="chip-btn" onclick="injectPrompt('/gate run')">/gate run</button>
+        </div>
+        <textarea 
+          id="chatInput" 
+          class="chat-input" 
+          placeholder="Ketik instruksi atau pilih chip cepat..."
+          onkeydown="handleKey(event)"
+        ></textarea>
+      </div>
+    </div>
+
+    <!-- Zone 2: Workspace & Quality Gate -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+          Autonomous Workspace & Quality Gate
+        </span>
+        <span class="worktree-badge">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3v12"></path><circle cx="18" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M18 9a9 9 0 0 1-9 9"></path></svg>
+          .abelink/worktrees/feat-worktree-cleansing-8f2a
+        </span>
+      </div>
+
+      <div class="workspace-tabs">
+        <div class="tab-item active" onclick="switchTab(this, 'code')">Diff Viewer (2 files)</div>
+        <div class="tab-item" onclick="switchTab(this, 'test')">Vitest Gate Output</div>
+        <div class="tab-item" onclick="switchTab(this, 'plan')">Cleansing Spec</div>
+      </div>
+
+      <div class="code-viewport" id="codeViewport">
+        <div style="color: var(--text-muted); margin-bottom: 8px;">// sidecar/engine/channels/worktree.mjs (auto-worktree isolation)</div>
+        <div class="diff-line"><span class="diff-num">42</span><span>export async function pruneStaleWorktrees(options = {}) {</span></div>
+        <div class="diff-line add"><span class="diff-num">43</span><span>+   const ttlMs = options.ttlMs || 24 * 60 * 60 * 1000; // 24h idle TTL</span></div>
+        <div class="diff-line add"><span class="diff-num">44</span><span>+   const isSafe = await assertDiskSpaceAvailable({ minFreeGb: 2.0 });</span></div>
+        <div class="diff-line add"><span class="diff-num">45</span><span>+   if (!isSafe) throw new Error('Ruang disk di bawah batas aman 2GB.');</span></div>
+        <div class="diff-line"><span class="diff-num">46</span><span>    const list = await git.worktreeList();</span></div>
+        <div class="diff-line del"><span class="diff-num">47</span><span>-   // old un-guarded worktree prune</span></div>
+        <div class="diff-line add"><span class="diff-num">47</span><span>+   for (const wt of list) {</span></div>
+        <div class="diff-line add"><span class="diff-num">48</span><span>+     if (wt.isDirty) continue; // Jangan hapus perubahan uncommitted</span></div>
+        <div class="diff-line add"><span class="diff-num">49</span><span>+     if (Date.now() - wt.lastModified > ttlMs) await git.worktreeRemove(wt.path);</span></div>
+        <div class="diff-line add"><span class="diff-num">50</span><span>+   }</span></div>
+        <div class="diff-line"><span class="diff-num">51</span><span>    return { ok: true, pruned: list.length };</span></div>
+        <div class="diff-line"><span class="diff-num">52</span><span>}</span></div>
+      </div>
+
+      <div class="quality-gate-panel">
+        <div class="gate-row">
+          <div class="gate-metrics">
+            <span class="metric-chip chip-pass">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              Tests: 54/54 Passing
+            </span>
+            <span class="metric-chip chip-perf">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
+              Perf: -14ms
+            </span>
+            <span class="metric-chip chip-diff">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+              Diff: +42 / -7
+            </span>
+          </div>
+
+          <div class="action-btn-group">
+            <button class="btn btn-outline" onclick="simulateGate()">Re-run Gate</button>
+            <button class="btn btn-success" onclick="mergeWorktree()">Atomic Merge to Main</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Zone 3: Mission Control & Peer Agents -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+          Mission Control & Peer Gateway
+        </span>
+        <span class="pill-badge" style="background: rgba(168, 85, 247, 0.15); color: var(--accent-purple); border-color: rgba(168, 85, 247, 0.3);">
+          Multi-Agent Active
+        </span>
+      </div>
+
+      <div class="peer-selector-bar">
+        <div class="peer-tab active" onclick="switchPeerTab(this, 'terminal')">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+          Hermes PTY
+        </div>
+        <div class="peer-tab" onclick="switchPeerTab(this, 'opencode')">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+          OpenCode PTY
+        </div>
+        <div class="peer-tab" onclick="switchPeerTab(this, 'webpeers')">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line></svg>
+          Web Peers (Claude/Qwen)
+        </div>
+      </div>
+
+      <div class="peer-content-view" id="peerView">
+        <!-- Terminal PTY View -->
+        <div class="terminal-container" id="terminalView">
+          <div class="t-prompt">[hermes@local ~]$ <span class="t-output">opencode-server --listen 127.0.0.1:4096</span></div>
+          <div class="t-output">[INFO] Initializing PTY bridge on descriptor fd=14...</div>
+          <div class="t-output">[INFO] Connecting to Abelink Intercom Bus... Connected.</div>
+          <div class="t-success">[HERMES] Ready for collaborative refactor session.</div>
+          <div class="t-prompt">[hermes@local ~]$ <span class="t-output">git status --short</span></div>
+          <div class="t-output"> M sidecar/main/browser/bridge-core.mjs</div>
+          <div class="t-output"> M sidecar/main/browser/native-host.mjs</div>
+          <div class="t-success">[GATE] Checking vitest assertions... 54 passed (100%).</div>
+          <div class="t-prompt" id="termLiveLine">[hermes@local ~]$ <span style="animation: blink 1s infinite;">_</span></div>
+        </div>
+
+        <!-- Web Peers Drawer (Hidden initially) -->
+        <div class="web-peer-drawer" id="webPeerView" style="display: none;">
+          <div class="peer-card">
+            <div class="peer-header">
+              <span class="peer-meta">
+                <span class="status-dot"></span> Anthropic Claude Sonnet 5
+              </span>
+              <span class="peer-status-tag status-idle">Ready</span>
+            </div>
+            <div class="peer-body">
+              "Arsitektur adapter polimorfik untuk WebPeerRegistry sudah solid. Pastikan streaming indicator mendeteksi DOM mutasi dinamis."
+            </div>
+          </div>
+
+          <div class="peer-card">
+            <div class="peer-header">
+              <span class="peer-meta">
+                <span class="status-dot"></span> Alibaba Qwen 2.5-Max
+              </span>
+              <span class="peer-status-tag status-streaming">Streaming DOM</span>
+            </div>
+            <div class="peer-body">
+              "Formula TTL 24 jam dengan disk-guard threshold 2GB sudah memenuhi kriteria keamanan sistem pada Linux Mint."
+            </div>
+          </div>
+
+          <div class="peer-card">
+            <div class="peer-header">
+              <span class="peer-meta">
+                <span class="status-dot"></span> OpenAI ChatGPT (GPT-5.6)
+              </span>
+              <span class="peer-status-tag status-idle">Standby</span>
+            </div>
+            <div class="peer-body">
+              Tab siap pada ekstensi Abelink. Menunggu instruksi brainstorm berikutnya.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Bottom Floating Status Dock -->
+  <footer class="floating-dock">
+    <div class="dock-cluster">
+      <div class="dock-pill">
+        <span class="status-dot"></span>
+        <span>Engine: Connected (Bun v1.4.2)</span>
+      </div>
+      <div class="dock-pill">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
+        <span>CPU: 4.2% · RAM: 184MB</span>
+      </div>
+      <div class="dock-pill">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
+        <span>Disk Guard: 48.2GB Free (Safe)</span>
+      </div>
+    </div>
+
+    <div class="dock-cluster">
+      <button class="btn-panic" onclick="emergencyStop()">Emergency Stop (Ctrl+Shift+S)</button>
+    </div>
+  </footer>
+
+  <script>
+    function injectPrompt(text) {
+      const input = document.getElementById('chatInput');
+      input.value = text;
+      input.focus();
+    }
+
+    function handleKey(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        const input = document.getElementById('chatInput');
+        const text = input.value.trim();
+        if (!text) return;
+        
+        const stream = document.getElementById('chatStream');
+        const userDiv = document.createElement('div');
+        userDiv.className = 'msg-bubble msg-user';
+        userDiv.textContent = text;
+        stream.appendChild(userDiv);
+        input.value = '';
+
+        // Response simulation
+        setTimeout(() => {
+          const agentDiv = document.createElement('div');
+          agentDiv.className = 'msg-bubble msg-agent';
+          agentDiv.innerHTML = `
+            <div class="agent-tag"><span class="status-dot"></span> Abelink Core</div>
+            Menerima instruksi <code>${escapeHtml(text)}</code>. Mengalihkan eksekusi ke isolasi worktree dan memverifikasi quality gate.
+          `;
+          stream.appendChild(agentDiv);
+          stream.scrollTop = stream.scrollHeight;
+        }, 500);
+
+        stream.scrollTop = stream.scrollHeight;
+      }
+    }
+
+    function switchTab(el, type) {
+      document.querySelectorAll('.workspace-tabs .tab-item').forEach(t => t.classList.remove('active'));
+      el.classList.add('active');
+      const viewport = document.getElementById('codeViewport');
+      if (type === 'test') {
+        viewport.innerHTML = `
+          <div style="color: #34d399; font-weight: bold; margin-bottom: 8px;">✓ 54 passed (5 files, 140 assertions)</div>
+          <div style="color: var(--text-secondary);">✓ browser bridge core: handshake menerima token benar [4.5ms]</div>
+          <div style="color: var(--text-secondary);">✓ browser bridge core: dropSession menolak long-poll dan mengosongkan sesi [1.5ms]</div>
+          <div style="color: var(--text-secondary);">✓ browser bridge core: sweepSessions hanya menjatuhkan sesi mati [0.9ms]</div>
+          <div style="color: var(--text-secondary);">✓ isolasi token prod/dev: tokenPathFor kanonik [1.9ms]</div>
+          <div style="color: var(--text-secondary);">✓ isolasi flavor strict: host dev tidak pernah fall back ke prod [0.5ms]</div>
+          <div style="color: #38bdf8; margin-top: 8px;">Quality Gate Status: ALL ASSERTIONS GREEN</div>
+        `;
+      } else if (type === 'plan') {
+        viewport.innerHTML = `
+          <div style="color: var(--accent-cyan); font-weight: bold; margin-bottom: 8px;"># Master Blueprint: Periodic Cleansing & Web Peers</div>
+          <div style="color: var(--text-secondary); line-height: 1.6;">
+            1. Inactivity TTL: 24 jam auto-prune.<br>
+            2. Safe Gate: Periksa uncommitted changes sebelum penghapusan.<br>
+            3. Disk Space Guard: Min 2GB free space assertion.<br>
+            4. WebPeerRegistry: Dukungan multi-model (ChatGPT, Claude, Qwen, Perplexity, Grok).
+          </div>
+        `;
+      } else {
+        location.reload();
+      }
+    }
+
+    function switchPeerTab(el, target) {
+      document.querySelectorAll('.peer-tab').forEach(t => t.classList.remove('active'));
+      el.classList.add('active');
+      const term = document.getElementById('terminalView');
+      const web = document.getElementById('webPeerView');
+      if (target === 'webpeers') {
+        term.style.display = 'none';
+        web.style.display = 'flex';
+      } else {
+        term.style.display = 'block';
+        web.style.display = 'none';
+      }
+    }
+
+    function simulateGate() {
+      const btn = event.target;
+      btn.textContent = 'Running Gate...';
+      setTimeout(() => {
+        btn.textContent = 'Gate Passed (0.4s)';
+        setTimeout(() => btn.textContent = 'Re-run Gate', 2000);
+      }, 600);
+    }
+
+    function mergeWorktree() {
+      alert('Atomic Squash Merge sukses! Worktree .abelink/worktrees/feat-worktree-cleansing-8f2a telah dibersihkan.');
+    }
+
+    function emergencyStop() {
+      alert('Emergency stop broadcasted! Semua proses subprocess PTY dan browser automation dihentikan seketika.');
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/[&<>'"]/g, 
+        tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+      );
+    }
+  </script>
+</body>
+</html>
