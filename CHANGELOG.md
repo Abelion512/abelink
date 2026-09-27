@@ -4,11 +4,13 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 
 ## v1.2.0-alpha.6 — 27 September 2026
 
-**Ringkasan:** 74 fitur baru, 31 perbaikan dan 72 pembaruan dokumentasi.
+**Ringkasan:** 76 fitur baru, 32 perbaikan dan 73 pembaruan dokumentasi.
 
 ### Fitur Baru
+- Canonical session protocol, adaptive long-horizon budget, and fail-closed recovery
 - Dorman default untuk surface otomasi PC visual
 - Dorman default untuk surface otomasi PC visual
+- Canonical session protocol, adaptive long-horizon budget, and fail-closed recovery
 - ADR-001 divergensi loop + paritas kontrak; flake ts monotonik; sweep
 - Jarvis slice 1-7 archPolicy tunggal + bench hormat policy
 - Fase 4 cron scheduler
@@ -85,6 +87,7 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 ### Perbaikan
 - Anti-latch bridge lifecycle + resume self-heal 401
 - Anti-latch bridge lifecycle + resume self-heal 401
+- Fail-closed checkpoint persistence and clamp hard ceiling to 512
 - Bukti verifier terlihat di headless + semantik turn per run + e2e hermetik
 - Selaraskan approval dengan Auto Mode f86b17b
 - Loop survivability popup-close disconnect
@@ -116,6 +119,7 @@ Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — j
 - EnsureGitIdentity di syncWithReleaseBase
 
 ### Dokumentasi
+- Zamanikan timeout integrasi/FS-scan
 - Hapus 4 berkas unreferenced
 - Pemicu ulang setelah retarget base ke main
 - Bukti e2e spawn -> tool nyata -> wait COMPLETE
