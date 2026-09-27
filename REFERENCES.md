@@ -24,7 +24,7 @@
 | [OpenJarvis](https://github.com/open-jarvis/OpenJarvis) | Arsitektur agent terbuka | Pola orkestrasi yang lolos filter privacy-first | Fase arsitektur | unused |
 | opencode | Coding-agent / delegasi coding | Workflow coding + TUI; BUKAN diduplikasi di runtime Abelink (boundary: Abelink = orkestrasi umum) | Fase TUI/coding-delegation | unused |
 | [build-your-own-x](https://github.com/codecrafters-io/build-your-own-x) | Build-from-scratch | Hanya bila ATM tak cukup dan owner setujui bangun dari nol | Kasus-per-kasus | unused |
-| mark-agent (Mazees) | SEJARAH | Basis fondasi awal; identitas aktif sudah Abelink milik Abelion Group | Arsip — jangan jadikan acuan pola baru | archived |
+| Basis warisan (diarsipkan) | SEJARAH | Basis fondasi awal; identitas aktif sudah Abelink milik Abelion Group | Arsip — jangan jadikan acuan pola baru | archived |
 
 `TBD` = belum terkonfirmasi, jangan karang URL. Update baris + status di PR
 yang sama saat sebuah sumber mulai dipakai.

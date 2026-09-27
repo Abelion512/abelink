@@ -274,12 +274,13 @@ StartupNotify=false
 }
 
 # Fossil .desktop entries (dead Exec paths, missing icons) hijack taskbar
-# matching — e.g. mark.desktop from the Electron era. Remove when harmful.
+# matching — entri fosil era pre-Abelink. Remove when harmful.
+# (glob generik: entri resmi bernama abelink*.desktop tidak akan kena)
 remove_stale_desktops() {
   local dir="$HOME/.local/share/applications"
   [ -d "$dir" ] || return 0
   local f
-  for f in "$dir"/mark.desktop "$dir"/mark-agent.desktop; do
+  for f in "$dir"/*mark*.desktop; do
     if [ -f "$f" ]; then
       warn "removing stale desktop entry: $f"
       rm -f "$f"

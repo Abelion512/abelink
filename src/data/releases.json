@@ -1697,13 +1697,13 @@
             "msg": "Update release data"
           },
           {
-            "msg": "Detach identitas mazees/mark-agent"
+            "msg": "Detach identitas era warisan"
           },
           {
             "msg": "Zamanikan timeout anti-flake cli-tui E2E + gmail-list handler"
           },
           {
-            "msg": "Detach identitas mazees/mark-agent"
+            "msg": "Detach identitas era warisan"
           },
           {
             "msg": "Update release data"
@@ -2326,13 +2326,13 @@
             "msg": "Lazy-load googleapis dan telegraf untuk pangkas startup"
           },
           {
-            "msg": "Detach identitas mazees/mark-agent"
+            "msg": "Detach identitas era warisan"
           },
           {
             "msg": "Zamanikan timeout anti-flake cli-tui E2E + gmail-list handler"
           },
           {
-            "msg": "Detach identitas mazees/mark-agent"
+            "msg": "Detach identitas era warisan"
           },
           {
             "msg": "Zamanikan timeout integrasi/FS-scan"
@@ -3159,10 +3159,10 @@
             "msg": "Memory architecture v16 — autonomousTasks, taskHistory, auditLog, primingLog + checkpoint manager"
           },
           {
-            "msg": "Enhance user interaction and context awareness in Mark Agent's greeting sequence"
+            "msg": "Enhance user interaction and context awareness in Abelink's greeting sequence"
           },
           {
-            "msg": "Enhance user interaction and context awareness in Mark Agent's greeting sequence"
+            "msg": "Enhance user interaction and context awareness in Abelink's greeting sequence"
           },
           {
             "msg": "Enhance memory management with Orama integration for real-time updates and deduplication"
@@ -3222,7 +3222,7 @@
             "msg": "Update Guidebook content and add AGENTS.md for project overview and technology stack"
           },
           {
-            "msg": "Update license to MARK Agent Source Available License v1.0 and modify README warning section"
+            "msg": "Update ketentuan lisensi dan ubah bagian peringatan README"
           },
           {
             "msg": "Inject OS platform awareness into AI system prompt"
@@ -3300,7 +3300,7 @@
             "msg": "Enhance user experience with boot sequence greeting and mood-based visual feedback"
           },
           {
-            "msg": "Implement AI greeting functionality in useMarkAgent hook"
+            "msg": "Implement AI greeting functionality in agent hook"
           },
           {
             "msg": "Add browser automation features with IPC handlers and native tools"
@@ -3818,7 +3818,7 @@
             "msg": "Real durations, executed verifier, persistent sidecar RPC"
           },
           {
-            "msg": "Point homepage to mark-agent-linux fork"
+            "msg": "Point homepage to repo Abelink"
           },
           {
             "msg": "Restore stale branches in tauri.yml"
@@ -3866,7 +3866,7 @@
             "msg": "Add permissions blocks to workflow, improve HTML sanitization regex"
           },
           {
-            "msg": "Persona identity — strip upstream 'Mazees'/'Mada' defaults on linux fork"
+            "msg": "Persona identity — hapus default nama era warisan di fork linux"
           },
           {
             "msg": "Simplify Configuration labels, restore occupation, rename AI Engine to Model"
@@ -4289,7 +4289,7 @@
             "msg": "Optimize message handling and memory management in WhatsApp bot"
           },
           {
-            "msg": "Update loading condition to check isAgentBusy in useMarkAgent hook"
+            "msg": "Update loading condition to check isAgentBusy in agent hook"
           },
           {
             "msg": "Adjust autonomous message handling in useMarkPlan and enable tools in useAwareness"
@@ -4575,7 +4575,7 @@
             "msg": "Reset src/ to upstream/master"
           },
           {
-            "msg": "Drift manifest mark-agent-fork vs upstream/master"
+            "msg": "Drift manifest vs master era warisan"
           },
           {
             "msg": "Glass UI sweep checkpoint pre-drift-cutoff"
@@ -5201,7 +5201,7 @@
             "msg": "Real durations, executed verifier, persistent sidecar RPC"
           },
           {
-            "msg": "Point homepage to mark-agent-linux fork"
+            "msg": "Point homepage to repo Abelink"
           },
           {
             "msg": "Restore stale branches in tauri.yml"
@@ -5249,7 +5249,7 @@
             "msg": "Add permissions blocks to workflow, improve HTML sanitization regex"
           },
           {
-            "msg": "Persona identity — strip upstream 'Mazees'/'Mada' defaults on linux fork"
+            "msg": "Persona identity — hapus default nama era warisan di fork linux"
           },
           {
             "msg": "Simplify Configuration labels, restore occupation, rename AI Engine to Model"

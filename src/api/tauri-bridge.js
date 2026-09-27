@@ -576,7 +576,6 @@ export const api = {
   selectDirectory: () => invoke('misc_open_directory_dialog'),
 
   // ---------- Legacy memory migration (MEM) ----------
-  legacyDetectProfiles: () => invoke('fs_detect_legacy_profiles'),
   legacyImportPickAndRead: async () => {
     try {
       return await invoke('fs_import_pick_and_read')

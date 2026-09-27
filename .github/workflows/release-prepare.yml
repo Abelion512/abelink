@@ -1,8 +1,9 @@
 name: Release Prepare
 
+# Manual-only: rilis dipicu owner (Actions > Release Prepare > Run workflow).
+# Sebelumnya on:push ke main -> setiap merge membuat PR alpha baru
+# (rilis yang merilis rilis). Finalize tetap otomatis utk Release PR.
 on:
-  push:
-    branches: [main, linux]
   workflow_dispatch: {}
 
 permissions:

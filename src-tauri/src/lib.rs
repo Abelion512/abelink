@@ -330,7 +330,6 @@ pub fn run() {
             cmd_fs::fs_delete_file,
             cmd_fs::fs_list_dir,
             cmd_fs::fs_grep_search,
-            cmd_fs::fs_detect_legacy_profiles,
             cmd_fs::fs_import_pick_and_read,
             cmd_harness::harness_append,
             cmd_node_bridge::node_invoke,

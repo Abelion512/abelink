@@ -6,7 +6,7 @@
 > **Abelink** (berbasis arsitektur **ABELINK: Metacognitive Artificial Relational Knowledge**) adalah asisten otonom berbasis Linux dengan fokus pada privasi, otomatisasi sistem operasi, dan eksekusi tugas multi-langkah. Berjalan langsung di workstation lokal menggunakan arsitektur hybrid Tauri v2 (Rust) dan Bun runtime sidecar.
 
 > [!NOTE]
-> Abelink adalah produk eksklusif Abelion Group. Fondasi awal dari mark-agent kini murni sejarah, bukan identitas aktif.
+> Abelink adalah produk eksklusif Abelion Group. Fondasi awal dari basis kode warisan kini murni sejarah, bukan identitas aktif.
 
 ---
 
