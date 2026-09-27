@@ -92,7 +92,7 @@ comm -23 \
 # 5 browser:* stub, 14 gap nyata + plugin/skills/tg families).
 ```
 
-## Verdict merge-readiness PR #16
+## Verdict merge-readiness PR #16 (arsip sejarah, 2026-09; dipertahankan apa adanya)
 
 **Layak merge setelah checklist kecil ini, dengan catatan:**
 

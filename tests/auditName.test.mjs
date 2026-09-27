@@ -1,11 +1,11 @@
-// Audit nama upstream: blok identitas dikecualikan (atribusi sah),
-// kemunculan di luar blok tetap ketangkap.
+// Audit nama: blok identitas dikecualikan (identitas sah Abelink/Abelion512),
+// kemunculan nama warisan di luar blok tetap ketangkap.
 import { describe, it, expect } from 'vitest'
 import { findSuspiciousName } from '../src/api/ai/planning.js'
 
 const IDENTITY_BLOCK = `# IDENTITAS DIRI (SUMBER KEBENARAN TUNGGAL TENTANG SIAPA KAMU):
-- Kamu adalah Abelink Linux v1.0.0-alpha.3.
-- ide dan karya orisinal: Mada Putra Adhadriyanto (Mazees) (https://github.com/Mazees/mark-agent).
+- Kamu adalah Abelink v1.1.0-alpha.5.
+- produk eksklusif Abelion Group: Abelion512 (https://github.com/Abelion512/abelink).
 # DESAIN DIRI:
 - Local-first.`
 

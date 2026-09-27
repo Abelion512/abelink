@@ -1,25 +1,33 @@
-# Abelink Linux — Roadmap & Arah Pengembangan
+# Abelink — Roadmap & Arah Pengembangan
 
-> **Branch:** linux · **Target:** v1.0.0 · **Updated:** 2026-08-30
+> **Branch:** main · **Versi:** 1.1.0-alpha.5 · **Updated:** 2026-09-27
 
 ---
 
 ## Visi
 
-ABELINK Linux adalah desktop assistant native untuk Linux — ringan, offline-first, dan mengintegrasikan AI multimodal (teks, suara, kamera) langsung di desktop tanpa cloud dependency untuk operasi dasar.
+Abelink adalah proactive agentic AI yang hidup di mana-mana: OS, browser
+(Brave/Chrome via extension), TUI/CLI, gateway. Satu engine (`cli/` +
+`agentRunner.js`), banyak client (GUI, extension, TUI, gateway).
+Data utama arah produk: `abelink-5w1h.html` (FROZEN).
 
 ---
 
-## Fase Saat Ini: Stabilisasi (v1.0.0-alpha.x)
+## Fase Saat Ini: Stabilisasi (v1.1.0-alpha.x)
 
 - [x] Tauri v2 migration (Rust backend + React 19 frontend)
 - [x] Native Linux integration (tray, xdotool, window tracker, shortcuts)
 - [x] Core AI: multimodal (vision, voice, RAG, memory)
 - [x] Auto-profile: deteksi RAM native (/proc/meminfo) — FITUR TIDAK PERNAH
-      HILANG di RAM kecil; profil hanya mengatur eager vs lazy loading
+       HILANG di RAM kecil; profil hanya mengatur eager vs lazy loading
 - [x] UX cleanup: simplified config, first-boot flow, keyboard nav
+- [x] Browser bridge Jalur A (ekstensi MV3) LIVE; sisa smoke e2e + Jalur B
+- [x] Headless observability (CLI/TUI menulis harness root yang sama)
+- [x] Measurement plane benchmark PR46 (matriks 30 fixture)
 
-**Next milestone:** packaging (AppImage, .deb) + auto-update CI.
+**Next milestone:** P0 5W1H (buktikan delegation, stabilkan browser, putuskan
+nasib os-automation, ukur lokal di hardware nyata) → packaging
+(AppImage, .deb) + auto-update CI.
 
 ---
 
@@ -109,4 +117,4 @@ ABELINK Linux adalah desktop assistant native untuk Linux — ringan, offline-fi
 
 ## Kontribusi
 
-Buka issue di https://github.com/Abelion512/abelink - branch target: `main` atau `linux`.
+Buka issue di https://github.com/Abelion512/abelink - branch target: `main`.
