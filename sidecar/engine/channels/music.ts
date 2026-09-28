@@ -1,11 +1,32 @@
 // Channel: YouTube Music player bridge (Tauri), pencarian lagu, stub fase B/C.
 // Modul ini hanya mendaftarkan handler; semua I/O via helper registry.
+//
+// W1-2 (js-to-ts-spec.md): rename + tipe. Normalisasi hasil search ke kontrak
+// lama yt-search TIDAK berubah (konsumen bergantung padanya).
 import { on, lazy } from '../registry.ts'
 
+type YtmTrack = {
+  videoId?: string
+  id?: string
+  title?: string
+  name?: string
+  artist?: { name?: string }
+  author?: { name?: string } | string
+  duration?: number | string
+  durationText?: string
+  thumbnail?: string
+  thumbnails?: Array<{ url?: string }>
+}
+type YtmInstance = { search: (query: string) => Promise<unknown>; initialize?: () => Promise<unknown> }
+
 const getYtm = lazy(async () => {
-  const mod = await import('ytmusic-api')
+  const mod = (await import('ytmusic-api')) as unknown as {
+    default?: unknown
+  } & Record<string, unknown>
   const YTMusic = mod.default ?? mod
-  const inst = typeof YTMusic === 'function' ? new YTMusic() : YTMusic
+  const inst = (
+    typeof YTMusic === 'function' ? new (YTMusic as new () => YtmInstance)() : YTMusic
+  ) as YtmInstance
   if (typeof inst.initialize === 'function') await inst.initialize()
   return inst
 })
@@ -16,21 +37,21 @@ const getYtm = lazy(async () => {
 on('yt:load', async () => ({ success: false, message: 'yt:* player not yet implemented in Tauri (needs WebviewWindow)' }))
 on('yt:show', async () => ({ success: false, message: 'yt:* player not yet implemented in Tauri (needs WebviewWindow)' }))
 on('yt:hide', async () => ({ success: false, message: 'yt:* player not yet implemented in Tauri (needs WebviewWindow)' }))
-on('yt:command', async (command) => ({ success: false, message: `yt:command '${command}' not yet implemented in Tauri` }))
+on('yt:command', async (command: unknown) => ({ success: false, message: `yt:command '${command}' not yet implemented in Tauri` }))
 on('yt:get-duration', async () => ({ success: false, data: 0, message: 'yt:* player not yet implemented in Tauri' }))
 
 // Pencarian lagu via ytmusic-api (lazy; instance di-init sekali). Hasil
 // DINORMALKAN ke kontrak lama yt-search ({id,title,artist,duration,url,...})
 // karena konsumen (getBestMusicMatch, YoutubeMusicPlayer) bergantung padanya —
 // tanpa ini field metadata jadi undefined.
-on('search-music', async (query) => {
+on('search-music', async (query: unknown) => {
   const ytm = await getYtm()
   if (typeof ytm.search !== 'function') {
     throw new Error('ytmusic-api tidak menyediakan search()')
   }
-  const res = await ytm.search(String(query))
-  const items = Array.isArray(res) ? res : Array.isArray(res?.videos) ? res.videos : []
-  const fmtDur = (d) => {
+  const res = (await ytm.search(String(query))) as unknown
+  const items = Array.isArray(res) ? res : Array.isArray((res as { videos?: unknown[] })?.videos) ? (res as { videos: unknown[] }).videos : []
+  const fmtDur = (d: unknown): string => {
     if (d == null) return ''
     if (typeof d === 'string') return d
     const s = Number(d)
@@ -39,7 +60,7 @@ on('search-music', async (query) => {
     const ss = String(Math.floor(s % 60)).padStart(2, '0')
     return `${m}:${ss}`
   }
-  return items
+  return (items as YtmTrack[])
     .slice(0, 8)
     .map((v) => {
       const id = v.videoId ?? v.id ?? ''
@@ -49,7 +70,10 @@ on('search-music', async (query) => {
         id,
         videoId: id,
         title: v.title ?? v.name ?? '',
-        artist: v.artist?.name ?? v.author?.name ?? (typeof v.author === 'string' ? v.author : ''),
+        artist:
+          v.artist?.name ??
+          (typeof v.author === 'object' && v.author !== null ? v.author.name : undefined) ??
+          (typeof v.author === 'string' ? v.author : ''),
         duration: fmtDur(v.duration ?? v.durationText),
         url: `https://music.youtube.com/watch?v=${id}`,
         thumbnail: thumb
@@ -68,8 +92,8 @@ on('ping', () => 'pong')
 // ------------------------------------------- Dipindah ke fase B/C (Tauri native)
 // dialog:open-file / dialog:open-directory -> Rust native `misc_open_*_dialog`
 // take-screenshot                            -> Rust native `misc_take_screenshot`
-// browser:* -> engine/channels/browser.mjs (Fase C3 Jalur A).
-// os:* (colon) -> engine/channels/os.mjs (Fase B6: alias ke NATIVE_TOOLS dash
+// browser:* -> engine/channels/browser.ts (Fase C3 Jalur A, target W1-4).
+// os:* (colon) -> engine/channels/os.ts (Fase B6: alias ke NATIVE_TOOLS dash
 // yang LIVE via pc-agent.js). JANGAN daftarkan stub di sini dua kali.
 
 // ------------------------------------------------------- PC emergency stop
