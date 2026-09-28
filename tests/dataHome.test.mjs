@@ -73,7 +73,7 @@ describe('harness-common.mjs contracts', () => {
   })
 })
 
-import { sanitizeSkillRelPath } from '../sidecar/engine/channels/skills.mjs'
+import { sanitizeSkillRelPath } from '../sidecar/engine/channels/skills.ts'
 
 describe('skills.mjs sanitizeSkillRelPath (fail-closed)', () => {
   it('rejects path traversal with null', () => {

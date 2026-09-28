@@ -6,6 +6,9 @@
 // Format SKILL.md mengikuti pola Agent Skills (metadata + isi instruksi,
 // progressive disclosure): daftar skill hanya butuh nama + deskripsi; isi
 // SKILL.md baru dibaca saat skill dipakai.
+//
+// W1-5 (js-to-ts-spec.md): rename + tipe. Sanitasi path (fail-closed),
+// urutan search roots, dan daftar aksi approval-gated TIDAK berubah.
 import { on, emit } from '../registry.ts'
 import fs from 'fs'
 import path from 'path'
@@ -13,7 +16,23 @@ import { brandDir } from '../../main/utils/dataHome.mjs'
 
 import os from 'os'
 
-export const getSkillSearchRoots = () => {
+type SkillResolution =
+  | { type: 'folder'; rootPath: string; folderPath: string; skillMdPath: string }
+  | { type: 'file'; rootPath: string; filePath: string }
+
+type SkillFileEntry = { name: string; path: string; sizeBytes: number }
+
+type SkillManifest =
+  | { name: string; content: string; type: 'folder'; basePath: string; references: SkillFileEntry[]; scripts: SkillFileEntry[] }
+  | { name: string; content: string; type: 'file'; basePath: string; references: SkillFileEntry[]; scripts: SkillFileEntry[] }
+
+type SkillMeta = { name: string; description: string; type: 'folder' | 'file'; path: string; root: string }
+
+type TreeEntry =
+  | { name: string; path: string; type: 'folder'; children: TreeEntry[] }
+  | { name: string; path: string; type: 'file' }
+
+export const getSkillSearchRoots = (): string[] => {
   const local = path.join(brandDir(), 'skills')
   try {
     fs.mkdirSync(local, { recursive: true })
@@ -33,7 +52,7 @@ export const SKILLS_DIR = path.join(brandDir(), 'skills')
  * 2. ~/.agents/skills
  * 3. ~/.claude/skills
  */
-export async function resolveSkillPath(name) {
+export async function resolveSkillPath(name: string): Promise<SkillResolution | null> {
   if (!isValidSkillName(name)) rejectInvalidSkillName()
   const roots = getSkillSearchRoots()
   for (const root of roots) {
@@ -56,7 +75,7 @@ export async function resolveSkillPath(name) {
 // Hermes-style: baca 1KB pertama (frontmatter) SAJA untuk index.
 // Full body HANYA via skills:read on-demand. Mencegah jebol konteks saat
 // puluhan skill terdaftar — get-all = ringan (nama + deskripsi + sumber).
-async function readDescription(folderPath) {
+async function readDescription(folderPath: string): Promise<string> {
   const MAX_HEAD = 1024
   try {
     const fh = await fs.promises.open(path.join(folderPath, 'SKILL.md'), 'r')
@@ -79,18 +98,18 @@ async function readDescription(folderPath) {
 // berisi SKILL.md dengan frontmatter name/description. Read-only scan —
 // tanpa import kode, tanpa eksekusi. Sanitasi: hanya baca, tolak symlink
 // keluar (realpath prefix check).
-const EXTERNAL_SKILL_DIRS = (() => {
+const EXTERNAL_SKILL_DIRS: string[] = (() => {
   const home = process.env.HOME || ''
   const cands = [
     process.env.ABELINK_SKILLS_EXTRA,
     home ? path.join(home, '.agents', 'skills') : null,
     home ? path.join(home, '.claude', 'skills') : null,
     path.join(process.cwd(), '.opencode', 'skills')
-  ].filter(Boolean)
+  ].filter(Boolean) as string[]
   return [...new Set(cands)]
 })()
 
-const isSafeSkillDir = (dir, base) => {
+const isSafeSkillDir = (dir: string, base: string): boolean => {
   try {
     const real = fs.realpathSync(dir)
     const realBase = fs.realpathSync(base)
@@ -100,8 +119,9 @@ const isSafeSkillDir = (dir, base) => {
   }
 }
 
-const scanExternalDir = async (base) => {
-  const out = []
+type ExternalSkillMeta = { name: string; description: string; type: 'external'; path: string; source: string }
+const scanExternalDir = async (base: string): Promise<ExternalSkillMeta[]> => {
+  const out: ExternalSkillMeta[] = []
   let entries
   try {
     entries = await fs.promises.readdir(base, { withFileTypes: true })
@@ -120,19 +140,21 @@ const scanExternalDir = async (base) => {
 
 // Nama skill wajib sederhana tanpa slash dan tanpa titik di depan agar tidak
 // bisa dipakai untuk path traversal keluar dari folder skills.
-const isValidSkillName = (name) =>
+const isValidSkillName = (name: unknown): name is string =>
   typeof name === 'string' && /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(name)
 
 // Handler skills terdaftar lewat on() yang membungkus hasil dengan ok(),
 // jadi penolakan dilempar sebagai error agar frame-nya {success:false,error}.
-const rejectInvalidSkillName = () => {
+// Function declaration + return never eksplisit: TS memakai ini sebagai
+// never-returning call untuk narrowing guard `if (!pred(x)) reject()`.
+function rejectInvalidSkillName(): never {
   throw new Error('Nama skill tidak valid')
 }
 
 // Sanitasi path relatif skill: TOLAK (null) bila mengandung segmen '..'
 // atau path absolut — fail-closed anti path traversal. Versi lama me-strip
 // '..' diam-diam (fail-open: 'a/../../x' jadi 'a/x' tanpa jejak).
-export const sanitizeSkillRelPath = (relativePath) => {
+export const sanitizeSkillRelPath = (relativePath: unknown): string | null => {
   const raw = String(relativePath || '')
   if (!raw || path.isAbsolute(raw) || raw.startsWith('~')) return null
   const segs = path.normalize(raw).split(path.sep)
@@ -140,22 +162,22 @@ export const sanitizeSkillRelPath = (relativePath) => {
   return segs.filter((s) => s !== '.' && s !== '').join(path.sep)
 }
 
-const rejectTraversal = () => {
+function rejectTraversal(): never {
   throw new Error('Path skill di luar folder (traversal ditolak)')
 }
 
-const emitSkillsUpdated = () => emit('skills-updated', { name: null })
+const emitSkillsUpdated = (): void => emit('skills-updated', { name: null })
 
 on('skills:get-all', async () => {
   return await listSkillsMeta()
 })
 
 // Scan subfolder (misal references/ atau scripts/) untuk daftar berkas
-async function scanSubfolderFiles(dirPath, prefix) {
+async function scanSubfolderFiles(dirPath: string, prefix: string): Promise<SkillFileEntry[]> {
   if (!fs.existsSync(dirPath)) return []
   try {
     const entries = await fs.promises.readdir(dirPath, { withFileTypes: true })
-    const files = []
+    const files: SkillFileEntry[] = []
     for (const e of entries) {
       if (e.name.startsWith('.')) continue
       const full = path.join(dirPath, e.name)
@@ -174,7 +196,7 @@ async function scanSubfolderFiles(dirPath, prefix) {
   }
 }
 
-export async function getSkillFolderManifest(name) {
+export async function getSkillFolderManifest(name: string): Promise<SkillManifest | null> {
   if (!isValidSkillName(name)) rejectInvalidSkillName()
   const resolved = await resolveSkillPath(name)
   if (!resolved) return null
@@ -213,7 +235,7 @@ export async function getSkillFolderManifest(name) {
   return null
 }
 
-on('skills:read', async (name, relativePath) => {
+on('skills:read', async (name: unknown, relativePath: unknown) => {
   if (!isValidSkillName(name)) rejectInvalidSkillName()
   if (relativePath) {
     const safe = sanitizeSkillRelPath(relativePath)
@@ -232,7 +254,7 @@ on('skills:read', async (name, relativePath) => {
   if (!manifest) return null
 
   let text = manifest.content || ''
-  const extraSections = []
+  const extraSections: string[] = []
 
   if (manifest.references.length > 0) {
     const refList = manifest.references
@@ -265,22 +287,23 @@ on('skills:read', async (name, relativePath) => {
   }
 })
 
-on('skills:get-manifest', async (name) => {
+on('skills:get-manifest', async (name: unknown) => {
+  if (!isValidSkillName(name)) rejectInvalidSkillName()
   return await getSkillFolderManifest(name)
 })
 
 
-on('skills:save', async (name, content) => {
+on('skills:save', async (name: unknown, content: unknown) => {
   if (!isValidSkillName(name)) rejectInvalidSkillName()
   const folderPath = path.join(SKILLS_DIR, name)
   const skillFilePath = path.join(folderPath, 'SKILL.md')
   fs.mkdirSync(folderPath, { recursive: true })
-  await fs.promises.writeFile(skillFilePath, content, 'utf8')
+  await fs.promises.writeFile(skillFilePath, content as string, 'utf8')
   emit('skills-updated', { name })
   return true
 })
 
-on('skills:delete', async (name) => {
+on('skills:delete', async (name: unknown) => {
   if (!isValidSkillName(name)) rejectInvalidSkillName()
   const target = path.join(SKILLS_DIR, name)
   if (fs.existsSync(target) && fs.statSync(target).isDirectory()) {
@@ -297,7 +320,7 @@ on('skills:delete', async (name) => {
   return false
 })
 
-on('skills:read-file', async (name, relativePath) => {
+on('skills:read-file', async (name: unknown, relativePath: unknown) => {
   if (!isValidSkillName(name)) rejectInvalidSkillName()
   const safe = sanitizeSkillRelPath(relativePath)
   if (safe == null) rejectTraversal()
@@ -313,12 +336,12 @@ on('skills:read-file', async (name, relativePath) => {
 
 // ---- Channel file-manager skill (fase B: dulunya ipcMain di skill-manager.js) ----
 
-on('skills:get-tree', async (name) => {
+on('skills:get-tree', async (name: unknown) => {
   // Renderer memanggil tanpa argumen untuk tree root; validasi hanya saat
   // nama skill eksplisit diberikan (anti path traversal, lebih ketat dari aslinya).
   if (name != null && String(name).trim() !== '' && !isValidSkillName(name)) rejectInvalidSkillName()
-  const buildTree = (dirPath, basePath) => {
-    const result = []
+  const buildTree = (dirPath: string, basePath: string): TreeEntry[] => {
+    const result: TreeEntry[] = []
     const items = fs.readdirSync(dirPath)
     for (const item of items) {
       const itemPath = path.join(dirPath, item)
@@ -336,7 +359,9 @@ on('skills:get-tree', async (name) => {
     })
   }
   try {
-    if (name) {
+    // isValidSkillName murni (regex, tanpa efek samping): true di sini selalu
+    // tercapai karena guard di atas sudah menolak nama eksplisit tak-valid.
+    if (name && isValidSkillName(name)) {
       const resolved = await resolveSkillPath(name)
       if (resolved && resolved.type === 'folder') {
         return buildTree(resolved.folderPath, resolved.folderPath)
@@ -350,19 +375,19 @@ on('skills:get-tree', async (name) => {
   }
 })
 
-on('skills:save-file', async (name, relativePath, content) => {
+on('skills:save-file', async (name: unknown, relativePath: unknown, content: unknown) => {
   if (!isValidSkillName(name)) rejectInvalidSkillName()
   try {
     const standalonePath = path.join(SKILLS_DIR, `${name}.md`)
     const safe = sanitizeSkillRelPath(relativePath)
     if (safe == null) rejectTraversal()
     if (safe === 'SKILL.md' && fs.existsSync(standalonePath) && !fs.statSync(standalonePath).isDirectory()) {
-      await fs.promises.writeFile(standalonePath, content, 'utf8')
+      await fs.promises.writeFile(standalonePath, content as string, 'utf8')
       return true
     }
     const targetPath = path.join(SKILLS_DIR, name, safe)
     await fs.promises.mkdir(path.dirname(targetPath), { recursive: true })
-    await fs.promises.writeFile(targetPath, content, 'utf8')
+    await fs.promises.writeFile(targetPath, content as string, 'utf8')
     emitSkillsUpdated()
     return true
   } catch (e) {
@@ -371,7 +396,7 @@ on('skills:save-file', async (name, relativePath, content) => {
   }
 })
 
-on('skills:create-item', async (name, relativePath, isFolder) => {
+on('skills:create-item', async (name: unknown, relativePath: unknown, isFolder: unknown) => {
   if (!isValidSkillName(name)) rejectInvalidSkillName()
   try {
     const standalonePath = path.join(SKILLS_DIR, `${name}.md`)
@@ -398,7 +423,7 @@ on('skills:create-item', async (name, relativePath, isFolder) => {
   }
 })
 
-on('skills:delete-item', async (name, relativePath) => {
+on('skills:delete-item', async (name: unknown, relativePath: unknown) => {
   if (!isValidSkillName(name)) rejectInvalidSkillName()
   try {
     const safe = sanitizeSkillRelPath(relativePath)
@@ -421,7 +446,7 @@ on('skills:delete-item', async (name, relativePath) => {
   }
 })
 
-on('skills:rename-item', async (name, oldRelativePath, newRelativePath) => {
+on('skills:rename-item', async (name: unknown, oldRelativePath: unknown, newRelativePath: unknown) => {
   if (!isValidSkillName(name)) rejectInvalidSkillName()
   try {
     const oldSafe = sanitizeSkillRelPath(oldRelativePath)
@@ -442,7 +467,7 @@ on('skills:rename-item', async (name, oldRelativePath, newRelativePath) => {
 })
 
 // Install skill dari file .zip (dipilih lewat dialog native misc_open_file_dialog).
-on('skills:install', async (sourcePath) => {
+on('skills:install', async (sourcePath: unknown) => {
   try {
     if (
       typeof sourcePath !== 'string' ||
@@ -519,9 +544,9 @@ on('skills:open-folder', async () => {
 // Proyeksi meta skill untuk registry terpadu (aditif; handler tidak diubah).
 // Memindai seluruh search roots (~/.local/share/abelink/skills, ~/.agents/skills, ~/.claude/skills)
 // secara progresif (hanya name + description + type + path) dengan dedup prioritas.
-export const listSkillsMeta = async () => {
+export const listSkillsMeta = async (): Promise<Array<SkillMeta | { name: string; description: string; type: 'external'; path: string; source: string }>> => {
   const roots = getSkillSearchRoots()
-  const found = new Map()
+  const found = new Map<string, SkillMeta>()
 
   for (const root of roots) {
     if (!fs.existsSync(root)) continue
@@ -559,7 +584,7 @@ export const listSkillsMeta = async () => {
         }
       }
     } catch (err) {
-      console.warn(`[skills] Gagal memindai root ${root}:`, err.message)
+      console.warn(`[skills] Gagal memindai root ${root}:`, (err as Error).message)
     }
   }
 
@@ -568,8 +593,9 @@ export const listSkillsMeta = async () => {
 
 // Proyeksi skill ke CapabilityDescriptor terpadu (aditif; handler tidak diubah).
 // Skills tidak punya argumen (isi dimuat via read-skill) dan tidak punya toggle.
-export const skillToDescriptor = (input) => {
-  const raw = typeof input?.name === 'string' ? input.name : ''
+export const skillToDescriptor = (input: unknown) => {
+  const inp = input as { name?: unknown; description?: unknown } | null | undefined
+  const raw = typeof inp?.name === 'string' ? inp.name : ''
   const slug = raw
     .trim()
     .toLowerCase()
@@ -578,8 +604,8 @@ export const skillToDescriptor = (input) => {
     .replace(/^-+|-+$/g, '')
   if (!slug) return null
   const description =
-    typeof input?.description === 'string' && input.description.trim()
-      ? input.description
+    typeof inp?.description === 'string' && inp.description.trim()
+      ? inp.description
       : 'Skill tanpa deskripsi'
   return {
     id: `skill:${slug}`,

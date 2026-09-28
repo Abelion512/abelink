@@ -22,6 +22,19 @@ declare module 'msedge-tts' {
   export default _default
 }
 
+declare module 'adm-zip' {
+  export class AdmZipEntry {
+    entryName: string
+  }
+  export class AdmZip {
+    constructor(pathOrBuffer?: string | Buffer)
+    getEntries(): AdmZipEntry[]
+    extractAllTo(targetDir: string, overwrite: boolean): void
+  }
+  const _default: typeof AdmZip
+  export default _default
+}
+
 declare module 'yt-search' {
   export type YtsVideo = {
     videoId: string

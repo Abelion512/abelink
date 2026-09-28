@@ -115,7 +115,7 @@ export async function listRegistry() {
   // ---- skills (via listSkillsMeta + skillToDescriptor) ----
   try {
     const { listSkillsMeta, skillToDescriptor } = await import(
-      '../../engine/channels/skills.mjs'
+      '../../engine/channels/skills.ts'
     )
     const metas = (await listSkillsMeta()) || []
     for (const s of metas) {

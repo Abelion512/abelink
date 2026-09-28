@@ -1,6 +1,6 @@
 // Uji skillToDescriptor — proyeksi skill ke CapabilityDescriptor terpadu.
 import { describe, it, expect } from 'vitest'
-import { skillToDescriptor } from '../sidecar/engine/channels/skills.mjs'
+import { skillToDescriptor } from '../sidecar/engine/channels/skills.ts'
 
 describe('skillToDescriptor', () => {
   it('skill normal diproyeksikan dengan benar', () => {

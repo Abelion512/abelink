@@ -5,7 +5,7 @@
 // Kontrak runtime TIDAK berubah: `payload` tetap array atau tunggal,
 // response tetap `{ success, data | error }`, event tetap `{ event, payload }`.
 //
-// Referensi: sidecar/engine/registry.mjs:5-7.
+// Referensi: sidecar/engine/registry.ts (FrameRequest/FrameResponse/FrameEvent).
 
 /** Request client -> engine: `{ id, action, payload }`. */
 export interface SidecarRequest {
