@@ -186,7 +186,7 @@ async function main() {
     if (exited) return
     exited = true
     // Sidecar child menahan event loop parent: tanpa dispose, `/exit`/Ctrl-C
-    // meninggalkan proses bun sidecar/engine.mjs yang nyangkut
+    // meninggalkan proses bun sidecar/engine.ts yang nyangkut
     // (terukur 2026-09-26: 3 proses orphan dari sesi sebelumnya).
     try { sidecar?.dispose?.() } catch {}
     try { renderer.destroy() } catch {}

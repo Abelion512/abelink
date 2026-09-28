@@ -1,6 +1,6 @@
 // Channel: TTS, transkrip & pencarian YouTube.
 // Modul ini hanya mendaftarkan handler; semua I/O via helper registry.
-import { on, lazy } from '../registry.mjs'
+import { on, lazy } from '../registry.ts'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'

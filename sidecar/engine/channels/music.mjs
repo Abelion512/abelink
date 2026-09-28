@@ -1,6 +1,6 @@
 // Channel: YouTube Music player bridge (Tauri), pencarian lagu, stub fase B/C.
 // Modul ini hanya mendaftarkan handler; semua I/O via helper registry.
-import { on, lazy } from '../registry.mjs'
+import { on, lazy } from '../registry.ts'
 
 const getYtm = lazy(async () => {
   const mod = await import('ytmusic-api')

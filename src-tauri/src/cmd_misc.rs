@@ -14,7 +14,7 @@ use std::process::{Command, Stdio};
 use std::time::Duration;
 use tauri::{AppHandle, Manager};
 
-/// Paritas dgn engine.mjs (`os.totalmem() <= 4.5e9`).
+/// Paritas dgn engine.ts (`os.totalmem() <= 4.5e9`).
 pub(crate) const LITE_RAM_THRESHOLD_BYTES: u64 = 4_500_000_000;
 
 fn is_dev() -> bool {

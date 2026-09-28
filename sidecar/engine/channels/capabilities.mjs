@@ -12,7 +12,7 @@
 // Load-when-needed: main/capabilities hanya di-import saat channel pertama
 // dipakai; startup sidecar tetap instan.
 
-import { on } from '../registry.mjs'
+import { on } from '../registry.ts'
 
 const getManager = lazyManager()
 

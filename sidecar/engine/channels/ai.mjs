@@ -1,5 +1,5 @@
 // Channel: AI bridge, sinkronisasi config, native tools, parsing dokumen.
-import { on, handlers, emit, lazy } from '../registry.mjs'
+import { on, handlers, emit, lazy } from '../registry.ts'
 import { setLatestConfig } from './telegram.mjs'
 import { writeSharedConfig } from '../../main/shared-config.js'
 import { normalizeLegacyProviderConfig } from '../../main/legacy-provider-shim.mjs'
@@ -107,6 +107,6 @@ on('parse-document', async (b64OrBytes, isDocx) => {
     const result = await mammoth.extractRawText({ buffer })
     return result.value
   }
-  const { extractPdfText } = await import('../pdf-parse-shim.mjs')
+  const { extractPdfText } = await import('../pdf-parse-shim.ts')
   return extractPdfText(buffer)
 })

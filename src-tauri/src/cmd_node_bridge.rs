@@ -1,4 +1,4 @@
-// Jembatan stdio ke Node sidecar engine (sidecar/engine.mjs) — fase A/B migrasi.
+// Jembatan stdio ke Node sidecar engine (sidecar/engine.ts) — fase A/B migrasi.
 // Protokol: request {"id",action,payload} -> response {"id",success,data|error}
 //           event  : {"event","payload"} -> emit ke frontend (Tauri event system)
 //
@@ -286,11 +286,11 @@ pub async fn start_node_engine(app: AppHandle, state: Arc<NodeBridgeState>) -> R
     // Kandidat ganda karena Tauri memetakan resource `..` ke `_up_/` di bundle.
     let mut cmd = if cfg!(debug_assertions) {
         let candidates = [
-            std::path::PathBuf::from("sidecar/engine.mjs"),
-            std::path::PathBuf::from("../sidecar/engine.mjs"),
+            std::path::PathBuf::from("sidecar/engine.ts"),
+            std::path::PathBuf::from("../sidecar/engine.ts"),
         ];
         let engine_path = candidates.iter().find(|p| p.exists()).cloned().ok_or_else(|| {
-            "engine.mjs tidak ditemukan (dev: jalankan dari repo root)".to_string()
+            "engine.ts tidak ditemukan (dev: jalankan dari repo root)".to_string()
         })?;
         log::info!(
             "[NodeBridge] Memulai sidecar engine (bun, dev) di path: {}",

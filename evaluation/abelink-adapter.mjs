@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Abelink agent adapter for AbelinkBench — talks to sidecar/engine.mjs over JSON-lines RPC.
+// Abelink agent adapter for AbelinkBench — talks to sidecar/engine.ts over JSON-lines RPC.
 // One persistent sidecar child per run; requests are multiplexed by id.
 //
 // Effort override contract (owner request: task-level A/B, NOT process-global):
@@ -26,7 +26,7 @@ export { ARCH_VALUES, resolveBenchArch, currentBenchArch }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
-const SIDECAR = path.join(ROOT, 'sidecar', 'engine.mjs')
+const SIDECAR = path.join(ROOT, 'sidecar', 'engine.ts')
 const BUN = process.env.BUN_BIN || 'bun'
 
 const MAX_ITER = 5 // default; bisa ditimpa per task via task.maxTurns (turn-budget eval)
