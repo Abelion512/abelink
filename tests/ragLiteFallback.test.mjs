@@ -20,7 +20,7 @@ vi.mock('../src/api/db', () => dbMocks)
 vi.mock('../src/api/oramaStore', () => oramaMocks)
 vi.mock('../src/api/vectorMemory', () => vecMocks)
 
-const { ingestDocument } = await import('../src/api/ragPipeline.js')
+const { ingestDocument } = await import('../src/api/ragPipeline.ts')
 
 const fakeFile = (name, text) => ({ name, size: text.length, text: async () => text })
 
