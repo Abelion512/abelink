@@ -99,7 +99,7 @@ export function App(props: AppProps = {}) {
   // cap border lolos dari constraint (full-width ▀) sementara PromptRow taat.
   const empty = () => messages().length === 0
   const promptArea = () => (
-    <box style={{ flexDirection: 'column', width: '100%', gap: 1 }}>
+    <box style={{ flexDirection: 'column', width: '100%', flexShrink: 0, gap: 1 }}>
       <PromptRow
         value={value}
         onInput={setValue}
@@ -212,8 +212,11 @@ export function App(props: AppProps = {}) {
           </box>
         )}
         <Show when={empty()} fallback={promptArea()}>
-          <box style={{ flexDirection: 'column', alignItems: 'center', width: '100%' }}>
-            <box style={{ flexDirection: 'column', width: '100%', maxWidth: homePromptMaxWidth(dims()?.width ?? 80) }}>
+          {/* flexShrink 0 di kedua box: preseden picker overlay — cegah yoga
+              memeras kolom prompt saat konten exceeds tinggi (terukur PTY R2:
+              meta-row PromptRow overlap garis cap). */}
+          <box style={{ flexDirection: 'column', alignItems: 'center', width: '100%', flexShrink: 0 }}>
+            <box style={{ flexDirection: 'column', width: '100%', flexShrink: 0, maxWidth: homePromptMaxWidth(dims()?.width ?? 80) }}>
               {promptArea()}
             </box>
           </box>
