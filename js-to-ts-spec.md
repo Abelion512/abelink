@@ -445,3 +445,45 @@ Konvensi specifier zona `src/`: **extensionless** (`from './db'`) — sudah eksi
 | koreksi | Asumsi spec §13-W1-1: kontrak frame duplikat di `cli/core/protocol.ts` | TIDAK duplikat — `cli/core/protocol.ts` = kontrak client-engine (session/commands/events), registry = wire frame stdio. Tidak ada perpindahan protocol.ts; W1-1 mengetikkan registry di tempat |
 
 Horizon pasca-P1 (owner, 2026-09-28): **Agents -> Loops -> Graphs -> Self Improving Systems** — program susulan setelah P1 tuntas, spec terpisah.
+
+---
+
+## 16. Status Eksekusi (update berjalan)
+
+Updated: 2026-09-28, mode otonom (owner: "execute aja semua, gw bagian terima report hasil kerja").
+
+### W0 — Governance (DONE, PR #87)
+`scripts/ci/no-new-js.sh` (hard gate CI) + tsc masuk verify.sh + marker handoff lama dihapus + siklus kerja agent & ponytail penuh terdokumentasi di AGENT_CONTRIBUTION_GUIDELINES.
+
+### W1 — sidecar/engine (DONE, 5 PR: #88..#92)
+engine + registry + 9 channel (1.580 baris) 100% TS. Smoke dual-path (hot + cold binary) hijau; wire frame utuh (86 aksi).
+
+### W2 — boundary src/api (8 dari 10 PR selesai)
+
+| PR | Isi | Status |
+| --- | --- | --- |
+| #93 W2-1 | tauri-bridge.ts + tsconfig.renderer.json (B-20) | MERGED |
+| #94 W2-2 | db.ts (Dexie v30 frozen) | MERGED |
+| #96 W2-3 | headlessCli + agentRunner (kontrak agent) | MERGED |
+| #97 W2-4 | core/providerRegistry/archPolicy/benchArch/circuitBreaker/providerDetect/fetchError | MERGED |
+| #99 W2-5 | planning.ts (912 brs, prompt dikunci B-11) | MERGED |
+| #100 W2-6 | contextCompactor/memoryGroomer/sessionCompactor | MERGED |
+| #101 W2-7a | vectorCore/vectorLoader/vectorMemory + 2 worker (URL refs diupdate, vite build ok) | MERGED |
+| #102 W2-7b | oramaStore/ragPipeline/turnPairMigrator | MERGED |
+| #103 W2-8a | 13 file root api (locale/choiceBus/localWhisper/workspaceRag/harness/harnessCore/semverLite/selfModel/mic/scraping/sttGuard/skillsCache/appIdentity) | MERGED |
+| #105 W2-8b | groq/sttRouter/taskExecutor/taskStore/trajectory — root src/api kini 0 .js | MERGED |
+| W2-8c | 28 file sisa `src/api/ai/*` (~5.882 brs) | BELUM — PR berikutnya |
+
+### Baseline pengukuran (anti-klaim-kosong, permintaan owner)
+- Test: 1788 → **1810 pass / 16 skip** (nol regresi di setiap PR).
+- LOC tsc coverage: 1.518 → ~12.500+ baris dalam program typecheck ketat.
+- Files: 8 file TS awal → 60+ file .ts produktif; sisa .js produktif hanya src/api/ai (28), hooks/pages/components (renderer, W3-W4), sidecar/main (W5).
+- Gate per PR: 3x tsc exit 0 + lint exit 0 (2 warning ponytail terdaftar) + vitest 1810 + vite build + evaluation smoke.
+
+### Pola teknis yang stabil (utk W2-8c + W3)
+1. Augmentasi Window.api tak terlihat di program node-zone → cast lokal `{ api?: ... }`.
+2. CFA reset try/catch → anotasi eksplisit di deklarasi `let`.
+3. JSDoc sempit modul tetangga → cast `Parameters<typeof fn>[n]` di call-site.
+4. Rename file ber-marker ponytail → PONYTAIL.md wajib ikut (P-01/03/05 sudah).
+5. Template string schema Orama → cast boundary `Parameters<typeof search>[0..1]`.
+6. Verifikasi lokal wajib echo exit code eksplisit per program tsc (pelajaran CI #103).
