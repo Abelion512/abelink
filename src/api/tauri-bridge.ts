@@ -4,22 +4,48 @@
 //   - Rust native command   : window-state, file-ops (cmd_fs), lite & misc (cmd_misc)
 //   - node_invoke (sidecar) : sisa channel engine lama
 // Event listener memakai Tauri event system (@tauri-apps/api/event).
+//
+// W2-1 (js-to-ts-spec.md): rename + tipe — file .ts PERTAMA di src/** (memicu
+// pembuatan tsconfig.renderer.json, B-20). Tipe payload union per aksi belum
+// lengkap: facade dianotasi pragmatis, Window['api'] diambil dari typeof api.
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { splitTgAdminIds } from '../utils/telegramTargets'
 import { stripDataUrlPrefix } from '../utils/dataUrl'
 import { friendlyAiFetchError } from './ai/fetchError'
 
+/** Config yang mengalir ke tool calls (subset yang dibaca bridge). */
+type ToolConfig = {
+  workspaceRoot?: string | null
+  turnId?: string
+  sessionId?: string
+  turn?: unknown
+} & Record<string, unknown>
+
+/** Bentuk frame respons node_invoke (registry.ts sidecar). */
+type NodeInvokeResult = {
+  success?: unknown
+  data?: unknown
+  error?: unknown
+} | null
+
+type UnlistenFn = () => void
+type OnFn = (cb: (payload: unknown) => void) => UnlistenFn
+
 // ---- FB#1: router file-ops -> Rust cmd_fs ----
 // Query format AI tools: "path||arg2||arg3"
 // workspaceRoot (absolute project dir) travels in config — Rust confines
 // every path to it via resolve_contained (canonicalize + prefix check);
 // null falls back to the XDG workspace root.
-function routeFsTool(toolName, query, config) {
+function routeFsTool(
+  toolName: string,
+  query: unknown,
+  config: ToolConfig | null | undefined
+): Promise<unknown> | null {
   const parts = String(query ?? '')
     .split('||')
     .map((x) => x.trim())
-  const ws = config?.workspaceRoot ?? null
+  const ws = (config?.workspaceRoot as string | null | undefined) ?? null
   switch (toolName) {
     case 'read-file': {
       const [, sLine, eLine] = parts
@@ -60,7 +86,7 @@ function routeFsTool(toolName, query, config) {
 // rtk-style: potong output tool yang kegedean sebelum masuk konteks AI.
 // Payload media (data-URL audio/gambar) JANGAN dipotong: dipotong = korup
 // (atob/Image melempar InvalidCharacterError — bug tes suara Config).
-const clampData = (data, max = 20000) => {
+const clampData = (data: unknown, max = 20000): unknown => {
   if (typeof data === 'string') {
     if (/^data:(audio|image)\//.test(data)) return data
     if (data.length > max) {
@@ -69,14 +95,15 @@ const clampData = (data, max = 20000) => {
     return data
   }
   if (data && typeof data === 'object') {
-    for (const k of Object.keys(data)) {
-      if (typeof data[k] === 'string') data[k] = clampData(data[k], max)
+    const rec = data as Record<string, unknown>
+    for (const k of Object.keys(rec)) {
+      if (typeof rec[k] === 'string') rec[k] = clampData(rec[k], max)
     }
   }
   return data
 }
 
-const isAutomationAction = (action) => {
+const isAutomationAction = (action: unknown): boolean => {
   if (typeof action !== 'string') return false
   return (
     action.startsWith('browser:') ||
@@ -87,16 +114,18 @@ const isAutomationAction = (action) => {
   )
 }
 
-const call = async (action, ...args) => {
+const call = async (action: string, ...args: unknown[]): Promise<unknown> => {
   const isAuto = isAutomationAction(action)
   if (isAuto && typeof window !== 'undefined' && window.dispatchEvent) {
     window.dispatchEvent(new CustomEvent('abelink:automation-start', { detail: { action } }))
   }
   try {
-    const res = await invoke('node_invoke', { action, payload: args })
+    const res = (await invoke('node_invoke', { action, payload: args })) as NodeInvokeResult
     if (!res?.success) {
       const errText =
-        typeof res?.error === 'string' ? res.error : res?.error?.message || 'Sidecar error'
+        typeof res?.error === 'string'
+          ? res.error
+          : (res?.error as { message?: string } | undefined)?.message || 'Sidecar error'
       throw new Error(errText)
     }
     return clampData(res.data)
@@ -107,25 +136,32 @@ const call = async (action, ...args) => {
   }
 }
 // channel yang butuh akses file/OS → dikirim sebagai path string, bukan ArrayBuffer
-const toPayload = (v) => {
+const toPayload = (v: unknown): unknown => {
   if (v instanceof ArrayBuffer) return Array.from(new Uint8Array(v))
   return v
+}
+
+type TgShotResult = {
+  sent: number
+  skipped?: boolean
+  error?: string
+  results?: Array<{ id: string; ok: boolean; error?: string }>
 }
 
 // ---------- Screenshot → Telegram (jalur NATIVE Rust, tanpa sidecar) ----------
 // Kembalikan { sent, results } agar pemanggil tool AI bisa melaporkan hasil
 // nyata (jumlah admin yang menerima) — dulu string tak terverifikasi.
 // chatId eksplisit menang; tanpa itu broadcast ke semua admin terdaftar.
-const tgScreenshotToTelegram = async (chatId) => {
+const tgScreenshotToTelegram = async (chatId: unknown): Promise<TgShotResult> => {
   if (!(await tgConnected())) return { sent: 0, skipped: true }
-  const pngDataUrl = await invoke('misc_take_screenshot')
+  const pngDataUrl = (await invoke('misc_take_screenshot')) as string
   // misc_take_screenshot mengembalikan data URL penuh; Rust mendecode base64
   // murni — prefix harus dibuang dulu (regresi dulu: decode gagal selalu).
   const pngBase64 = stripDataUrlPrefix(pngDataUrl)
   if (!pngBase64) return { sent: 0, error: 'Screenshot gagal atau kosong' }
   const targets = chatId ? [String(chatId)] : tgAdminIdsCache.targets
   if (targets.length === 0) return { sent: 0, error: 'Tidak ada admin Telegram terdaftar' }
-  const results = []
+  const results: Array<{ id: string; ok: boolean; error?: string }> = []
   for (const target of targets) {
     try {
       await invoke('telegram_send_photo', {
@@ -135,7 +171,7 @@ const tgScreenshotToTelegram = async (chatId) => {
       })
       results.push({ id: target, ok: true })
     } catch (e) {
-      results.push({ id: target, ok: false, error: e?.message || String(e) })
+      results.push({ id: target, ok: false, error: (e as Error)?.message || String(e) })
     }
   }
   return { sent: results.filter((r) => r.ok).length, results }
@@ -143,24 +179,27 @@ const tgScreenshotToTelegram = async (chatId) => {
 
 // Pola disposed-flag: kalau unsubscribe dipanggil sebelum listen() resolve,
 // unlisten hasil promise langsung dieksekusi agar tidak bocor.
-const on = (channel) => (cb) => {
-  let disposed = false
-  let unlisten = null
-  let cleanedUp = false
-  listen(channel, (e) => cb(e.payload)).then((un) => {
-    if (cleanedUp) return
-    if (disposed) un()
-    else unlisten = un
-  })
-  return () => {
-    if (cleanedUp) return
-    cleanedUp = true
-    disposed = true
-    unlisten?.()
+const on =
+  (channel: string): OnFn =>
+  (cb) => {
+    let disposed = false
+    let unlisten: UnlistenFn | null = null
+    let cleanedUp = false
+    listen(channel, (e) => cb(e.payload)).then((un) => {
+      if (cleanedUp) return
+      if (disposed) un()
+      else unlisten = un
+    })
+    return () => {
+      if (cleanedUp) return
+      cleanedUp = true
+      disposed = true
+      unlisten?.()
+    }
   }
-}
 
-const pathForFile = (file) => (typeof file === 'string' ? file : file?.path || '')
+const pathForFile = (file: unknown): string =>
+  typeof file === 'string' ? file : (file as { path?: string })?.path || ''
 
 // ---------- Telegram ----------
 // Cache status koneksi bot beberapa detik agar guard tgSendMessage/tgBroadcast
@@ -168,13 +207,13 @@ const pathForFile = (file) => (typeof file === 'string' ? file : file?.path || '
 // targets: ID admin yang diparse dari config terakhir (satu sumber dengan
 // splitTgAdminIds) — dipakai screenshot-to-tg saat tanpa chatId eksplisit.
 let tgStatusCache = { connected: false, at: 0 }
-let tgAdminIdsCache = { targets: [], at: 0 }
+let tgAdminIdsCache = { targets: [] as string[], at: 0 }
 const TG_STATUS_TTL_MS = 5000
-const tgConnected = async () => {
+const tgConnected = async (): Promise<boolean> => {
   const now = Date.now()
   if (now - tgStatusCache.at < TG_STATUS_TTL_MS) return tgStatusCache.connected
   try {
-    const st = await call('tg:get-status')
+    const st = (await call('tg:get-status')) as { status?: string } | null
     tgStatusCache = { connected: !!st && st.status === 'connected', at: now }
   } catch (_) {
     tgStatusCache = { connected: false, at: now }
@@ -182,12 +221,12 @@ const tgConnected = async () => {
   return tgStatusCache.connected
 }
 // Semua unlisten Telegram dikumpulkan di sini supaya removeTgListeners benar-benar bekerja
-const tgUnlisteners = []
-const tgChannelUnlisteners = new Map()
-const trackTgListener = (channel, dispose) => {
+const tgUnlisteners: UnlistenFn[] = []
+const tgChannelUnlisteners = new Map<string, UnlistenFn>()
+const trackTgListener = (channel: string, dispose: UnlistenFn): UnlistenFn => {
   if (tgChannelUnlisteners.has(channel)) {
     try {
-      tgChannelUnlisteners.get(channel)()
+      tgChannelUnlisteners.get(channel)?.()
     } catch {}
   }
   tgChannelUnlisteners.set(channel, dispose)
@@ -202,21 +241,21 @@ const trackTgListener = (channel, dispose) => {
     }
   }
 }
-const onTg = (channel) => (cb) => trackTgListener(channel, on(channel)(cb))
+const onTg = (channel: string): OnFn => (cb) => trackTgListener(channel, on(channel)(cb))
 
 export const api = {
   // ---------- umum (Fase B0: langsung Rust native, tanpa node_invoke) ----------
   getPathForFile: pathForFile,
-  saveTempFile: (data, name) =>
+  saveTempFile: (data: unknown, name: unknown) =>
     invoke('misc_save_temp_file', { data: toPayload(data), name: name ?? null }),
   osIsX11: () => invoke('os_is_x11'),
-  openExternal: (url) => invoke('misc_open_external', { url }),
-  showNotification: (...args) => {
+  openExternal: (url: string) => invoke('misc_open_external', { url }),
+  showNotification: (...args: unknown[]) => {
     // Dua gaya pemanggil lama di renderer: ({title, body}) ATAU (title, body) posisional.
     // Versi sidecar lama kehilangan body saat pemanggil posisional — di sini diperbaiki.
     const [a, b] = args
-    const title = typeof a === 'string' ? a : a?.title
-    const body = typeof b === 'string' ? b : a?.body
+    const title = typeof a === 'string' ? a : (a as { title?: string } | null)?.title
+    const body = typeof b === 'string' ? b : (a as { body?: string } | null)?.body
     return invoke('misc_show_notification', { title: title ?? null, body: body ?? null })
   },
   getDocumentsPath: () => invoke('misc_get_documents_path'),
@@ -224,50 +263,67 @@ export const api = {
   // Salin folder extension ter-bundel ke data dir (pengguna binary tanpa repo).
   ensureExtensionFiles: () => invoke('misc_ensure_extension_files'),
   // Buka folder di file manager desktop
-  openFolder: (path) => invoke('misc_open_folder', { path }),
+  openFolder: (path: string) => invoke('misc_open_folder', { path }),
   // Konfirmasi native (rfd di Rust main thread) untuk aksi berisiko non-sidecar.
-  nativeConfirm: (message) => invoke('misc_native_confirm', { message }),
+  nativeConfirm: (message: string) => invoke('misc_native_confirm', { message }),
   // Fetch resource web via native (validasi SSRF + tanpa CORS renderer).
-  fetchWebResource: (url) => invoke('misc_fetch_web_resource', { url }),
+  fetchWebResource: (url: string) => invoke('misc_fetch_web_resource', { url }),
 
   // ---------- Capability Manager (general-pluggable connectors) ----------
   // Referensi desain: Claude connectors/plugins (catalog -> connection ->
   // action schema -> execution -> policy -> audit). Katalog hidup di sidecar;
   // renderer hanya membaca metadata & mengeksekusi via channel.
   listCapabilities: () => call('capabilities:list'),
-  inspectCapability: (connectorId) => call('capabilities:inspect', connectorId),
-  capabilityGuide: (connectorId, actionId) => call('capabilities:guide', connectorId, actionId),
-  executeCapability: (connectorId, actionId, args, opts) =>
+  inspectCapability: (connectorId: string) => call('capabilities:inspect', connectorId),
+  capabilityGuide: (connectorId: string, actionId: string) =>
+    call('capabilities:guide', connectorId, actionId),
+  executeCapability: (connectorId: string, actionId: string, args: unknown, opts: unknown) =>
     call('capabilities:execute', connectorId, actionId, args, opts || {}),
   listCapabilityConnections: () => call('capabilities:connections'),
-  authorizeCapability: (connectorId, grantedScopes) =>
+  authorizeCapability: (connectorId: string, grantedScopes: string[]) =>
     call('capabilities:authorize', connectorId, grantedScopes),
-  revokeCapability: (connectorId) => call('capabilities:revoke', connectorId),
-  readCapabilityAudit: (limit, offset) => call('capabilities:audit', limit, offset),
-  registerCustomConnectors: (list) => call('capabilities:register-custom', list || []),
+  revokeCapability: (connectorId: string) => call('capabilities:revoke', connectorId),
+  readCapabilityAudit: (limit: unknown, offset: unknown) =>
+    call('capabilities:audit', limit, offset),
+  registerCustomConnectors: (list: unknown[]) => call('capabilities:register-custom', list || []),
   listCapabilityRegistry: () => call('capabilities:registry'),
-  installCapabilityBundle: (bundle) => call('capabilities:bundle-install', bundle || {}),
+  installCapabilityBundle: (bundle: unknown) => call('capabilities:bundle-install', bundle || {}),
   listCapabilityBundles: () => call('capabilities:bundle-list'),
-  removeCapabilityBundle: (id) => call('capabilities:bundle-remove', id),
+  removeCapabilityBundle: (id: string) => call('capabilities:bundle-remove', id),
   getSystemInfo: () => invoke('system_get_info'),
   ping: () => call('ping'),
 
   // ---------- AI ----------
-  fetchAI: ({ messages, config, isSmallTask, jsonSchema, stream }) =>
+  fetchAI: ({
+    messages,
+    config,
+    isSmallTask,
+    jsonSchema,
+    stream
+  }: {
+    messages: unknown
+    config: unknown
+    isSmallTask?: unknown
+    jsonSchema?: unknown
+    stream?: unknown
+  }) =>
     invoke('node_invoke', {
       action: 'ai:fetch',
       payload: [{ messages, config, isSmallTask, jsonSchema, stream: !!stream }]
     }).then((res) => {
-      if (!res?.success) {
+      const r = res as NodeInvokeResult
+      if (!r?.success) {
         // Pesan ramah + informatif (fetchError.js): menyebut sebab & aksi,
         // bukan "AI fetch gagal" yang buta.
-        const msg = friendlyAiFetchError(res)
-        throw Object.assign(new Error(msg), { code: res?.error?.code || 'AI_FETCH_ERROR' })
+        const msg = friendlyAiFetchError(r as object)
+        throw Object.assign(new Error(msg), {
+          code: (r?.error as { code?: string } | undefined)?.code || 'AI_FETCH_ERROR'
+        })
       }
-      return res.data
+      return r.data
     }),
   abortFetchAI: () => call('ai:abort-fetch'),
-  syncConfig: (config) => {
+  syncConfig: (config: Record<string, unknown>) => {
     // Bridge token ke native Rust (telegram_send_message/broadcast/sendPhoto).
     // Tanpa ini perintah telegram_* selalu gagal "token kosong" karena tidak ada
     // satu pun pemanggil telegram_configure sebelumnya.
@@ -282,9 +338,9 @@ export const api = {
   // Hapus token + admin dari memori Rust (rotasi credential / disconnect penuh).
   tgForget: () => invoke('telegram_forget'),
   // Deteksi daftar model dari endpoint custom (GET /models via sidecar).
-  detectCustomModels: (endpoint, apiKey, protocol) =>
+  detectCustomModels: (endpoint: string, apiKey: string, protocol: string) =>
     call('ai:list-models', endpoint || '', apiKey || '', protocol || 'auto'),
-  runNodeFunction: (fn, ...args) => call(fn, ...args),
+  runNodeFunction: (fn: string, ...args: unknown[]) => call(fn, ...args),
 
   // ---------- AI status stream ----------
   onAiStatus: on('ai:status'),
@@ -300,13 +356,14 @@ export const api = {
   clearActivityBuffer: () => invoke('awareness_clear_buffer'),
 
   // ---------- YouTube / Music ----------
-  getYoutubeTranscript: (url) => call('get-youtube-transcript', url),
-  searchYoutube: (q) => call('youtube-search', q),
-  searchMusic: (q) => call('search-music', q),
-  textToSpeech: (text, rate, pitch) => call('tts-speak', text, rate, pitch),
+  getYoutubeTranscript: (url: string) => call('get-youtube-transcript', url),
+  searchYoutube: (q: string) => call('youtube-search', q),
+  searchMusic: (q: string) => call('search-music', q),
+  textToSpeech: (text: unknown, rate: unknown, pitch: unknown) =>
+    call('tts-speak', text, rate, pitch),
   // Alias objek untuk tombol Uji Suara (VoiceVideoSection): backend mengembalikan
   // data-URL string; dibungkus { audioBase64 } agar konsisten satu facade.
-  speakTTS: async ({ text, rate, pitch } = {}) => {
+  speakTTS: async ({ text, rate, pitch }: { text?: unknown; rate?: unknown; pitch?: unknown } = {}) => {
     const dataUrl = await call('tts-speak', text, rate, pitch)
     if (!dataUrl) return null
     // Prefix MIME apa pun (mp3/mpeg/wav + parameter) dilucuti generik +
@@ -319,17 +376,18 @@ export const api = {
     }
     return { audioBase64: raw }
   },
-  sendRemoteMusicCommand: (command, payload) => call('remote-music-command', command, payload),
+  sendRemoteMusicCommand: (command: string, payload: unknown) =>
+    call('remote-music-command', command, payload),
   onExecuteMusicCommand: on('execute-music-command'),
   // onExecuteMusicCommandTg dihapus: emit 'execute-music-command-tg' mati
   // bersama botWindow era Electron (9923989) dan tidak punya konsumen.
 
   // --- YouTube Music player bridge (Tauri Native) ---
-  ytLoad: (url) => invoke('music_player_play_url', { url }),
+  ytLoad: (url: string) => invoke('music_player_play_url', { url }),
   ytShow: () => invoke('music_player_show'),
   ytHide: () => invoke('music_player_hide'),
   ytToggle: () => invoke('music_player_toggle'),
-  ytCommand: (command) => invoke('music_player_command', { command }),
+  ytCommand: (command: string) => invoke('music_player_command', { command }),
   ytGetDuration: () => call('yt:get-duration'),
   onYtTrackUpdated: on('ytm-track-changed'),
   onYtWindowState: on('ytm-window-state'),
@@ -337,14 +395,14 @@ export const api = {
   // telegram_send_photo). Channel sidecar lama tg:take-screenshot sudah tidak
   // punya handler sejak pembersihan electron (9923989).
   // tgDownloadMusic/tgPlayMusicUi dihapus: tanpa konsumen & tanpa backend.
-  tgTakeScreenshot: (chatId) => tgScreenshotToTelegram(chatId),
+  tgTakeScreenshot: (chatId: unknown) => tgScreenshotToTelegram(chatId),
 
   // ---------- Live audio shortcut ----------
   onLiveAudioShortcut: on('trigger-live-audio'),
-  removeLiveAudioShortcut: () => {},
+  removeLiveAudioShortcut: (): void => {},
 
   // ---------- Telegram ----------
-  tgStart: (token) => call('tg:start', token),
+  tgStart: (token: string) => call('tg:start', token),
   tgStop: () => call('tg:stop'),
   tgGetStatus: () => call('tg:get-status'),
   tgGetHistory: () => call('tg:get-history'),
@@ -353,14 +411,14 @@ export const api = {
   onTgReplySent: onTg('tg:reply-sent'),
   onTgThinking: onTg('tg:thinking'),
   onTgRequestAgentExecution: onTg('tg:request-agent-execution'),
-  sendTgAgentExecutionDone: (data) => call('tg:agent-execution-done', data),
-  tgSendMessage: async (chatId, text) => {
+  sendTgAgentExecutionDone: (data: unknown) => call('tg:agent-execution-done', data),
+  tgSendMessage: async (chatId: string, text: string) => {
     // Skip silently if bot not configured — prevents 3x "token kosong" errors per session
     // when ApprovalContext sends status messages before user configures the bot.
     if (!(await tgConnected())) return { skipped: true }
     return invoke('telegram_send_message', { chatId, text })
   },
-  tgBroadcastToAdmins: async (text) => {
+  tgBroadcastToAdmins: async (text: string) => {
     // Guard di satu titik: bot tidak terhubung = no-op sunyi, bukan rejection
     // yang menyulut unhandled promise rejection tiap giliran agen.
     if (!(await tgConnected())) return { skipped: true }
@@ -370,13 +428,13 @@ export const api = {
     // pernah dipanggil renderer; loop di sini meniru perilaku broadcast sidecar.
     const targets = tgAdminIdsCache.targets
     if (targets.length === 0) return { skipped: true, reason: 'no-admin-ids' }
-    const results = []
+    const results: Array<{ id: string; ok: boolean; error?: string }> = []
     for (const id of targets) {
       try {
         await invoke('telegram_send_message', { chatId: id, text })
         results.push({ id, ok: true })
       } catch (e) {
-        results.push({ id, ok: false, error: e?.message || String(e) })
+        results.push({ id, ok: false, error: (e as Error)?.message || String(e) })
       }
     }
     return { sent: results.filter((r) => r.ok).length, results }
@@ -384,10 +442,10 @@ export const api = {
   onTgCommandAccept: onTg('tg:command-accept'),
   onTgCommandAlways: onTg('tg:command-always'),
   onTgCommandReject: onTg('tg:command-reject'),
-  removeTgListeners: () => {
+  removeTgListeners: (): void => {
     while (tgUnlisteners.length > 0) {
       try {
-        tgUnlisteners.pop()()
+        tgUnlisteners.pop()?.()
       } catch {
         // Abaikan error cleanup individual — lanjut ke listener berikutnya
       }
@@ -395,7 +453,8 @@ export const api = {
   },
 
   // ---------- Google Workspace ----------
-  googleConnect: (clientId, clientSecret) => call('google:connect', clientId, clientSecret),
+  googleConnect: (clientId: string, clientSecret: string) =>
+    call('google:connect', clientId, clientSecret),
   googleDisconnect: () => call('google:disconnect'),
   googleStatus: () => call('google:status'),
 
@@ -404,7 +463,7 @@ export const api = {
   windowMaximize: () => invoke('window_maximize_toggle'),
   windowFullscreen: () => invoke('window_fullscreen_toggle'),
   windowClose: () => invoke('window_close'),
-  windowSetMode: (mode) => invoke('window_set_mode', { mode }),
+  windowSetMode: (mode: string) => invoke('window_set_mode', { mode }),
   onWindowModeChanged: on('window-mode-changed'),
   onWindowMaximized: on('window-maximized'),
   onWindowState: on('window-state'),
@@ -412,20 +471,20 @@ export const api = {
 
   // ---------- Native tools (AI tools) ----------
   // FB#1: file-ops langsung ke Rust (std::fs) — tidak lewat sidecar lagi
-  executeNativeTool: async (toolName, query, config) => {
+  executeNativeTool: async (toolName: string, query: unknown, config: ToolConfig | null | undefined) => {
     const t0 = Date.now()
-    let result,
-      error = null
+    let result: unknown
+    let error: string | null = null
     try {
       const fsRoute = routeFsTool(toolName, query, config)
       result = fsRoute ?? (await call('native-tool:execute', toolName, query, config))
     } catch (e) {
-      error = e.message
+      error = (e as Error).message
       throw e
     } finally {
       try {
         const h = await import('./harness')
-        let resultSummary = null
+        let resultSummary: string | null = null
         try {
           resultSummary = JSON.stringify(result)?.slice(0, 2000) ?? null
         } catch (_) {}
@@ -433,7 +492,7 @@ export const api = {
           tool: toolName,
           query: String(query).slice(0, 200),
           durMs: Date.now() - t0,
-          ok: !error && result?.success !== false,
+          ok: !error && (result as { success?: unknown } | null | undefined)?.success !== false,
           error,
           resultSummary,
           // Jejak tak pernah sessionId null: config.turnId bila ada,
@@ -445,61 +504,65 @@ export const api = {
     }
     return result
   },
-  checkToolApproval: (toolName, query) => call('native-tool:needs-approval', toolName, query),
+  checkToolApproval: (toolName: string, query: unknown) =>
+    call('native-tool:needs-approval', toolName, query),
 
   // ---------- Approval policy per family (ask/session/always) ----------
   approvalPolicyGet: () => invoke('approval_policy_get'),
-  approvalPolicySet: (family, policy) => invoke('approval_policy_set', { family, policy }),
+  approvalPolicySet: (family: string, policy: string) =>
+    invoke('approval_policy_set', { family, policy }),
   approvalPolicyResetSession: () => invoke('approval_policy_reset_session'),
 
   // ---------- Plugins (sidecar loader lama — fase C4 pindah Web Worker) ----------
   getPlugins: () => call('plugins:list'),
-  executePlugin: (action, query) => call('plugin:execute', action, query),
+  executePlugin: (action: string, query: unknown) => call('plugin:execute', action, query),
   openPluginFolder: () => call('plugin:open-folder'),
-  openSpecificFolder: (path) => call('plugin:open-specific-folder', path),
+  openSpecificFolder: (path: string) => call('plugin:open-specific-folder', path),
   reloadPlugins: () => call('plugin:reload'),
-  createPlugin: (payload) => call('plugin:create', payload),
-  togglePlugin: (name, isEnabled) => call('plugin:toggle', name, isEnabled),
-  deletePlugin: (name) => call('plugin:delete', name),
-  installPluginFromGit: (repoUrl) => call('plugin:install-git', repoUrl),
+  createPlugin: (payload: unknown) => call('plugin:create', payload),
+  togglePlugin: (name: string, isEnabled: boolean) => call('plugin:toggle', name, isEnabled),
+  deletePlugin: (name: string) => call('plugin:delete', name),
+  installPluginFromGit: (repoUrl: string) => call('plugin:install-git', repoUrl),
 
   // ---------- Browser agent (fase C3) ----------
-  browserNavigate: (url, sessionId = 'default') => call('browser:navigate', url, sessionId),
-  browserReadDom: (sessionId = 'default') => call('browser:read-dom', sessionId),
-  browserAction: (data, sessionId = 'default') => call('browser:action', data, sessionId),
+  browserNavigate: (url: string, sessionId: string = 'default') =>
+    call('browser:navigate', url, sessionId),
+  browserReadDom: (sessionId: string = 'default') => call('browser:read-dom', sessionId),
+  browserAction: (data: unknown, sessionId: string = 'default') =>
+    call('browser:action', data, sessionId),
   // Shortcut aksi browser granular. Kontrak payload ekstensi (background.js):
   // { action, abelinkId, value } — argumen SELALU lewat field `value`, karena
   // handler ekstensi mendestruktur { abelinkId, action, value }. (Fix review PR #26.)
-  browserClick: (elementId, sessionId = 'default') =>
+  browserClick: (elementId: string, sessionId: string = 'default') =>
     call('browser:action', { action: 'click', abelinkId: elementId }, sessionId),
-  browserType: (elementId, text, sessionId = 'default') =>
+  browserType: (elementId: string, text: string, sessionId: string = 'default') =>
     call('browser:action', { action: 'type', abelinkId: elementId, value: text }, sessionId),
-  browserScroll: (direction, amount, sessionId = 'default') =>
+  browserScroll: (direction: string, amount: number, sessionId: string = 'default') =>
     call('browser:action', { action: 'scroll', value: { direction, amount } }, sessionId),
-  browserExtract: (selector, sessionId = 'default') =>
+  browserExtract: (selector: string, sessionId: string = 'default') =>
     call('browser:action', { action: 'extract', value: selector }, sessionId),
-  browserScript: (script, sessionId = 'default') =>
+  browserScript: (script: string, sessionId: string = 'default') =>
     call('browser:action', { action: 'script', value: script }, sessionId),
-  browserScreenshot: (fileName, sessionId = 'default') =>
+  browserScreenshot: (fileName: string, sessionId: string = 'default') =>
     call('browser:action', { action: 'screenshot', value: fileName }, sessionId),
-  browserDownload: (url, fileName, sessionId = 'default') =>
+  browserDownload: (url: string, fileName: string, sessionId: string = 'default') =>
     call('browser:action', { action: 'download', value: { url, fileName } }, sessionId),
-  browserAskUser: (prompt, sessionId = 'default') =>
+  browserAskUser: (prompt: string, sessionId: string = 'default') =>
     call('browser:action', { action: 'ask', value: prompt }, sessionId),
-  browserClose: (sessionId = 'default') => call('browser:close', sessionId),
+  browserClose: (sessionId: string = 'default') => call('browser:close', sessionId),
   onBrowserPreview: on('browser:preview'),
-  showBrowserWindow: (sessionId = 'default') => call('browser:show', sessionId),
+  showBrowserWindow: (sessionId: string = 'default') => call('browser:show', sessionId),
 
   // ---------- PC automation (fase B2 — native Rust xdotool) ----------
   osRead: () => invoke('os_read'),
-  osClick: (q) => invoke('os_click', { query: q }),
-  osType: (text) => invoke('os_type', { text }),
-  osKey: (key) => invoke('os_key', { key }),
-  osScroll: (q) => invoke('os_scroll', { query: q }),
-  osOpen: (path) => invoke('os_open', { query: path }),
+  osClick: (q: string) => invoke('os_click', { query: q }),
+  osType: (text: string) => invoke('os_type', { text }),
+  osKey: (key: string) => invoke('os_key', { key }),
+  osScroll: (q: string) => invoke('os_scroll', { query: q }),
+  osOpen: (path: string) => invoke('os_open', { query: path }),
   osListWindows: () => invoke('os_list_windows'),
-  osFocusWindow: (title) => invoke('os_focus_window', { query: title }),
-  osAskUser: (prompt) => invoke('os_ask', { prompt }),
+  osFocusWindow: (title: string) => invoke('os_focus_window', { query: title }),
+  osAskUser: (prompt: string) => invoke('os_ask', { prompt }),
   // Emergency stop (Ctrl+Shift+S) — teruskan ke sidecar pc-agent agar daemon
   // / child process otomasi PC ikut dikill, bukan hanya AI loop di renderer.
   pcEmergencyStop: () => call('os:emergency-stop'),
@@ -509,47 +572,64 @@ export const api = {
   onWatchdogBreach: on('watchdog-breach'),
   // Mission scope Fase 3 (Rust): nonaktif secara default. Set eksplisit per
   // misi ({ dirs: [abs], tools: [...]|null }); clear di akhir misi.
-  missionScopeSet: (dirs, tools) => invoke('mission_scope_set', { dirs, tools: tools ?? null }),
+  missionScopeSet: (dirs: string[], tools: string[] | null) =>
+    invoke('mission_scope_set', { dirs, tools: tools ?? null }),
   missionScopeClear: () => invoke('mission_scope_clear'),
   missionScopeGet: () => invoke('mission_scope_get'),
 
   // ---------- Skills ----------
   getSkills: () => call('skills:get-all'),
-  readSkill: (name, relativePath) => call('skills:read', name, relativePath),
-  getSkillManifest: (name) => call('skills:get-manifest', name),
-  saveSkill: (name, content) => call('skills:save', name, content),
-  deleteSkill: (name) => call('skills:delete', name),
-  installSkill: (sourcePath) => call('skills:install', sourcePath),
+  readSkill: (name: string, relativePath?: string) => call('skills:read', name, relativePath),
+  getSkillManifest: (name: string) => call('skills:get-manifest', name),
+  saveSkill: (name: string, content: string) => call('skills:save', name, content),
+  deleteSkill: (name: string) => call('skills:delete', name),
+  installSkill: (sourcePath: string) => call('skills:install', sourcePath),
   // Buka folder store skills di file manager OS — drop folder <nama>/SKILL.md
   // ke sini, lalu auto-scan mendeteksinya saat refresh (tanpa import wizard).
   openSkillsFolder: () => call('skills:open-folder'),
   getSkillTree: () => call('skills:get-tree'),
-  readSkillFile: (name, relativePath) => call('skills:read-file', name, relativePath),
-  saveSkillFile: (name, relativePath, content) =>
+  readSkillFile: (name: string, relativePath: string) =>
+    call('skills:read-file', name, relativePath),
+  saveSkillFile: (name: string, relativePath: string, content: string) =>
     call('skills:save-file', name, relativePath, content),
-  createSkillItem: (name, type, itemName) => call('skills:create-item', name, type, itemName),
-  deleteSkillItem: (name, relativePath) => call('skills:delete-item', name, relativePath),
-  renameSkillItem: (name, oldPath, newPath) => call('skills:rename-item', name, oldPath, newPath),
+  createSkillItem: (name: string, type: string, itemName: string) =>
+    call('skills:create-item', name, type, itemName),
+  deleteSkillItem: (name: string, relativePath: string) =>
+    call('skills:delete-item', name, relativePath),
+  renameSkillItem: (name: string, oldPath: string, newPath: string) =>
+    call('skills:rename-item', name, oldPath, newPath),
   onSkillsUpdated: on('skills-updated'),
 
   // ---------- Workspace RAG ----------
-  workspaceIndex: (workspaceRoot) => call('workspace:index', workspaceRoot),
-  workspaceQuery: (workspaceRoot, queryText, topK = 4) =>
+  workspaceIndex: (workspaceRoot: string) => call('workspace:index', workspaceRoot),
+  workspaceQuery: (workspaceRoot: string, queryText: string, topK = 4) =>
     call('workspace:query', { workspaceRoot, queryText, topK }),
-  workspaceGetMemory: (workspaceRoot) => call('workspace:get-memory', workspaceRoot),
-  workspaceSaveMemory: (workspaceRoot, memoryData) =>
+  workspaceGetMemory: (workspaceRoot: string) => call('workspace:get-memory', workspaceRoot),
+  workspaceSaveMemory: (workspaceRoot: string, memoryData: unknown) =>
     call('workspace:save-memory', { workspaceRoot, memoryData }),
-  workspaceEnsure: (workspaceRoot) => call('workspace:ensure', workspaceRoot),
+  workspaceEnsure: (workspaceRoot: string) => call('workspace:ensure', workspaceRoot),
 
   // ---------- Document parsing (RAG) ----------
   // Kontrak payload sidecar: [0] = base64 string (bisa juga numeric array), [1] = isDocx boolean.
   // ArrayBuffer dikonversi chunked btoa over Uint8Array supaya aman dari limit argumen apply.
-  parseDocument: (arrayBuffer, isDocx) => {
-    const bytes = arrayBuffer instanceof Uint8Array ? arrayBuffer : new Uint8Array(arrayBuffer ?? 0)
+  parseDocument: (arrayBuffer: ArrayBuffer | Uint8Array | null | undefined, isDocx: unknown) => {
+    const bytes =
+      arrayBuffer instanceof Uint8Array
+        ? arrayBuffer
+        : arrayBuffer
+          ? new Uint8Array(arrayBuffer)
+          : new Uint8Array(0)
     const CHUNK = 0x8000
-    const parts = []
+    const parts: string[] = []
     for (let i = 0; i < bytes.length; i += CHUNK) {
-      parts.push(btoa(String.fromCharCode.apply(null, bytes.subarray(i, Math.min(i + CHUNK, bytes.length)))))
+      parts.push(
+        btoa(
+          String.fromCharCode.apply(
+            null,
+            bytes.subarray(i, Math.min(i + CHUNK, bytes.length)) as unknown as number[]
+          )
+        )
+      )
     }
     return call('parse-document', parts.join(''), !!isDocx)
   },
@@ -560,19 +640,19 @@ export const api = {
 
   // ---------- Dialog (Fase B5 dipercepat: rfd native di main thread Rust) ----------
   showOpenDialog: async () => {
-    const selected = await invoke('misc_open_file_dialog')
+    const selected = (await invoke('misc_open_file_dialog')) as string | null | undefined
     return selected ? { canceled: false, filePaths: [selected] } : { canceled: true, filePaths: [] }
   },
   // Multi-select native: batal = { canceled: true, filePaths: [] }.
   // Pemanggil TIDAK boleh fallback ke <input type=file> saat canceled,
   // agar dialog tidak terbuka dua kali (bug lama di InputBar).
   showOpenFilesDialog: async () => {
-    const paths = await invoke('misc_open_files_dialog')
-    const list = Array.isArray(paths) ? paths : []
+    const paths = (await invoke('misc_open_files_dialog')) as unknown
+    const list = Array.isArray(paths) ? (paths as string[]) : []
     return { canceled: list.length === 0, filePaths: list }
   },
   // Metadata file/directory (size bytes, isDir, mtime) untuk preview lampiran.
-  statPath: (path) => invoke('misc_stat_path', { path }),
+  statPath: (path: string) => invoke('misc_stat_path', { path }),
   selectDirectory: () => invoke('misc_open_directory_dialog'),
 
   // ---------- Legacy memory migration (MEM) ----------
@@ -588,30 +668,43 @@ export const api = {
   // ---------- Screenshot (Fase B5 native — rute Rust) ----------
   takeScreenshot: () => invoke('misc_take_screenshot'),
   // Isi file biner sebagai data URL base64 (lampiran gambar → vision payload).
-  readFileBase64: (path) =>
+  readFileBase64: (path: string | null | undefined) =>
     invoke('misc_read_file_base64', {
       path: String(path ?? '').replace(/^file:\/\//, '')
     }),
 
   // ---------- Git tools (native Rust — mengganti sidecar git-service) ----------
-  executeShell: (query, cwd) => invoke('tools_run_shell', { query, cwd: cwd || null }),
-  gitStatus: (query) => invoke('git_status', { cwd: query || null }),
-  gitDiff: (query) => invoke('git_diff', { cwd: null, range: query || null }),
-  gitCommit: (query) => {
+  executeShell: (query: string, cwd: string | null) =>
+    invoke('tools_run_shell', { query, cwd: cwd || null }),
+  gitStatus: (query: string) => invoke('git_status', { cwd: query || null }),
+  gitDiff: (query: string) => invoke('git_diff', { cwd: null, range: query || null }),
+  gitCommit: (query: string) => {
     const parts = (query || '').split('||')
     return invoke('git_commit', { message: parts[0], cwd: parts[1] || null })
   },
-  gitRevert: (query) => invoke('git_revert', { target: query, cwd: null }),
-  runTask: (query) => {
+  gitRevert: (query: string) => invoke('git_revert', { target: query, cwd: null }),
+  runTask: (query: string) => {
     const parts = (query || '').split('||')
     return invoke('run_task', { taskId: parts[0], command: parts.slice(1).join('||'), cwd: null })
   },
-  readTaskOutput: (query) => {
+  readTaskOutput: (query: string) => {
     const parts = (query || '').split('||')
     return invoke('read_task_output', { taskId: parts[0], lines: parts[1] ? Number(parts[1]) : 40 })
   },
-  killTask: (taskId) => invoke('kill_task', { taskId }),
+  killTask: (taskId: string) => invoke('kill_task', { taskId }),
   listTasks: () => invoke('list_tasks')
+}
+
+// Window augmentation: konsumen (main.jsx, hooks) menerima tipe penuh facade
+// tanpa dupleksasi tanda tangan 150+ method. __TAURI_INTERNALS__ = global Tauri.
+declare global {
+  interface Window {
+    api: typeof api
+    electron: unknown
+    __TAURI_INTERNALS__?: {
+      invoke: (cmd: string, args?: Record<string, unknown>) => Promise<unknown>
+    }
+  }
 }
 
 // Pasang sebelum modul lain dieksekusi (dipanggil paling atas di main.jsx)
@@ -639,7 +732,7 @@ export function installTauriBridge() {
       {
         get: (_t, key) => {
           if (typeof key === 'string' && key.startsWith('on')) {
-            return (_cb) => {
+            return (_cb: unknown) => {
               warnOnce()
               return () => {}
             }
@@ -648,7 +741,7 @@ export function installTauriBridge() {
           return noop
         }
       }
-    )
+    ) as unknown as typeof api
 
     // Ganti seluruh halaman dengan papan pengumuman — tab browser BUKAN app.
     document.body.innerHTML = `
@@ -667,7 +760,9 @@ export function installTauriBridge() {
     return
   }
 
-  api.startResizeDragging = (direction) => {
+  ;(api as { startResizeDragging?: (direction: string) => Promise<unknown> | undefined }).startResizeDragging = (
+    direction: string
+  ) => {
     return window.__TAURI_INTERNALS__?.invoke('plugin:window|start_resize_dragging', { direction })
   }
 
@@ -679,23 +774,27 @@ export function installTauriBridge() {
   document.addEventListener('mousedown', (e) => {
     if (e.button !== 0) return
     // Elemen interaktif DILARANG memicu drag agar click, focus, dan selection selalu tembus
-    if (e.target.closest('button, input, textarea, a, select, [role="button"], .no-drag, [data-no-drag], [style*="no-drag"]')) {
+    if (
+      (e.target as Element).closest(
+        'button, input, textarea, a, select, [role="button"], .no-drag, [data-no-drag], [style*="no-drag"]'
+      )
+    ) {
       return
     }
-    const dragEl = e.target.closest('[data-tauri-drag-region]')
+    const dragEl = (e.target as Element).closest('[data-tauri-drag-region]')
     if (dragEl) {
       window.__TAURI_INTERNALS__?.invoke('plugin:window|start_dragging')
     }
   })
 
-  const upgrade = (root) => {
+  const upgrade = (root: HTMLElement | Document | null | undefined) => {
     if (!root?.querySelectorAll) return
     root
       .querySelectorAll('[style*="-webkit-app-region: drag"], [style*="-webkit-app-region:drag"]')
       .forEach((el) => {
         el.removeAttribute('style')
         el.setAttribute('data-tauri-drag-region', '')
-        el.style.setProperty('-webkit-app-region', 'no-drag')
+        ;(el as HTMLElement).style.setProperty('-webkit-app-region', 'no-drag')
       })
   }
 

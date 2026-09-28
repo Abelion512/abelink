@@ -1,0 +1,16 @@
+{
+  // tsconfig.renderer.json — sub-gate RENDERER (W2-1, js-to-ts-spec.md §5).
+  //
+  // Dibuat di sini (bukan M2) karena B-20: config tanpa input .ts = error
+  // TS18003; tauri-bridge.ts adalah berkas .ts PERTAMA di src/**.
+  //
+  // Guardrail boundary Tauri: types DISEMPITKAN ke [] (tanpa tipe Node) —
+  // `fs`/`path`/`process` di src/** langsung jadi error. lib DOM dipertahankan
+  // (webview renderer). Masuk rantai `bun run typecheck` sejak PR ini.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": []
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"]
+}
