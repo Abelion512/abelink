@@ -163,6 +163,10 @@ export interface CenterDialogProps {
   loading?: boolean
   hint?: string | null
   error?: string | null
+  /** Katalog stale (footer jujur, cermin format picker bawah App). */
+  stale?: boolean
+  /** Jumlah model katalog (bukan baris terlihat). */
+  total?: number
 }
 
 /** Props `HomeView` (slice 4): kolom tengah layar awal saat messages kosong. */

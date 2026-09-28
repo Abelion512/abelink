@@ -7,7 +7,7 @@ import { spawn } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { ABELINK_THEME, TUI_COMMANDS, AUTOCOMPLETE_MAX_ROWS, filterCompletions, shortModel, SIDEBAR_WIDTH, isWide, messageColor, messagePrefix, PROMPT_KEY_BINDINGS, autocompleteTrigger, applyCompletion, moveCompletionIndex, visibleWindow, DIALOG_PANEL_WIDTH, DIALOG_Z_INDEX, DIALOG_KINDS, isDialogKind, dialogVisibleRows, HOME_PLACEHOLDERS, homePlaceholder, homePromptMaxWidth } from '../cli/tui/theme.ts'
+import { ABELINK_THEME, TUI_COMMANDS, AUTOCOMPLETE_MAX_ROWS, filterCompletions, shortModel, SIDEBAR_WIDTH, isWide, messageColor, messagePrefix, PROMPT_KEY_BINDINGS, autocompleteTrigger, applyCompletion, moveCompletionIndex, visibleWindow, DIALOG_PANEL_WIDTH, DIALOG_Z_INDEX, DIALOG_KINDS, isDialogKind, dialogVisibleRows, popupHeight, selectedForeground, dialogFooterText, HOME_PLACEHOLDERS, homePlaceholder, homePromptMaxWidth } from '../cli/tui/theme.ts'
 import { parseSlashCommand } from '../bin/abelink-tui.mjs'
 import { createTuiState, submitLine, effortDialogRows } from '../cli/tui/engine.mjs'
 
@@ -367,6 +367,36 @@ describe('layar awal tengah HomeView (slice 4, pola opencode home.tsx)', () => {
     expect(homePromptMaxWidth(80, 60)).toBe(60)
     expect(homePromptMaxWidth(100, 'auto')).toBe(75)
     expect(homePromptMaxWidth(200, 'auto')).toBe(140)
+  })
+})
+
+describe('popup slash paritas opencode (stream C)', () => {
+  it('selectedForeground = background (kontras di atas primary)', () => {
+    expect(selectedForeground()).toBe(ABELINK_THEME.background)
+  })
+  it('popupHeight = min(10, jumlah, ruang di atas)', () => {
+    expect(popupHeight(14, 24)).toBe(10)
+    expect(popupHeight(3, 24)).toBe(3)
+    expect(popupHeight(10, 4)).toBe(4)
+    expect(popupHeight(0, 24)).toBe(1)
+  })
+})
+
+describe('dialogFooterText (stale/total/error jujur, stream C)', () => {
+  it('loading -> memuat…', () => {
+    expect(dialogFooterText({ loading: true })).toBe('memuat…')
+  })
+  it('baris ada -> hint + (N baris dari TOTAL model, katalog stale)', () => {
+    const t = dialogFooterText({ rowCount: 5, total: 1300, stale: true })
+    expect(t).toContain('(5 baris dari 1300 model, katalog stale)')
+  })
+  it('error tampil walau baris ada (dulu tertelan)', () => {
+    const t = dialogFooterText({ rowCount: 3, error: 'Discovery gagal' })
+    expect(t).toContain('Discovery gagal')
+  })
+  it('kosong -> empty-state + error opsional', () => {
+    expect(dialogFooterText({ rowCount: 0 })).toContain('Tidak ada yang cocok')
+    expect(dialogFooterText({ rowCount: 0, error: 'x' })).toContain('(x)')
   })
 })
 

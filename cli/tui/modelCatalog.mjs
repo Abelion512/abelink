@@ -25,7 +25,9 @@ export function cliJsonPath(homeDir = '') {
 // Normalisasi satu entri /v1/models -> bentuk katalog (hanya field dipakai).
 export function normalizeCatalogEntry(m = {}) {
   const cap = m?.capabilities && typeof m.capabilities === 'object' ? m.capabilities : {}
-  const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : null)
+  // Guard null/'': Number(null)/Number('') = 0 (finite) -> ctx 0 palsu.
+  // Tak ada data = null, bukan 0.
+  const num = (v) => (v == null || v === '' ? null : (Number.isFinite(Number(v)) ? Number(v) : null))
   return {
     id: String(m?.id ?? ''),
     reasoning: cap.reasoning === true,
@@ -125,9 +127,16 @@ export function curatePicker({ models = [], favorites = [], recent = [], custom 
   // tampil di sana tak boleh diulang di section Custom.
   const rawRecent = new Set((recent || []).map((id) => String(id)))
   const rawFav = new Set((favorites || []).map((id) => String(id)))
+  // Dedup self-merge: simpanan custom bisa ganda (cli.json + deps) — ID yang
+  // sama tampil sekali di section Custom.
+  const seenCus = new Set()
   const cus = normalizeCustomList(custom)
     .map((e) => e.id)
-    .filter((id) => !rawFav.has(id) && !rawRecent.has(id) && match(id))
+    .filter((id) => {
+      if (rawFav.has(id) || rawRecent.has(id) || seenCus.has(id) || !match(id)) return false
+      seenCus.add(id)
+      return true
+    })
     .slice(0, perSection)
   // Custom-wins: ID yang user simpan eksplisit tampil HANYA di section Custom,
   // walau discovery live kemudian mengenalinya. Tanpa ini ID yang sama render
@@ -151,7 +160,7 @@ export function pushRecent(recent = [], id = '') {
 export function normalizeCustomEntry(e = {}) {
   const id = String(e?.id ?? '').trim()
   if (!id) return null
-  const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : null)
+  const num = (v) => (v == null || v === '' ? null : (Number.isFinite(Number(v)) ? Number(v) : null))
   return {
     id,
     ctx: num(e?.ctx),
@@ -212,9 +221,12 @@ export function withCustomCapabilities(models = [], custom = []) {
   const list = Array.isArray(models) ? models : []
   const base = list.length && list[0]?.capabilities ? normalizeCatalogList(list) : list.filter((m) => m?.id)
   const seen = new Set(base.map((m) => m.id))
-  const extra = normalizeCustomList(custom)
-    .filter((e) => !seen.has(e.id))
-    .map((e) => ({ id: e.id, reasoning: e.reasoning, ctx: e.ctx, maxOut: e.maxOut, thinkFmt: null, thinkDisable: true }))
+  const extra = []
+  for (const e of normalizeCustomList(custom)) {
+    if (seen.has(e.id)) continue
+    seen.add(e.id)
+    extra.push({ id: e.id, reasoning: e.reasoning, ctx: e.ctx, maxOut: e.maxOut, thinkFmt: null, thinkDisable: true })
+  }
   return [...base, ...extra]
 }
 

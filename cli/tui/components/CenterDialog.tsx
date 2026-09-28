@@ -13,6 +13,7 @@ import {
   ABELINK_THEME,
   DIALOG_PANEL_WIDTH,
   DIALOG_Z_INDEX,
+  dialogFooterText,
   dialogVisibleRows,
   visibleWindow,
 } from '../theme.ts'
@@ -82,11 +83,14 @@ export function CenterDialog(props: CenterDialogProps) {
             )}
           </For>
           <text fg={ABELINK_THEME.muted}>
-            {props.loading
-              ? 'memuat…'
-              : rows().length
-                ? `${props.hint ?? '↑↓ pilih · Enter pakai · Esc batal · ketik untuk filter'} (${rows().length} baris)`
-                : `Tidak ada yang cocok. Esc untuk batal.${props.error ? ` (${props.error})` : ''}`}
+            {dialogFooterText({
+              loading: props.loading,
+              rowCount: rows().length,
+              hint: props.hint ?? undefined,
+              total: props.total ?? undefined,
+              stale: props.stale,
+              error: props.error ?? undefined,
+            })}
           </text>
         </box>
       </box>

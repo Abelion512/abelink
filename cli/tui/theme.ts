@@ -141,6 +141,46 @@ export function messagePrefix(role: string = ''): string {
   }
 }
 
+// Warna teks di atas highlight primary (cermin opencode
+// `selectedForeground`: background opak -> pakai background).
+export function selectedForeground(): string {
+  return ABELINK_THEME.background
+}
+
+// Tinggi popup autocomplete (cermin opencode autocomplete.tsx:712-717):
+// min(10, jumlah, ruang di atas prompt). Minimal 1 (empty-state).
+export function popupHeight(count: number = 0, spaceAbove: number = 10): number {
+  return Math.min(
+    AUTOCOMPLETE_MAX_ROWS,
+    Math.max(1, Math.floor(Number(count) || 0) || 1),
+    Math.max(1, Math.floor(Number(spaceAbove) || 0)),
+  )
+}
+
+export interface DialogFooterInput {
+  loading?: boolean
+  rowCount?: number
+  hint?: string | null
+  total?: number | null
+  stale?: boolean
+  error?: string | null
+}
+
+// Footer dialog tengah, cermin format picker bawah (App.tsx): hint +
+// `(N baris [dari TOTAL model][, katalog stale])`, error SELALU tampil
+// (bukan hanya saat kosong — bug stale/total tertelan).
+export function dialogFooterText(inp: DialogFooterInput = {}): string {
+  if (inp.loading) return 'memuat…'
+  const n = Math.max(0, Math.floor(Number(inp.rowCount) || 0))
+  if (n > 0) {
+    const base =
+      `${inp.hint ?? '↑↓ pilih · Enter pakai · Esc batal · ketik untuk filter'}` +
+      ` (${n} baris${inp.total ? ` dari ${inp.total} model` : ''}${inp.stale ? ', katalog stale' : ''})`
+    return inp.error ? `${base} · ${inp.error}` : base
+  }
+  return `Tidak ada yang cocok. Esc untuk batal.${inp.error ? ` (${inp.error})` : ''}`
+}
+
 // Cap baris popup autocomplete (ikut opencode height max 10).
 export const AUTOCOMPLETE_MAX_ROWS = 10
 
