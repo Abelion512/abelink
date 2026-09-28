@@ -561,7 +561,9 @@ async function main() {
         // Stream B: gambar drop/paste di v1 = penanda path jujur (tanpa
         // describe vision; v1 tak punya jalur sidecar rpc seperti v2).
         const { resolveImageRefs } = await import('../cli/core/imageRefs.mjs')
-        const imgResolved = resolveImageRefs(resolved.text, { workspace: state.workspace })
+        const fsModV1 = await import('node:fs').catch(() => null)
+        const pathModV1 = await import('node:path').catch(() => null)
+        const imgResolved = resolveImageRefs(resolved.text, { workspace: state.workspace, fsMod: fsModV1, pathMod: pathModV1 })
         let effectiveText = resolved.text
         if (imgResolved.attached?.length) {
           console.log(`[TUI] Lampirkan ${imgResolved.attached.length} gambar: ${imgResolved.attached.map((a) => a.ref).join(', ')} (isi tak dideskripsikan di v1 — pakai TUI v2 untuk vision).`)
