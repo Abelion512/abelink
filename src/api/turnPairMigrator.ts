@@ -6,22 +6,46 @@ import {
 } from './db'
 import { insertBatchTurnPairsToOrama, insertTurnPairToOrama } from './oramaStore'
 
+// ---- Kontrak tipe (W2-7b) ----
+interface MigrationMessage {
+  role?: string
+  content?: unknown
+  timestamp?: unknown
+  isThinking?: boolean
+  isSearching?: boolean
+  isSummarizing?: boolean
+  [key: string]: unknown
+}
+
+export interface TurnPair {
+  pairId: string
+  sessionId: number
+  sessionTitle: string
+  userText: string
+  aiText: string
+  combinedText: string
+  timestamp: number
+  vector?: number[]
+}
+
+type MigrationProgressCb = (done: number, total: number) => void
+
 /**
  * Ekstraksi teks murni dari objek pesan (mendukung string biasa atau array multimodal)
  */
-function cleanMessageContent(content) {
+function cleanMessageContent(content: unknown): string {
   if (typeof content === 'string') return content.trim()
   if (Array.isArray(content)) {
-    const textPart = content.find((c) => c.type === 'text')
+    const textPart = content.find((c: unknown) => (c as { type?: string }).type === 'text') as { text?: string } | undefined
     return textPart?.text ? textPart.text.trim() : ''
   }
-  if (content && typeof content === 'object' && content.text) {
-    return String(content.text).trim()
+  if (content && typeof content === 'object' && (content as { text?: unknown }).text) {
+    return String((content as { text: unknown }).text).trim()
   }
   return ''
 }
 
-function normalizeTimestamp(ts) {
+function normalizeTimestamp(ts: unknown): number {
   if (typeof ts === 'number' && !isNaN(ts)) return ts
   if (typeof ts === 'string') {
     const parsed = Date.parse(ts)
@@ -35,14 +59,19 @@ function normalizeTimestamp(ts) {
 /**
  * Memetakan riwayat pesan satu sesi menjadi array Turn Pairs (Tanya - Jawab)
  */
-export function extractTurnPairsFromSession(sessionData, sessionId, sessionTitle) {
-  const pairs = []
+export function extractTurnPairsFromSession(
+  sessionData: unknown,
+  sessionId: number | string,
+  sessionTitle: string | null
+): TurnPair[] {
+  const pairs: TurnPair[] = []
   if (!Array.isArray(sessionData) || sessionData.length === 0) return pairs
 
   const cleanTitle = sessionTitle || `Session ${sessionId}`
 
-  for (let i = 0; i < sessionData.length; i++) {
-    const msg = sessionData[i]
+  const data = (Array.isArray(sessionData) ? sessionData : []) as MigrationMessage[]
+  for (let i = 0; i < data.length; i++) {
+    const msg = data[i]
     if (!msg) continue
 
     // Abaikan pesan intermediate / thinking / searching
@@ -56,8 +85,8 @@ export function extractTurnPairsFromSession(sessionData, sessionId, sessionTitle
       let aiText = ''
       let aiMsgTimestamp = null
 
-      for (let j = i + 1; j < sessionData.length; j++) {
-        const nextMsg = sessionData[j]
+      for (let j = i + 1; j < data.length; j++) {
+        const nextMsg = data[j]
         if (!nextMsg) continue
         if (nextMsg.role === 'user') break // Berhenti jika sudah bertemu pesan user berikutnya
         if (nextMsg.role === 'ai' && !nextMsg.isThinking && !nextMsg.isSearching && !nextMsg.isSummarizing) {
@@ -69,7 +98,7 @@ export function extractTurnPairsFromSession(sessionData, sessionId, sessionTitle
 
       // Pastikan ada konten yang bermakna
       if (userText.length > 2 || aiText.length > 2) {
-        const rawTs = msg.timestamp || aiMsgTimestamp || Date.now()
+        const rawTs = (msg.timestamp as unknown) || aiMsgTimestamp || Date.now()
         const timestamp = normalizeTimestamp(rawTs)
         const pairId = `turn-${sessionId}-${timestamp}-${i}`
         const combinedText = `[User]: ${userText}\n[Abelink]: ${aiText || '(Menjalankan instruksi)'}`
@@ -93,15 +122,15 @@ export function extractTurnPairsFromSession(sessionData, sessionId, sessionTitle
 /**
  * Migrasi bertahap data chat lama ke dalam format Turn-Pair Vektor (Smart Incremental Queue)
  */
-export async function migrateOldSessionsToTurns(onProgress) {
+export async function migrateOldSessionsToTurns(onProgress?: MigrationProgressCb): Promise<number> {
   try {
-    const sessions = await getAllSessions()
+    const sessions = (await getAllSessions()) as Array<{ id?: number | string; title?: string | null; data?: unknown }>
     if (!Array.isArray(sessions) || sessions.length === 0) return 0
 
     // Kumpulkan seluruh turn pair dari semua sesi
-    const allPairs = []
+    const allPairs: TurnPair[] = []
     for (const session of sessions) {
-      const turns = extractTurnPairsFromSession(session.data, session.id, session.title)
+      const turns = extractTurnPairsFromSession(session.data, session.id as number | string, session.title as string | null)
       allPairs.push(...turns)
     }
 
@@ -118,7 +147,7 @@ export async function migrateOldSessionsToTurns(onProgress) {
 
     for (let i = 0; i < allPairs.length; i += BATCH_SIZE) {
       const batch = allPairs.slice(i, i + BATCH_SIZE)
-      const validTurns = []
+      const validTurns: TurnPair[] = []
 
       for (const turn of batch) {
         try {
@@ -135,8 +164,8 @@ export async function migrateOldSessionsToTurns(onProgress) {
       }
 
       if (validTurns.length > 0) {
-        await saveBatchChatTurns(validTurns)
-        await insertBatchTurnPairsToOrama(validTurns)
+        await saveBatchChatTurns(validTurns as unknown as Parameters<typeof saveBatchChatTurns>[0])
+        await insertBatchTurnPairsToOrama(validTurns as unknown as Array<Record<string, unknown>>)
       }
 
       processedCount += batch.length
@@ -159,10 +188,17 @@ export async function migrateOldSessionsToTurns(onProgress) {
 /**
  * Pengindeksan instan 1 pasang percakapan secara real-time saat chat selesai
  */
-export async function indexSingleTurn(sessionId, sessionTitle, userMsg, aiMsg) {
+export async function indexSingleTurn(
+  sessionId: number | string,
+  sessionTitle: string | null,
+  userMsg: MigrationMessage | unknown,
+  aiMsg: MigrationMessage | unknown
+): Promise<TurnPair | null> {
   try {
-    const userText = cleanMessageContent(userMsg?.content || userMsg)
-    const aiText = cleanMessageContent(aiMsg?.content || aiMsg)
+    const userMsgObj = userMsg as MigrationMessage | null | undefined
+    const aiMsgObj = aiMsg as MigrationMessage | null | undefined
+    const userText = cleanMessageContent(userMsgObj?.content || userMsg)
+    const aiText = cleanMessageContent(aiMsgObj?.content || aiMsg)
 
     if (!userText && !aiText) return null
     if (userText.length < 2 && aiText.length < 2) return null
@@ -177,7 +213,7 @@ export async function indexSingleTurn(sessionId, sessionTitle, userMsg, aiMsg) {
       return null
     }
 
-    const turnData = {
+    const turnData: TurnPair = {
       pairId,
       sessionId: Number(sessionId) || 1,
       sessionTitle: sessionTitle || 'Main Thread',
@@ -188,8 +224,8 @@ export async function indexSingleTurn(sessionId, sessionTitle, userMsg, aiMsg) {
       vector
     }
 
-    await saveChatTurn(turnData)
-    await insertTurnPairToOrama(turnData)
+    await saveChatTurn(turnData as unknown as Parameters<typeof saveChatTurn>[0])
+    await insertTurnPairToOrama(turnData as unknown as Record<string, unknown>)
 
     console.log(`[TurnMigrator] Realtime indexed turn pair: ${pairId}`)
     return turnData
