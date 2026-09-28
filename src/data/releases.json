@@ -1,6 +1,113 @@
 {
-  "generatedAt": "2026-09-27T15:23:51.960Z",
+  "generatedAt": "2026-09-28T08:13:50.841Z",
   "releases": [
+    {
+      "version": "1.7.0-alpha.11",
+      "date": "28 September 2026",
+      "summary": "4 fitur baru, 4 perbaikan dan 23 pembaruan dokumentasi.",
+      "sections": {
+        "features": [
+          {
+            "msg": "Registry data-driven + smart endpoint + STT/TTS custom"
+          },
+          {
+            "msg": "Registry data-driven + smart endpoint normalizer + STT/TTS custom"
+          },
+          {
+            "msg": "Kadens rilis mingguan + generator matrix Promptfoo PR46"
+          },
+          {
+            "msg": "Kadens rilis mingguan + generator matrix Promptfoo PR46"
+          }
+        ],
+        "fixes": [
+          {
+            "msg": "Tauri crate 2.12.0 + smoke tanpa EPIPE"
+          },
+          {
+            "msg": "Sejajarkan crate tauri 2.12.0 dengan @tauri-apps/api 2.12.0 + smoke tanpa EPIPE"
+          },
+          {
+            "msg": "Smoke sidecar dari cwd netral"
+          },
+          {
+            "msg": "Smoke sidecar dari cwd netral — binary compile membaca bunfig.toml cwd"
+          }
+        ],
+        "security": [],
+        "docs": [
+          {
+            "msg": "W2-2 db ke TS — tipe baris Dexie per store, schema v30 beku"
+          },
+          {
+            "msg": "W2-1 tauri-bridge ke TS + tsconfig.renderer.json"
+          },
+          {
+            "msg": "W1-5 channel skills ke TS + penutup wave W1"
+          },
+          {
+            "msg": "W1-4 channel browser ke TS — browser automation bridge"
+          },
+          {
+            "msg": "W1-3 channels AI ke TS — ai, media, capabilities"
+          },
+          {
+            "msg": "W1-2 channels ringan ke TS — os, telegram, services, music"
+          },
+          {
+            "msg": "W1-1 engine core ke TS — registry + engine entry + pdf-parse-shim"
+          },
+          {
+            "msg": "W0 governance — ratchet no-new-JS + tsc di verify.sh + handoff TS dicabut"
+          },
+          {
+            "msg": "Session log provider registry + smart endpoint"
+          },
+          {
+            "msg": "Session log provider registry + smart endpoint + STT/TTS custom"
+          },
+          {
+            "msg": "Hapus stamp versi basi dari heading Fitur Inti"
+          },
+          {
+            "msg": "Log watcher takeover + handoff TS Fase 1"
+          },
+          {
+            "msg": "Session log perbaikan Bundle main"
+          },
+          {
+            "msg": "Session log perbaikan Bundle main"
+          },
+          {
+            "msg": "Log watcher takeover + handoff TS Fase 1"
+          },
+          {
+            "msg": "Session log 2026-09-27"
+          },
+          {
+            "msg": "Session log cadence rilis mingguan, matrix Promptfoo, audit arsitektur, ponytail ledger"
+          },
+          {
+            "msg": "Ledger debt/gain + status migrasi TS + perf-gate"
+          },
+          {
+            "msg": "Ledger debt/gain + status eksekusi migrasi TS + false-positive perf-gate"
+          },
+          {
+            "msg": "Audit arsitektur read-only + evidence JSONL"
+          },
+          {
+            "msg": "Audit arsitektur read-only + evidence JSONL"
+          },
+          {
+            "msg": "Log brand regen + Promptfoo adapter + rilis manual"
+          },
+          {
+            "msg": "Log brand regen + adapter Promptfoo + uji rilis manual"
+          }
+        ]
+      }
+    },
     {
       "version": "1.6.0-alpha.10",
       "date": "27 September 2026",
