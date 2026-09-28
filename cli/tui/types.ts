@@ -165,6 +165,15 @@ export interface CenterDialogProps {
   error?: string | null
 }
 
+/** Props `HomeView` (slice 4): kolom tengah layar awal saat messages kosong. */
+export interface HomeViewProps {
+  version?: string
+  workspace?: string
+  title?: string
+  /** Lebar terminal (untuk max-width kolom via homePromptMaxWidth). */
+  width?: number
+}
+
 /** Props `PromptRow`. */export interface PromptRowProps {
   value?: () => string
   onInput?: (text: string) => void

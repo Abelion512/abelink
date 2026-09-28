@@ -5,10 +5,11 @@
 // sidebar.tsx: bg panel, padding 2, Context/MCP/LSP.
 // Referensi: /tmp/opencode-ref (sst/opencode, sparse packages/tui).
 // V2-1: echo lokal; engine wiring = slice berikut.
-import { createSignal, For, Show } from 'solid-js'
+import { createSignal, For, Show, onMount, onCleanup } from 'solid-js'
 import { useKeyboard, useTerminalDimensions } from '@opentui/solid'
-import { ABELINK_THEME, shortModel, SIDEBAR_WIDTH, isWide, isDialogKind, messageColor, messagePrefix, visibleWindow } from './theme.ts'
+import { ABELINK_THEME, shortModel, SIDEBAR_WIDTH, isWide, isDialogKind, messageColor, messagePrefix, visibleWindow, homePlaceholder } from './theme.ts'
 import { PromptRow } from './components/PromptRow.tsx'
+import { HomeView } from './components/HomeView.tsx'
 import { CenterDialog } from './components/CenterDialog.tsx'
 import type { AppProps, PickerRow } from './types.ts'
 
@@ -37,6 +38,17 @@ export function App(props: AppProps = {}) {
   // engine push (Solid tak tracking mutasi array luar).
   const [value, setValue] = createSignal('')
   const dims = useTerminalDimensions()
+  // Rotasi placeholder HomeView (pola opencode Prompt placeholders): putar tiap
+  // 6s saat messages kosong; berhenti + cleanup saat unmount. PromptRow terima
+  // string tunggal (bukan array), jadi App yang mendorong nilai bergilir.
+  const [phIndex, setPhIndex] = createSignal(0)
+  let phTimer: ReturnType<typeof setInterval> | null = null
+  onMount(() => {
+    phTimer = setInterval(() => {
+      if (messages().length === 0) setPhIndex((i) => i + 1)
+    }, 6000)
+  })
+  onCleanup(() => { if (phTimer) clearInterval(phTimer) })
   const model = () => (typeof props.model === 'function' ? props.model() : props.model) ?? 'oc/muse-spark-1.3-contributor-free'
   const provider = () => (typeof props.providerLabel === 'function' ? props.providerLabel() : props.providerLabel) ?? '9router'
   const connected = () => props.connected ?? []
@@ -99,20 +111,16 @@ export function App(props: AppProps = {}) {
         }}
       >
         <scrollbox style={{ flexGrow: 1, minHeight: 0 }}>
-          {/* Layar awal (pola opencode home): sebelum ada pesan, tampilkan hero
-              + petunjuk, BUKAN langsung sesi kosong. User bisa lanjut sesi lama. */}
+          {/* Layar awal tengah (slice 4, pola opencode routes/home.tsx):
+              kolom tengah HomeView saat messages kosong; non-kosong = daftar
+              pesan seperti semula. Prompt pertama langsung jalan via submit. */}
           <Show when={messages().length === 0}>
-            <box style={{ flexDirection: 'column', paddingTop: 2, gap: 1 }}>
-              <text fg={ABELINK_THEME.text}>
-                <ColoredSpan fg={ABELINK_THEME.success}>• </ColoredSpan><b>Abelink</b> <ColoredSpan fg={ABELINK_THEME.textMuted}>v{props.version ?? ''}</ColoredSpan>
-              </text>
-              <text fg={ABELINK_THEME.textMuted}>{title()} · {props.workspace ?? ''}</text>
-              <box style={{ flexDirection: 'column', paddingTop: 1, gap: 1 }}>
-                <text fg={ABELINK_THEME.info}>Tips</text>
-                <text fg={ABELINK_THEME.textMuted}>Ketik prompt = sesi baru. Mau lanjut sesi lama? /sessions atau ctrl+p.</text>
-                <text fg={ABELINK_THEME.textMuted}>/help daftar perintah · Shift+Enter baris baru · Ctrl-C batalkan turn.</text>
-              </box>
-            </box>
+            <HomeView
+              version={props.version}
+              workspace={props.workspace}
+              title={title()}
+              width={dims()?.width ?? 80}
+            />
           </Show>
           <For each={messages()}>
             {(l) => (
@@ -164,6 +172,7 @@ export function App(props: AppProps = {}) {
           value={value}
           onInput={setValue}
           onSubmit={submit}
+          placeholder={homePlaceholder(phIndex())}
           modelLabel={() => {
             // Baca `tick` supaya label ini ikut re-render saat engine ubah
             // model (Solid hanya tracking signal, bukan mutasi objek state).

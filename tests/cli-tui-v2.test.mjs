@@ -7,7 +7,7 @@ import { spawn } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { ABELINK_THEME, TUI_COMMANDS, AUTOCOMPLETE_MAX_ROWS, filterCompletions, shortModel, SIDEBAR_WIDTH, isWide, messageColor, messagePrefix, PROMPT_KEY_BINDINGS, autocompleteTrigger, applyCompletion, moveCompletionIndex, visibleWindow, DIALOG_PANEL_WIDTH, DIALOG_Z_INDEX, DIALOG_KINDS, isDialogKind, dialogVisibleRows } from '../cli/tui/theme.ts'
+import { ABELINK_THEME, TUI_COMMANDS, AUTOCOMPLETE_MAX_ROWS, filterCompletions, shortModel, SIDEBAR_WIDTH, isWide, messageColor, messagePrefix, PROMPT_KEY_BINDINGS, autocompleteTrigger, applyCompletion, moveCompletionIndex, visibleWindow, DIALOG_PANEL_WIDTH, DIALOG_Z_INDEX, DIALOG_KINDS, isDialogKind, dialogVisibleRows, HOME_PLACEHOLDERS, homePlaceholder, homePromptMaxWidth } from '../cli/tui/theme.ts'
 import { parseSlashCommand } from '../bin/abelink-tui.mjs'
 import { createTuiState, submitLine, effortDialogRows } from '../cli/tui/engine.mjs'
 
@@ -348,6 +348,25 @@ describe('slash parser v1 reuse (kontrak tak berubah di v2)', () => {
     expect(parseSlashCommand('/effort high').kind).toBe('effort')
     expect(parseSlashCommand('/nope').kind).toBe('unknown')
     expect(parseSlashCommand('halo dunia').kind).toBe('prompt')
+  })
+})
+
+describe('layar awal tengah HomeView (slice 4, pola opencode home.tsx)', () => {
+  it('HOME_PLACEHOLDERS frozen + non-kosong', () => {
+    expect(HOME_PLACEHOLDERS.length).toBeGreaterThan(0)
+    expect(Object.isFrozen(HOME_PLACEHOLDERS)).toBe(true)
+  })
+  it('homePlaceholder melingkar (0, wrap, negatif)', () => {
+    expect(homePlaceholder(0)).toBe(HOME_PLACEHOLDERS[0])
+    expect(homePlaceholder(HOME_PLACEHOLDERS.length)).toBe(HOME_PLACEHOLDERS[0])
+    expect(homePlaceholder(-1)).toBe(HOME_PLACEHOLDERS[HOME_PLACEHOLDERS.length - 1])
+  })
+  it('homePromptMaxWidth: default 75; auto = max(75, 70% lebar)', () => {
+    expect(homePromptMaxWidth(80)).toBe(75)
+    expect(homePromptMaxWidth(80, null)).toBe(75)
+    expect(homePromptMaxWidth(80, 60)).toBe(60)
+    expect(homePromptMaxWidth(100, 'auto')).toBe(75)
+    expect(homePromptMaxWidth(200, 'auto')).toBe(140)
   })
 })
 

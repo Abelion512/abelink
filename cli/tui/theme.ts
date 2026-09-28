@@ -242,6 +242,32 @@ export function moveCompletionIndex(current: number = 0, delta: number = 1, coun
   return (((current + delta) % count) + count) % count
 }
 
+// Layar awal tengah (slice 4, pola opencode routes/home.tsx): kolom tengah
+// logo Abelink + shortcut + footer, max-width prompt 75 (atau 70% lebar
+// bila "auto"). Placeholder rotasi: opencode memutarnya di dalam Prompt;
+// PromptRow kita terima string tunggal, jadi rotasi didorong App via interval.
+export const HOME_PLACEHOLDERS: readonly string[] = Object.freeze([
+  'Tanya apa saja, atau / untuk perintah...',
+  'Cari TODO di codebase dan perbaiki satu',
+  'Ringkas sesi terakhir jadi poin aksi',
+  '/sessions lanjut sesi lama · /models ganti model',
+])
+
+/** Placeholder ke-`index` (melingkar, aman untuk negatif/NaN). */
+export function homePlaceholder(index: number = 0): string {
+  const n = HOME_PLACEHOLDERS.length
+  if (!n) return ''
+  const i = ((Math.floor(Number(index) || 0) % n) + n) % n
+  return HOME_PLACEHOLDERS[i]
+}
+
+/** Lebar maks kolom tengah: configured ?? 75; "auto" = max(75, 70% lebar). */
+export function homePromptMaxWidth(termWidth: number = 80, configured?: number | 'auto' | null): number {
+  if (configured === 'auto') return Math.max(75, Math.floor((Number(termWidth) || 0) * 0.7))
+  const c = Math.floor(Number(configured) || 0)
+  return c > 0 ? c : 75
+}
+
 export interface VisibleWindow {
   start: number
   end: number
