@@ -7,7 +7,7 @@
 // V2-1: echo lokal; engine wiring = slice berikut.
 import { createSignal, For, Show, onMount, onCleanup } from 'solid-js'
 import { useKeyboard, useTerminalDimensions } from '@opentui/solid'
-import { ABELINK_THEME, shortModel, SIDEBAR_WIDTH, isWide, isDialogKind, visibleWindow, homePlaceholder } from './theme.ts'
+import { ABELINK_THEME, shortModel, SIDEBAR_WIDTH, isWide, isDialogKind, visibleWindow, homePlaceholder, statusChips } from './theme.ts'
 import { MessageLine } from './components/MessageLine.tsx'
 import { PromptRow } from './components/PromptRow.tsx'
 import { HomeView } from './components/HomeView.tsx'
@@ -15,6 +15,17 @@ import { CenterDialog } from './components/CenterDialog.tsx'
 import type { AppProps, PickerRow } from './types.ts'
 
 export { shortModel, SIDEBAR_WIDTH, isWide }
+
+// Baca prop yang boleh string statis ATAU accessor reaktif (entry baca
+// tick()/state di dalam agar ikut re-render). null = data tak tersedia.
+function readOpt(p?: string | (() => string | null) | null): string | null {
+  try {
+    if (typeof p === 'function') return p() ?? null
+    return p ?? null
+  } catch {
+    return null
+  }
+}
 
 // Bottom cap prompt (pola opencode prompt/index.tsx): garis tipis `▀`
 // di bawah kotak input. Didefinisikan lokal agar App tetap presentational.
@@ -57,6 +68,33 @@ export function App(props: AppProps = {}) {
   const wide = () => isWide(dims()?.width ?? 80)
   const title = () => props.title ?? 'Abelink'
   const sessionId = () => (typeof props.sessionId === 'function' ? props.sessionId() : props.sessionId) ?? ''
+  // Batch C (sidebar opencode jujur): baca state tiap render agar
+  // usage/mcp/lsp ikut segar (pola modelLabel/agentName di atas).
+  const tokensLabel = () => {
+    props.tick?.()
+    return readOpt(props.tokens)
+  }
+  const usagePctLabel = () => {
+    props.tick?.()
+    return readOpt(props.usagePct)
+  }
+  const spentLabel = () => {
+    props.tick?.()
+    return readOpt(props.spent)
+  }
+  const mcpErr = () => {
+    props.tick?.()
+    return props.mcpError === true
+  }
+  const lspN = () => {
+    props.tick?.()
+    const n = Number(props.lspCount)
+    return Number.isFinite(n) && n >= 0 ? Math.floor(n) : null
+  }
+  // Batch C (footer opencode: kiri direktori, kanan status): kanan =
+  // statusChips (theme.ts) — LSP + MCP error + hint. Tanpa data ->
+  // segmen di-skip (tanpa angka palsu).
+  const statusRight = () => statusChips({ lspCount: lspN(), mcpError: mcpErr(), hint: '/help · ctrl+p' })
   // Picker model (opencode dialog-model): daftar + jendela baris agar
   // katalog 1200+ ID tetap muat dan pilihan selalu terlihat.
   const picker = () => props.picker?.() ?? null
@@ -191,6 +229,8 @@ export function App(props: AppProps = {}) {
               workspace={props.workspace}
               title={title()}
               width={dims()?.width ?? 80}
+              tipIndex={phIndex()}
+              lastSessionId={props.lastSessionId ?? null}
             />
           </Show>
           <For each={messages()}>
@@ -242,11 +282,11 @@ export function App(props: AppProps = {}) {
           </box>
         )}
         {promptArea()}
+        {/* Status line pola footer opencode (kiri direktori, kanan status). */}
         <box style={{ flexDirection: 'row', justifyContent: 'space-between', flexShrink: 0 }}>
           <text fg={ABELINK_THEME.textMuted}>{props.workspace ?? ''}</text>
           <box style={{ flexDirection: 'row', gap: 2 }}>
-            <text fg={ABELINK_THEME.textMuted}>{props.tokens ?? '0 tokens'}</text>
-            <text fg={ABELINK_THEME.textMuted}>/help · ctrl+p commands</text>
+            <text fg={ABELINK_THEME.textMuted}>{statusRight()}</text>
           </box>
         </box>
       </box>
@@ -269,24 +309,34 @@ export function App(props: AppProps = {}) {
             <text fg={ABELINK_THEME.text}><b>{title()}</b></text>
             <text fg={ABELINK_THEME.textMuted}>{sessionId()}</text>
           </box>
+          {/* Sidebar isi ala opencode sidebar.tsx + slot context/mcp:
+              judul + id sesi, Context (token estimasi nyata bila engine
+              expose, persen hanya bila ctx model dikenal — else '—'),
+              MCP (connected/error bila tersedia; TUI tanpa MCP server
+              menampilkan 'none'), LSP 0 (faktual: tanpa language server). */}
           <box style={{ flexDirection: 'column', paddingTop: 2, gap: 1, flexGrow: 1 }}>
             <text fg={ABELINK_THEME.text}>Context</text>
-            <text fg={ABELINK_THEME.textMuted}>{props.tokens ?? '0 tokens'}</text>
-            <text fg={ABELINK_THEME.textMuted}>{props.usagePct ?? '0% used'}</text>
-            <text fg={ABELINK_THEME.textMuted}>{props.spent ?? '$0.00 spent'}</text>
+            <text fg={ABELINK_THEME.textMuted}>{tokensLabel() ?? '—'}</text>
+            <text fg={ABELINK_THEME.textMuted}>{usagePctLabel() ?? '—'}</text>
+            <Show when={spentLabel()}>
+              <text fg={ABELINK_THEME.textMuted}>{spentLabel()}</text>
+            </Show>
             <text fg={ABELINK_THEME.text}>MCP</text>
             <Show when={connected().length > 0} fallback={<text fg={ABELINK_THEME.textMuted}>none connected</text>}>
               <For each={connected()}>
                 {(c) => (
                   <text fg={ABELINK_THEME.text}>
-                    <ColoredSpan fg={ABELINK_THEME.success}>• </ColoredSpan>
+                    <ColoredSpan fg={mcpErr() ? ABELINK_THEME.error : ABELINK_THEME.success}>{mcpErr() ? '⊙! ' : '⊙ '}</ColoredSpan>
                     {c}
                   </text>
                 )}
               </For>
             </Show>
+            <Show when={mcpErr() && connected().length === 0}>
+              <text fg={ABELINK_THEME.error}>⊙! MCP error</text>
+            </Show>
             <text fg={ABELINK_THEME.text}>LSP</text>
-            <text fg={ABELINK_THEME.textMuted}>disabled</text>
+            <text fg={ABELINK_THEME.textMuted}>{lspN() === null ? '—' : `○ ${lspN()} LSP`}</text>
           </box>
           {/* Branding footer ala opencode: dot success + nama + versi. */}
           <box style={{ flexShrink: 0, paddingTop: 1 }}>

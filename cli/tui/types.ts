@@ -67,6 +67,14 @@ export interface TuiState {
   showThinking: boolean
   showDetails: boolean
   busy: boolean
+  // Batch C: sinyal usage sesi berjalan (null = belum terukur) + MCP/LSP
+  // (null = engine belum expose) + hook alih sesi.
+  usage?: { tokensEst: number | null; modelCtx: number | null }
+  modelCapabilities?: { ctx?: number | null } | null
+  mcpConnected?: string[] | null
+  mcpError?: boolean
+  lspCount?: number | null
+  onSessionSwitch?: ((sessionId: string) => void) | null
   // Stream D: mode plan/build (default 'build') + status working per turn
   // ({ steps, tool } — ditulis engine via noteWorking, dibaca entry).
   mode?: string
@@ -151,9 +159,20 @@ export interface AppProps {
   sessionId?: string | (() => string)
   title?: string
   workspace?: string
-  tokens?: string
-  usagePct?: string
-  spent?: string
+  // Batch C (footer opencode: kiri direktori, kanan status): string statis
+  // atau accessor reaktif (entry baca tick() di dalam agar ikut re-render).
+  // null = data tak tersedia -> App tampilkan '—' (tanpa fabrikasi angka).
+  tokens?: string | (() => string | null) | null
+  usagePct?: string | (() => string | null) | null
+  spent?: string | (() => string | null) | null
+  // MCP error + LSP count ala footer opencode (kiri direktori, kanan status).
+  // null/undefined = data tak tersedia -> segmen di-skip (tanpa angka palsu).
+  // LSP 0 = faktual (TUI tanpa language server), bukan fabrikasi.
+  mcpError?: boolean
+  lspCount?: number | null
+  // Sesi terakhir tersimpan (session-destination opencode): HomeView tawarkan
+  // `/continue <id>` bila ada; null = belum ada sesi.
+  lastSessionId?: string | null
   statusRight?: string | null
   connected?: string[]
   onSubmitLine?: (text: string) => void
@@ -201,6 +220,10 @@ export interface HomeViewProps {
   title?: string
   /** Lebar terminal (untuk max-width kolom via homePromptMaxWidth). */
   width?: number
+  /** Indeks tip rotasi (didorong App tiap 6s, pola placeholder). */
+  tipIndex?: number
+  /** Sesi terakhir tersimpan (session-destination opencode). */
+  lastSessionId?: string | null
 }
 
 /** Props `PromptRow`. */export interface PromptRowProps {

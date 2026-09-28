@@ -371,6 +371,152 @@ export function homePromptMaxWidth(termWidth: number = 80, configured?: number |
   return c > 0 ? c : 75
 }
 
+// Tips home rotasi (batch C, adopsi opencode feature-plugins/home/tips-view):
+// BUKAN hardcode 4 string — daftar terkurasi dari TIPS upstream, disesuaikan
+// ke perintah Abelink (/sessions /models /new /compact /help). Placeholder
+// input tetap HOME_PLACEHOLDERS (opencode routes/home prompt placeholders).
+export const HOME_TIPS: readonly string[] = Object.freeze([
+  'Ketik @ lalu nama file untuk melampirkan konteks file ke prompt',
+  'Awali pesan dengan ! untuk menjalankan perintah shell (mis. !git status)',
+  'Pakai /new untuk sesi baru · /sessions untuk lanjut sesi lama',
+  'Pakai /models untuk ganti model · /effort untuk atur kedalaman',
+  'Jalankan /compact untuk meringkas sesi panjang mendekati batas konteks',
+  'Pakai /thinking untuk tampil/sembunyi blok thinking · /details untuk detail tool',
+  'Tekan ctrl+p untuk command palette · ctrl+o untuk toggle mode Plan/Build',
+  'Pakai /help untuk daftar semua perintah TUI',
+])
+
+/** Tip ke-`index` (melingkar, aman untuk negatif/NaN). */
+export function homeTip(index: number = 0): string {
+  const n = HOME_TIPS.length
+  if (!n) return ''
+  const i = ((Math.floor(Number(index) || 0) % n) + n) % n
+  return HOME_TIPS[i]
+}
+
+// Render markdown ringan TANPA dep baru (batch C, adopsi pola
+// opencode session-ui Markdown — bukan dep): fenced code block multi-baris
+// -> dijaga utuh; link [t](u) -> "t (u)"; heading # -> teks polos;
+// hr --- -> garis; list "-"/"*"/"1." -> bullet/enumerasi;
+// nested quote ">>" -> indent ganda; quote ">" -> indent; bold/italic/code
+// inline -> penanda dihapus; tabel pipe -> spasi.
+export interface MarkdownLine {
+  text: string
+  code: boolean
+}
+
+export function renderMarkdownLines(input: string = ''): MarkdownLine[] {
+  const out: MarkdownLine[] = []
+  const lines = String(input ?? '').split('\n')
+  let inFence = false
+  let fenceBuf: string[] = []
+  let fenceLang = ''
+  const flushFence = () => {
+    const head = fenceLang ? `[${fenceLang}] ` : ''
+    for (const l of fenceBuf) out.push({ text: `${head}${l}`, code: true })
+    fenceBuf = []
+    fenceLang = ''
+  }
+  const LINK_RE = /\[([^\]]*)\]\(([^)\s]+)(?:\s+[^)]*)?\)/g
+  // Inline code spans dilindungi DULU (placeholder) supaya strip
+  // bold/italic/link/tabel tak memangsa identifier (`__init__`,
+  // `foo_bar_baz`, `a|b`). Restore di akhir dengan backtick dilepas.
+  const stash: string[] = []
+  const protect = (t: string): string =>
+    t.split(/(`[^`]*`)/g).map((seg, i) => {
+      if (i % 2 === 1) { stash.push(seg.slice(1, -1)); return `\u0000${stash.length - 1}\u0000` }
+      return seg
+    }).join('')
+  const restore = (t: string): string => t.replace(/\u0000(\d+)\u0000/g, (_m: string, n: string) => stash[Number(n)] ?? '')
+  for (const raw of lines) {
+    const fence = /^```\s*(\S*)\s*$/.exec(raw.trim())
+    if (fence) {
+      if (!inFence) { inFence = true; fenceLang = fence[1] ?? ''; fenceBuf = [] }
+      else { inFence = false; flushFence() }
+      continue
+    }
+    if (inFence) { fenceBuf.push(raw); continue }
+    let t = protect(raw)
+    t = t.replace(LINK_RE, (_m: string, label: string, url: string) =>
+      label && label !== url ? `${label} (${url})` : url)
+    t = t.replace(/!\[([^\]]*)\]\(([^)\s]+)(?:\s+[^)]*)?\)/g, (_m: string, alt: string, url: string) =>
+      alt ? `[gambar: ${alt}] (${url})` : `[gambar] (${url})`)
+    if (/^\s{0,3}#{1,6}\s+/.test(t)) t = t.replace(/^\s{0,3}#{1,6}\s+/, '')
+    else if (/^\s{0,3}(---+|\*\*\*+|___+)\s*$/.test(t)) t = '─'.repeat(24)
+    else {
+      // Nested quote ">> ..." sebelum quote tunggal ">" (urutan penting).
+      const nested = /^(\s*)>>\s?(.*)$/.exec(t)
+      if (nested) t = `${nested[1]}  │ ${nested[2]}`
+      else {
+        const quote = /^(\s*)>\s?(.*)$/.exec(t)
+        if (quote) t = `${quote[1]}│ ${quote[2]}`
+        else {
+          const ul = /^(\s*)[-*+]\s+(.*)$/.exec(t)
+          if (ul) t = `${ul[1]}• ${ul[2]}`
+          else {
+            const ol = /^(\s*)(\d+)[.)]\s+(.*)$/.exec(t)
+            if (ol) t = `${ol[1]}${ol[2]}. ${ol[3]}`
+          }
+        }
+      }
+      t = t.replace(/\|/g, ' ')
+    }
+    // Italic tunggal hanya `*` (bukan `_`): underscore intra-kata
+    // (`foo_bar`) bukan emphasis (aturan flanking CommonMark).
+    t = t.replace(/(\*\*|__)(.*?)\1/g, '$2').replace(/(?<!\w)\*(?!\s)(.*?)(?<!\s)\*(?!\w)/g, '$1')
+      .replace(/~~(.*?)~~/g, '$1')
+    out.push({ text: restore(t), code: false })
+  }
+  if (inFence) flushFence()
+  return out
+}
+
+/** Bentuk string: baris code di-prefix 2 spasi agar beda dari prosa. */
+export function renderMarkdownText(input: string = ''): string {
+  return renderMarkdownLines(input).map((l) => (l.code ? `  ${l.text}` : l.text)).join('\n')
+}
+
+export interface ContextUsage {
+  label: string
+  pct: string | null
+}
+
+// Context usage JUJUR (batch C, adopsi opencode sidebar/context — tanpa
+// fabrikasi): label token estimasi harness; persen hanya bila ctx model
+// dikenal (>0), else null (pemanggil tampilkan "—" bukan angka palsu).
+export function sessionContextUsage(tokensEst: number = 0, modelCtx: number | null = null): ContextUsage {
+  const t = Math.max(0, Math.floor(Number(tokensEst) || 0))
+  const label = `~${t.toLocaleString('en-US')} tokens (est.)`
+  const ctx = Number(modelCtx)
+  if (!Number.isFinite(ctx) || ctx <= 0) return { label, pct: null }
+  return { label, pct: `${Math.min(999, Math.round((t / ctx) * 100))}% used` }
+}
+
+// Status line kanan ala opencode routes/session/footer.tsx: kiri direktori,
+// kanan LSP count + MCP (connected/error) + hint /status. Tanpa data =
+// segmen di-skip (tanpa angka palsu).
+export interface StatusChipsInput {
+  lspCount?: number | null
+  mcpConnected?: number
+  mcpError?: boolean
+  hint?: string
+}
+
+export function statusChips(inp: StatusChipsInput = {}): string {
+  const parts: string[] = []
+  // lspCount null/undefined = data tak tersedia -> segmen di-skip (tanpa
+  // angka palsu). Eksplisit 0 = faktual (TUI tanpa language server).
+  if (inp.lspCount !== null && inp.lspCount !== undefined) {
+    const lsp = Math.max(0, Math.floor(Number(inp.lspCount) || 0))
+    parts.push(`${lsp > 0 ? '•' : '○'} ${lsp} LSP`)
+  }
+  const mcp = Math.max(0, Math.floor(Number(inp.mcpConnected) || 0))
+  if (mcp > 0) parts.push(`${inp.mcpError ? '⊙!' : '⊙'} ${mcp} MCP`)
+  else if (inp.mcpError) parts.push('⊙! MCP error')
+  parts.push(inp.hint ?? '/status')
+  return parts.join(' · ')
+}
+
 export interface VisibleWindow {
   start: number
   end: number

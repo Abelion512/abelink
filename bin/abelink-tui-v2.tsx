@@ -11,6 +11,7 @@ import { render } from '@opentui/solid'
 import { createSignal } from 'solid-js'
 import { App } from '../cli/tui/App.tsx'
 import { createTuiState, submitLine } from '../cli/tui/engine.mjs'
+import { sessionContextUsage } from '../cli/tui/theme.ts'
 import { workingLabel } from '../cli/tui/planMode.mjs'
 import { parseTuiArgs, parseSlashCommand, parseShellLine, TUI_HELP, TUI_VERSION } from '../cli/core/index.mjs'
 import type {
@@ -198,10 +199,26 @@ async function main() {
   const [tick, setTick] = createSignal(0)
   const [busy, setBusy] = createSignal(false)
   const [picker, setPicker] = createSignal<PickerState | null>(null)
+  // Batch C (session-destination opencode): id sesi terakhir tersimpan untuk
+  // tawaran `/continue` di HomeView. null = belum ada (fallback teks lama).
+  const [lastSessionId, setLastSessionId] = createSignal<string | null>(null)
   const bump = () => setTick((t) => t + 1)
   // Repaint tiap engine push (prompt user, info, error) — bukan hanya saat
   // event agent tiba, supaya TUI tidak tampak beku selama turn panjang.
   state.onPush = () => bump()
+  // Batch C: ctx model aktif dicari di katalog disk saat bootstrap
+  // (fire-and-forget; sidebar tampilkan '—' sampai ketemu).
+  void import('../cli/tui/engine.mjs').then((m) => {
+    if (typeof m.touchSessionUsage === 'function') m.touchSessionUsage(state, { homeDir: e2eHome })
+  }).catch(() => {})
+  // Batch C: sesi terakhir untuk tawaran lanjut (fire-and-forget).
+  void import('../cli/core/index.mjs').then(async (m) => {
+    if (typeof m.lastTuiSession !== 'function') return
+    try {
+      const last = await m.lastTuiSession(null)
+      if (last?.id && last.id !== state.sessionId) setLastSessionId(String(last.id))
+    } catch { /* tanpa store -> fallback teks */ }
+  }).catch(() => {})
   const getSidecar = async (): Promise<SidecarClient> => {
     if (!sidecar) {
       const { createSidecarClient } = await import('../cli/core/index.mjs')
@@ -466,6 +483,16 @@ async function main() {
           // Toggle thinking/details: baca state tiap render (pola agentName).
           showThinking={() => { tick(); return state.showThinking !== false }}
           showDetails={() => { tick(); return state.showDetails === true }}
+          // Batch C (sidebar opencode jujur): usage sesi berjalan dari engine
+          // (chars/2.5, BUKAN billing — spent null = disembunyikan). tick()
+          // dibaca agar ikut re-render tiap push. MCP/LSP: engine belum
+          // expose (null) -> segmen di-skip, tanpa angka palsu.
+          tokens={() => { tick(); const u = sessionContextUsage(state.usage?.tokensEst ?? 0, state.usage?.modelCtx ?? null); return state.usage?.tokensEst == null ? null : u.label }}
+          usagePct={() => { tick(); const u = sessionContextUsage(state.usage?.tokensEst ?? 0, state.usage?.modelCtx ?? null); return u.pct }}
+          spent={null}
+          mcpError={false}
+          lspCount={null}
+          lastSessionId={lastSessionId()}
         />
       </KeymapProvider>
     ),

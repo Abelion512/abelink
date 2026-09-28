@@ -7,9 +7,12 @@ import { spawn } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { ABELINK_THEME, TUI_COMMANDS, AUTOCOMPLETE_MAX_ROWS, filterCompletions, shortModel, SIDEBAR_WIDTH, isWide, messageColor, messagePrefix, PROMPT_KEY_BINDINGS, autocompleteTrigger, applyCompletion, moveCompletionIndex, visibleWindow, DIALOG_PANEL_WIDTH, DIALOG_Z_INDEX, DIALOG_KINDS, isDialogKind, dialogVisibleRows, popupHeight, selectedForeground, dialogFooterText, HOME_PLACEHOLDERS, homePlaceholder, homePromptMaxWidth } from '../cli/tui/theme.ts'
+import { ABELINK_THEME, TUI_COMMANDS, AUTOCOMPLETE_MAX_ROWS, filterCompletions, shortModel, SIDEBAR_WIDTH, isWide, messageColor, messagePrefix, PROMPT_KEY_BINDINGS, autocompleteTrigger, applyCompletion, moveCompletionIndex, visibleWindow, DIALOG_PANEL_WIDTH, DIALOG_Z_INDEX, DIALOG_KINDS, isDialogKind, dialogVisibleRows, popupHeight, selectedForeground, dialogFooterText, HOME_PLACEHOLDERS, homePlaceholder, homePromptMaxWidth, HOME_TIPS, homeTip, renderMarkdownLines, renderMarkdownText, sessionContextUsage, statusChips } from '../cli/tui/theme.ts'
 import { parseSlashCommand } from '../bin/abelink-tui.mjs'
-import { createTuiState, submitLine, effortDialogRows } from '../cli/tui/engine.mjs'
+import { createTuiState, submitLine, effortDialogRows, refreshSessionUsage, touchSessionUsage, switchToSession } from '../cli/tui/engine.mjs'
+import { lastTuiSession } from '../cli/core/index.mjs'
+import { collapseToolOutput, firstLine } from '../cli/core/index.mjs'
+import { estimateLiveTokens } from '../cli/tui/usageStats.mjs'
 import { normalizeMode, toggleMode, modeAgentLabel, buildTurnPrompt, PLAN_PROMPT_PREFIX, initWorking, noteWorking, workingLabel, modeStatusText } from '../cli/tui/planMode.mjs'
 
 describe('shortModel (label opencode di dalam prompt box)', () => {
@@ -468,6 +471,116 @@ describe('dialogFooterText (stale/total/error jujur, stream C)', () => {
   it('kosong -> empty-state + error opsional', () => {
     expect(dialogFooterText({ rowCount: 0 })).toContain('Tidak ada yang cocok')
     expect(dialogFooterText({ rowCount: 0, error: 'x' })).toContain('(x)')
+  })
+})
+
+describe('batch C: markdown ringan (tanpa dep, pola session-ui)', () => {
+  it('link [t](u) -> "t (u)"; heading/hr dilucuti', () => {
+    const lines = renderMarkdownLines('[Abelink](https://example.com/x)\n# Judul\n---')
+    expect(lines[0].text).toBe('Abelink (https://example.com/x)')
+    expect(lines[1].text).toBe('Judul')
+    expect(lines[2].text).toBe('─'.repeat(24))
+  })
+  it('list "-" dan enumerasi "1." + nested quote ">>"', () => {
+    const lines = renderMarkdownLines('- apel\n1. pertama\n>> dalam\n> luar')
+    expect(lines[0].text).toBe('• apel')
+    expect(lines[1].text).toBe('1. pertama')
+    expect(lines[2].text).toContain('dalam')
+    expect(lines[3].text).toContain('luar')
+  })
+  it('fence multi-baris dijaga utuh + flag code', () => {
+    const lines = renderMarkdownLines('```js\nconst a = 1;\nconst b = 2;\n```')
+    expect(lines.length).toBe(2)
+    expect(lines.every((l) => l.code)).toBe(true)
+    expect(lines[0].text).toContain('[js]')
+    expect(renderMarkdownText('```\nx\n```')).toBe('  x')
+  })
+  it('inline code dilindungi dari strip bold/underscore', () => {
+    expect(renderMarkdownLines('pakai `__init__` di sini')[0].text).toBe('pakai __init__ di sini')
+    expect(renderMarkdownLines('var `foo_bar_baz` tetap')[0].text).toBe('var foo_bar_baz tetap')
+  })
+})
+
+describe('batch C: tips rotasi dari file (bukan hardcode lokal)', () => {
+  it('HOME_TIPS frozen + non-kosong; homeTip melingkar', () => {
+    expect(HOME_TIPS.length).toBeGreaterThan(0)
+    expect(Object.isFrozen(HOME_TIPS)).toBe(true)
+    expect(homeTip(0)).toBe(HOME_TIPS[0])
+    expect(homeTip(HOME_TIPS.length)).toBe(HOME_TIPS[0])
+    expect(homeTip(-1)).toBe(HOME_TIPS[HOME_TIPS.length - 1])
+  })
+})
+
+describe('batch C: tool display compact satu baris', () => {
+  it('firstLine: baris pertama non-kosong, collapse whitespace, cap + …', () => {
+    expect(firstLine('\n  halo   dunia\nbaris2')).toBe('halo dunia')
+    expect(firstLine('')).toBe('—')
+    const long = firstLine('x'.repeat(200), 10)
+    expect(long.endsWith('…')).toBe(true)
+    expect(Array.from(long).length).toBe(10)
+  })
+  it('collapseToolOutput: port verbatim opencode (overflow flag)', () => {
+    expect(collapseToolOutput('a\nb', 5, 100)).toEqual({ output: 'a\nb', overflow: false })
+    const cut = collapseToolOutput('a\nb\nc\nd', 2, 100)
+    expect(cut.overflow).toBe(true)
+    expect(cut.output).toBe('a\nb\n…')
+  })
+})
+
+describe('batch C: context usage jujur (tanpa fabrikasi)', () => {
+  it('sessionContextUsage: persen hanya bila ctx dikenal', () => {
+    expect(sessionContextUsage(5000, 100000)).toEqual({ label: '~5,000 tokens (est.)', pct: '5% used' })
+    expect(sessionContextUsage(5000, null).pct).toBeNull()
+    expect(sessionContextUsage(0, 0).pct).toBeNull()
+  })
+  it('statusChips: tanpa data -> segmen di-skip', () => {
+    expect(statusChips({})).toBe('/status')
+    expect(statusChips({ lspCount: 0 })).toContain('○ 0 LSP')
+    expect(statusChips({ mcpError: true })).toContain('MCP error')
+  })
+  it('estimateLiveTokens: chars/2.5 dari history+messages', () => {
+    expect(estimateLiveTokens({ history: [{ content: 'ab' }], messages: [{ text: 'cdef' }] })).toBe(2)
+    expect(estimateLiveTokens()).toBe(0)
+  })
+  it('refreshSessionUsage: sinkron, ctx sticky dari capabilities', () => {
+    const s = createTuiState({ history: [{ content: 'x'.repeat(25) }], modelCapabilities: { ctx: 1000 } })
+    refreshSessionUsage(s)
+    expect(s.usage.tokensEst).toBe(10)
+    expect(s.usage.modelCtx).toBe(1000)
+  })
+  it('refreshSessionUsage: ctx null bila tak dikenal (jujur)', () => {
+    const s = createTuiState()
+    refreshSessionUsage(s)
+    expect(s.usage.tokensEst).toBe(0)
+    expect(s.usage.modelCtx).toBeNull()
+  })
+  it('switchToSession: pindah histori + segarkan usage', () => {
+    const s = createTuiState()
+    const n = switchToSession(s, { id: 'abc', messages: [{ role: 'user', content: 'halo' }] })
+    expect(s.sessionId).toBe('abc')
+    expect(n).toBe(1)
+    expect(s.usage.tokensEst).toBeGreaterThan(0)
+  })
+  it('lastTuiSession: null bila kosong; terbaru dari store stub', async () => {
+    expect(await lastTuiSession({ async listCliSessions() { return [] } })).toBeNull()
+    const store = {
+      async listCliSessions() {
+        return [
+          { id: 'lama', updatedAt: '2026-01-01T00:00:00.000Z' },
+          { id: 'baru', updatedAt: '2026-09-28T00:00:00.000Z' },
+        ]
+      },
+    }
+    const last = await lastTuiSession(store)
+    expect(last.id).toBe('baru')
+  })
+  it('touchSessionUsage: ctx dari katalog disk stub', async () => {
+    const s = createTuiState({ model: 'm-x' })
+    const fsMod = { readFileSync: (p) => (String(p).endsWith('models-cache.json')
+      ? JSON.stringify({ fetchedAt: Date.now(), models: [{ id: 'm-x', capabilities: { contextWindow: 8000 } }] })
+      : '{}') }
+    await touchSessionUsage(s, { fsMod, homeDir: '/tmp/batch-c-home' })
+    expect(s.usage.modelCtx).toBe(8000)
   })
 })
 
