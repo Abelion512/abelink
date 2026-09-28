@@ -7,7 +7,7 @@
 // V2-1: echo lokal; engine wiring = slice berikut.
 import { createSignal, For, Show, onMount, onCleanup } from 'solid-js'
 import { useKeyboard, useTerminalDimensions } from '@opentui/solid'
-import { ABELINK_THEME, shortModel, SIDEBAR_WIDTH, isWide, isDialogKind, messageColor, messagePrefix, visibleWindow, homePlaceholder } from './theme.ts'
+import { ABELINK_THEME, shortModel, SIDEBAR_WIDTH, isWide, isDialogKind, messageColor, messagePrefix, visibleWindow, homePlaceholder, homePromptMaxWidth } from './theme.ts'
 import { PromptRow } from './components/PromptRow.tsx'
 import { HomeView } from './components/HomeView.tsx'
 import { CenterDialog } from './components/CenterDialog.tsx'
@@ -89,6 +89,43 @@ export function App(props: AppProps = {}) {
     setValue('')
     props.onSubmitLine?.(t)
   }
+  // Area prompt (PromptRow + bottom cap): saat messages kosong dibungkus kolom
+  // tengah max-width (pola opencode home: prompt column maxWidth 75) supaya
+  // sejajar HomeView; saat non-kosong full-width seperti semula.
+  // Fungsi lokal (bukan komponen): Solid tak perlu, hindari remount textarea.
+  const empty = () => messages().length === 0
+  const promptArea = () => (
+    <>
+      <PromptRow
+        value={value}
+        onInput={setValue}
+        onSubmit={submit}
+        placeholder={homePlaceholder(phIndex())}
+        modelLabel={() => {
+          // Baca `tick` supaya label ini ikut re-render saat engine ubah
+          // model (Solid hanya tracking signal, bukan mutasi objek state).
+          props.tick?.()
+          return `${shortModel(model())} ${provider()}`
+        }}
+        right={busy() ? 'working…' : (props.statusRight ?? null)}
+        picker={picker}
+        onPickerMove={props.onPickerMove}
+        onPickerSelect={props.onPickerSelect}
+        onPickerCancel={props.onPickerCancel}
+        onPickerFilter={props.onPickerFilter}
+      />
+      {/* Bottom cap prompt (opencode prompt/index.tsx). */}
+      <box
+        style={{
+          height: 1,
+          flexShrink: 0,
+          border: ['bottom'],
+          borderColor: ABELINK_THEME.backgroundElement,
+          customBorderChars: PROMPT_CAP_BORDER,
+        }}
+      />
+    </>
+  )
 
   return (
     <box
@@ -168,34 +205,13 @@ export function App(props: AppProps = {}) {
             </text>
           </box>
         )}
-        <PromptRow
-          value={value}
-          onInput={setValue}
-          onSubmit={submit}
-          placeholder={homePlaceholder(phIndex())}
-          modelLabel={() => {
-            // Baca `tick` supaya label ini ikut re-render saat engine ubah
-            // model (Solid hanya tracking signal, bukan mutasi objek state).
-            props.tick?.()
-            return `${shortModel(model())} ${provider()}`
-          }}
-          right={busy() ? 'working…' : (props.statusRight ?? null)}
-          picker={picker}
-          onPickerMove={props.onPickerMove}
-          onPickerSelect={props.onPickerSelect}
-          onPickerCancel={props.onPickerCancel}
-          onPickerFilter={props.onPickerFilter}
-        />
-        {/* Bottom cap prompt (opencode prompt/index.tsx). */}
-        <box
-          style={{
-            height: 1,
-            flexShrink: 0,
-            border: ['bottom'],
-            borderColor: ABELINK_THEME.backgroundElement,
-            customBorderChars: PROMPT_CAP_BORDER,
-          }}
-        />
+        <Show when={empty()} fallback={promptArea()}>
+          <box style={{ flexDirection: 'column', alignItems: 'center', width: '100%' }}>
+            <box style={{ flexDirection: 'column', width: '100%', maxWidth: homePromptMaxWidth(dims()?.width ?? 80) }}>
+              {promptArea()}
+            </box>
+          </box>
+        </Show>
         <box style={{ flexDirection: 'row', justifyContent: 'space-between', flexShrink: 0 }}>
           <text fg={ABELINK_THEME.textMuted}>{props.workspace ?? ''}</text>
           <box style={{ flexDirection: 'row', gap: 2 }}>
