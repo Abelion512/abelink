@@ -159,7 +159,7 @@ describe('session store round-trip (Fase-1-shaped stubs)', () => {
     const { mkdtempSync } = await import('node:fs')
     const { tmpdir } = await import('node:os')
     const dir = mkdtempSync(`${tmpdir()}/tui-fase1-`)
-    const { saveCliSession, loadCliSession, listCliSessions } = await import('../src/api/ai/headlessCli.js')
+    const { saveCliSession, loadCliSession, listCliSessions } = await import('../src/api/ai/headlessCli.ts')
     const realStore = { loadCliSession: (id) => loadCliSession(id, { dir }), saveCliSession: (s) => saveCliSession(s, { dir }), listCliSessions: () => listCliSessions({ dir }) }
     const session = {
       v: 1, id: 'realsess', workspace: '/tmp/w', provider: 'custom',

@@ -1,6 +1,9 @@
-// headlessCli.js — pure helpers for the headless CLI (Stream 3).
+// headlessCli.ts — pure helpers for the headless CLI (Stream 3).
 // No I/O at import time; filesystem reads are explicit async fns.
 // Contracts pinned by tests/cliHeadless.test.mjs.
+//
+// W2-3 (js-to-ts-spec.md): kontrak CLI jadi tipe (CliCliConfig, CliSessionRow,
+// resolveCliAuth). Semua fungsi never-throw tetap never-throw.
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -10,20 +13,77 @@ export const MAX_SUBAGENTS_PER_TASK = 3
 export const SUBAGENT_MAX_TURNS = 8
 export const SUBAGENT_REPLY_CAP = 2000
 
+/** Hasil parse query spawn subagent (format name||role||goal||msg||tools). */
+export interface SpawnQueryParsed {
+  name: string
+  role: string
+  goal: string
+  initialMessage: string
+  tools: string[]
+}
+/** Config CLI hasil resolusi lapis (GUI shared.json / cli.json / flag / env). */
+export interface CliConfig {
+  provider?: string | null
+  model?: string | null
+  modelVersion?: string
+  apiKey?: string | null
+  customEndpoint?: string | null
+  customModel?: string | null
+  groqModel?: string | null
+  _source?: string
+  _updatedAt?: string | null
+  [key: string]: unknown
+}
+/** Snapshot config GUI (shared.json) — bentuk longgar historis. */
+export interface SharedConfigLike {
+  aiProvider?: string
+  updatedAt?: string
+  customModel?: string
+  customApiKey?: string
+  customEndpoint?: string
+  groqModel?: string
+  groqApiKey?: string
+  [key: string]: unknown
+}
+/** Baris sesi CLI (kontrak beku v:1 — file store JSON). */
+export interface CliSessionRow {
+  v?: number
+  id: string
+  workspace?: string | null
+  provider?: string | null
+  model?: string | null
+  modelVersion?: string | null
+  effort?: string | null
+  createdAt?: string
+  updatedAt?: string
+  prompt?: string
+  outcome?: string | null
+  terminalReason?: string | null
+  messages: Array<{ role: 'user' | 'assistant'; content: string }>
+}
+/** Hasil eksekusi runAgentLoop (subset yang dipakai CLI). */
+export interface SubagentRunResult {
+  success?: boolean
+  outcome?: string
+  reply?: string
+  terminalReason?: string | null
+  [key: string]: unknown
+}
+
 // Query format: name||role||goal||initial_message||tools(comma-separated).
-export function parseSpawnQuery(query = '') {
-  const parts = String(query ?? '').split('||').map((s) => s.trim())
+export function parseSpawnQuery(query: string = ''): SpawnQueryParsed {
+  const parts = String(query ?? '').split('||').map((s: string) => s.trim())
   const goal = parts[2] || parts[0] || 'Sub-task'
   return {
     name: parts[0] || 'Worker-Agent',
     role: parts[1] || 'Technical Specialist',
     goal,
     initialMessage: parts[3] || goal,
-    tools: parts[4] ? parts[4].split(',').map((t) => t.trim()).filter(Boolean) : ['*']
+    tools: parts[4] ? parts[4].split(',').map((t: string) => t.trim()).filter(Boolean) : ['*']
   }
 }
 
-export function checkSubagentBudget({ depth = 0, spawnCount = 0 } = {}) {
+export function checkSubagentBudget({ depth = 0, spawnCount = 0 }: { depth?: unknown; spawnCount?: unknown } = {}): { allowed: boolean; reason: string | null } {
   if (Number(depth) >= MAX_SUBAGENT_DEPTH) {
     return { allowed: false, reason: `Subagent depth cap tercapai (${MAX_SUBAGENT_DEPTH}) — spawn ditolak (fail-closed).` }
   }
@@ -34,7 +94,7 @@ export function checkSubagentBudget({ depth = 0, spawnCount = 0 } = {}) {
 }
 
 // Anthropic pattern: subagent returns a condensed 1-2k summary, not raw trace.
-export function condenseSubagentResult({ parsed = {}, result = {} } = {}) {
+export function condenseSubagentResult({ parsed = {}, result = {} }: { parsed?: Partial<SpawnQueryParsed>; result?: SubagentRunResult } = {}): string {
   const reply = String(result.reply || '')
   const body = reply.length > SUBAGENT_REPLY_CAP
     ? reply.slice(0, SUBAGENT_REPLY_CAP) + '\n...[dipotong]'
@@ -47,7 +107,10 @@ export function condenseSubagentResult({ parsed = {}, result = {} } = {}) {
 //   mode manual           -> fail-closed klasik, butuh --approve-all per aksi
 //   --deny-all / dont-ask -> deny (untuk CI)
 //   hardline              -> tidak pernah relay, semua mode
-export function resolveApprovalDecision(secCheck = {}, { approveAll = false, denyAll = false, mode = 'auto' } = {}) {
+export function resolveApprovalDecision(
+  secCheck: { category?: string } | null | undefined = {},
+  { approveAll = false, denyAll = false, mode = 'auto' }: { approveAll?: boolean; denyAll?: boolean; mode?: 'auto' | 'manual' } = {}
+): { proceed: boolean; reason: string } {
   if (denyAll === true) return { proceed: false, reason: 'denied by --deny-all (dont-ask mode)' }
   if (secCheck?.category === 'hardline') return { proceed: false, reason: 'hardline denial never relayed' }
   if (mode === 'manual' && approveAll !== true) return { proceed: false, reason: 'manual mode: explicit --approve-all required' }
@@ -61,17 +124,18 @@ export function resolveApprovalDecision(secCheck = {}, { approveAll = false, den
 // null agar CLI jatuh ke default jujur, bukan gagal senyap.
 // lm-studio dipetakan ke `custom` + customEndpoint karena keduanya endpoint
 // OpenAI-compatible yang sama di sisi ai-bridge.
-export function sharedConfigToCliConfig(shared = {}) {
-  const provider = String(shared?.aiProvider || '').trim().toLowerCase()
+export function sharedConfigToCliConfig(shared: SharedConfigLike | null | undefined = {}): CliConfig {
+  const s = (shared ?? {}) as SharedConfigLike
+  const provider = String(s?.aiProvider || '').trim().toLowerCase()
   const meta = { _source: 'gui-shared', _updatedAt: shared?.updatedAt || null }
   if (provider === 'custom') {
     return {
       ...meta,
       provider: 'custom',
-      model: shared.customModel || null,
-      customModel: shared.customModel || null,
-      apiKey: shared.customApiKey || null,
-      customEndpoint: shared.customEndpoint || null
+      model: s.customModel || null,
+      customModel: s.customModel || null,
+      apiKey: s.customApiKey || null,
+      customEndpoint: s.customEndpoint || null
     }
   }
   if (provider === 'groq') {
@@ -80,18 +144,18 @@ export function sharedConfigToCliConfig(shared = {}) {
     return {
       ...meta,
       provider: 'groq',
-      model: shared.groqModel || null,
-      groqModel: shared.groqModel || null,
-      apiKey: shared.groqApiKey || null
+      model: s.groqModel || null,
+      groqModel: s.groqModel || null,
+      apiKey: s.groqApiKey || null
     }
   }
   if (provider === 'lm-studio') {
     return {
       ...meta,
       provider: 'custom',
-      model: shared.customModel || null,
-      customModel: shared.customModel || null,
-      customEndpoint: shared.customEndpoint || null
+      model: s.customModel || null,
+      customModel: s.customModel || null,
+      customEndpoint: s.customEndpoint || null
     }
   }
   return { ...meta, provider: null, model: null, apiKey: null }
@@ -102,8 +166,8 @@ export function sharedConfigToCliConfig(shared = {}) {
 //   2. home cli.json (~/.config/abelink/cli.json)      = override eksplisit CLI
 //   3. repo-local .abelink/cli.json                    = override paling spesifik
 // Missing files -> {}. Never throws.
-export function loadCliFileConfig({ cwd = process.cwd(), homeDir = os.homedir() } = {}) {
-  const out = {}
+export function loadCliFileConfig({ cwd = process.cwd(), homeDir = os.homedir() }: { cwd?: string; homeDir?: string } = {}): CliConfig {
+  const out: CliConfig = {}
   // Lapis 1: snapshot GUI -> bentuk CLI.
   try {
     const parsed = JSON.parse(fs.readFileSync(path.join(homeDir, '.config', 'abelink', 'shared.json'), 'utf8'))
@@ -156,12 +220,12 @@ export const MODEL_ALIASES = Object.freeze({
 // sumber kebenaran: dipakai resolveCliAuth + seluruh entry CLI/TUI.
 export const FORBIDDEN_MODELS = Object.freeze(['claude-work'])
 
-export function isForbiddenModel(model = '') {
+export function isForbiddenModel(model: unknown = ''): boolean {
   const low = String(model ?? '').trim().toLowerCase()
-  return FORBIDDEN_MODELS.some((f) => low === String(f).toLowerCase())
+  return FORBIDDEN_MODELS.some((f: string) => low === String(f).toLowerCase())
 }
 
-export function forbiddenModelError(model = '') {
+export function forbiddenModelError(model: unknown = ''): string {
   return `Model "${String(model ?? '')}" dilarang (training-data). Pakai /model atau -m ke ID gratis yang layak (mis. zen).`
 }
 
@@ -172,20 +236,28 @@ export const DEFAULT_CLI_MODEL = 'oc/muse-spark-1.3-contributor-free'
 // Headless default = 'custom' (9Router OpenAI-compatible di localhost:20128),
 // BUKAN 'gemini-web': gemini-web butuh sesi browser Google yang hanya ada di
 // GUI. Model default = zen-free 9Router (live, reasoning, gratis).
-export function resolveCliAuth({ flags = {}, env = process.env, fileConfig = {} } = {}) {
+export function resolveCliAuth({
+  flags = {},
+  env = process.env,
+  fileConfig = {}
+}: {
+  flags?: Record<string, string | null | undefined>
+  env?: Record<string, string | undefined>
+  fileConfig?: CliConfig
+} = {}): { provider: string; model: string; modelVersion: string; apiKey: string | null; customEndpoint: string | null; forbidden: boolean } {
   const provider = flags.provider || env.ABELINK_PROVIDER || fileConfig.provider || 'custom'
   const rawModel = flags.model || env.ABELINK_MODEL || fileConfig.model || DEFAULT_CLI_MODEL
-  const model = MODEL_ALIASES[rawModel] || rawModel
+  const model = (MODEL_ALIASES as Record<string, string>)[rawModel] || rawModel
   const modelVersion = flags.modelVersion || env.ABELINK_MODEL_VERSION || fileConfig.modelVersion || 'v1'
   const apiKey =
     flags.apiKey || env.ABELINK_API_KEY || env.CUSTOM_API_KEY || env.OPENAI_API_KEY ||
-    fileConfig.apiKey || fileConfig.customApiKey || null
+    fileConfig.apiKey || (fileConfig.customApiKey as string | undefined) || null
   // Endpoint: ikut lapis yang sama (flag > env > file/GUI). Diadopsi dari GUI
   // supaya TUI menembak endpoint yang sama (mis. 9Router di 20128), bukan
   // hardcode terpisah.
   const customEndpoint =
     flags.endpoint || env.ABELINK_ENDPOINT || env.CUSTOM_ENDPOINT || env.OPENAI_BASE_URL ||
-    fileConfig.customEndpoint || null
+    (fileConfig.customEndpoint as string | undefined) || null
   // `forbidden` = sinyal untuk caller; resolveCliAuth tetap never-throws dan
   // tidak diam-diam menukar model (tanpa fallback, keputusan owner).
   return { provider, model, modelVersion, apiKey, customEndpoint, forbidden: isForbiddenModel(model) }
@@ -197,17 +269,23 @@ export function resolveCliAuth({ flags = {}, env = process.env, fileConfig = {} 
 // terakhir — user tetap bisa override via --api-key / env / cli.json.
 // bun:sqlite hanya ada di runtime bun; di node (vitest) jatuh ke CLI
 // sqlite3; keduanya gagal -> null (caller beri pesan jujur).
-export async function loadNineRouterKey({ dbPath = null } = {}) {
+export async function loadNineRouterKey({ dbPath = null }: { dbPath?: string | null } = {}): Promise<string | null> {
   const home = os.homedir?.() || process.env.HOME || ''
   // ABELINK_HOME sengaja TIDAK menggeser path ini (data milik 9Router, bukan
   // app); untuk test/E2E hermetic sediakan override eksplisit.
   const file = dbPath || process.env.ABELINK_9ROUTER_DB || path.join(home, '.9router', 'db', 'data.sqlite')
   try {
-    const { Database } = await import('bun:sqlite')
+    // bun:sqlite hanya ada di runtime bun (tipe runtime, bukan deps).
+    const { Database } = (await import('bun:sqlite')) as unknown as {
+      Database: new (path: string, opts?: { readonly?: boolean }) => {
+        query: (sql: string) => { get: () => Record<string, unknown> | null }
+        close: () => void
+      }
+    }
     const db = new Database(file, { readonly: true })
     const row = db.query('SELECT key FROM apiKeys LIMIT 1').get()
     db.close()
-    const key = row?.key || row?.['key']
+    const key = row?.key ?? row?.['key']
     return typeof key === 'string' && key ? key : null
   } catch {}
   try {
@@ -226,15 +304,15 @@ export async function loadNineRouterKey({ dbPath = null } = {}) {
 // flag/env (abelink setup --provider custom --model gemini --api-key ...).
 // Tanpa argumen = cek status (tampilkan sumber aktif tiap field).
 // Never throws; return { ok, message }.
-export async function writeCliSetup({ argv = [], homeDir = os.homedir?.() || process.env.HOME || '' } = {}) {
+export async function writeCliSetup({ argv = [], homeDir = os.homedir?.() || process.env.HOME || '' }: { argv?: string[]; homeDir?: string } = {}): Promise<{ ok: boolean; message: string }> {
   const file = path.join(homeDir, '.config', 'abelink', 'cli.json')
-  let current = {}
+  let current: Record<string, unknown> = {}
   try {
     current = JSON.parse(fs.readFileSync(file, 'utf8'))
     if (!current || typeof current !== 'object') current = {}
   } catch {}
-  const next = { ...current }
-  const take = (flag) => {
+  const next: Record<string, unknown> = { ...current }
+  const take = (flag: string): string | null => {
     const i = argv.indexOf(flag)
     return i >= 0 && argv[i + 1] && !String(argv[i + 1]).startsWith('-') ? argv[i + 1] : null
   }
@@ -242,7 +320,7 @@ export async function writeCliSetup({ argv = [], homeDir = os.homedir?.() || pro
   const model = take('--model') || take('-m')
   const apiKey = take('--api-key')
   if (provider) next.provider = provider
-  if (model) next.model = MODEL_ALIASES[model] ? model : model
+  if (model) next.model = (MODEL_ALIASES as Record<string, string>)[model] ? model : model
   if (apiKey) next.apiKey = apiKey
   if (provider || model || apiKey) {
     fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 })
@@ -266,13 +344,13 @@ export async function writeCliSetup({ argv = [], homeDir = os.homedir?.() || pro
  * @param {{ workspaceRoot?: string | null }} [opts]
  * @returns {Promise<Array<unknown>>}
  */
-export async function loadHeadlessMemories({ workspaceRoot = null } = {}) {
+export async function loadHeadlessMemories({ workspaceRoot = null }: { workspaceRoot?: string | null } = {}): Promise<Array<{ type: string; memory: string }>> {
   try {
     if (!workspaceRoot) return []
     const file = path.join(workspaceRoot, '.abelink', 'working-memory.json')
     const raw = await fs.promises.readFile(file, 'utf8')
-    const parsed = JSON.parse(raw)
-    const out = []
+    const parsed = JSON.parse(raw) as { notes?: unknown; activeObjective?: unknown }
+    const out: Array<{ type: string; memory: string }> = []
     if (parsed?.notes) out.push({ type: 'working-memory', memory: String(parsed.notes) })
     if (parsed?.activeObjective) out.push({ type: 'working-memory', memory: `Active objective: ${parsed.activeObjective}` })
     return out
@@ -289,27 +367,28 @@ export async function loadHeadlessMemories({ workspaceRoot = null } = {}) {
 export const CLI_SESSION_VERSION = 1
 export const CLI_SESSION_MAX_MESSAGES = 50
 
-export function defaultCliSessionDir({ homeDir = os.homedir?.() || process.env.HOME || '' } = {}) {
+export function defaultCliSessionDir({ homeDir = os.homedir?.() || process.env.HOME || '' }: { homeDir?: string } = {}): string {
   return path.join(homeDir, '.config', 'abelink', 'cli-sessions')
 }
 
-export function newCliSessionId() {
+export function newCliSessionId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
 }
 
 // Id aman untuk nama file: tolak path traversal / separator.
-export function sanitizeCliSessionId(id) {
+export function sanitizeCliSessionId(id: unknown): string | null {
   const s = String(id ?? '')
   return /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(s) ? s : null
 }
 
-function isCliSessionShape(s) {
-  return Boolean(s && typeof s === 'object' && typeof s.id === 'string' && Array.isArray(s.messages))
+function isCliSessionShape(s: unknown): s is CliSessionRow {
+  return Boolean(s && typeof s === 'object' && typeof (s as CliSessionRow).id === 'string' && Array.isArray((s as CliSessionRow).messages))
 }
 
-export function saveCliSession(session, { dir = null } = {}) {
+export function saveCliSession(session: CliSessionRow | null | undefined, { dir = null }: { dir?: string | null } = {}): { ok: boolean; file: string | null } {
   try {
-    const id = sanitizeCliSessionId(session?.id)
+    if (!session) return { ok: false, file: null }
+    const id = sanitizeCliSessionId(session.id)
     if (!id) return { ok: false, file: null }
     const base = dir || defaultCliSessionDir({})
     const now = new Date().toISOString()
@@ -342,7 +421,7 @@ export function saveCliSession(session, { dir = null } = {}) {
   }
 }
 
-export function loadCliSession(id, { dir = null } = {}) {
+export function loadCliSession(id: string, { dir = null }: { dir?: string | null } = {}): CliSessionRow | null {
   try {
     const safe = sanitizeCliSessionId(id)
     if (!safe) return null
@@ -354,7 +433,7 @@ export function loadCliSession(id, { dir = null } = {}) {
   }
 }
 
-export function listCliSessions({ dir = null } = {}) {
+export function listCliSessions({ dir = null }: { dir?: string | null } = {}): CliSessionRow[] {
   try {
     const base = dir || defaultCliSessionDir({})
     const files = fs.readdirSync(base).filter((f) => f.endsWith('.json'))
@@ -374,17 +453,33 @@ export function listCliSessions({ dir = null } = {}) {
 
 // Sequential subagent run (depth-capped, budget-capped, fail-closed).
 // runLoop/createEnvironment injected (testable, engine stays pure).
-export async function runHeadlessSubagent({ query = '', depth = 0, state = null, runLoop, createEnvironment, baseOptions = {} } = {}) {
+export async function runHeadlessSubagent({
+  query = '',
+  depth = 0,
+  state = null,
+  runLoop,
+  createEnvironment,
+  baseOptions = {}
+}: {
+  query?: string
+  depth?: number
+  state?: { spawnCount?: number } | null
+  runLoop?: unknown
+  createEnvironment?: unknown
+  baseOptions?: Record<string, unknown>
+} = {}): Promise<{ ok: boolean; result: string }> {
+  type RunLoopFn = (args: { prompt: string; options: Record<string, unknown>; environment: unknown }) => Promise<SubagentRunResult>
   const st = state || { spawnCount: 0 }
+  st.spawnCount = st.spawnCount ?? 0
   const budget = checkSubagentBudget({ depth, spawnCount: st.spawnCount })
-  if (!budget.allowed) return { ok: false, result: budget.reason }
+  if (!budget.allowed) return { ok: false, result: budget.reason as string }
   if (typeof runLoop !== 'function') return { ok: false, result: 'runLoop tidak tersedia.' }
   const parsed = parseSpawnQuery(query)
   const subTurns = Math.min(Number(baseOptions.maxTurns) || SUBAGENT_MAX_TURNS, SUBAGENT_MAX_TURNS)
-  const result = await runLoop({
+  const result = await (runLoop as RunLoopFn)({
     prompt: `${parsed.initialMessage}\n\n[SUBAGENT CONTEXT] name=${parsed.name} role=${parsed.role} goal=${parsed.goal}`,
     options: { ...baseOptions, maxTurns: subTurns },
-    environment: typeof createEnvironment === 'function' ? createEnvironment(depth + 1) : {}
+    environment: typeof createEnvironment === 'function' ? (createEnvironment as (d: number) => unknown)(depth + 1) : {}
   })
   st.spawnCount += 1
   return { ok: result?.success === true, result: condenseSubagentResult({ parsed, result: result || {} }) }
@@ -394,7 +489,7 @@ export async function runHeadlessSubagent({ query = '', depth = 0, state = null,
 // di bawah ABELINK_CRON=1 (child hasil fire cron), tolak tool `cron_*`
 // dengan error eksplisit — cron job tak boleh menjadwalkan cron baru.
 // Wiring: panggil di awal executeTool bin/abelink.mjs (milik Fase 1).
-export function checkCronRecursionGuard(toolName = '', env = process.env) {
+export function checkCronRecursionGuard(toolName: unknown = '', env: Record<string, string | undefined> = process.env): { denied: boolean; reason: string | null } {
   if (env?.ABELINK_CRON === '1' && String(toolName).startsWith('cron_')) {
     return { denied: true, reason: `[CRON GUARD] Tool "${toolName}" ditolak di dalam cron run (ABELINK_CRON=1): cron job dilarang memanggil cron_* (anti-rekursi).` }
   }

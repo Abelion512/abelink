@@ -26,7 +26,7 @@ import {
   ledgerPath,
   locksDir
 } from '../bin/abelink-cron.mjs'
-import { checkCronRecursionGuard } from '../src/api/ai/headlessCli.js'
+import { checkCronRecursionGuard } from '../src/api/ai/headlessCli.ts'
 
 let tmp = null
 let env = null

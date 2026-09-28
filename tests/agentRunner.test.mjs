@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import 'fake-indexeddb/auto'
-import { runAgentLoop } from '../src/api/ai/agentRunner.js'
+import { runAgentLoop } from '../src/api/ai/agentRunner.ts'
 
 describe('agentRunner — Framework-Agnostic ReAct Loop', () => {
   it('throws error if prompt or executeTool is missing', async () => {

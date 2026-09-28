@@ -17,7 +17,7 @@ import 'fake-indexeddb/auto'
 import { createTuiState, submitLine } from '../cli/tui/engine.mjs'
 import { createHarnessWriter } from '../cli/core/harness-writer.mjs'
 import { readSessionEvents } from '../scripts/harness-export.mjs'
-import { listCliSessions } from '../src/api/ai/headlessCli.js'
+import { listCliSessions } from '../src/api/ai/headlessCli.ts'
 
 let tmpHome = null
 let prevHome = null

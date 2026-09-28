@@ -1,4 +1,4 @@
-// agentRunner.js — Pure, framework-agnostic ReAct autonomous agent loop.
+// agentRunner.ts — Pure, framework-agnostic ReAct autonomous agent loop.
 //
 // Extracted seam from useAbelinkPlan.js:
 // - Zero UI or React dependencies (no hooks, no DOM, no audio/speech).
@@ -45,18 +45,113 @@ export const MAX_NO_ACTION_TERMINAL_STREAK = 8
 export const MAX_PROGRESSIVE_NO_ACTION_LIMIT = 12
 export const SYSTEM_ABSOLUTE_HARD_CEILING = 512
 
+// ---------------------------------------------------------------------------
+// Kontrak runner (W2-3, js-to-ts-spec.md): invarian CLI/TUI/bench dikunci tipe.
+// ---------------------------------------------------------------------------
+/** Riwayat resume Fase 1: konteks lama (bukan prompt berjalan). */
+export type AgentHistoryMessage = { role: 'user' | 'assistant'; content: string }
+/** Konteks memori terpadu opsional (headless CLI working-memory). */
+export interface UnifiedContext {
+  memories?: unknown[]
+  archives?: unknown[]
+  documents?: unknown[]
+  turnPairs?: unknown[]
+}
+/** Opsi konfigurasi loop. Field tambahan di-spread ke getNextAction. */
+export interface AgentOptions {
+  signal?: AbortSignal | null
+  workspace?: string | null
+  workspaceRoot?: string | null
+  sessionId?: string
+  arch?: 'vanilla' | 'basic'
+  hardCeiling?: number
+  maxTurns?: number
+  provider?: unknown
+  model?: unknown
+  effort?: unknown
+  originalPrompt?: string
+  disableTools?: boolean
+  initialHistory?: AgentHistoryMessage[]
+  initialExecutedTools?: ExecutedTool[]
+  initialStepCount?: number
+  transport?: unknown
+  fetchAI?: unknown
+  unifiedContext?: UnifiedContext
+  activeTopic?: string
+  [key: string]: unknown
+}
+/** Adapter runtime yang dimiliki pemanggil (CLI/TUI/bench/GUI stub). */
+export interface AgentEnvironment {
+  fetchAI?: unknown
+  executeTool: (
+    toolName: string,
+    query: unknown,
+    ctx: { step: number; sessionId: string; workspaceRoot: string | null; signal: AbortSignal | null; depth: number }
+  ) => Promise<ToolExecutionLike>
+  onStep?: (record: Record<string, unknown>) => void
+  onThought?: (text: string) => void
+  depth?: number
+}
+/** Hasil eksekusi satu tool dari environment (bentuk runtime longgar). */
+export interface ToolExecutionLike {
+  ok?: boolean
+  result?: unknown
+  error?: { code?: string; category?: string; message?: string } | string | null
+  [key: string]: unknown
+}
+/** Entri bukti tool untuk verifier ({tool, result} dipetakan ke fullResult). */
+export interface ExecutedTool {
+  tool: string
+  query?: unknown
+  success?: boolean
+  ok?: boolean
+  result: string
+  step?: number
+  error?: unknown
+}
+/** Keputusan planner (bentuk JSON yang dijamin planning.js). */
+export interface AgentDecision {
+  thought?: string
+  action?: { tool: string; query?: unknown } | Array<{ tool: string; query?: unknown }> | null
+  answer?: string
+  is_done?: boolean
+  task_status?: string
+  [key: string]: unknown
+}
+/** Rekaman trace per langkah. */
+export type TraceRecord = Record<string, unknown>
+/** Hasil akhir eksekusi loop (kontrak benchmark: {outcome, terminalReason, executedToolsCount}). */
+export interface RunResult {
+  success: boolean
+  outcome: string
+  terminalReason: string | null
+  reply: string
+  thought: string
+  stepCount: number
+  toolCallsCount: number
+  executedTools: ExecutedTool[]
+  effectiveHardCeiling: number
+  trace: TraceRecord[]
+  history: Array<{ role: string; content: string }>
+}
+
 /**
  * Execute the autonomous ReAct agent loop in a framework-agnostic environment.
  *
- * @param {Object} params
  * @param {string} params.prompt - The initial user prompt or task instruction.
- * @param {Object} [params.options] - Configuration options (maxTurns, effort, provider, model, workspaceRoot, signal, etc.)
- * @param {Array} [params.options.initialHistory] - Fase 1 resume seed: [{role:'user'|'assistant',content:string}]
- *   disaring ketat (role + string content saja) sebelum masuk loopMessages.
- * @param {Object} params.environment - The runtime adapter: { fetchAI, executeTool, onStep, onThought }
- * @returns {Promise<Object>} Execution result { success, outcome, terminalReason, reply, thought, stepCount, toolCallsCount, executedTools, trace }
+ * @param {AgentOptions} [params.options] - Configuration options (maxTurns, effort, provider, model, workspaceRoot, signal, etc.)
+ * @param {AgentEnvironment} params.environment - The runtime adapter: { fetchAI, executeTool, onStep, onThought }
+ * @returns {Promise<RunResult>} Execution result { success, outcome, terminalReason, reply, thought, stepCount, toolCallsCount, executedTools, trace }
  */
-export async function runAgentLoop({ prompt, options = {}, environment }) {
+export async function runAgentLoop({
+  prompt,
+  options = {},
+  environment
+}: {
+  prompt: string
+  options?: AgentOptions
+  environment: AgentEnvironment
+}): Promise<RunResult> {
   if (!prompt || typeof prompt !== 'string') {
     throw new Error('runAgentLoop: prompt wajib berupa string non-kosong.')
   }
@@ -69,15 +164,17 @@ export async function runAgentLoop({ prompt, options = {}, environment }) {
   const sessionId = options.sessionId || `session-${Date.now()}`
   const benchArch = options.arch || currentBenchArch()
 
-  const requestedCeiling = Number.isFinite(options.hardCeiling) && options.hardCeiling > 0
-    ? Math.floor(options.hardCeiling)
-    : SYSTEM_ABSOLUTE_HARD_CEILING
+  const requestedCeiling =
+    typeof options.hardCeiling === 'number' && Number.isFinite(options.hardCeiling) && options.hardCeiling > 0
+      ? Math.floor(options.hardCeiling)
+      : SYSTEM_ABSOLUTE_HARD_CEILING
 
   const hardCeiling = Math.min(requestedCeiling, SYSTEM_ABSOLUTE_HARD_CEILING)
 
   // Budget steps
-  let maxPlanSteps = Number.isFinite(options.maxTurns) && options.maxTurns > 0
-    ? Math.max(1, Math.floor(options.maxTurns))
+  let maxPlanSteps =
+    typeof options.maxTurns === 'number' && Number.isFinite(options.maxTurns) && options.maxTurns > 0
+      ? Math.max(1, Math.floor(options.maxTurns))
     : resolvePlanStepBudget({
         config: {
           aiProvider: options.provider,
@@ -108,7 +205,7 @@ export async function runAgentLoop({ prompt, options = {}, environment }) {
   let consecutiveStagnantEvaluations = 0
   let _budgetRenewCount = 0
 
-  const loopMessages = []
+  const loopMessages: Array<{ role: string; content: string }> = []
   if (Array.isArray(options.initialHistory)) {
     for (const m of options.initialHistory) {
       if (m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string') {
@@ -123,18 +220,19 @@ export async function runAgentLoop({ prompt, options = {}, environment }) {
   // klarifikasi" meski user mengetik pertanyaan (bug terukur 2026-09-26).
   // initialHistory = konteks lama saja (bukan prompt berjalan), jadi aman.
   loopMessages.push({ role: 'user', content: String(prompt) })
-  const executedToolsList = Array.isArray(options.initialExecutedTools)
+  const executedToolsList: ExecutedTool[] = Array.isArray(options.initialExecutedTools)
     ? [...options.initialExecutedTools]
     : []
-  const trace = []
-  let stepCount = Number.isFinite(options.initialStepCount) && options.initialStepCount > 0
-    ? options.initialStepCount
-    : 0
+  const trace: TraceRecord[] = []
+  let stepCount =
+    typeof options.initialStepCount === 'number' && Number.isFinite(options.initialStepCount) && options.initialStepCount > 0
+      ? options.initialStepCount
+      : 0
   let isDone = false
   let sessionOutcome = 'failed'
   let lastTerminalReason = null
-  let lastDecision = null
-  let previousProgressRecord = null
+  let lastDecision: AgentDecision | null = null
+  let previousProgressRecord: Record<string, unknown> | null = null
 
   // Phase A1: Explicit session transport, no global mutation
   const sessionFetchTransport = options.transport || options.fetchAI || environment.fetchAI || null
@@ -162,12 +260,16 @@ export async function runAgentLoop({ prompt, options = {}, environment }) {
 
       // If budget reached, evaluate potential productivity extension or terminate
       if (stepCount >= maxPlanSteps) {
+        // recentTools: ExecutedTool[] dipandang sebagai input JSDoc shouldRenewBudget
         const recentTools = executedToolsList.slice(-5)
-        const isProductive = shouldRenewBudget({
+        const isProductive = (
+          shouldRenewBudget as (o: Record<string, unknown>) => boolean
+        )({
           recentTools,
           verificationMoved: pendingVerifyObservation !== null,
           breakerOpen: false,
-          supervisorDirective: supervisor?.lastDirective || 'continue'
+          // lastDirective hidup di supervisor (JSDoc sempit belum menampilkannya)
+          supervisorDirective: ((supervisor as unknown as { lastDirective?: string })?.lastDirective) || 'continue'
         })
 
         if (isProductive && maxPlanSteps < hardCeiling) {
@@ -228,7 +330,9 @@ export async function runAgentLoop({ prompt, options = {}, environment }) {
           turnPairs: Array.isArray(options.unifiedContext.turnPairs) ? options.unifiedContext.turnPairs : []
         }
         : { memories: [], archives: [], documents: [], turnPairs: [] }
-      decision = await getNextAction(
+      decision = (await (
+        getNextAction as (...a: unknown[]) => Promise<AgentDecision>
+      )(
         prompt,
         loopMessages,
         signal,
@@ -242,13 +346,13 @@ export async function runAgentLoop({ prompt, options = {}, environment }) {
           workspaceRoot,
           sessionId,
           turn: stepCount,
-          onToken: (chunk) => {
+          onToken: (chunk: { text?: string } | null | undefined) => {
             if (chunk?.text && typeof environment.onThought === 'function') {
               environment.onThought(chunk.text)
             }
           }
         }
-      )
+      ) as AgentDecision)
 
       lastDecision = decision
       if (typeof environment.onThought === 'function' && decision?.thought) {
@@ -280,7 +384,7 @@ export async function runAgentLoop({ prompt, options = {}, environment }) {
 
       const hasAction = Boolean(
         decision.action &&
-        (decision.action.tool || (Array.isArray(decision.action) && decision.action.length > 0))
+        ((decision.action as { tool?: unknown }).tool || (Array.isArray(decision.action) && decision.action.length > 0))
       )
 
       // ----------------------------------------------------------------------
@@ -385,7 +489,9 @@ export async function runAgentLoop({ prompt, options = {}, environment }) {
           noActionStreak = 0
 
           try {
-            const evidence = evaluateEvidence({
+            const evidence = (
+              evaluateEvidence as (o: Record<string, unknown>) => { state: string; [k: string]: unknown }
+            )({
               kind: objectiveKind,
               objectiveText: effectiveObjectiveText,
               answer: decision.answer,
@@ -393,7 +499,7 @@ export async function runAgentLoop({ prompt, options = {}, environment }) {
               // menyimpan {tool, result}. Petakan di sini agar bukti tool
               // CLI/TUI TIDAK tak-terlihat oleh verifier (bug e2e M2c:
               // gate selalu not_run di CLI/TUI meski tool sukses).
-              tools: executedToolsList.map((t) => ({ tool: t.tool, fullResult: t.result }))
+              tools: executedToolsList.map((t: ExecutedTool) => ({ tool: t.tool, fullResult: t.result })) as Array<Record<string, unknown>>
             })
 
             const gate = gateCompletion({
@@ -445,7 +551,7 @@ export async function runAgentLoop({ prompt, options = {}, environment }) {
             // Verifier fail-closed recovery: internal verifier exceptions MUST NOT fake completion.
             if (verifyErrorCount < MAX_VERIFY_REPLANS && stepCount < maxPlanSteps) {
               verifyErrorCount++
-              pendingVerifyObservation = `[VERIFICATION ERROR] Pemeriksaan verifikasi sistem mengalami kegagalan internal: ${err?.message || 'internal error'}. Lakukan verifikasi eksplisit menggunakan tool sebelum menyelesaikan tugas.`
+              pendingVerifyObservation = `[VERIFICATION ERROR] Pemeriksaan verifikasi sistem mengalami kegagalan internal: ${(err as Error)?.message || 'internal error'}. Lakukan verifikasi eksplisit menggunakan tool sebelum menyelesaikan tugas.`
               loopMessages.push({
                 role: 'assistant',
                 content: JSON.stringify({ thought: decision.thought, answer: decision.answer })
@@ -453,7 +559,7 @@ export async function runAgentLoop({ prompt, options = {}, environment }) {
               continue
             }
             sessionOutcome = 'failed'
-            lastTerminalReason = `verification-error:${err?.message || 'internal'}`
+            lastTerminalReason = `verification-error:${(err as Error)?.message || 'internal'}`
             isDone = true
             break
           }
@@ -485,7 +591,7 @@ export async function runAgentLoop({ prompt, options = {}, environment }) {
           content: JSON.stringify({ thought: decision.thought, action: decision.action })
         })
 
-        const roundObservations = []
+        const roundObservations: string[] = []
 
         for (const act of actionsToExecute) {
           if (!act?.tool) continue
@@ -494,7 +600,7 @@ export async function runAgentLoop({ prompt, options = {}, environment }) {
           const toolName = act.tool
           const toolQuery = act.query || ''
 
-          let toolResult
+          let toolResult: ToolExecutionLike
           try {
             toolResult = await environment.executeTool(toolName, toolQuery, {
               step: stepCount,
@@ -509,11 +615,11 @@ export async function runAgentLoop({ prompt, options = {}, environment }) {
           } catch (execErr) {
             toolResult = {
               ok: false,
-              result: `[ERROR] Tool ${toolName} gagal: ${execErr.message}`,
+              result: `[ERROR] Tool ${toolName} gagal: ${(execErr as Error).message}`,
               error: {
                 code: 'tool-error',
                 category: 'execution',
-                message: execErr.message
+                message: (execErr as Error).message
               }
             }
           }
@@ -561,7 +667,9 @@ export async function runAgentLoop({ prompt, options = {}, environment }) {
               result: obsText,
               verificationState: toolOk ? VERIFICATION_STATE.NOT_RUN : VERIFICATION_STATE.FAILED
             }
-            const progress = evaluateProgress({
+            const progress = (
+              evaluateProgress as (o: Record<string, unknown>) => { outcome: string }
+            )({
               previous: previousProgressRecord,
               current: currentRecord
             })

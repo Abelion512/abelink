@@ -1,8 +1,8 @@
 // cli/tui/engine.mjs — TUI-v2 engine: state + submit routing + runTurn.
 // Reuse (import, bukan copy): parseSlashCommand/parseShellLine/resolveFileRefs/
 // buildAgentsMd + session store dari cli/core (M2b — dulu dari bin/abelink-tui.mjs);
-// auth + MODEL_ALIASES dari src/api/ai/headlessCli.js; runAgentLoop dari
-// src/api/ai/agentRunner.js.
+// auth + MODEL_ALIASES dari src/api/ai/headlessCli.ts; runAgentLoop dari
+// src/api/ai/agentRunner.ts.
 // UI (App.tsx) presentational: engine memiliku messages, App render via props.
 // Environment (fetchAI/executeTool) injectable agar test stub tanpa network.
 
@@ -206,7 +206,7 @@ export async function submitLine(state, line, deps = {}) {
 // datang dari cli.json lama, env ABELINK_MODEL, atau flag — bukan cuma /model.
 async function assertModelAllowed(state) {
   if (!state?.model) return null
-  const headless = await import('../../src/api/ai/headlessCli.js').catch(() => ({}))
+  const headless = await import('../../src/api/ai/headlessCli.ts').catch(() => ({}))
   const banned = typeof headless.isForbiddenModel === 'function'
     ? headless.isForbiddenModel(state.model)
     : /^claude-work$/i.test(String(state.model))
@@ -259,7 +259,7 @@ async function runSlash(state, cmd, deps) {
       }
       const { resolveCatalogModel, pushRecent } = await import('./modelCatalog.mjs')
       const { cacheSwitchWarning, persistCliField } = await import('./modelEffort.mjs')
-      const headless = await import('../../src/api/ai/headlessCli.js').catch(() => ({}))
+      const headless = await import('../../src/api/ai/headlessCli.ts').catch(() => ({}))
       // Live hanya bila katalog sudah di-opt-in; selain itu cache disk saja
       // (alias/passthrough tetap jalan tanpa jaringan).
       const catalog = deps.loadCatalog === true
@@ -509,9 +509,9 @@ export async function defaultRunTurn(state, prompt, deps = {}) {
   const turn = createTuiTurn()
   state.currentTurn = turn
   try {
-    const { runAgentLoop } = await import('../../src/api/ai/agentRunner.js')
+    const { runAgentLoop } = await import('../../src/api/ai/agentRunner.ts')
     const { evaluateHeadlessSecurity } = await import('../../src/api/ai/headlessSecurity.js')
-    const headless = await import('../../src/api/ai/headlessCli.js').catch(() => ({}))
+    const headless = await import('../../src/api/ai/headlessCli.ts').catch(() => ({}))
     const { NATIVE_TOOLS } = await import('../../sidecar/main/node-tools.js')
     const sidecar = deps.sidecar || null
     const auth = deps.auth || {}

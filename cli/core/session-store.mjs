@@ -1,6 +1,6 @@
 // cli/core/session-store.mjs — adapter store sesi Fase-1 (headlessCli.js).
 // Dipindah dari bin/abelink-tui.mjs (M2b/B-9). Perubahan path relatif saat
-// pindah dari bin/ ke cli/core/: '../../src/api/ai/headlessCli.js'.
+// pindah dari bin/ ke cli/core/: '../../src/api/ai/headlessCli.ts'.
 //
 // Fase-1 contract (loadCliSession/saveCliSession/listCliSessions +
 // options.initialHistory) SUDAH mendarat di headlessCli.js/agentRunner.js.
@@ -10,7 +10,7 @@ import { SESSION_MESSAGE_CAP } from './constants.mjs'
 
 export async function loadFase1Store() {
   try {
-    const mod = await import('../../src/api/ai/headlessCli.js')
+    const mod = await import('../../src/api/ai/headlessCli.ts')
     const { loadCliSession = null, saveCliSession = null, listCliSessions = null } = mod
     if (typeof loadCliSession !== 'function' || typeof saveCliSession !== 'function') return null
     return { loadCliSession, saveCliSession, listCliSessions }

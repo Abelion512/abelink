@@ -4,7 +4,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { parseCliArgs } from '../bin/abelink.mjs'
-import { runAgentLoop } from '../src/api/ai/agentRunner.js'
+import { runAgentLoop } from '../src/api/ai/agentRunner.ts'
 import {
   parseSpawnQuery,
   checkSubagentBudget,
@@ -19,7 +19,7 @@ import {
   saveCliSession,
   loadCliSession,
   listCliSessions
-} from '../src/api/ai/headlessCli.js'
+} from '../src/api/ai/headlessCli.ts'
 
 describe('headlessCli — parseSpawnQuery', () => {
   it('parses full name||role||goal||initial_message||tools query', () => {
@@ -155,7 +155,7 @@ describe('headlessCli — resolveCliAuth fallback chain', () => {
   })
 
   it('loadNineRouterKey reads first key from 9Router DB (best-effort)', async () => {
-    const { loadNineRouterKey } = await import('../src/api/ai/headlessCli.js')
+    const { loadNineRouterKey } = await import('../src/api/ai/headlessCli.ts')
     const key = await loadNineRouterKey()
     // Local dev machine has 9Router keys; CI does not — both are valid.
     expect(key === null || typeof key === 'string').toBe(true)
@@ -163,7 +163,7 @@ describe('headlessCli — resolveCliAuth fallback chain', () => {
   })
 
   it('writeCliSetup writes and reports without leaking key', async () => {
-    const { writeCliSetup } = await import('../src/api/ai/headlessCli.js')
+    const { writeCliSetup } = await import('../src/api/ai/headlessCli.ts')
     const home = fs.mkdtempSync(path.join(os.tmpdir(), 'abelink-setup-'))
     const res = await writeCliSetup({ argv: ['setup', '--provider', 'custom', '--model', 'gemini', '--api-key', 'sk-secret-123'], homeDir: home })
     expect(res.ok).toBe(true)

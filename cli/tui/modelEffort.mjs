@@ -7,7 +7,7 @@
 //   non-kosong. max_tokens besar di high+ (keputusan #4).
 // - Murni + testable: fs/home di-inject (default node). Tanpa network.
 
-import { MODEL_ALIASES } from '../../src/api/ai/headlessCli.js'
+import { MODEL_ALIASES } from '../../src/api/ai/headlessCli.ts'
 
 export const EFFORT_LEVELS = Object.freeze(['low', 'medium', 'high', 'xhigh', 'max', 'ultra', 'auto'])
 
@@ -84,7 +84,7 @@ export function cacheSwitchWarning(history = []) {
 export async function persistCliField(field, value, { writeCliSetup = null, homeDir = null } = {}) {
   if (!['model', 'effort'].includes(field)) return { ok: false, error: `Field ${field} tak dikenal.` }
   try {
-    const headless = await import('../../src/api/ai/headlessCli.js')
+    const headless = await import('../../src/api/ai/headlessCli.ts')
     const setup = writeCliSetup || headless.writeCliSetup
     if (typeof setup !== 'function') return { ok: false, error: 'writeCliSetup tak tersedia.' }
     const os = await import('node:os')

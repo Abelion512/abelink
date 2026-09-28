@@ -46,7 +46,7 @@ if (!modelsOk) {
 }
 
 // Prasyarat 2: key lokal.
-const headless = await import('../src/api/ai/headlessCli.js').catch(() => ({}))
+const headless = await import('../src/api/ai/headlessCli.ts').catch(() => ({}))
 const key = typeof headless.loadNineRouterKey === 'function' ? await headless.loadNineRouterKey() : null
 if (!key) {
   console.error('[LIVE] SKIP: 9Router key lokal tak ditemukan (butuh untuk turn LLM).')
