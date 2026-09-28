@@ -1,6 +1,6 @@
 // Channel: AI bridge, sinkronisasi config, native tools, parsing dokumen.
 import { on, handlers, emit, lazy } from '../registry.ts'
-import { setLatestConfig } from './telegram.mjs'
+import { setLatestConfig } from './telegram.ts'
 import { writeSharedConfig } from '../../main/shared-config.js'
 import { normalizeLegacyProviderConfig } from '../../main/legacy-provider-shim.mjs'
 
