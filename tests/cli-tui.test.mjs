@@ -327,3 +327,45 @@ describe('/init generator', () => {
     expect(md.split('\n').filter((l) => l.startsWith('- `')).length).toBeLessThanOrEqual(20)
   })
 })
+
+describe('image refs (drop/paste path gambar)', () => {
+  it('extractImagePaths: quote + ekstensi, skip non-gambar', async () => {
+    const { extractImagePaths, isImagePath } = await import('../cli/core/imageRefs.mjs')
+    expect(isImagePath("'/home/u/a.png'")).toBe(true)
+    expect(isImagePath('doc.txt')).toBe(false)
+    expect(extractImagePaths("lihat '/tmp/shot.png' dan invo.pdf ya")).toEqual(['/tmp/shot.png'])
+    expect(extractImagePaths('tanpa gambar')).toEqual([])
+  })
+  it('resolveImageRefs: base64 + batas workspace', async () => {
+    const { resolveImageRefs } = await import('../cli/core/imageRefs.mjs')
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47])
+    const fsMod = {
+      statSync: (p) => { if (String(p).endsWith('.png')) return { isFile: () => true, size: 4 }; throw new Error('x') },
+      readFileSync: () => png,
+    }
+    const pathMod = { resolve: (...a) => a.join('/').replace(/\/+/g, '/'), sep: '/' }
+    const r = resolveImageRefs("ini '/w/a.png' gambar apa", { workspace: '/w', fsMod, pathMod })
+    expect(r.attached.length).toBe(1)
+    expect(r.attached[0].mime).toBe('image/png')
+    expect(r.attached[0].base64).toBe(png.toString('base64'))
+    expect(r.text).toContain('[GAMBAR /w/a.png terlampir]')
+  })
+  it('runPrompt tanpa sidecar: gambar dicatat jujur, bukan dideskripsikan', async () => {
+    const { createTuiState, submitLine } = await import('../cli/tui/engine.mjs')
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47])
+    const fsMod = {
+      statSync: () => ({ isFile: () => true, size: 4 }),
+      readFileSync: () => png,
+    }
+    const pathMod = { resolve: (...a) => a.join('/').replace(/\/+/g, '/'), sep: '/' }
+    const s = createTuiState({ workspace: '/w' })
+    let seen = ''
+    const r = await submitLine(s, "'/w/a.png' ini apa", {
+      fsMod, pathMod,
+      runTurn: async (st, prompt) => { seen = prompt; return { reply: 'ok', outcome: 'completed', terminalReason: 'test', stepCount: 1, toolCallsCount: 0 } },
+    })
+    expect(r.kind).toBe('message')
+    expect(seen).toContain('[GAMBAR /w/a.png terlampir]')
+    expect(s.messages.some((m) => m.text.includes('Tanpa sidecar'))).toBe(true)
+  })
+})

@@ -286,9 +286,46 @@ async function runPrompt(state, text, deps) {
   if (resolved.attached?.length) {
     pushMessage(state, 'info', `Lampirkan ${resolved.attached.length} file.`)
   }
+  // Gambar drop/paste: path mentah -> base64 -> deskripsi vision via sidecar
+  // (pola GUI visionTools: contentArray + fetchVisionAI chain). Jalur TUI
+  // string-only, jadi deskripsi disisipkan sebagai teks konteks sebelum turn.
+  // Tanpa sidecar (test/pipe): lampirkan penanda jujur, bukan fabrikasi isi.
+  const { resolveImageRefs } = await import('../core/imageRefs.mjs')
+  const fsMod = deps.fsMod || await import('node:fs').catch(() => null)
+  const pathMod = deps.pathMod || await import('node:path').catch(() => null)
+  const imgResolved = resolveImageRefs(text, { workspace: state.workspace, fsMod, pathMod })
+  let effectiveText = resolved.text
+  if (imgResolved.attached?.length) {
+    pushMessage(state, 'info', `Lampirkan ${imgResolved.attached.length} gambar (${imgResolved.attached.map((a) => a.ref).join(', ')}).`)
+    effectiveText = imgResolved.text
+    const sidecar = deps.sidecar || null
+    if (sidecar?.rpc) {
+      for (const img of imgResolved.attached) {
+        try {
+          const resp = await sidecar.rpc('ai:fetch', [{
+            messages: [{ role: 'user', content: [
+              { type: 'text', text: `Deskripsikan gambar ini secara faktual dalam 3-5 kalimat (objek, teks terlihat, konteks). Jawab Bahasa Indonesia.` },
+              { type: 'image_url', image_url: { url: `data:${img.mime};base64,${img.base64}` } },
+            ] }],
+            config: { aiProvider: state.provider, customModel: state.model, customEndpoint: deps.auth?.customEndpoint || process.env.CUSTOM_ENDPOINT || 'http://localhost:20128/v1', customApiKey: deps.auth?.apiKey || process.env.CUSTOM_API_KEY || '' },
+          }])
+          const desc = typeof resp?.data?.content === 'string' ? resp.data.content : String(resp?.data ?? '')
+          if (desc.trim()) effectiveText += `\n[DESKRIPSI GAMBAR ${img.ref}]\n${desc.trim()}\n[/DESKRIPSI]\n`
+          else pushMessage(state, 'info', `Gambar ${img.ref}: vision tak menjawab, kirim tanpa deskripsi.`)
+        } catch (err) {
+          pushMessage(state, 'info', `Gambar ${img.ref}: deskripsi vision gagal (${String(err?.message || err).slice(0, 120)}), kirim tanpa deskripsi.`)
+        }
+      }
+    } else {
+      pushMessage(state, 'info', 'Tanpa sidecar: gambar tercatat sebagai path, isi tak dideskripsikan.')
+    }
+  }
+  for (const s of (imgResolved.skipped || [])) {
+    pushMessage(state, 'info', `Gambar dilewati: ${s.ref} (${s.reason}).`)
+  }
   pushMessage(state, 'user', text)
   const runTurn = deps.runTurn || defaultRunTurn
-  const result = await runTurn(state, resolved.text, deps)
+  const result = await runTurn(state, effectiveText, deps)
   if (result?.reply) pushMessage(state, 'assistant', result.reply)
   pushMessage(
     state, 'meta',

@@ -178,7 +178,9 @@ async function main() {
     process.exit(0)
   }
 
-  const renderer = await createCliRenderer()
+  // Kitty keyboard protocol (pola opencode app.tsx:199): tanpa ini terminal
+  // kirim Shift+Enter sebagai CR biasa -> binding newline tak pernah match.
+  const renderer = await createCliRenderer({ useKittyKeyboard: {} })
   const keymap = createDefaultOpenTuiKeymap(renderer)
   let exited = false
   let sidecar: SidecarClient | null = null
