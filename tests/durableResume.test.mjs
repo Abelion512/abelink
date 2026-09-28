@@ -12,8 +12,8 @@ import {
   pauseStaleAgentTasks,
   resumeAgentTask,
   getAgentTaskContentHash
-} from '../src/api/taskStore.js'
-import { buildDurableStepCheckpoint } from '../src/api/taskExecutor.js'
+} from '../src/api/taskStore.ts'
+import { buildDurableStepCheckpoint } from '../src/api/taskExecutor.ts'
 
 describe('durable task store — pause -> restart -> resume audit', () => {
   beforeEach(async () => {

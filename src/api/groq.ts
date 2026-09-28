@@ -1,8 +1,9 @@
 import OpenAI from 'openai';
 import { getAllConfig } from './db';
 
+// ---- Kontrak tipe (W2-8b) ----
 // Mengkonversi Float32Array PCM (hasil ScriptProcessorNode) ke format WAV
-export function pcmToWav(buffer, sampleRate = 16000) {
+export function pcmToWav(buffer: Float32Array, sampleRate = 16000): File {
   const numChannels = 1;
   const bytesPerSample = 2; // 16-bit
   const blockAlign = numChannels * bytesPerSample;
@@ -11,7 +12,7 @@ export function pcmToWav(buffer, sampleRate = 16000) {
   const bufferArray = new ArrayBuffer(44 + dataSize);
   const view = new DataView(bufferArray);
 
-  function writeString(view, offset, string) {
+  function writeString(view: DataView, offset: number, string: string) {
     for (let i = 0; i < string.length; i++) {
       view.setUint8(offset + i, string.charCodeAt(i));
     }
@@ -39,7 +40,7 @@ export function pcmToWav(buffer, sampleRate = 16000) {
   // Menulis sampel PCM ke WAV
   let offset = 44;
   for (let i = 0; i < buffer.length; i++, offset += 2) {
-    let s = Math.max(-1, Math.min(1, buffer[i]));
+    const s = Math.max(-1, Math.min(1, buffer[i]));
     view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
   }
 
@@ -47,7 +48,7 @@ export function pcmToWav(buffer, sampleRate = 16000) {
   return new File([new Blob([view], { type: 'audio/wav' })], 'audio.wav', { type: 'audio/wav' });
 }
 
-export const transcribeAudioGroq = async (pcmBuffer) => {
+export const transcribeAudioGroq = async (pcmBuffer: Float32Array): Promise<string> => {
   const configs = await getAllConfig();
   const groqApiKey = configs[0]?.groqApiKey;
   

@@ -10,7 +10,7 @@ import {
   SPEECH_RATIO_MIN,
   VOCAL_SEC_MIN,
 } from '../src/api/sttGuard.ts'
-import { transcribeToEndpoint } from '../src/api/sttRouter.js'
+import { transcribeToEndpoint } from '../src/api/sttRouter.ts'
 import * as db from '../src/api/db.ts'
 import { resolveDataHome, brandDir } from '../sidecar/main/utils/dataHome.mjs'
 
@@ -197,7 +197,7 @@ describe('transcribeToEndpoint (anti-halusinasi request)', () => {
       return { ok: true, json: async () => ({ text: 'hi' }) }
     })
     try {
-      const { transcribeAudioUnified } = await import('../src/api/sttRouter.js')
+      const { transcribeAudioUnified } = await import('../src/api/sttRouter.ts')
       await transcribeAudioUnified(new Float32Array(1600), null, () => {})
       expect(seen).toEqual(['en'])
     } finally {
@@ -224,7 +224,7 @@ describe('transcribeToEndpoint (anti-halusinasi request)', () => {
       return { ok: true, json: async () => ({ text: 'halo' }) }
     })
     try {
-      const { transcribeAudioUnified } = await import('../src/api/sttRouter.js')
+      const { transcribeAudioUnified } = await import('../src/api/sttRouter.ts')
       await transcribeAudioUnified(new Float32Array(1600), null, () => {})
       expect(seen).toEqual([DEFAULT_STT_MODEL])
     } finally {

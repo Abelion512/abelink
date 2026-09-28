@@ -1,14 +1,14 @@
 // Engine-owned durable task runtime boundary (isomorphic: renderer + sidecar + future CLI).
 //
 // DELEGATE-ONLY INVARIANT (binding): every function below forwards to the
-// existing src/api/taskStore.js / src/api/taskExecutor.js implementation.
-// taskStore.js remains authoritative for persistence and state transitions.
+// existing src/api/taskStore.ts / src/api/taskExecutor.ts implementation.
+// taskStore.ts remains authoritative for persistence and state transitions.
 // This module holds orchestration policy ONLY at the runtime-boundary level:
 // adapter injection, event fan-out, and the derived getResult view. It must
 // never grow its own state machine, persistence, or verification logic.
 //
 // Headless rule: this module has ZERO top-level imports. The default store
-// (taskStore.js -> Dexie/IndexedDB) is loaded lazily on first use, so
+// (taskStore.ts -> Dexie/IndexedDB) is loaded lazily on first use, so
 // importing this file never requires window, React, Tauri, localStorage,
 // or IndexedDB. Runtimes without IndexedDB fail fast with an explicit
 // error; inject a compatible store via configureTaskRuntime() instead.
@@ -33,13 +33,13 @@ let storeOverride = null
 let emitOverride = null
 
 // Inject a compatible store ({ createAgentTask, getAgentTask, ... } with the
-// exact taskStore.js signatures) and/or an event sink (name, payload) => void.
+// exact taskStore.ts signatures) and/or an event sink (name, payload) => void.
 // Pass { store: null } / { emit: null } to clear one slot; use
 // resetTaskRuntimeConfig() to restore defaults.
 export function configureTaskRuntime({ store = undefined, emit = undefined } = {}) {
   if (store !== undefined) {
     if (store !== null && (typeof store !== 'object' || typeof store.createAgentTask !== 'function')) {
-      throw new Error('taskRuntime: injected store must expose the taskStore.js interface')
+      throw new Error('taskRuntime: injected store must expose the taskStore.ts interface')
     }
     storeOverride = store
   }
@@ -64,7 +64,7 @@ async function store() {
         'Inject one via configureTaskRuntime({ store }).'
     )
   }
-  return import('../taskStore.js')
+  return import('../taskStore.ts')
 }
 
 function emitEvent(name, payload) {
@@ -152,9 +152,9 @@ export async function pauseStaleTasks(reason = 'app_restart') {
   return (await store()).pauseStaleAgentTasks(reason)
 }
 
-// Pure checkpoint builder (verification logic untouched in taskExecutor.js).
+// Pure checkpoint builder (verification logic untouched in taskExecutor.ts).
 export async function buildStepCheckpoint(step, output, maxRetries = 2, evidenceInput = null) {
-  const { buildDurableStepCheckpoint } = await import('../taskExecutor.js')
+  const { buildDurableStepCheckpoint } = await import('../taskExecutor.ts')
   return buildDurableStepCheckpoint(step, output, maxRetries, evidenceInput)
 }
 

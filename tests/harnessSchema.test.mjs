@@ -18,7 +18,7 @@ import {
   logTurnEnd,
   getTrajectoryBuffer,
   clearTrajectoryBuffer
-} from '../src/api/trajectory.js'
+} from '../src/api/trajectory.ts'
 
 describe('harness envelope', () => {
   it('maker mengisi v/ts/id dan meneruskan sessionId/turn', () => {

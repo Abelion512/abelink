@@ -10,20 +10,52 @@ import { evaluateEvidence, VERIFICATION_STATE } from './ai/objectiveVerifier'
 //   - Step lain: konten cukup + eksekusi tool terakhir tidak gagal.
 // Evidence (tools/observations) opsional — bila tidak tersedia, perilaku
 // validasi dasar lama tetap berlaku (backward compatible).
-export function buildDurableStepCheckpoint(step, output, maxRetries = 2, evidenceInput = null) {
-  const validation = validateAgentTaskStepOutput(step, output)
+// ---- Kontrak tipe (W2-8b) ----
+interface StepLike {
+  attempts?: number
+  deliverable?: string
+  objective?: string
+  title?: string
+  artifactPath?: string | null
+  [key: string]: unknown
+}
+
+interface EvidenceInput {
+  tools?: unknown[]
+  observations?: unknown[]
+}
+
+interface CheckpointVerification {
+  state: unknown
+  kind: unknown
+  criteria: unknown
+}
+
+export function buildDurableStepCheckpoint(
+  step: StepLike | null | undefined,
+  output: unknown,
+  maxRetries = 2,
+  evidenceInput: EvidenceInput | null = null
+) {
+  const validation = validateAgentTaskStepOutput(step as Parameters<typeof validateAgentTaskStepOutput>[0], output) as {
+    isComplete: boolean
+    score: number
+    missingRequirements: string[]
+    notes?: string
+    [key: string]: unknown
+  }
   const attempts = step?.attempts || 0
   const canRetry = !validation.isComplete && attempts < maxRetries + 1
 
-  let verification = null
+  let verification: CheckpointVerification | null = null
   if (evidenceInput) {
     try {
       const evidence = evaluateEvidence({
         objectiveText: step?.deliverable || step?.objective || step?.title || '',
-        answer: output,
+        answer: output as string,
         tools: evidenceInput.tools || [],
         observations: evidenceInput.observations || []
-      })
+      } as Parameters<typeof evaluateEvidence>[0])
       verification = {
         state: evidence.state,
         kind: evidence.kind,
@@ -35,7 +67,9 @@ export function buildDurableStepCheckpoint(step, output, maxRetries = 2, evidenc
         validation.missingRequirements = [
           ...new Set([
             ...validation.missingRequirements,
-            ...evidence.criteria.filter((c) => c.state === 'fail').map((c) => c.label)
+            ...(evidence.criteria as Array<{ state?: string; label?: string }>)
+              .filter((c) => c.state === 'fail')
+              .map((c) => c.label as string)
           ])
         ]
         validation.notes =
@@ -43,14 +77,14 @@ export function buildDurableStepCheckpoint(step, output, maxRetries = 2, evidenc
       }
     } catch (e) {
       // Additive layer: verifier error tidak boleh menggagalkan checkpoint.
-      console.warn('[taskExecutor] objectiveVerifier error:', e?.message)
+      console.warn('[taskExecutor] objectiveVerifier error:', (e as Error)?.message)
     }
   }
 
   return {
     status: validation.isComplete ? 'completed' : canRetry ? 'needs_revision' : 'failed',
     outputSummary: String(output || '').slice(0, 1200),
-    contentHash: getAgentTaskContentHash(output),
+    contentHash: getAgentTaskContentHash(output as string),
     artifactPath: step?.artifactPath || null,
     validation,
     verification,
