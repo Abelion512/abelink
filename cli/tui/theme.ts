@@ -242,6 +242,62 @@ export function filterCompletions(line: string = ''): TuiCommand[] {
   return [...prefix, ...fuzzy].slice(0, AUTOCOMPLETE_MAX_ROWS)
 }
 
+// Skor pemakaian satu file ala opencode prompt/frecency.tsx:33-36
+// (frequency / (1 + umur-hari)). Entry = { frequency, lastOpen }.
+// Murni + testable; `now` di-inject agar test deterministik.
+export interface FileUsageEntry {
+  frequency: number
+  lastOpen: number
+}
+
+/** Skor frecency satu entri (0 bila tak ada entri). */
+export function scoreFileUse(entry?: FileUsageEntry | null, now: number = Date.now()): number {
+  if (!entry) return 0
+  const freq = Number(entry.frequency) || 0
+  const last = Number(entry.lastOpen) || 0
+  if (freq <= 0 || last <= 0) return 0
+  return freq / (1 + (Number(now) - last) / 86400000)
+}
+
+// Ranking opsi `@file` ala opencode prompt/autocomplete.tsx:502-524 tanpa
+// dep fuzzysort: bobot prefix(basename) > prefix(full) > subsequence >
+// substring, dikali (1 + skor frecency); seri = alfabetis (kontrak lama
+// sebagai tiebreak, bukan urutan utama). Cap AUTOCOMPLETE_MAX_ROWS.
+// desc-match (poin tugas) N/A: item file kita tak punya deskripsi
+// (PromptRow desc statis 'file') — dilaporkan jujur di port-A-report.
+export function rankFileMatches(
+  files: string[] = [],
+  query: string = '',
+  usage: Record<string, FileUsageEntry> = {},
+  now: number = Date.now(),
+): string[] {
+  const q = String(query ?? '').toLowerCase()
+  const seen = new Set<string>()
+  const scored: { file: string; score: number }[] = []
+  for (const raw of Array.isArray(files) ? files : []) {
+    const file = String(raw ?? '')
+    if (!file || seen.has(file)) continue
+    seen.add(file)
+    const lower = file.toLowerCase()
+    const base = lower.split('/').pop() ?? lower
+    let baseScore = 0
+    if (!q) {
+      baseScore = 1
+    } else if (base.startsWith(q) || lower.startsWith(q)) {
+      baseScore = 3
+    } else if (subsequenceMatch(lower, q)) {
+      baseScore = 2
+    } else if (!lower.includes(q)) {
+      continue
+    } else {
+      baseScore = 1
+    }
+    scored.push({ file, score: baseScore * (1 + scoreFileUse(usage[file], now)) })
+  }
+  scored.sort((a, b) => b.score - a.score || (a.file < b.file ? -1 : a.file > b.file ? 1 : 0))
+  return scored.slice(0, AUTOCOMPLETE_MAX_ROWS).map((s) => s.file)
+}
+
 export interface AutocompleteTrigger {
   mode: 'slash' | 'file'
   query: string

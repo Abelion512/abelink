@@ -519,3 +519,16 @@ describe('bin/abelink-tui-v2.tsx (E2E pipe)', () => {
     expect(r.stdout).not.toContain('Katalog')
   }, 60000)
 })
+
+describe('rankFileMatches (port opencode frecency+r ranking)', () => {
+  it('prefix basename menang, frecency boost, seri alfabetis', async () => {
+    const { rankFileMatches, scoreFileUse } = await import('../cli/tui/theme.ts')
+    const now = 1700000000000
+    expect(scoreFileUse(null, now)).toBe(0)
+    expect(scoreFileUse({ frequency: 2, lastOpen: now }, now)).toBe(2)
+    const files = ['src/zebra.ts', 'src/app.ts', 'docs/app.md']
+    expect(rankFileMatches(files, 'app', {}, now)).toEqual(['docs/app.md', 'src/app.ts'])
+    const usage = { 'src/zebra.ts': { frequency: 10, lastOpen: now } }
+    expect(rankFileMatches(files, '', usage, now)[0]).toBe('src/zebra.ts')
+  })
+})

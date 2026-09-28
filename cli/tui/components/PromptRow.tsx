@@ -17,6 +17,7 @@ import {
   moveCompletionIndex,
   popupHeight,
   selectedForeground,
+  rankFileMatches,
   PROMPT_KEY_BINDINGS,
 } from '../theme.ts'
 import type { PromptCompletion, PromptRowProps, TextareaHandle, TuiKeyEvent } from '../types.ts'
@@ -76,11 +77,10 @@ export function PromptRow(props: PromptRowProps) {
     if (!t) return []
     if (t.mode === 'slash') return filterCompletions('/' + t.query)
     const files = props.fileCompletions?.() ?? []
-    const q = t.query.toLowerCase()
-    return files
-      .filter((f) => f.toLowerCase().includes(q))
-      .slice(0, AUTOCOMPLETE_MAX_ROWS)
-      .map((f) => ({ name: '@' + f, desc: 'file' }))
+    const q = t.query
+    // Port opencode autocomplete.tsx:502-524: ranking bobot + frecency
+    // (rankFileMatches) gantikan filter alfabetis.
+    return rankFileMatches(files, q).map((f) => ({ name: '@' + f, desc: 'file' }))
   }
   // Esc tutup popup tanpa ubah teks (ala opencode autocomplete.cancel):
   // flag ini yang menutup, bukan teks — ketikan berikutnya buka lagi.
