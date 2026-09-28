@@ -121,12 +121,15 @@ export async function loadModelCatalog(state, deps = {}, forceRefresh = false) {
 // hanya saat deps.loadCatalog true. Recent tak difilter katalog: ID combo
 // 9Router (mis. oc/muse-spark-1.3-contributor-free) TIDAK muncul di GET
 // /v1/models tapi sah dipakai — menyembunyikannya justru bikin bingung.
+// Port dialog-select `current`: baris yang cocok model aktif ditandai (●).
+// Aktif selalu current; baris lain current bila id-nya == model aktif.
 export async function modelPickerRows(state, deps = {}, query = '') {
   const { curatePicker, readCatalogCache } = await import('./modelCatalog.mjs')
   const q = String(query || '').trim().toLowerCase()
   const match = (id) => !q || String(id || '').toLowerCase().includes(q)
   const rows = []
-  if (state.model && !q) rows.push({ id: state.model, section: 'Aktif', label: state.model })
+  const isActive = (id) => String(id ?? '') === String(state.model ?? '')
+  if (state.model && !q) rows.push({ id: state.model, section: 'Aktif', label: state.model, current: true })
   for (const id of (state.recentModels || deps.cliConfig?.recentModels || [])) {
     if (match(id) && id !== state.model) rows.push({ id, section: 'Recent', label: id })
   }
@@ -185,9 +188,20 @@ export async function modelPickerRows(state, deps = {}, query = '') {
     perSection: 40,
   })
   const seenIds = new Set(rows.map((r) => r.id))
+  const capOf = (id) => (Array.isArray(catalogModels) ? catalogModels.find((m) => m?.id === id) : null)
+  const capDetail = (id) => {
+    if (/->/.test(String(id ?? ''))) return null
+    const c = capOf(id)
+    if (!c) return null
+    const bits = []
+    if (c.reasoning === true) bits.push('reasoning')
+    if (c.ctx != null) bits.push(`ctx ${c.ctx}`)
+    if (c.maxOut != null) bits.push(`out ${c.maxOut}`)
+    return bits.length ? bits.join(' · ') : null
+  }
   for (const id of picked.custom) {
     if (!seenIds.has(id)) {
-      rows.push({ id, section: 'Custom', label: id })
+      rows.push({ id, section: 'Custom', label: id, current: isActive(id), detail: capDetail(id) })
       seenIds.add(id)
     }
   }
@@ -196,7 +210,7 @@ export async function modelPickerRows(state, deps = {}, query = '') {
   // daftar custom berubah di antara curate dan push.
   for (const id of picked.models) {
     if (!seenIds.has(id)) {
-      rows.push({ id, section: 'Katalog', label: id })
+      rows.push({ id, section: 'Katalog', label: id, current: isActive(id), detail: capDetail(id) })
       seenIds.add(id)
     }
   }
@@ -213,6 +227,7 @@ export async function modelPickerRows(state, deps = {}, query = '') {
 }
 
 // Baris dialog effort (slice 3, presentasi): 7 level + penanda aktif.
+// `current` ikut diset agar CenterDialog render ● (port dialog-select).
 // Filter substring case-insensitive atas id. Murni + testable.
 export async function effortDialogRows(state, query = '') {
   const { EFFORT_LEVELS } = await import('../core/index.mjs')
@@ -220,11 +235,74 @@ export async function effortDialogRows(state, query = '') {
   const active = String(state?.effort || '').toLowerCase()
   return EFFORT_LEVELS
     .filter((id) => !q || String(id).toLowerCase().includes(q))
-    .map((id) => ({
-      id,
-      label: id,
-      section: id.toLowerCase() === active ? 'aktif' : '',
-    }))
+    .map((id) => {
+      const on = id.toLowerCase() === active
+      return {
+        id,
+        label: id,
+        section: on ? 'aktif' : '',
+        current: on,
+      }
+    })
+}
+
+// Guard dialog-confirm (/new sesi kotor): true bila histori berjalan perlu
+// konfirmasi ganti sesi. Murni + testable. `dirty` = ada histori ATAU turn
+// aktif; `/new --force` = lewati. Tanpa force + dirty -> engine kembalikan
+// instruksi `confirm`, entry render dialog-confirm dua tombol.
+/**
+ * @param {{ history?: Array<unknown>, currentTurn?: unknown }} [state]
+ * @param {string} [arg]
+ * @returns {boolean}
+ */
+export function needsNewConfirm(state, arg = '') {
+  const force = String(arg ?? '').trim().toLowerCase() === '--force'
+  if (force) return false
+  if (state?.currentTurn) return true
+  return Array.isArray(state?.history) && state.history.length > 0
+}
+
+// Baris dialog sesi (presentasi murni, port dialog-session-list `buildOption`):
+// Pinned -> paling atas dengan kategori "Pinned"; sisanya kategori tanggal
+// ("Today" / toDateString). `current` = sesi aktif (●). `detail` = prompt
+// 48 char (port `details` baris kedua). Never throws (store null -> []).
+// `now` injectable untuk test hermetik.
+/**
+ * @param {Array<{ id?: string, title?: string, parentID?: string, updatedAt?: string, prompt?: string }>} [sessions]
+ * @param {{ pinned?: string[], slots?: string[], currentId?: string | null, now?: number }} [opts]
+ * @returns {Array<{ id: string, label: string, section: string, current: boolean, detail: string | null }>}
+ */
+export function sessionDialogRows(sessions = [], { pinned = [], slots = [], currentId = null, now = Date.now() } = {}) {
+  const list = Array.isArray(sessions) ? sessions.filter((s) => s && s.id && s.parentID === undefined) : []
+  const byId = new Map(list.map((s) => [s.id, s]))
+  const slotById = new Map((Array.isArray(slots) ? slots : []).map((id, i) => [id, i + 1]))
+  const today = new Date(now).toDateString()
+  const build = (id, category) => {
+    const s = byId.get(id)
+    if (!s) return null
+    const slot = slotById.get(id)
+    const label = slot !== undefined ? `[${slot}] ${s.title || s.id}` : (s.title || s.id)
+    const prompt = String(s.prompt ?? '').slice(0, 48)
+    return {
+      id: s.id,
+      label,
+      section: category,
+      current: currentId != null && s.id === currentId,
+      detail: prompt ? prompt : null,
+    }
+  }
+  const pinRows = (Array.isArray(pinned) ? pinned : []).map((id) => build(id, 'Pinned')).filter(Boolean)
+  const pinnedSet = new Set((Array.isArray(pinned) ? pinned : []).filter((id) => byId.has(id)))
+  const rest = list
+    .slice()
+    .sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime())
+    .filter((s) => !pinnedSet.has(s.id))
+    .map((s) => {
+      const d = s.updatedAt ? new Date(s.updatedAt).toDateString() : ''
+      return build(s.id, d === today ? 'Today' : (d || 'Sesi'))
+    })
+    .filter(Boolean)
+  return pinRows.concat(rest)
 }
 
 // Recent models -> cli.json (merge, 0600). Best-effort, never throws.
@@ -518,6 +596,10 @@ async function runSlash(state, cmd, deps) {
       return { kind: 'message', role: 'info' }
     }
     case 'new':
+      if (needsNewConfirm(state, cmd.arg)) {
+        pushMessage(state, 'info', `Sesi berjalan (${state.history.length} pesan histori) — ketik "/new --force" untuk buang dan mulai baru.`)
+        return { kind: 'confirm', action: 'new', role: 'info' }
+      }
       state.sessionId = `session-${Date.now()}`
       state.history = []
       pushMessage(state, 'info', `Sesi baru: ${state.sessionId}`)

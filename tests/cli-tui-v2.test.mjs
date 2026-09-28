@@ -101,9 +101,9 @@ describe('dialog tengah CenterDialog (slice 3)', () => {
     expect(DIALOG_PANEL_WIDTH).toBe(60)
     expect(DIALOG_Z_INDEX).toBe(3000)
   })
-  it('DIALOG_KINDS = model/commands/sessions/effort; isDialogKind selektif', () => {
-    expect([...DIALOG_KINDS].sort()).toEqual(['commands', 'effort', 'model', 'sessions'])
-    for (const k of ['model', 'commands', 'sessions', 'effort']) expect(isDialogKind(k)).toBe(true)
+  it('DIALOG_KINDS = model/commands/sessions/effort/confirm; isDialogKind selektif', () => {
+    expect([...DIALOG_KINDS].sort()).toEqual(['commands', 'confirm', 'effort', 'model', 'sessions'])
+    for (const k of ['model', 'commands', 'sessions', 'effort', 'confirm']) expect(isDialogKind(k)).toBe(true)
     expect(isDialogKind('other')).toBe(false)
     expect(isDialogKind('')).toBe(false)
   })
@@ -227,10 +227,12 @@ describe('engine submitLine (stub, tanpa network)', () => {
     const r = await submitLine(s, '/effort ngawur', deps())
     expect(r.role).toBe('error')
   })
-  it('/new reset sesi; /exit -> kind exit', async () => {
+  it('/new reset sesi (bersih langsung; kotor -> confirm); /exit -> kind exit', async () => {
     const s = createTuiState()
     await submitLine(s, '/new', deps())
     expect(s.history).toEqual([])
+    const dirty = createTuiState({ history: [{ role: 'user', content: 'hi' }] })
+    expect((await submitLine(dirty, '/new', deps())).kind).toBe('confirm')
     const r = await submitLine(s, '/exit', deps())
     expect(r.kind).toBe('exit')
   })

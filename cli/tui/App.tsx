@@ -312,6 +312,8 @@ export function App(props: AppProps = {}) {
         error={dialogPicker()?.error}
         stale={dialogPicker()?.stale}
         total={dialogPicker()?.total}
+        size={dialogPicker()?.size}
+        footerHints={dialogPicker()?.footerHints}
       />
     </box>
   )

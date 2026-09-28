@@ -21,6 +21,10 @@ export interface PickerRow {
   id?: string
   label?: string
   section?: string
+  /** Port dialog-select: penanda baris aktif (●) — mis. model/effort aktif. */
+  current?: boolean
+  /** Port dialog-select `details`: baris kedua muted di bawah label. */
+  detail?: string | null
   /** Diisi App saat jendela baris digeser (indeks absolut untuk highlight). */
   index?: number
 }
@@ -43,6 +47,12 @@ export interface PickerState {
   total?: number
   stale?: boolean
   error?: string | null
+  /** Port dialog.setSize: sesi pakai 'large' (88). Default medium (60). */
+  size?: 'medium' | 'large' | 'xlarge'
+  /** Port dialog-select footerHints kanan (mis. "switch ctrl+1-9"). */
+  footerHints?: string[]
+  /** Port dialog-confirm: aksi yang dijalankan bila tombol Ya dipilih. */
+  confirmAction?: string | null
 }
 
 /** State engine (`createTuiState` di cli/tui/engine.mjs). */
@@ -163,7 +173,7 @@ export interface AppProps {
   showDetails?: boolean | (() => boolean)
 }
 
-/** Props `CenterDialog` (slice 3): presentasi daftar pilih di tengah. */
+  /** Props `CenterDialog` (slice 3): presentasi daftar pilih di tengah. */
 export interface CenterDialogProps {
   open?: boolean
   kind?: string
@@ -180,6 +190,8 @@ export interface CenterDialogProps {
   size?: 'medium' | 'large' | 'xlarge'
   /** Jumlah model katalog (bukan baris terlihat). */
   total?: number
+  /** Port dialog-select footerHints kanan (mis. "switch ctrl+1-9"). */
+  footerHints?: string[]
 }
 
 /** Props `HomeView` (slice 4): kolom tengah layar awal saat messages kosong. */

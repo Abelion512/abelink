@@ -198,7 +198,7 @@ export const DIALOG_PANEL_WIDTH = 60
 export const DIALOG_Z_INDEX = 3000
 
 /** Kind picker yang render di dialog tengah (bukan picker bawah). */
-export const DIALOG_KINDS: readonly string[] = Object.freeze(['model', 'commands', 'sessions', 'effort'])
+export const DIALOG_KINDS: readonly string[] = Object.freeze(['model', 'commands', 'sessions', 'effort', 'confirm'])
 
 /** True bila kind picker dibuka sebagai dialog tengah. */
 export function isDialogKind(kind: string = ''): boolean {
@@ -374,6 +374,27 @@ export function homePromptMaxWidth(termWidth: number = 80, configured?: number |
 export interface VisibleWindow {
   start: number
   end: number
+}
+
+// Port dialog-select category grouping: tandai baris pertama tiap seksi agar
+// CenterDialog render header seksi (accent, bold). Header hanya untuk seksi
+// yang dipakai BERSAMA (>1 baris: model/effort); seksi unik per baris
+// (commands desc, sesi outcome·tanggal) tetap inline seperti semula.
+// Murni + testable (render JSX hanya runtime Bun, bukan vitest).
+export function annotateSections<T extends { section?: string }>(rows: T[]): (T & { header: string | null })[] {
+  const list = Array.isArray(rows) ? rows : []
+  const freq = new Map<string, number>()
+  for (const r of list) {
+    const s = String(r?.section ?? '')
+    if (s) freq.set(s, (freq.get(s) ?? 0) + 1)
+  }
+  let prev: string | null = null
+  return list.map((r) => {
+    const s = String(r?.section ?? '')
+    const header = s && s !== prev && (freq.get(s) ?? 0) > 1 ? s : null
+    prev = s
+    return { ...r, header }
+  })
 }
 
 // Jendela baris picker (murni + testable): pilihan selalu terlihat dan
