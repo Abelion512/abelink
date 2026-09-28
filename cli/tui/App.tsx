@@ -7,7 +7,7 @@
 // V2-1: echo lokal; engine wiring = slice berikut.
 import { createSignal, For, Show, onMount, onCleanup } from 'solid-js'
 import { useKeyboard, useTerminalDimensions } from '@opentui/solid'
-import { ABELINK_THEME, shortModel, SIDEBAR_WIDTH, isWide, isDialogKind, messageColor, messagePrefix, visibleWindow, homePlaceholder, homePromptMaxWidth } from './theme.ts'
+import { ABELINK_THEME, shortModel, SIDEBAR_WIDTH, isWide, isDialogKind, messageColor, messagePrefix, visibleWindow, homePlaceholder } from './theme.ts'
 import { PromptRow } from './components/PromptRow.tsx'
 import { HomeView } from './components/HomeView.tsx'
 import { CenterDialog } from './components/CenterDialog.tsx'
@@ -89,15 +89,14 @@ export function App(props: AppProps = {}) {
     setValue('')
     props.onSubmitLine?.(t)
   }
-  // Area prompt (PromptRow + bottom cap): saat messages kosong dibungkus kolom
-  // tengah max-width (pola opencode home: prompt column maxWidth 75) supaya
-  // sejajar HomeView; saat non-kosong full-width seperti semula.
+  // Area prompt (PromptRow + bottom cap): SELALU full-width seperti opencode
+  // session route (konten padding 2, prompt tanpa max-width). HomeView teks
+  // boleh centered, tapi prompt + status line full-bleed.
   // Fungsi lokal (bukan komponen): Solid tak perlu, hindari remount textarea.
   // SATU box kolom (bukan fragment): anak-anak (PromptRow + cap) resolve
   // width terhadap SATU parent definite, sehingga maxWidth kolom tengah dari
   // pembungkus Show berlaku untuk keduanya. Terukur PTY R1: fragment membuat
   // cap border lolos dari constraint (full-width ▀) sementara PromptRow taat.
-  const empty = () => messages().length === 0
   const promptArea = () => (
     <box style={{ flexDirection: 'column', width: '100%', flexShrink: 0, gap: 1 }}>
       <PromptRow
@@ -149,7 +148,7 @@ export function App(props: AppProps = {}) {
           flexGrow: 1,
           paddingBottom: 1,
           paddingLeft: 2,
-          paddingRight: wide() ? SIDEBAR_WIDTH + 2 : 2,
+          paddingRight: 2,
           gap: 1,
         }}
       >
@@ -211,16 +210,7 @@ export function App(props: AppProps = {}) {
             </text>
           </box>
         )}
-        <Show when={empty()} fallback={promptArea()}>
-          {/* flexShrink 0 di kedua box: preseden picker overlay — cegah yoga
-              memeras kolom prompt saat konten exceeds tinggi (terukur PTY R2:
-              meta-row PromptRow overlap garis cap). */}
-          <box style={{ flexDirection: 'column', alignItems: 'center', width: '100%', flexShrink: 0 }}>
-            <box style={{ flexDirection: 'column', width: '100%', flexShrink: 0, maxWidth: homePromptMaxWidth(dims()?.width ?? 80) }}>
-              {promptArea()}
-            </box>
-          </box>
-        </Show>
+        {promptArea()}
         <box style={{ flexDirection: 'row', justifyContent: 'space-between', flexShrink: 0 }}>
           <text fg={ABELINK_THEME.textMuted}>{props.workspace ?? ''}</text>
           <box style={{ flexDirection: 'row', gap: 2 }}>
@@ -232,11 +222,9 @@ export function App(props: AppProps = {}) {
       {wide() && (
         <box
           style={{
-            position: 'absolute',
             width: SIDEBAR_WIDTH,
             height: '100%',
-            right: 0,
-            top: 0,
+            flexShrink: 0,
             flexDirection: 'column',
             backgroundColor: ABELINK_THEME.backgroundPanel,
             paddingTop: 1,
