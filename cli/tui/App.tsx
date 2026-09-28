@@ -81,6 +81,12 @@ export function App(props: AppProps = {}) {
     if (key.ctrl && key.name === 'c') props.onExit?.()
     // ctrl+p = command palette (pola opencode). Entry wajib mengoper onCommands.
     if (key.ctrl && key.name === 'p') { key.preventDefault?.(); props.onCommands?.() }
+    // Stream D: ctrl+o = toggle mode plan/build. Cek konflik: 'o' polos tak
+    // dipakai key handling mana pun (grep: hanya muncul di kata "model");
+    // TAB ditolak (dipakai autocomplete-accept PromptRow:202, = opencode
+    // prompt.autocomplete.select tab). Batasan: jangan ubah key textarea
+    // selain tambah keybind ini — dipatuhi (hanya useKeyboard App-level).
+    if (key.ctrl && key.name === 'o') { key.preventDefault?.(); props.onModeToggle?.() }
   })
 
   const submit = (text: string) => {
@@ -111,7 +117,14 @@ export function App(props: AppProps = {}) {
           props.tick?.()
           return `${shortModel(model())} ${provider()}`
         }}
-        right={busy() ? 'working…' : (props.statusRight ?? null)}
+        right={busy() ? (props.statusRight ?? 'working…') : (props.statusRight ?? null)}
+        agentName={() => {
+          // Baca `tick` agar label mode ikut re-render saat engine toggle
+          // (pola modelLabel di atas: Solid tak tracking mutasi objek state).
+          props.tick?.()
+          const a = props.agentName
+          return typeof a === 'function' ? (a() ?? 'Abelink') : (a ?? 'Abelink')
+        }}
         picker={picker}
         onPickerMove={props.onPickerMove}
         onPickerSelect={props.onPickerSelect}

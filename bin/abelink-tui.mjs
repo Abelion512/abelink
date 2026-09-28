@@ -469,6 +469,21 @@ async function main() {
         return
       }
       case 'help': console.log(TUI_HELP); return
+      // Stream D: mode plan/build juga dikenal v1 (state.mode lokal) agar
+      // konsisten dengan TUI_HELP shared; prefix plan dipakai runTurn v1.
+      case 'plan':
+      case 'build': {
+        const next = cmd.kind === 'plan' ? 'plan' : 'build'
+        if ((state.mode || 'build') === next) {
+          console.log(next === 'plan' ? '[TUI] Sudah mode PLAN.' : '[TUI] Sudah mode BUILD.')
+          return
+        }
+        state.mode = next
+        console.log(next === 'plan'
+          ? '[TUI] Mode PLAN: model diminta susun rencana tanpa tool. Catatan: engine belum menahan eksekusi tool, jangan jalankan saran tool sebelum /build.'
+          : '[TUI] Mode BUILD: eksekusi tool normal.')
+        return
+      }
       case 'details': {
         state.showDetails = !state.showDetails
         console.log(`[TUI] Detail eksekusi tool: ${state.showDetails ? 'TAMPIL' : 'SEMBUNYI'} (ringkas ala opencode /details).`)
@@ -543,7 +558,11 @@ async function main() {
         if (resolved.attached.length) {
           console.log(`[TUI] Lampirkan ${resolved.attached.length} file: ${resolved.attached.map((a) => `${a.ref} (${a.bytes}B)`).join(', ')}`)
         }
-        await runTurn(resolved.text)
+        // Stream D: mode plan v1 (prefix saja; penahanan engine ditunda —
+        // lihat cli/tui/planMode.mjs). Import statis dilarang di bin ini
+        // (pola dynamic import existing), jadi inline prefix via modul.
+        const { buildTurnPrompt } = await import('../cli/tui/planMode.mjs')
+        await runTurn(buildTurnPrompt(state.mode, resolved.text))
       } finally {
         busy = false
         if (!rl.closed) rl.prompt()

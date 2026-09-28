@@ -10,6 +10,7 @@ import path from 'node:path'
 import { ABELINK_THEME, TUI_COMMANDS, AUTOCOMPLETE_MAX_ROWS, filterCompletions, shortModel, SIDEBAR_WIDTH, isWide, messageColor, messagePrefix, PROMPT_KEY_BINDINGS, autocompleteTrigger, applyCompletion, moveCompletionIndex, visibleWindow, DIALOG_PANEL_WIDTH, DIALOG_Z_INDEX, DIALOG_KINDS, isDialogKind, dialogVisibleRows, HOME_PLACEHOLDERS, homePlaceholder, homePromptMaxWidth } from '../cli/tui/theme.ts'
 import { parseSlashCommand } from '../bin/abelink-tui.mjs'
 import { createTuiState, submitLine, effortDialogRows } from '../cli/tui/engine.mjs'
+import { normalizeMode, toggleMode, modeAgentLabel, buildTurnPrompt, PLAN_PROMPT_PREFIX, initWorking, noteWorking, workingLabel, modeStatusText } from '../cli/tui/planMode.mjs'
 
 describe('shortModel (label opencode di dalam prompt box)', () => {
   it('potong prefix provider', () => {
@@ -276,8 +277,7 @@ describe('engine submitLine (stub, tanpa network)', () => {
     expect(r.role).toBe('error')
     expect(called).toBe(false)
   })
-  it('/sessions + /continue + /compact via stub store', async () => {
-    const seed = { id: 's1', model: 'm1', effort: 'high', outcome: 'completed', updatedAt: 't', messages: [{ role: 'user', content: 'hi' }] }
+  it('/sessions + /continue + /compact via stub store', async () => {    const seed = { id: 's1', model: 'm1', effort: 'high', outcome: 'completed', updatedAt: 't', messages: [{ role: 'user', content: 'hi' }] }
     const store = {
       listCliSessions: () => [seed],
       loadCliSession: () => seed,
@@ -348,6 +348,77 @@ describe('slash parser v1 reuse (kontrak tak berubah di v2)', () => {
     expect(parseSlashCommand('/effort high').kind).toBe('effort')
     expect(parseSlashCommand('/nope').kind).toBe('unknown')
     expect(parseSlashCommand('halo dunia').kind).toBe('prompt')
+  })
+  it('/plan + /build -> kind plan/build', () => {
+    expect(parseSlashCommand('/plan').kind).toBe('plan')
+    expect(parseSlashCommand('/build').kind).toBe('build')
+  })
+})
+
+describe('stream D plan/build + working (cli/tui/planMode.mjs)', () => {
+  const dRunTurn = async () => ({
+    reply: 'stub-reply', outcome: 'completed', terminalReason: 'answer', stepCount: 1, toolCallsCount: 0,
+  })
+  const dDeps = (over = {}) => ({
+    runTurn: dRunTurn,
+    resolveFileRefs: (text) => ({ ok: true, text, attached: [] }),
+    homeDir: fs.mkdtempSync(path.join(os.tmpdir(), 'abelink-tui-')),
+    ...over,
+  })
+  it('normalize/toggle/label murni', () => {
+    expect(normalizeMode('plan')).toBe('plan')
+    expect(normalizeMode('PLAN')).toBe('plan')
+    expect(normalizeMode('ngawur')).toBe('build')
+    expect(normalizeMode(null)).toBe('build')
+    expect(toggleMode('build')).toBe('plan')
+    expect(toggleMode('plan')).toBe('build')
+    expect(modeAgentLabel('plan')).toBe('Plan')
+    expect(modeAgentLabel('build')).toBe('Build')
+  })
+  it('build passthrough; plan = prefix + prompt', () => {
+    expect(buildTurnPrompt('build', 'hi')).toBe('hi')
+    const p = buildTurnPrompt('plan', 'hi')
+    expect(p.startsWith(PLAN_PROMPT_PREFIX)).toBe(true)
+    expect(p).toContain('hi')
+  })
+  it('working label: idle -> fallback; step+tool terisi', () => {
+    expect(workingLabel(null)).toBe('working…')
+    expect(workingLabel(initWorking())).toBe('working…')
+    expect(workingLabel({ steps: 3, tool: 'read' })).toBe('working… step 3 · read')
+    expect(workingLabel({ steps: 2, tool: null })).toBe('working… step 2')
+  })
+  it('noteWorking: step max, tool terakhir, non-tool tak hapus tool', () => {
+    const w = initWorking()
+    noteWorking(w, { step: 2, kind: 'tool', tool: 'grep' })
+    expect(w).toEqual({ steps: 2, tool: 'grep' })
+    // step record mundur (n=1 < max 2) -> max bertahan; tool tak terhapus.
+    noteWorking(w, { step: 1, kind: 'decision' })
+    expect(w).toEqual({ steps: 2, tool: 'grep' })
+    // record tanpa step.number -> increment; tool baru gantikan yang lama.
+    noteWorking(w, { kind: 'tool', tool: 'read' })
+    expect(w).toEqual({ steps: 3, tool: 'read' })
+  })
+  it('/plan toggle mode + pesan jujur; /plan lagi idempotent', async () => {
+    const s = createTuiState()
+    expect(s.mode).toBe('build')
+    await submitLine(s, '/plan', dDeps())
+    expect(s.mode).toBe('plan')
+    expect(s.messages.at(-1).text).toContain('engine belum menahan')
+    await submitLine(s, '/plan', dDeps())
+    expect(s.mode).toBe('plan')
+    expect(s.messages.at(-1).text).toContain('Sudah mode PLAN')
+  })
+  it('/build kembali + plan prefix sampai ke runTurn', async () => {
+    const s = createTuiState({ mode: 'plan' })
+    let got = null
+    await submitLine(s, 'rancang X', dDeps({ runTurn: async (st, prompt) => { got = prompt; return dRunTurn() } }))
+    expect(String(got).startsWith(PLAN_PROMPT_PREFIX)).toBe(true)
+    await submitLine(s, '/build', dDeps())
+    expect(s.mode).toBe('build')
+    expect(modeStatusText('build')).toContain('BUILD')
+    got = null
+    await submitLine(s, 'jalan X', dDeps({ runTurn: async (st, prompt) => { got = prompt; return dRunTurn() } }))
+    expect(got).toBe('jalan X')
   })
 })
 

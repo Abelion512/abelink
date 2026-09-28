@@ -40,6 +40,8 @@ export const TUI_HELP = `Perintah slash (tak dikirim sebagai prompt):
   /compact           Ringkas histori sesi berjalan (alias: /summarize)
   /thinking          Tampilkan/sembunyikan blok thinking
   /details           Tampilkan/sembunyikan detail eksekusi tool
+  /plan              Mode rencana: model susun rencana tanpa tool (toggle: ctrl+o)
+  /build             Mode eksekusi normal (toggle: ctrl+o)
   /editor            Tulis prompt panjang di $EDITOR
   /init              Buat/perbarui AGENTS.md dari struktur workspace
   /help              Tampilkan bantuan ini

@@ -72,6 +72,8 @@ export const TUI_COMMANDS: TuiCommand[] = Object.freeze([
   { name: '/compact', desc: 'Ringkas histori sesi' },
   { name: '/thinking', desc: 'Tampilkan/sembunyikan thinking' },
   { name: '/details', desc: 'Tampilkan/sembunyikan detail tool' },
+  { name: '/plan', desc: 'Mode rencana: model susun rencana tanpa tool (toggle ctrl+o)' },
+  { name: '/build', desc: 'Mode eksekusi normal (toggle ctrl+o)' },
   { name: '/editor', desc: 'Tulis prompt di $EDITOR' },
   { name: '/init', desc: 'Buat/perbarui AGENTS.md' },
   { name: '/help', desc: 'Tampilkan bantuan' },

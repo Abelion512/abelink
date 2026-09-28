@@ -57,6 +57,10 @@ export interface TuiState {
   showThinking: boolean
   showDetails: boolean
   busy: boolean
+  // Stream D: mode plan/build (default 'build') + status working per turn
+  // ({ steps, tool } — ditulis engine via noteWorking, dibaca entry).
+  mode?: string
+  working?: { steps?: number; tool?: string | null }
   /** Diisi entry dari fileConfig (recent models) saat bootstrap. */
   recentModels?: string[]
   /**
@@ -150,6 +154,10 @@ export interface AppProps {
   onPickerCancel?: () => void
   onPickerFilter?: (text: string) => void
   onCommands?: () => void
+  // Stream D: nama agen aktif (plan/build) + toggle mode via keybind.
+  // accessor agar ikut re-render saat engine ubah mode (pola model tick).
+  agentName?: string | (() => string)
+  onModeToggle?: () => void
 }
 
 /** Props `CenterDialog` (slice 3): presentasi daftar pilih di tengah. */
@@ -193,7 +201,9 @@ export interface HomeViewProps {
   keyBindings?: KeyBinding[]
   fileCompletions?: () => string[]
   onEscape?: () => void
-  agentName?: string
+  // Stream D: accessor didukung agar label mode ikut re-render (pola
+  // modelLabel: nilai dibaca di dalam render yang reaktif).
+  agentName?: string | (() => string)
   permissionMode?: string
 }
 
