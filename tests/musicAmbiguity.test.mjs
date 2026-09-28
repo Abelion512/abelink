@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseChoiceQuery } from '../src/api/choiceBus.js'
+import { parseChoiceQuery } from '../src/api/choiceBus.ts'
 
 describe('musicAmbiguity & OST Choice Bus payload', () => {
   it('mendeteksi query OST dan menghasilkan multimodal options dengan metadata yang valid', () => {

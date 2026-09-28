@@ -4,8 +4,8 @@ import { describe, it, expect } from 'vitest'
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { SELF_MODEL_SOURCES } from '../src/api/selfModel.js'
-import { getSelfModelBlock } from '../src/api/selfModel.js'
+import { SELF_MODEL_SOURCES } from '../src/api/selfModel.ts'
+import { getSelfModelBlock } from '../src/api/selfModel.ts'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 

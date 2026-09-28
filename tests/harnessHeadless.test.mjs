@@ -7,7 +7,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { createHarnessWriter, createHeadlessHarnessLogger, trajectoryHeadlessEnabled, resolveHarnessRoot } from '../cli/core/harness-writer.mjs'
-import { makeHarnessToolCall, makeHarnessTurnStart, makeHarnessTurnEnd, normalizeHarnessSessionId } from '../src/api/harnessCore.js'
+import { makeHarnessToolCall, makeHarnessTurnStart, makeHarnessTurnEnd, normalizeHarnessSessionId } from '../src/api/harnessCore.ts'
 import { readSessionEvents } from '../scripts/harness-export.mjs'
 import { parseHarnessRow } from '../cli/tui/usageStats.mjs'
 

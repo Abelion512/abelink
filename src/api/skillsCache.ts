@@ -7,7 +7,7 @@ import { listen } from '@tauri-apps/api/event'
 
 const TTL_MS = 5 * 60 * 1000
 
-let cache = null
+let cache: Array<{ name: string; description: string }> | null = null
 let fetchedAt = 0
 let listenerWired = false
 

@@ -14,7 +14,7 @@
 
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { valid, gt } from '../src/api/semverLite.js'
+import { valid, gt } from '../src/api/semverLite.ts'
 
 // ----------------------------------------------------------------- CLI
 const invokedDirectly =
@@ -38,4 +38,4 @@ if (invokedDirectly) {
 }
 
 export { valid, gt }
-export { parse, compare, lt, eq, rcompare } from '../src/api/semverLite.js'
+export { parse, compare, lt, eq, rcompare } from '../src/api/semverLite.ts'

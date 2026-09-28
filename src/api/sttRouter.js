@@ -2,7 +2,7 @@ import { getAllConfig } from './db'
 import { pcmToWav } from './groq'
 import { detectProviderFromUrl } from './ai/providerDetect.ts'
 import { resolveEndpointUrl } from './ai/providerRegistry.ts'
-import { DEFAULT_STT_MODEL, filterSegments } from './sttGuard.js'
+import { DEFAULT_STT_MODEL, filterSegments } from './sttGuard.ts'
 
 /**
  * Nama tampilan koneksi: nama provider terdeteksi dari URL bila dikenal,
@@ -162,7 +162,7 @@ export const transcribeAudioUnified = async (pcmBuffer, onProgress, setStatusMes
   if (cfg.sttProvider === 'whisper') {
     updateStatus('Mentranskrip via Local Whisper (On-Device)...')
     try {
-      const { transcribeAudioLocal } = await import('./localWhisper.js')
+      const { transcribeAudioLocal } = await import('./localWhisper.ts')
       const text = await transcribeAudioLocal(pcmBuffer, onProgress)
       updateStatus('')
       return text
@@ -281,7 +281,7 @@ export const transcribeAudioUnified = async (pcmBuffer, onProgress, setStatusMes
     try {
       console.warn('[sttRouter] Semua gateway remote gagal. Mencoba fallback ke Local Whisper...')
       updateStatus('Gateway STT gagal. Mencoba Local Whisper...')
-      const { transcribeAudioLocal } = await import('./localWhisper.js')
+      const { transcribeAudioLocal } = await import('./localWhisper.ts')
       const localText = await transcribeAudioLocal(pcmBuffer, onProgress)
       updateStatus('')
       return localText

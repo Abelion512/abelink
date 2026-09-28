@@ -1,7 +1,7 @@
 import Dexie from 'dexie'
 import type { Table } from 'dexie'
 import { generateVector, cosineSimilarity } from './vectorLoader'
-import { DEFAULT_STT_MODEL, PLACEHOLDER_STT_MODELS } from './sttGuard.js'
+import { DEFAULT_STT_MODEL, PLACEHOLDER_STT_MODELS } from './sttGuard.ts'
 import { LEGACY_HOSTS } from './ai/providerRegistry.ts'
 
 // W2-2 (js-to-ts-spec.md): rename + tipe baris Dexie per store (schema v30

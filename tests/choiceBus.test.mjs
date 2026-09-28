@@ -6,7 +6,7 @@ import {
   dropChoice,
   pendingChoiceCount,
   MAX_CHOICE_OPTIONS
-} from '../src/api/choiceBus.js'
+} from '../src/api/choiceBus.ts'
 
 describe('choiceBus parseChoiceQuery', () => {
   it('mem-parse pertanyaan + opsi dipisah || dan ;', () => {

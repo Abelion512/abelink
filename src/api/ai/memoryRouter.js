@@ -192,7 +192,7 @@ export async function routeTurnMemoryContext({
   if (workspaceRoot) {
     try {
       const fetchWorkspace = getWorkspaceContextFn || (async (root, input) => {
-        const { getWorkspaceContext } = await import('../workspaceRag.js')
+        const { getWorkspaceContext } = await import('../workspaceRag.ts')
         return getWorkspaceContext(root, input)
       })
       workspaceContext = await fetchWorkspace(workspaceRoot, userInput)

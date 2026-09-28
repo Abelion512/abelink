@@ -1,7 +1,7 @@
 // Session memory: wider window (20) + 2-line old tool results + giant-obs cut + fakta sesi.
 import { describe, expect, it, beforeEach, afterEach } from 'vitest'
 import { buildOptimizedChatSession, truncateGiantObservation } from '../src/api/ai/contextCompactor.ts'
-import { getWorkspaceContext } from '../src/api/workspaceRag.js'
+import { getWorkspaceContext } from '../src/api/workspaceRag.ts'
 
 const userMsg = (i) => ({ role: 'user', content: `pesan user ${i}` })
 const aiMsg = (i, result) => ({

@@ -11,7 +11,7 @@ import { runMediaTool } from './mediaTools'
 import { runVisionTool } from './visionTools'
 import { runKnowledgeTool } from './knowledgeTools'
 import { runAgentTool } from './agentTools'
-import { parseChoiceQuery, requestChoice, dropChoice } from '../../../api/choiceBus.js'
+import { parseChoiceQuery, requestChoice, dropChoice } from '../../../api/choiceBus.ts'
 
 // Indikator dinding-login untuk evidence gate browser-ask.
 export const LOGIN_WALL_RE = /login|log in|masuk|captcha|cloudflare|verify.*human|human.*verif|two-factor|2fa|otp|verifikasi|sign ?in/i

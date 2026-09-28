@@ -2,7 +2,7 @@
 // YouTube search/summary, music control, TTS speak, screenshot-to-Telegram.
 import { getYoutubeSummary } from '../../../api/ai/tools'
 import { playVoice } from '../../../api/ai/utils'
-import { parseChoiceQuery, requestChoice, dropChoice } from '../../../api/choiceBus.js'
+import { parseChoiceQuery, requestChoice, dropChoice } from '../../../api/choiceBus.ts'
 import { buildDirectTrack } from '../musicQuery.js'
 
 // Race helper (cermin toolDispatcher agar media mandiri tanpa import silang).

@@ -59,7 +59,7 @@ let auditNameWarned = false
 export const getLastSystemPrompt = () => lastSystemPrompt
 
 // Cari nama upstream di system prompt DI LUAR blok identitas diri.
-// Blok IDENTITAS DIRI memang wajib menyebut identitas produk (appIdentity.js)
+// Blok IDENTITAS DIRI memang wajib menyebut identitas produk (appIdentity.ts)
 // sehingga bukan kebocoran — yang dicurigai hanya kemunculan nama warisan di blok lain
 // (memori/riwayat/tools). Murni string, testable.
 export function findSuspiciousName(systemPrompt: unknown): { name: string; snippet: string } | null {
@@ -107,7 +107,7 @@ export const getNextAction = async (
     try {
       // Cache: scan filesystem sidecar tidak diulang tiap giliran agen;
       // refresh otomatis via event 'skills-updated' / TTL (lihat skillsCache).
-      fileSkills = await getCachedSkills()
+      fileSkills = (await getCachedSkills()) as Array<{ name: string; description: string }>
     } catch (e) {
       console.error('Failed to get file skills for planning', e)
     }
