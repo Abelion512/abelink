@@ -135,15 +135,12 @@ describe('layout opencode (sidebar 42, wide > 120)', () => {
 })
 
 describe('messageColor/messagePrefix (scrollbox per role)', () => {
-  it('user/error/shell/meta/info/assistant', () => {
-    expect(messagePrefix('user')).toBe('> ')
-    expect(messagePrefix('error')).toBe('× ')
-    expect(messagePrefix('shell')).toBe('! ')
-    expect(messagePrefix('meta')).toBe('— ')
-    expect(messagePrefix('info')).toBe('· ')
-    expect(messagePrefix('assistant')).toBe('◆ ')
+  it('paritas opencode: tanpa prefix dekoratif', () => {
+    for (const r of ['user', 'error', 'shell', 'meta', 'info', 'assistant']) {
+      expect(messagePrefix(r)).toBe('')
+    }
     expect(messageColor('error')).toBe(ABELINK_THEME.error)
-    expect(messageColor('user')).toBe(ABELINK_THEME.primary)
+    expect(messageColor('user')).toBe(ABELINK_THEME.text)
   })
 })
 
@@ -442,8 +439,8 @@ describe('layar awal tengah HomeView (slice 4, pola opencode home.tsx)', () => {
 })
 
 describe('popup slash paritas opencode (stream C)', () => {
-  it('selectedForeground = background (kontras di atas primary)', () => {
-    expect(selectedForeground()).toBe(ABELINK_THEME.background)
+  it('selectedForeground = hitam (kontras di atas accent cyan; bg transparan)', () => {
+    expect(selectedForeground()).toBe('black')
   })
   it('popupHeight = min(10, jumlah, ruang di atas)', () => {
     expect(popupHeight(14, 24)).toBe(10)
@@ -520,4 +517,20 @@ describe('bin/abelink-tui-v2.tsx (E2E pipe)', () => {
     expect(r.stdout).toMatch(/Discovery gagal|alias statis/i)
     expect(r.stdout).not.toContain('Katalog')
   }, 60000)
+})
+
+describe('MessageLine helpers (paritas opencode)', () => {
+  it('isHiddenRole sembunyikan thought/tool saja', async () => {
+    const { isHiddenRole, messageRoleColor } = await import('../cli/tui/components/MessageLine.tsx')
+    expect(isHiddenRole('thought', { showThinking: false })).toBe(true)
+    expect(isHiddenRole('thought', {})).toBe(false)
+    expect(isHiddenRole('tool', { showDetails: false })).toBe(true)
+    expect(isHiddenRole('tool', {})).toBe(false)
+    expect(isHiddenRole('user')).toBe(false)
+    expect(isHiddenRole('assistant')).toBe(false)
+    expect(isHiddenRole('info')).toBe(false)
+    expect(messageRoleColor('error')).toBe(ABELINK_THEME.error)
+    expect(messageRoleColor('info')).toBe(ABELINK_THEME.info)
+    expect(messageRoleColor('user')).toBe(ABELINK_THEME.text)
+  })
 })

@@ -378,7 +378,9 @@ async function main() {
         sidecar: needEngine ? await getSidecar() : null,
         onEvent: (e: TuiProgressEvent) => {
           if (e?.line) {
-            state.messages.push({ role: e.type === 'thought' ? 'assistant' : 'meta', text: e.line })
+            // Paritas opencode: thinking disembunyikan dari scrollbox
+            // (MessageLine filter role thought/tool). Dulu 'assistant'.
+            state.messages.push({ role: e.type === 'thought' ? 'thought' : 'meta', text: e.line })
             bump()
           }
         },
@@ -421,6 +423,9 @@ async function main() {
           // step/tool) sejauh engine expose via state.working.
           statusRight={busy() ? workingLabel(state.working) : null}
           onModeToggle={() => { void handleSubmit(state.mode === 'plan' ? '/build' : '/plan') }}
+          // Toggle thinking/details: baca state tiap render (pola agentName).
+          showThinking={() => { tick(); return state.showThinking !== false }}
+          showDetails={() => { tick(); return state.showDetails === true }}
         />
       </KeymapProvider>
     ),

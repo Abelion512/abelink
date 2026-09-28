@@ -158,6 +158,10 @@ export interface AppProps {
   // accessor agar ikut re-render saat engine ubah mode (pola model tick).
   agentName?: string | (() => string)
   onModeToggle?: () => void
+  /** Paritas opencode thinking toggle: false = blok thought disembunyikan. */
+  showThinking?: boolean | (() => boolean)
+  /** Paritas opencode details toggle: false = baris hasil tool disembunyikan. */
+  showDetails?: boolean | (() => boolean)
 }
 
 /** Props `CenterDialog` (slice 3): presentasi daftar pilih di tengah. */

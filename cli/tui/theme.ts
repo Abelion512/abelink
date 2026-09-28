@@ -1,11 +1,11 @@
 import type { KeyBinding } from '@opentui/core'
 
-// cli/tui/theme.ts — TUI-V2-1: token tema tunggal, dipetik dari tema DaisyUI
-// `abelink` (src/assets/main.css). Satu sumber: ubah di sini, seluruh TUI ikut.
-// Token mengikuti SEMANTIK opencode theme (`background`/`backgroundPanel`/
-// `backgroundElement`/`text`/`textMuted`/`border*`) supaya komponen bisa
-// dipetakan 1:1 dari theme/index.ts opencode, sambil mempertahankan nama
-// warisan (base100/base200/baseContent/muted) yang sudah dipakai test + komponen.
+// cli/tui/theme.ts — TUI-V2-1: token tema tunggal.
+// PARITAS OPENCODE (packages/tui/src/theme/index.ts, tema default): warna
+// memakai ANSI terminal (cyan/magenta/red/yellow/green + fg/muted terminal),
+// background TRANSPARAN (hormati transparansi terminal user), panel/elemen/
+// menu abu-abu. Nilai hex lama dipertahankan sebagai warisan (base100..muted)
+// karena test + komponen lama bergantung — JANGAN hapus.
 export interface AbelinkTheme {
   base100: string
   base200: string
@@ -41,19 +41,19 @@ export const ABELINK_THEME: AbelinkTheme = Object.freeze({
   warning: '#ff9f0a',
   error: '#ff453a',
   muted: '#8e8e93',
-  // --- semantik opencode (theme/index.ts Theme) ---
-  background: '#161618', // = base100
-  backgroundPanel: '#121214', // = base200 (sidebar)
-  backgroundElement: '#1e1e21', // = area prompt/elemen
-  backgroundMenu: '#1e1e21', // = popup/picker
-  text: '#ffffff',
-  textMuted: '#8e8e93',
-  secondary: '#bf5af2',
-  accent: '#0a84ff',
-  info: '#64d2ff',
-  border: '#2c2c2e',
-  borderActive: '#0a84ff',
-  borderSubtle: '#232325',
+  // --- paritas opencode (theme/index.ts: ANSI + transparan) ---
+  background: 'transparent',
+  backgroundPanel: '#1e1e1e',
+  backgroundElement: '#2a2a2a',
+  backgroundMenu: '#2a2a2a',
+  text: 'white',
+  textMuted: 'gray',
+  secondary: 'magenta',
+  accent: 'cyan',
+  info: 'cyan',
+  border: '#3a3a3a',
+  borderActive: 'cyan',
+  borderSubtle: '#2a2a2a',
 }) as AbelinkTheme
 
 export interface TuiCommand {
@@ -117,12 +117,12 @@ export const PROMPT_KEY_BINDINGS: KeyBinding[] = Object.freeze([
   { name: 'j', ctrl: true, action: 'newline' },
 ]) as KeyBinding[]
 
-// Pewarnaan pesan scrollbox per role (single source; App presentational).
-// Semantik opencode messages: user = accent/primary, teks asisten = text
-// (netral), meta/tool = textMuted, error = error.
+// Pewarnaan pesan scrollbox per role (paritas opencode: user polos tanpa
+// prefix, assistant teks netral, info/error/mode warna ANSI).
+// user/thought/tool disembunyikan dari render (bukan dihapus dari state).
 export function messageColor(role: string = ''): string {
   switch (String(role)) {
-    case 'user': return ABELINK_THEME.accent
+    case 'user': return ABELINK_THEME.text
     case 'error': return ABELINK_THEME.error
     case 'shell':
     case 'meta': return ABELINK_THEME.textMuted
@@ -131,22 +131,18 @@ export function messageColor(role: string = ''): string {
   }
 }
 
-// Prefix baris pesan (opencode memakai penanda minimal, bukan ikon dekoratif).
-export function messagePrefix(role: string = ''): string {
-  switch (String(role)) {
-    case 'user': return '> '
-    case 'shell': return '! '
-    case 'error': return '× '
-    case 'meta': return '— '
-    case 'info': return '· '
-    default: return '◆ '
-  }
+// Prefix baris pesan. Paritas opencode: TIDAK ada prefix dekoratif per role
+// (user/assistant/thinking/tool semua teks polos). Fungsi dipertahankan
+// sebagai kontrak kosong agar test + konsumen lama tak pecah.
+export function messagePrefix(_role: string = ''): string {
+  return ''
 }
 
 // Warna teks di atas highlight primary (cermin opencode
-// `selectedForeground`: background opak -> pakai background).
+// `selectedForeground`: background opak -> pakai background). Background
+// kita transparan, jadi pakai hitam (kontras di atas primary cyan ANSI).
 export function selectedForeground(): string {
-  return ABELINK_THEME.background
+  return 'black'
 }
 
 // Tinggi popup autocomplete (cermin opencode autocomplete.tsx:712-717):

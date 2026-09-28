@@ -9,6 +9,7 @@ import { createSignal, For, Show, onMount, onCleanup } from 'solid-js'
 import { useKeyboard, useTerminalDimensions } from '@opentui/solid'
 import { ABELINK_THEME, shortModel, SIDEBAR_WIDTH, isWide, isDialogKind, messageColor, messagePrefix, visibleWindow, homePlaceholder } from './theme.ts'
 import { PromptRow } from './components/PromptRow.tsx'
+import { MessageLine } from './components/MessageLine.tsx'
 import { HomeView } from './components/HomeView.tsx'
 import { CenterDialog } from './components/CenterDialog.tsx'
 import type { AppProps, PickerRow } from './types.ts'
@@ -179,10 +180,12 @@ export function App(props: AppProps = {}) {
           </Show>
           <For each={messages()}>
             {(l) => (
-              <text>
-                <ColoredSpan fg={messageColor(l.role)}>{messagePrefix(l.role)}</ColoredSpan>
-                {l.text}
-              </text>
+              <MessageLine
+                role={String(l.role ?? '')}
+                text={String(l.text ?? '')}
+                showThinking={typeof props.showThinking === 'function' ? props.showThinking() : props.showThinking}
+                showDetails={typeof props.showDetails === 'function' ? props.showDetails() : props.showDetails}
+              />
             )}
           </For>
         </scrollbox>

@@ -284,7 +284,7 @@ export function PromptRow(props: PromptRowProps) {
                       paddingLeft: 1,
                       paddingRight: 1,
                       backgroundColor:
-                        i() === selected() % popupRows().length ? ABELINK_THEME.primary : undefined,
+                        i() === selected() % popupRows().length ? ABELINK_THEME.accent : undefined,
                     }}
                   >
                     <text fg={i() === selected() % popupRows().length ? selectedForeground() : ABELINK_THEME.text} flexShrink={0}>

@@ -73,7 +73,7 @@ export function CenterDialog(props: CenterDialogProps) {
                   flexDirection: 'row',
                   flexShrink: 0,
                   backgroundColor:
-                    row.index === index() ? ABELINK_THEME.primary : undefined,
+                    row.index === index() ? ABELINK_THEME.accent : undefined,
                 }}
               >
                 <text fg={row.index === index() ? ABELINK_THEME.text : ABELINK_THEME.textMuted}>
