@@ -1,51 +1,68 @@
 // Channel: TTS, transkrip & pencarian YouTube.
 // Modul ini hanya mendaftarkan handler; semua I/O via helper registry.
+//
+// W1-3 (js-to-ts-spec.md): rename + tipe. Specifier lintas-zona ke
+// src/api/ai/providerRegistry.js DIBIARKAN (file sumber belum .ts; allowJs
+// membuat tsc membacanya) — diupdate lagi di PR W2-4 saat boundary dikonversi.
 import { on, lazy } from '../registry.ts'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import { canonicalizeEndpointUrl } from '../../../src/api/ai/providerRegistry.js'
 import { getGlobalConfig } from '../../main/ai-bridge.js'
+import type { MsEdgeTTS } from 'msedge-tts'
 
 const getYt = lazy(async () => {
-  // Paket CJS: fungsi utama bisa di default atau namespace (normalkan).
-  const m = await import('youtube-transcript-plus')
-  return m.default ?? m
+  // Bentuk modul dianotasi lokal (cast melalui unknown) — runtime persis asli.
+  const m = (await import('youtube-transcript-plus')) as unknown
+  return m as {
+    fetchTranscript: (url: string) => Promise<Array<{ offset: number; text: string }>>
+    default?: unknown
+  }
 })
 const getYts = lazy(async () => (await import('yt-search')).default)
 
-let globalTTS
+let globalTTS: MsEdgeTTS | null = null
+// Bentuk config yang dipakai channel ini (JSDoc getGlobalConfig tidak
+// mendeskripsikannya) — cast type-only, runtime persis asli.
+type TtsConfigLike = {
+  ttsProvider?: unknown
+  customTtsEndpoint?: string
+  customTtsApiKey?: string
+  customTtsModel?: string
+}
 // TTS router data-driven (providerRegistry): edge (default, tanpa key) atau
 // custom OpenAI-compatible /v1/audio/speech (9Router dkk). Fallback edge
 // otomatis bila custom gagal. Return data-URL audio atau null.
-on('tts-speak', async (text, rate, pitch) => {
-  const conf = getGlobalConfig() || {}
+on('tts-speak', async (text: unknown, rate: unknown, pitch: unknown) => {
+  const conf = (getGlobalConfig() || {}) as TtsConfigLike
   if (conf.ttsProvider === 'custom') {
     const endpoint = resolveTtsEndpointUrl(conf.customTtsEndpoint)
     if (endpoint) {
       try {
         return await speakViaOpenAiCompatible({ endpoint, apiKey: conf.customTtsApiKey, model: conf.customTtsModel, text })
       } catch (error) {
-        console.error('[engine] TTS custom gagal, fallback edge:', error.message)
+        console.error('[engine] TTS custom gagal, fallback edge:', (error as Error).message)
       }
     }
   }
-  return speakViaEdge(text, rate, pitch)
+  return speakViaEdge(text as string, rate, pitch)
 })
 
-function resolveTtsEndpointUrl(raw) {
+function resolveTtsEndpointUrl(raw: string | undefined): string {
   const base = canonicalizeEndpointUrl(raw, 'tts')
   if (!base) return ''
   if (/\/v\d+$/.test(base)) return `${base}/audio/speech`
   return `${base}/v1/audio/speech`
 }
 
-async function speakViaOpenAiCompatible({ endpoint, apiKey, model, text }) {
+async function speakViaOpenAiCompatible(opts: { endpoint: string; apiKey?: unknown; model?: unknown; text: unknown }) {
+  const { endpoint, apiKey, model, text } = opts
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 30000)
   try {
-    const headers = { 'Content-Type': 'application/json' }
-    if (apiKey && apiKey.trim()) headers['Authorization'] = `Bearer ${apiKey.trim()}`
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (apiKey && (apiKey as string).trim()) headers['Authorization'] = `Bearer ${(apiKey as string).trim()}`
     const res = await fetch(endpoint, {
       method: 'POST',
       headers,
@@ -64,13 +81,13 @@ async function speakViaOpenAiCompatible({ endpoint, apiKey, model, text }) {
   }
 }
 
-async function speakViaEdge(text, rate, pitch) {
+async function speakViaEdge(text: string, rate: unknown, pitch: unknown) {
   try {
     if (!globalTTS) {
       const mod = await import('msedge-tts')
-      const MsEdgeTTS = mod.MsEdgeTTS || mod.default?.MsEdgeTTS || mod.default
+      const MsEdgeTTSImpl = mod.MsEdgeTTS || mod.default?.MsEdgeTTS || mod.default
       const OUTPUT_FORMAT = mod.OUTPUT_FORMAT || mod.default?.OUTPUT_FORMAT || {}
-      globalTTS = new MsEdgeTTS()
+      globalTTS = new MsEdgeTTSImpl() as MsEdgeTTS
       await globalTTS.setMetadata('id-ID-ArdiNeural', OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3 || 'audio-24khz-48kbitrate-mono-mp3')
     }
     const tmpPath = path.join(os.tmpdir(), 'abelink-tts-folder')
@@ -84,14 +101,14 @@ async function speakViaEdge(text, rate, pitch) {
     fs.unlinkSync(audioFilePath)
     return base64Audio
   } catch (error) {
-    console.error('[engine] TTS gagal:', error.message)
+    console.error('[engine] TTS gagal:', (error as Error).message)
     return null
   }
 }
 
-on('get-youtube-transcript', async (url) => {
+on('get-youtube-transcript', async (url: unknown) => {
   const yt = await getYt()
-  const transcript = await yt.fetchTranscript(url)
+  const transcript = await yt.fetchTranscript(url as string)
   return transcript
     .filter((_, index) => index % 2 === 0)
     .map((item) => {
@@ -102,9 +119,9 @@ on('get-youtube-transcript', async (url) => {
     .join(' ')
 })
 
-on('youtube-search', async (query) => {
+on('youtube-search', async (query: unknown) => {
   const yts = await getYts()
-  const ytData = await yts(query)
+  const ytData = await yts(query as string)
   return ytData.videos.slice(0, 4).map((item) => ({
     url: `https://www.youtube.com/watch?v=${item.videoId}`,
     title: item.title,

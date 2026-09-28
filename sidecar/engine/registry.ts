@@ -12,12 +12,14 @@
 /** Frame permintaan masuk via stdin. */
 export type FrameRequest = { id: number | null; action: string; payload: unknown }
 
-/** Frame respons keluar (balasan langsung atas satu request). */
+/** Frame respons keluar (balasan langsung atas satu request).
+ * error = unknown: sebagian handler (mis. ai:fetch) mengirim objek
+ * { message, code }, bukan string — wire format tidak diubah. */
 export type FrameResponse = {
   id: number | null
   success: boolean
   data?: unknown
-  error?: string
+  error?: unknown
 }
 
 /** Frame event keluar (broadcast tanpa korelasi id). */
@@ -26,8 +28,10 @@ export type FrameEvent = { event: string; payload: unknown }
 /** Handler channel menerima sisa argumen payload yang sudah di-spread on(). */
 export type HandlerFn = (...args: unknown[]) => unknown
 
-/** Bentuk yang dikembalikan handler setelah dibungkus ok()/fail(). */
-export type HandlerResult = { success: boolean; data?: unknown; error?: string }
+/** Bentuk yang dikembalikan handler setelah dibungkus ok()/fail().
+ * error = unknown: sebagian handler (mis. ai:fetch) mengirim objek
+ * { message, code }, bukan string — wire format tidak diubah. */
+export type HandlerResult = { success: boolean; data?: unknown; error?: unknown }
 
 export const send = (frame: FrameResponse | FrameEvent): void => {
   process.stdout.write(JSON.stringify(frame) + '\n')

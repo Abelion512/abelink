@@ -13,14 +13,14 @@ import { handlers, send, fail, type FrameRequest } from './engine/registry.ts'
 
 // Urutan import = urutan registrasi handler. Modul saling lepas; satu-satunya
 // coupling adalah sync-config (ai.mjs) yang menyalin config ke telegram.ts.
-import './engine/channels/ai.mjs'
-import './engine/channels/media.mjs'
+import './engine/channels/ai.ts'
+import './engine/channels/media.ts'
 import './engine/channels/telegram.ts'
 import './engine/channels/services.ts'
 import './engine/channels/music.ts'
 import './engine/channels/skills.mjs'
 import './engine/channels/browser.mjs'
-import './engine/channels/capabilities.mjs'
+import './engine/channels/capabilities.ts'
 import './engine/channels/os.ts'
 // NOTE: tasks:* channel deferred (post-merge audit PR #26) — Bun has no
 // IndexedDB and the channel failed every op. Returns with headless store.
