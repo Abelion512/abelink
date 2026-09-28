@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest'
-import { setLiteMode, generateVector, cosineSimilarity } from '../src/api/vectorMemory.js'
+import { setLiteMode, generateVector, cosineSimilarity } from '../src/api/vectorMemory.ts'
 
 beforeAll(() => {
   // Lite Mode: hash embedding murni — tanpa worker/model (deterministik & cepat)

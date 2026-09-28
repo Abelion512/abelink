@@ -9,17 +9,55 @@ import {
 } from './oramaStore'
 import { getAllMemory } from './db'
 
-let worker = null
+// ---- Kontrak tipe (W2-7a) ----
+export interface MemoryItem {
+  id?: number | string
+  type?: string
+  memory?: string
+  score?: number
+  [key: string]: unknown
+}
+
+export interface TurnPairItem {
+  sessionId?: string
+  sessionTitle?: string
+  combinedText?: string
+  score?: number
+  [key: string]: unknown
+}
+
+type WorkerMessage = {
+  id?: number
+  type?: string
+  success?: boolean
+  vector?: number[]
+  results?: unknown
+  error?: unknown
+  data?: unknown
+  [key: string]: unknown
+}
+
+type PendingEntry = { resolve: (v: unknown) => void; reject: (e: unknown) => void }
+
+type ProgressCb = (p: unknown) => void
+
+type DirectExtractor = (
+  text: string,
+  opts: { pooling: string; normalize: boolean; truncation: boolean; max_length: number }
+) => Promise<{ data: ArrayLike<number>; dispose?: () => void }>
+
+let worker: Worker | null = null
 let nextId = 1
-const pendingPromises = new Map()
-const progressListeners = new Set()
+const pendingPromises = new Map<number, PendingEntry>()
+const progressListeners = new Set<ProgressCb>()
 
 // Lite Mode state (hash embedding fallback, tanpa load model)
 let isLiteMode = false
 
 let liteAutoNotified = false
-let isTauriEnvironment =
-  typeof window !== 'undefined' && typeof window.__TAURI_INTEGRATION__ !== 'undefined'
+const isTauriEnvironment =
+  typeof window !== 'undefined' &&
+  typeof (window as unknown as Record<string, unknown>).__TAURI_INTEGRATION__ !== 'undefined'
 
 // Flag persisten: WASM pernah terbukti rusak di webview ini -> boot
 // berikutnya langsung Lite Mode tanpa mencoba (tanpa error merah berulang).
@@ -75,9 +113,9 @@ if (isTauriEnvironment) {
 function getWorker() {
   if (!worker && typeof Worker !== 'undefined') {
     try {
-      worker = new Worker(new URL('./embedding.worker.js', import.meta.url), { type: 'module' })
-      worker.onmessage = (event) => {
-        const { id, type, success, vector, results, error, data } = event.data || {}
+      worker = new Worker(new URL('./embedding.worker.ts', import.meta.url), { type: 'module' })
+      worker.onmessage = (event: MessageEvent) => {
+        const { id, type, success, vector, results, error, data } = (event.data || {}) as WorkerMessage
 
         if (type === 'progress') {
           progressListeners.forEach((cb) => {
@@ -88,8 +126,8 @@ function getWorker() {
           return
         }
 
-        if (pendingPromises.has(id)) {
-          const { resolve } = pendingPromises.get(id)
+        if (id !== undefined && pendingPromises.has(id)) {
+          const { resolve } = pendingPromises.get(id) as PendingEntry
           pendingPromises.delete(id)
           if (success) {
             resolve(vector !== undefined ? vector : results)
@@ -130,23 +168,23 @@ function getWorker() {
 }
 
 // Fallback main-thread extractor jika Web Worker tidak tersedia
-let directExtractor = null
+let directExtractor: DirectExtractor | null = null
 let isDirectDownloading = false
 
-async function getDirectExtractor(onProgress) {
+async function getDirectExtractor(onProgress?: ProgressCb): Promise<DirectExtractor | null> {
   if (!directExtractor && !isDirectDownloading) {
     isDirectDownloading = true
     try {
       const device = typeof window !== 'undefined' && typeof caches !== 'undefined' ? 'wasm' : 'cpu'
       const { pipeline } = await import('@huggingface/transformers')
-      directExtractor = await pipeline(
+      directExtractor = (await pipeline(
         'feature-extraction',
         'Xenova/paraphrase-multilingual-MiniLM-L12-v2',
         {
           device,
           progress_callback: onProgress
         }
-      )
+      )) as unknown as DirectExtractor
     } catch (e) {
       console.error('Failed to load transformer model directly', e)
     } finally {
@@ -163,7 +201,7 @@ async function getDirectExtractor(onProgress) {
 let initDone = false
 
 // We export this so we can manually trigger download from config page
-export const getExtractor = async (onProgress) => {
+export const getExtractor = async (onProgress?: ProgressCb): Promise<Worker | DirectExtractor | null> => {
   if (isLiteMode) return null
   if (typeof onProgress === 'function') {
     progressListeners.add(onProgress)
@@ -173,7 +211,7 @@ export const getExtractor = async (onProgress) => {
     // Init sudah pernah selesai: kembalikan worker jika berhasil.
     // Jika gagal, isLiteMode sudah true dan tertangkap di cek di atas.
     if (initDone) return w
-    return new Promise((resolve) => {
+    return new Promise<Worker | null>((resolve) => {
       const id = nextId++
       pendingPromises.set(id, {
         // Pada init_done: success -> val=undefined (worker objek siap);
@@ -194,10 +232,10 @@ export const getExtractor = async (onProgress) => {
 }
 
 // --- Lite Mode (RAM 4GB): hash embedding fallback, tanpa load model ---
-export const setLiteMode = (v) => {
+export const setLiteMode = (v: boolean) => {
   isLiteMode = v
 }
-function fnv1a(str) {
+function fnv1a(str: string) {
   let h = 2166136261
   for (let i = 0; i < str.length; i++) {
     h ^= str.charCodeAt(i)
@@ -206,7 +244,7 @@ function fnv1a(str) {
   }
   return h >>> 0
 }
-const hashEmbedding = (text) => {
+const hashEmbedding = (text: unknown): number[] => {
   const v = new Array(384).fill(0)
   for (const w of String(text || '')
     .toLowerCase()
@@ -219,7 +257,7 @@ const hashEmbedding = (text) => {
   return v.map((x) => x / norm)
 }
 
-export const generateVector = async (text) => {
+export const generateVector = async (text: unknown): Promise<number[] | null> => {
   if (isLiteMode) return hashEmbedding(text)
   if (!text || typeof text !== 'string' || !text.trim()) {
     return null
@@ -227,10 +265,10 @@ export const generateVector = async (text) => {
 
   const w = getWorker()
   if (w) {
-    return new Promise((resolve) => {
+    return new Promise<number[] | null>((resolve) => {
       const id = nextId++
       pendingPromises.set(id, {
-        resolve,
+        resolve: (val) => resolve(val as number[] | null),
         reject: () => resolve(null)
       })
       w.postMessage({ id, type: 'embed', text })
@@ -263,22 +301,25 @@ export const getVectorModel = () => (isLiteMode ? 'hash' : 'minilm')
 // Vektor yang layak disimpan ke Dexie/Orama: NULL saat Lite Mode agar hash embedding
 // tidak pernah mengotori korpus pencarian (kerusakan permanen). Untuk similarity
 // in-memory tetap gunakan generateVector() yang fallback ke hash.
-export const generateStorableVector = async (text) => {
+export const generateStorableVector = async (text: unknown): Promise<number[] | null> => {
   if (isLiteMode) return null
   return generateVector(text)
 }
 
 // SEARCH: Rumus matematika buat ngukur kemiripan (0 sampai 1)
-export const cosineSimilarity = (vecA, vecB) => {
+export const cosineSimilarity = (vecA: unknown, vecB: unknown): number => {
   if (!Array.isArray(vecA) || !Array.isArray(vecB) || vecA.length === 0 || vecB.length === 0) {
     return 0
   }
 
-  return vecA.reduce((sum, a, i) => sum + a * vecB[i], 0)
+  return (vecA as number[]).reduce((sum: number, a: number, i: number) => sum + a * (vecB as number[])[i], 0)
 }
 
-export const getRelevantMemory = async (userInput, memoryList) => {
-  let list = memoryList
+export const getRelevantMemory = async (
+  userInput: unknown,
+  memoryList: unknown
+): Promise<Array<Record<string, unknown>>> => {
+  let list: unknown = memoryList
   if (!Array.isArray(list)) {
     try {
       list = await getAllMemory()
@@ -290,31 +331,35 @@ export const getRelevantMemory = async (userInput, memoryList) => {
     list = []
   }
   // Hanya Core memory (profile & preference) dipanggil langsung tanpa filter
-  const coreMemories = list
+  const coreMemories = (list as MemoryItem[])
     .filter((m) => m && typeof m === 'object' && (m.type === 'profile' || m.type === 'preference'))
-    .map(({ vector: _vector, ...rest }) => rest)
+    .map(({ vector: _vector, ...rest }) => rest as Record<string, unknown>)
 
   return coreMemories
 }
 
-export const searchExtendedMemory = async (query, threshold = 0.5, limit = 5) => {
+export const searchExtendedMemory = async (
+  query: unknown,
+  threshold = 0.5,
+  limit = 5
+): Promise<{ memories: MemoryItem[]; chatTurns: TurnPairItem[] }> => {
   const queryVector = await generateVector(query)
   if (!queryVector) return { memories: [], chatTurns: [] }
 
-  const memories = await searchMemoriesInOrama(
-    query,
+  const memories = (await searchMemoriesInOrama(
+    query as string,
     queryVector,
     limit,
-    ['notes', 'learn'],
+    ['notes', 'learn'] as unknown as Parameters<typeof searchMemoriesInOrama>[3],
     threshold
-  )
-  const chatTurns = await searchTurnPairsInOrama(query, queryVector, limit, threshold)
+  )) as MemoryItem[]
+  const chatTurns = (await searchTurnPairsInOrama(query as string, queryVector, limit, threshold)) as TurnPairItem[]
 
   return { memories, chatTurns }
 }
 
-export const executeMemorySearch = async (rawQuery) => {
-  const parts = (rawQuery || '').split('||')
+export const executeMemorySearch = async (rawQuery: unknown): Promise<string> => {
+  const parts = String(rawQuery || '').split('||')
   const searchKeyword = parts[0]?.trim() || ''
   const customThreshold =
     parts[1] && !isNaN(parseFloat(parts[1])) ? parseFloat(parts[1].trim()) : 0.5
@@ -331,7 +376,7 @@ export const executeMemorySearch = async (rawQuery) => {
       ? memories
           .map(
             (m) =>
-              `- [${m.type.toUpperCase()}] (ID:${m.id}, Score:${(m.score || 0).toFixed(2)}) ${m.memory}`
+              `- [${String(m.type).toUpperCase()}] (ID:${m.id}, Score:${(m.score || 0).toFixed(2)}) ${m.memory}`
           )
           .join('\n')
       : ''
@@ -346,7 +391,7 @@ export const executeMemorySearch = async (rawQuery) => {
           .join('\n\n')
       : ''
 
-  let sections = []
+  const sections: string[] = []
   if (formattedMemories) {
     sections.push(`[CATATAN & MEMORI PENGGUNA]\n${formattedMemories}`)
   }
@@ -360,7 +405,10 @@ export const executeMemorySearch = async (rawQuery) => {
   return `[MEMORY SEARCH RESULTS (Threshold: ${customThreshold}, Limit: ${customLimit})]\nTidak ditemukan memori atau percakapan yang relevan dengan kata kunci "${searchKeyword}".`
 }
 
-export const getUnifiedContext = async (userInput, memoryList) => {
+export const getUnifiedContext = async (
+  userInput: unknown,
+  memoryList: unknown
+): Promise<{ memories: Array<Record<string, unknown>>; archives: unknown[]; documents: unknown[]; turnPairs: unknown[] }> => {
   const memories = await getRelevantMemory(userInput, memoryList)
 
   // Masih perlu generate vector untuk Orama (Documents & Archives)

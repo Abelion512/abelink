@@ -1,6 +1,17 @@
 // Chunk @huggingface/transformers (23MB ort-wasm) — di-split keluar entry bundle.
-// Satu-satunya static importer: vectorLoader.js. Jangan import file ini langsung.
+// Satu-satunya static importer: vectorLoader.ts. Jangan import file ini langsung.
 import { pipeline, env } from '@huggingface/transformers'
+
+// ---- Kontrak tipe (W2-7a) ----
+type Extractor = (
+  text: string,
+  opts: { pooling: string; normalize: boolean; truncation: boolean; max_length: number }
+) => Promise<{ data: ArrayLike<number>; dispose?: () => void }>
+
+type ProgressCallback = (p: { status?: string; progress?: number; file?: string }) => void
+
+// cast onnx wasm flags: tipe library menyembunyikan properti runtime simd/threads.
+const onnxWasm = (env.backends as { onnx?: { wasm?: { simd?: boolean; threads?: boolean } } })?.onnx?.wasm
 
 env.allowLocalModels = false
 env.useBrowserCache = true
@@ -24,11 +35,13 @@ function isWasmSimdSupported() {
 }
 
 if (!isWasmSimdSupported()) {
-  env.backends.onnx.wasm.simd = false
-  env.backends.onnx.wasm.threads = false
+  if (onnxWasm) {
+    onnxWasm.simd = false
+    onnxWasm.threads = false
+  }
 }
 
-let extractor = null
+let extractor: Extractor | null = null
 let isDownloading = false
 let vectorDisabled = false // CSP block failover — skip vector ops permanently after first failure
 
@@ -43,7 +56,7 @@ try {
 } catch (_) {}
 
 // We export this so we can manually trigger download from config page
-export const getExtractor = async (onProgress) => {
+export const getExtractor = async (onProgress?: ProgressCallback): Promise<Extractor | null> => {
   if (vectorDisabled) return null
   if (extractor) return extractor
   if (isDownloading) {
@@ -60,14 +73,14 @@ export const getExtractor = async (onProgress) => {
     // "cpu" tidak ada di browser (transformers.js hanya punya "wasm"). Mencoba
     // keduanya hanya menghasilkan dua error merah tambahan yang pasti gagal.
     // Satu attempt: wasm dengan flag SIMD sesuai deteksi module-level.
-    extractor = await pipeline(
+    extractor = (await pipeline(
       'feature-extraction',
       'Xenova/paraphrase-multilingual-MiniLM-L12-v2',
       {
         device: 'wasm',
         progress_callback: onProgress
       }
-    )
+    )) as unknown as Extractor
   } catch (e) {
     console.error('Failed to load transformer model', e)
     vectorDisabled = true
@@ -77,12 +90,12 @@ export const getExtractor = async (onProgress) => {
   return extractor
 }
 
-export const generateVector = async (text) => {
+export const generateVector = async (text: unknown): Promise<number[] | null> => {
   if (vectorDisabled) return null
   try {
     const ext = await getExtractor()
     if (!ext) return null
-    const output = await ext(text, {
+    const output = await ext(text as string, {
       pooling: 'mean',
       normalize: true,
       truncation: true,
