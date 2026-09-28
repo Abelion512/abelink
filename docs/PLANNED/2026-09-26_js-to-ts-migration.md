@@ -1,7 +1,7 @@
 # Rencana Migrasi JS -> TS (bertahap, tanpa freeze fitur)
 
 Tanggal: 2026-09-26
-Status: **EKSEKUSI BERJALAN** (lihat Status Eksekusi di bawah; bagian di bawah garis adalah peta jalan asli 2026-09-26, sebagian klaimnya sudah basi)
+Status: **SUPERSEDED (2026-09-28)** — peta jalan sisa migrasi TS kini hidup di `js-to-ts-spec.md` (goal 100% TS tanpa sisa, wave W0..W9). Dokumen ini diarsipkan sebagai sejarah; bagian di bawah garis adalah peta jalan asli 2026-09-26, sebagian klaimnya sudah basi (mis. Dexie sudah v30, bukan v22).
 Pemilik: Abelion512
 
 ## Status Eksekusi (pengukuran 2026-09-27, rev 32f2816+)
@@ -17,6 +17,11 @@ Pola yang terbukti bekerja (lanjutkan): strangler via zona bersih (`allowJs: tru
 `checkJs: false`, include progresif), ukur error dulu -> nol-kan -> masukkan gate.
 
 <!-- OPENCODE AMBIL ALIH -->
+<!-- [SUPERSEDED 2026-09-28] Marker dan paragraf handoff di bawah TIDAK AKTIF:
+     eksekusi sisa migrasi kini dipegang spec `js-to-ts-spec.md` (wave W0..W9,
+     branch `refactor/ts-w*`) sesuai keputusan owner (K10). Teks disimpan
+     sebagai sejarah agar watcher cron tidak kehilangan konteks, bukan sebagai
+     sinyal kerja baru. -->
 **HANDOFF: OPENCODE AMBIL ALIH dari titik ini.** Sisa pekerjaan migrasi TS
 (Fase 1 sisanya: ekstraksi `cli/core/` penuh + `theme.ts`; Fase 2: registry /
 tauri-bridge / db / agentRunner; Fase 3: renderer) diserahkan ke agent OpenCode

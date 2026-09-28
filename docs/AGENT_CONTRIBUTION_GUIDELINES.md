@@ -20,6 +20,42 @@ Tujuan utama panduan ini adalah menjaga kedaulatan arsitektur, konsistensi keama
 
 ---
 
+## 1b. Siklus Kerja Otonom (Audit -> Fix -> Test -> Verify -> Loop)
+
+Eksekusi tugas berjalan sebagai loop, bukan sekali jalan. Urutan wajib per unit kerja:
+
+1. **Audit** - baca file/riwayat/log yang relevan SEBELUM menyentuh kode (poin 1, Tool-First).
+2. **Fix** - lakukan perubahan minimum (satu topik per commit).
+3. **Test** - jalankan test yang relevan dengan perubahan.
+4. **Cabang keputusan antara Fix dan Test**:
+   - Test TIDAK lolos -> kembali ke Fix (auto-fix, ulangi). Dilarang lanjut dengan test merah.
+   - Test LOLOS -> jalankan **pass ponytail** sebelum verify (lihat 1b.2).
+5. **Verify** - baru jalankan gerbang verifikasi penuh (bagian 5). Verify yang lulus di atas test merah tidak sah.
+6. **Loop** - ulangi dari Audit untuk unit kerja berikutnya; catat hasil di session log.
+
+### 1b.1 Implikasi rename/refactor (wajib)
+
+Rename file = potensi pemutusan kontrak luar yang tidak terlihat di diff. Sebelum merge, cek dan ikuti:
+- `PONYTAIL.md`: setiap file yang direname dan mengandung marker `ponytail:` wajib update kolom **Lokasi** (basename) di ledger, kalau tidak `tests/ponytailLedger.test.mjs` merah.
+- Spec/roadmap aktif: bila file tercantum di spesifikasi berjalan (mis. `js-to-ts-spec.md`), update referensinya di PR yang sama.
+- Session log sesi lain yang menunjuk file lama tidak di-retroaktif; hanya dokumen aktif yang di-update.
+
+### 1b.2 Sistem Ponytail (bukan cuma debt)
+
+Referensi sumber kebenaran: `PONYTAIL.md` + `src/api/ai/builtinPlugins.js` (PONYTAIL_LADDER) + `tests/ponytailLedger.test.mjs`.
+
+- **Marker `ponytail:`** = keputusan pragmatis SADAR di inline code: dipilih sederhana sekarang, dengan kriteria eksplisit kapan dinaikkan. Bukan TODO biasa; marker tanpa kriteria naik = pelanggaran format.
+- **DEBT** = kesederhanaan yang dipilih + kriteria naik (dari marker). Contoh: `// ponytail: FIFO eviction at 50 entries; LRU only if hit-rate data says so.`
+- **GAIN** = perbaikan terukur yang sudah didapat dari keputusan pragmatis (angka nyata, bukan perasaan): dependency dihapus, LOC turun, benchmark lebih cepat. Setiap sesi yang menaikkan/menambah keputusan wajib mencatat gain jujur bila ada.
+- **AUDIT** = pass berkala menemukan marker yang kriterianya sudah terpenuhi (naikkan) atau basi (hapus marker + entri ledger bersamaan, satu PR kecil).
+- **Ledger sinkron**: file ber-marker wajib ada di `PONYTAIL.md`; entri tanpa marker wajib dihapus. Test `tests/ponytailLedger.test.mjs` menegakkan keduanya - jadi marker baru wajib datang bersama entri ledger di PR yang sama.
+- **Naikkan satu ponytail** = PR kecil berisi: perbaikan + hapus/update marker + update ledger + catat gain (bila terukur).
+- Penerapan di siklus kerja: setelah test lolos dan SEBELUM verify, tentukan: (a) perubahan ini menambah keputusan pragmatis? tambah marker + entri ledger; (b) perubahan memenuhi kriteria naik marker lama? catat di session log sebagai kandidat naik (jangan naikkan di PR yang sama bila mencampur topik); (c) tidak keduanya? lanjut verify.
+
+### 1b.3 Peta program migrasi TS aktif
+
+Program migrasi JS->TS dieksekusi lewat spec `js-to-ts-spec.md` (root repo): wave W0..W9, satu slice satu PR, branch `refactor/ts-w*`, ratchet no-new-JS (`scripts/ci/no-new-js.sh`). Baca spec itu sebelum menyentuh file di zona migrasi.
+
 ## 2. Batas Arsitektur (Architectural Boundaries)
 
 Abelink membagi beban kerja ke dalam tiga lapisan terisolasi:

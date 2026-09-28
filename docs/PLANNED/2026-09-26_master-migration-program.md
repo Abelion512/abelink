@@ -16,7 +16,9 @@ runtime tidak. Setiap langkah reversible dan terukur.
 | Diabaikan | `opencode/` clone | **referensi TUI saja**, bukan bagian repo: tak di-lint, tak di-typecheck, tak di-build, tak di-test |
 
 Detail per program (tidak diulang di sini kecuali ringkas):
-- P1: `docs/PLANNED/2026-09-26_js-to-ts-migration.md`
+- P1: **`js-to-ts-spec.md` (root repo, 2026-09-28)** — peta jalan sisa migrasi
+  (wave W0..W9, goal 100% TS tanpa sisa); dokumen
+  `2026-09-26_js-to-ts-migration.md` SUPERSEDED oleh spec tersebut.
 - P2: `docs/PLANNED/2026-09-26_hermes-cli-engine-adoption.md` (H1..H12)
 - P3: `docs/PLANNED/2026-09-26_tui-parity-and-pluggable-migration.md`
 
