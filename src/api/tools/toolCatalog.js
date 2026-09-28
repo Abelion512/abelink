@@ -166,7 +166,7 @@ export const CORE_TOOL_SPECS = {
     description: 'Lihat peta/struktur file (fungsi, class, ekspor, heading) beserta nomor baris tanpa membaca seluruh isi. Sangat hemat token untuk file besar.',
     queryFormat: 'path_file',
     examples: [
-      { query: 'src/api/ai/planning.js', description: 'Melihat outline struktur fungsi dan ekspor di planning.js' }
+      { query: 'src/api/ai/planning.ts', description: 'Melihat outline struktur fungsi dan ekspor di planning.ts' }
     ],
     tags: ['outline', 'ast', 'symbols', 'structure', 'functions']
   },

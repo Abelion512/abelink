@@ -1,7 +1,44 @@
 import { fetchAI, cleanAndParse, extractLenientField } from './core'
 import { resolveEffortLevel } from './effortEstimator'
 import { playbookLookup, playbookRecord, configKeyFor } from './playbooks'
-import { getAllConfig, getAllLearnedSkills } from '../db'
+import { getAllConfig, getAllLearnedSkills, type ConfigRow } from '../db'
+
+// ---- Kontrak tipe (W2-5, B-11: rename + anotasi minimal; prompt string DIKUNCI) ----
+interface UnifiedContext {
+  memories?: unknown[]
+  archives?: unknown[]
+  documents?: unknown[]
+  turnPairs?: unknown[]
+}
+
+interface PlanningLoopMessage {
+  role?: string
+  content?: unknown
+  timestamp?: string
+  mood?: string
+  isProactive?: boolean
+  [key: string]: unknown
+}
+
+type SessionTransport = ((req: unknown) => Promise<unknown>) | null
+
+interface PlanningOptions {
+  isVoice?: boolean
+  disableTools?: boolean
+  conversational?: boolean
+  workspaceRoot?: string | null
+  stepsLeft?: number
+  currentMusicTrack?: { title: string; artist: string } | null
+  activeTaskObjective?: string | null
+  existingSubagents?: string | null
+  onToken?: (chunk: string) => void
+  fetchAI?: SessionTransport
+  transport?: SessionTransport
+  configOverride?: Record<string, unknown> | null
+  sessionId?: string | null
+  turn?: number | null
+  [key: string]: unknown
+}
 import { getCurrentTimeInfo } from './utils'
 import { getPersonaPrompt } from './persona'
 import { getBuiltinPluginsPrompt } from './builtinPlugins'
@@ -25,7 +62,7 @@ export const getLastSystemPrompt = () => lastSystemPrompt
 // Blok IDENTITAS DIRI memang wajib menyebut identitas produk (appIdentity.js)
 // sehingga bukan kebocoran — yang dicurigai hanya kemunculan nama warisan di blok lain
 // (memori/riwayat/tools). Murni string, testable.
-export function findSuspiciousName(systemPrompt) {
+export function findSuspiciousName(systemPrompt: unknown): { name: string; snippet: string } | null {
   const text = String(systemPrompt || '')
   // Potong blok identitas diri (dari headernya sampai header blok berikutnya).
   const stripped = text.replace(/# IDENTITAS DIRI[\s\S]*?(?=\n# [A-Z])/g, '# IDENTITAS DIRI (dihilangkan)\n')
@@ -33,7 +70,7 @@ export function findSuspiciousName(systemPrompt) {
   if (!m) return null
   const idx = stripped.search(/\b(Mada|Mazees)\b/i)
   return {
-    name: m[1],
+    name: m[1] as string,
     snippet: stripped
       .slice(Math.max(0, idx - 120), idx + 120)
       .replace(/\s+/g, ' ')
@@ -41,18 +78,18 @@ export function findSuspiciousName(systemPrompt) {
 }
 
 export const getNextAction = async (
-  userInput,
-  loopMessages,
-  signal,
-  unifiedContext = { memories: [], archives: [], documents: [], turnPairs: [] },
+  userInput: string | null,
+  loopMessages: PlanningLoopMessage[],
+  signal: AbortSignal | null,
+  unifiedContext: UnifiedContext = { memories: [], archives: [], documents: [], turnPairs: [] },
   contextMsg = '',
   activeTopic = '',
-  options = {}
+  options: PlanningOptions = {}
 ) => {
   try {
     const { memories = [], archives = [], documents = [], turnPairs = [] } = unifiedContext
     const currentConfig = await getAllConfig()
-    const conf = currentConfig[0] || {}
+    const conf: ConfigRow = currentConfig[0] || {}
 
     const isVoice = Boolean(
       options.isVoice ||
@@ -66,7 +103,7 @@ export const getNextAction = async (
 
     const groupToolsObj = await group_tools()
 
-    let fileSkills = []
+    let fileSkills: Array<{ name: string; description: string }> = []
     try {
       // Cache: scan filesystem sidecar tidak diulang tiap giliran agen;
       // refresh otomatis via event 'skills-updated' / TTL (lihat skillsCache).
@@ -75,7 +112,7 @@ export const getNextAction = async (
       console.error('Failed to get file skills for planning', e)
     }
 
-    let learnedSkills = []
+    let learnedSkills: Array<{ name?: string; description?: string; state?: string }> = []
     try {
       learnedSkills = await getAllLearnedSkills()
     } catch (e) {
@@ -97,14 +134,13 @@ export const getNextAction = async (
 
     // Registry kapabilitas terpadu (Tahap 3): plugin + connector one-liners
     // dari sidecar via capabilities:registry; gagal = blok dilewati diam-diam.
-    let registryPluginLines = []
-    let registryConnectorLines = []
+    const registryPluginLines: string[] = []
+    const registryConnectorLines: string[] = []
     try {
-      const registry =
-        typeof window !== 'undefined' && window.api?.listCapabilityRegistry
-          ? await window.api.listCapabilityRegistry()
-          : []
-      const items = Array.isArray(registry) ? registry : []
+      const bridge = typeof window !== 'undefined' ? (window as unknown as { api?: { listCapabilityRegistry?: () => Promise<unknown> } }).api : null
+      const listRegistry = bridge?.listCapabilityRegistry
+      const registry = listRegistry ? await listRegistry() : []
+      const items = (Array.isArray(registry) ? registry : []) as Array<{ id?: unknown; kind?: unknown; description?: string }>
       for (const d of items) {
         if (!d || typeof d.id !== 'string') continue
         if (d.kind === 'plugin') registryPluginLines.push(`- ${d.id} — ${d.description ?? ''}`)
@@ -118,18 +154,18 @@ export const getNextAction = async (
     let workspaceRagSection = ''
     if (targetWorkspace) {
       try {
-        const workspaceContext = await getWorkspaceContext(targetWorkspace, userInput)
+        const workspaceContext = await getWorkspaceContext(targetWorkspace as string, userInput as string)
         workspaceRagSection = buildWorkspacePromptSection(workspaceContext)
       } catch (_) {}
     }
 
-    const trialNudge = buildTrialSkillNudge(learnedSkills, userInput)
+    const trialNudge = buildTrialSkillNudge(learnedSkills, userInput as string)
     const trialNudgeSection = trialNudge ? `\n\n${trialNudge}` : ''
 
-    const classifiedKind = classifyObjectiveKind(userInput, {
+    const classifiedKind = classifyObjectiveKind(userInput as string, {
       disableTools: !!options.disableTools,
       conversational: !!options.conversational
-    })
+    } as Parameters<typeof classifyObjectiveKind>[1])
     const autonomyDomain =
       classifiedKind === 'browser'
         ? 'browser'
@@ -145,12 +181,12 @@ export const getNextAction = async (
     const autonomyContractSection = buildAutonomyContractSection({
       domain: autonomyDomain,
       stepsLeft: typeof options.stepsLeft === 'number' ? options.stepsLeft : null
-    })
+    } as Parameters<typeof buildAutonomyContractSection>[0])
 
     const systemPrompt = `
 Kamu adalah Abelink, sebuah entitas asisten AI PC Linux otonom.
 
-${await getPersonaPrompt(userId, conf.personality, conf.ownerName)}
+${await getPersonaPrompt(userId, conf.personality, (conf as ConfigRow & { ownerName?: string }).ownerName)}
 ${getBuiltinPluginsPrompt(conf)}
 ${autonomyContractSection}
 ${options.currentMusicTrack ? `\n# STATUS PLAYER MUSIK (REAL-TIME):\nLagu yang AKTIF DIPUTAR SEKARANG: "${options.currentMusicTrack.title}" oleh ${options.currentMusicTrack.artist}.\nPENTING: Lagu di playlist bisa berganti otomatis. JANGAN TERKECUH oleh riwayat chat lama yang menyebutkan lagu sebelumnya! Untuk semua pertanyaan atau obrolan tentang musik yang sedang berjalan, HANYA gunakan data REAL-TIME ini sebagai referensi utama!` : ''}
@@ -352,7 +388,7 @@ Jika kamu butuh melakukan aksi-aksi kompleks di bawah ini, KAMU WAJIB MEMANGGIL 
 - Format detail 1 tool: {"tool": "read-tools", "query": "nama_tool"} (misal: "browser-click", "git-commit", "replace-content")
 - Format pencarian tool: {"tool": "read-tools", "query": "search: kata_kunci"} (misal: "search: snapshot", "search: terminal background")
 Daftar grup kapabilitas deferred:
-${Object.entries(groupToolsObj)
+${Object.entries(groupToolsObj as Record<string, { description: string; dormant?: boolean }>)
   .filter(([, v]) => !v.dormant)
   .map(([k, v]) => `- ${k}: ${v.description}`)
   .join('\n')}
@@ -466,7 +502,7 @@ ${composeAllMemorySections({ memories, archives, documents, turnPairs })}`
       .trim()
 
     // INJECT MOOD & COMPACT OLD OBSERVATIONS:
-    const prepareHistory = (session) => {
+    const prepareHistory = (session: PlanningLoopMessage[]) => {
       const len = session.length
       return session.map((msg, idx) => {
         // Support for Vision API (array of objects)
@@ -518,7 +554,10 @@ ${composeAllMemorySections({ memories, archives, documents, turnPairs })}`
 
     const previousTurns = loopMessages.length > 0 ? prepareHistory(loopMessages) : []
 
-    const messages = [{ role: 'system', content: systemPrompt }, ...previousTurns]
+    const messages: Array<{ role?: string; content: unknown }> = [
+      { role: 'system', content: systemPrompt },
+      ...previousTurns
+    ]
 
     // Audit injeksi (dev): snapshot prompt terakhir untuk dump dari
     // Configuration > Developer. Deteksi nama tak dideklarasikan.
@@ -526,7 +565,7 @@ ${composeAllMemorySections({ memories, archives, documents, turnPairs })}`
     // (atribusi kreator yang sah, bukan kebocoran).
     try {
       lastSystemPrompt = systemPrompt
-      if (!conf.ownerName?.trim() && !auditNameWarned) {
+      if (!(conf as ConfigRow & { ownerName?: string }).ownerName?.trim() && !auditNameWarned) {
         const suspicious = findSuspiciousName(systemPrompt)
         if (suspicious) {
           auditNameWarned = true
@@ -536,7 +575,7 @@ ${composeAllMemorySections({ memories, archives, documents, turnPairs })}`
         }
       }
     } catch (_) {}
-    const schema = {
+    const schema: Record<string, unknown> = {
       type: 'object',
       properties: {
         thought: {
@@ -655,8 +694,8 @@ ${composeAllMemorySections({ memories, archives, documents, turnPairs })}`
     // Low-effort deterministic replay: exact repeat of a previous successful
     // prompt + config returns the cached answer with zero LLM calls.
     // Miss → normal LLM path (effort untouched, no escalation change).
-    let playbookPrompt = null
-    let playbookKey = null
+    let playbookPrompt: string | null = null
+    let playbookKey: string | null = null
     if (typeof userInput === 'string' && userInput) {
       try {
         playbookPrompt = userInput
@@ -691,13 +730,20 @@ ${composeAllMemorySections({ memories, archives, documents, turnPairs })}`
       // mengalir ke ThinkingBubble selagi network berjalan; tanpa onToken =
       // jalur blocking lama. Supervisor tetap per-turn (tidak disentuh).
       const streamCb = typeof options.onToken === 'function' ? options.onToken : null
-      const fetchOpts = {
+      const fetchOpts: Record<string, unknown> = {
         signal,
         onToken: streamCb,
         transport: options.fetchAI || options.transport || null,
         configOverride: options.configOverride || null
       }
-      const response = await fetchAI(messages, fetchOpts, false, schema)
+      // Cast ke bentuk wire (content/reasoning/error): response null secara
+      // runtime tetap melempar TypeError di akses properti — perilaku eksak.
+      const response = (await fetchAI(messages, fetchOpts, false, schema)) as {
+        content?: string | null
+        reasoning?: string | null
+        error?: { message?: string; code?: string } | null
+        [key: string]: unknown
+      }
 
       if (!response.content?.trim() && response.reasoning) {
         console.warn(
@@ -712,7 +758,7 @@ ${composeAllMemorySections({ memories, archives, documents, turnPairs })}`
         continue
       }
 
-      const data = cleanAndParse(response.content)
+      const data = cleanAndParse(response.content) as Record<string, unknown> | null
       // Log defensif: data bisa null bila parse gagal, jangan sampai lempar error
       // dan mencegah fallback rapi di akhir fungsi.
       const reasoningData = {
@@ -722,7 +768,7 @@ ${composeAllMemorySections({ memories, archives, documents, turnPairs })}`
         task_status: data?.task_status ?? null,
         objective: data?.objective ?? null,
         action: data?.action
-          ? data.action.tool || JSON.stringify(data.action).slice(0, 120)
+          ? (data.action as { tool?: string })?.tool || JSON.stringify(data.action).slice(0, 120)
           : null
       }
       try {
@@ -764,7 +810,7 @@ ${composeAllMemorySections({ memories, archives, documents, turnPairs })}`
       // Jaring penyelamat anti-diskoneksi: bila JSON rusak tapi output mengandung
       // field kunci, pulihkan field tersebut (terutama "answer") sebagai objek
       // parsial — daripada buang jawaban model dan retry 2x sia-sia.
-      let recovered = null
+      let recovered: Record<string, unknown> | null = null
       if (!data || typeof data !== 'object' || Array.isArray(data)) {
         const rawOut = String(response.content || '')
         const recoveredAnswer = extractLenientField(rawOut, 'answer')
@@ -790,7 +836,7 @@ ${composeAllMemorySections({ memories, archives, documents, turnPairs })}`
           console.warn('[planning] JSON rusak — field dipulihkan via lenient scan')
         }
       }
-      const effective = recovered || data
+      const effective = (recovered || data) as Record<string, unknown> | null
 
       if (
         effective &&
@@ -798,7 +844,7 @@ ${composeAllMemorySections({ memories, archives, documents, turnPairs })}`
         !Array.isArray(effective) &&
         (effective.action !== undefined || effective.answer !== undefined)
       ) {
-        let finalAction = effective.action || null
+        const finalAction = effective.action || null
         let finalAnswer = effective.answer || null
         if (!finalAction && !finalAnswer) {
           console.warn(
@@ -903,8 +949,8 @@ ${composeAllMemorySections({ memories, archives, documents, turnPairs })}`
       active_topic: activeTopic
     }
   } catch (error) {
-    const errorMsg = error?.message || ''
-    if (error?.name !== 'AbortError' && !errorMsg.includes('AbortError')) {
+    const errorMsg = (error as Error)?.message || ''
+    if ((error as Error)?.name !== 'AbortError' && !errorMsg.includes('AbortError')) {
       console.error('Error in getNextAction:', error)
     }
     throw error
