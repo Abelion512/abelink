@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto'
 import { describe, it, expect, beforeEach } from 'vitest'
-import { db, saveLearnedSkill } from '../src/api/db.js'
+import { db, saveLearnedSkill } from '../src/api/db.ts'
 import {
   runSkillMiniEval,
   evaluateAndGraduateSkill,

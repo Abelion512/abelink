@@ -12,7 +12,7 @@
 | Ref | Lokasi | Keputusan | Kriteria naik |
 |---|---|---|---|
 | P-01 | `src/api/ragPipeline.js` | API `generateStorableVector` (bukan `generateVector`) untuk Lite Mode | Bila Lite Mode perlu vektor hash berbeda |
-| P-02 | `src/api/db.js` | Threshold near-duplicate sengaja tinggi | Bila user melaporkan memori mirip tak terdeteksi |
+| P-02 | `src/api/db.ts` | Threshold near-duplicate sengaja tinggi | Bila user melaporkan memori mirip tak terdeteksi |
 | P-03 | `src/api/ai/planning.js` | Ambang prompt 40 char / digest 120 char | Bila jawaban pendek ikut lolos audit |
 | P-04 | `src/api/ai/playbooks.js` | FIFO eviction 50 entri (bukan LRU) | Bila ada data hit-rate yang bilang LRU lebih baik |
 | P-05 | `src/api/ai/core.js` | Satu skema kunci recent-cache untuk custom+lm-studio | Bila dua provider butuh skema kunci berbeda |

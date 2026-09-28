@@ -11,7 +11,7 @@ import {
   VOCAL_SEC_MIN,
 } from '../src/api/sttGuard.js'
 import { transcribeToEndpoint } from '../src/api/sttRouter.js'
-import * as db from '../src/api/db.js'
+import * as db from '../src/api/db.ts'
 import { resolveDataHome, brandDir } from '../sidecar/main/utils/dataHome.mjs'
 
 describe('isSpeechValid (pre-STT gate)', () => {

@@ -1,16 +1,22 @@
-{
-  // tsconfig.node.json — permukaan NODE (sidecar, scripts, evaluation, tests).
-  //
-  // Dipakai oleh script `bun run typecheck:node`. Sengaja dipisah dari gate
-  // payung: permukaan ini boleh memakai API Node (fs, path, child_process),
-  // sedangkan renderer DILARANG (invariant Tauri boundary). `lib` sengaja TANPA
-  // DOM supaya `window`/`document` di sisi Node langsung jadi error, bukan lolos.
-  //
-  // cli/** dan bin/**/*.tsx SUDAH masuk (M2a, 2026-09-26): sebelumnya 114 error,
-  // sekarang 0. Lihat docs/PLANNED/2026-09-26_master-migration-program.md (§ M2).
+{// tsconfig.node.json — permukaan NODE (sidecar, scripts, evaluation, tests).
+//
+// Dipakai oleh script `bun run typecheck:node`. Sengaja dipisah dari gate
+// payung: permukaan ini boleh memakai API Node (fs, path, child_process).
+//
+// W2-2 (2026-09-28): `lib` menambahkan DOM. Penyebabnya struktural, bukan
+// gaya: 60+ test di tests/** mengimpor modul renderer (src/api/db.ts dst.)
+// sehingga berkas itu ikut masuk program tsc node-zone. Guardrail boundary
+// yang SESUNGGUHNYA (keamanan Tauri) tetap dijaga di arah sebaliknya:
+// tsconfig.renderer.json memakai types:[] (tanpa tipe Node) sehingga
+// fs/path/child_process di src/** langsung error. Sisi node kehilangan satu
+// guard gaya (window tak lagi error otomatis) — kompensasi: tetap dicek oleh
+// disiplin review + aturan AGENTS.
+//
+// cli/** dan bin/**/*.tsx SUDAH masuk (M2a, 2026-09-26): sebelumnya 114 error,
+// sekarang 0. Lihat docs/PLANNED/2026-09-26_master-migration-program.md (§ M2).
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "lib": ["ES2022"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": ["node"]
   },
   "include": [

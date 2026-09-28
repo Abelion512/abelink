@@ -10,7 +10,7 @@ import {
   bumpLearnedSkillUse,
   archiveStaleLearnedSkills,
   graduateTrialSkill
-} from '../src/api/db.js'
+} from '../src/api/db.ts'
 
 describe('learnedSkills reuse telemetry (R1a)', () => {
   beforeEach(async () => {

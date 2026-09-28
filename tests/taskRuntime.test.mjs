@@ -5,7 +5,7 @@
 // facade imports without browser globals.
 import 'fake-indexeddb/auto'
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { db } from '../src/api/db.js'
+import { db } from '../src/api/db.ts'
 import * as taskStore from '../src/api/taskStore.js'
 import {
   TASK_RUNTIME_EVENTS,

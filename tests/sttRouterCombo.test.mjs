@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { normalizeSttUrl, getHardwareSttSupport, transcribeAudioUnified } from '../src/api/sttRouter.js'
 import { extractClipboardFiles } from '../src/utils/attachments.js'
-import * as db from '../src/api/db.js'
+import * as db from '../src/api/db.ts'
 
 describe('sttRouter - Multi-Provider Audio Router Combo', () => {
   it('normalizes localhost to 127.0.0.1 and appends /audio/transcriptions', () => {

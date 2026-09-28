@@ -1,22 +1,222 @@
 import Dexie from 'dexie'
+import type { Table } from 'dexie'
 import { generateVector, cosineSimilarity } from './vectorLoader'
 import { DEFAULT_STT_MODEL, PLACEHOLDER_STT_MODELS } from './sttGuard.js'
 import { LEGACY_HOSTS } from './ai/providerRegistry.js'
 
+// W2-2 (js-to-ts-spec.md): rename + tipe baris Dexie per store (schema v30
+// BEKU — upgrade path tidak disentuh). Tipe konsumen dipertahankan longgar
+// (banyak field opsional) sesuai realitas baris lama di disk.
+
+/** Baris store memory. */
+export interface MemoryRow {
+  id?: number
+  type: string
+  summary: string
+  memory: string
+  vector?: number[]
+  [key: string]: unknown
+}
+/** Baris store sessions (riwayat chat per sesi). */
+export interface SessionRow {
+  id?: number
+  title?: string
+  data: unknown[]
+  timestamp: number
+  workspaceRoot?: string
+  [key: string]: unknown
+}
+/** Sambungan STT (v25+). */
+export interface SttConnection {
+  id: string
+  name: string
+  endpoint: string
+  apiKey: string
+  model: string
+  enabled: boolean
+}
+/** Baris store config (id:1 tunggal). */
+export interface ConfigRow {
+  id?: number
+  personality?: string
+  model?: string
+  temperature?: number
+  context?: unknown
+  ttsRate?: number
+  ttsPitch?: number
+  aiProvider?: string
+  groqApiKey?: string
+  groqModel?: string
+  embedProvider?: string
+  lmStudioEmbedModel?: string
+  customEndpoint?: string
+  customApiKey?: string
+  customModel?: string
+  customApiProtocol?: string
+  tgBotToken?: string
+  tgAdminIds?: string
+  awarenessEnabled?: boolean
+  cameraDeviceId?: string
+  cameraEnabled?: boolean
+  geminiWebModel?: string
+  windowOpacity?: number
+  localWhisperModel?: string
+  lastSeenWhatsNewVersion?: string | null
+  alwaysAllowedPaths?: string[]
+  sttProvider?: string
+  customSttEndpoint?: string
+  customSttApiKey?: string
+  customSttModel?: string
+  sttEnableCombo?: boolean
+  sttFallbackEndpoint?: string
+  sttFallbackApiKey?: string
+  sttFallbackModel?: string
+  sttStrategy?: string
+  sttLanguage?: string
+  sttConnections?: SttConnection[]
+  [key: string]: unknown
+}
+/** Baris store chatArchive. */
+export interface ChatArchiveRow {
+  id?: number
+  summary?: string
+  timestamp?: number
+  topic?: string
+  [key: string]: unknown
+}
+/** Baris store documents (RAG chunk). */
+export interface DocumentRow {
+  id?: number
+  docName?: string
+  chunkIndex?: number
+  content?: string
+  timestamp?: number
+  vector?: number[]
+  [key: string]: unknown
+}
+/** Baris store relationships. */
+export interface RelationshipRow {
+  userId: string
+  warmth: number
+  sarcasm_level: number
+  trust: number
+  energy: number
+  obedience: number
+  evalCount: number
+  lastEvaluation: string | null
+  lastChatIndex?: number
+  reasoning?: string
+  [key: string]: unknown
+}
+/** Baris store learnedSkills. */
+export interface LearnedSkillRow {
+  id: string
+  name: string
+  description: string
+  content: string
+  createdAt: number
+  updatedAt: number
+  use_count?: number
+  last_used_at?: number | null
+  state?: 'active' | 'trial' | 'archived'
+  evidenceVerified?: boolean
+  [key: string]: unknown
+}
+/** Baris store chatTurns (turn-pair vector memory). */
+export interface ChatTurnRow {
+  pairId: string
+  sessionId: number
+  timestamp?: number
+  vector?: number[]
+  vectorModel?: 'minilm' | 'hash' | 'none'
+  [key: string]: unknown
+}
+/** Baris store sessionCompacts (pointer ringkasan compactor). */
+export interface SessionCompactRow {
+  sessionId: string
+  [key: string]: unknown
+}
+/** Baris store appConfig (key-value flag). */
+export interface AppConfigRow {
+  key: string
+  value: string
+}
+/** Baris store agentTasks. */
+export interface AgentTaskRow {
+  id: string
+  status: string
+  mode?: string
+  createdAt?: number
+  updatedAt?: number
+  [key: string]: unknown
+}
+/** Baris store agentTaskSteps. */
+export interface AgentTaskStepRow {
+  id: string
+  taskId: string
+  index: number
+  status: string
+  updatedAt?: number
+  [key: string]: unknown
+}
+/** Baris store subagents. */
+export interface SubagentRow {
+  id: string
+  status: string
+  parentSessionId?: string
+  createdAt?: number
+  updatedAt?: number
+  [key: string]: unknown
+}
+/** Baris store subagent_messages. */
+export interface SubagentMessageRow {
+  id?: number
+  subagentId: string
+  sender: string
+  timestamp?: number
+  [key: string]: unknown
+}
+
+/** Database Dexie ter-tipe (schema v30). */
+export interface AbelinkDB extends Dexie {
+  memory: Table<MemoryRow, number>
+  sessions: Table<SessionRow, number>
+  config: Table<ConfigRow, number>
+  chatArchive: Table<ChatArchiveRow, number>
+  documents: Table<DocumentRow, number>
+  relationships: Table<RelationshipRow, string>
+  agentTasks: Table<AgentTaskRow, string>
+  agentTaskSteps: Table<AgentTaskStepRow, string>
+  subagents: Table<SubagentRow, string>
+  subagent_messages: Table<SubagentMessageRow, number>
+  learnedSkills: Table<LearnedSkillRow, string>
+  chatTurns: Table<ChatTurnRow, string>
+  sessionCompacts: Table<SessionCompactRow, string>
+  appConfig: Table<AppConfigRow, string>
+}
+
 // Endpoint chat legacy provider groq (pra-registry) — dipakai migrasi v30.
 const LEGACY_GROQ_CHAT_ENDPOINT = LEGACY_HOSTS['api.groq.com']
 
+// Akses TERBATAS ke bridge native untuk sinkronisasi config. Sengaja TIDAK
+// bergantung pada augmentasi Window dari tauri-bridge.ts: program node-zone
+// (typecheck:node) memuat berkas ini via import test tanpa memuat bridge,
+// jadi deklarasi global itu tidak tersedia di sana. db.ts hanya butuh satu
+// method — deklarasikan struktural di sini (runtime identik).
+type BridgeLike = { api?: { syncConfig?: (config: ConfigRow) => void } }
+const bridgeWindow = (): BridgeLike => window as unknown as BridgeLike
+
 // Lazy (bukan impor statis) agar tidak ada siklus modul db<->oramaStore:
 // oramaStore sudah lazy-import db untuk hydrate; sisi ini simetris.
-const syncMemoryToOrama = (fn, ...args) =>
-  import('./oramaStore').then((m) => m[fn](...args)).catch(console.error)
+const syncMemoryToOrama = (fn: string, ...args: unknown[]) =>
+  import('./oramaStore').then((m) => (m as Record<string, (...a: unknown[]) => void>)[fn](...args)).catch(console.error)
 
 if (typeof indexedDB !== 'undefined' && (!Dexie.dependencies?.indexedDB || !Dexie.dependencies?.IDBKeyRange)) {
   Dexie.dependencies.indexedDB = indexedDB
   if (typeof IDBKeyRange !== 'undefined') Dexie.dependencies.IDBKeyRange = IDBKeyRange
 }
 
-export const db = new Dexie('abelink-db')
+export const db = new Dexie('abelink-db') as AbelinkDB
 
 db.version(1).stores({
   // Index gabungan hanya [type+key] agar data lain (summary, confidence) bisa diubah
@@ -58,29 +258,29 @@ db.version(9).stores({
   config: 'id, personality, model, temperature, context, ttsRate, ttsPitch, aiProvider, groqApiKey, groqModel, embedProvider, lmStudioEmbedModel, cerebrasApiKey, cerebrasModel, waAdminNumber, waPendingAdmins, waApprovedAdmins, customEndpoint, customApiKey, customModel, awarenessEnabled'
 })
 
-db.version(10).upgrade(async tx => {
+db.version(10).upgrade(async (tx) => {
   // Reset all vectors to force re-indexing with the new multilingual MiniLM model
-  return tx.memory.toCollection().modify(mem => {
+  return (tx as unknown as AbelinkDB).memory.toCollection().modify((mem) => {
     mem.vector = [];
   });
 })
 
-db.version(11).upgrade(async tx => {
+db.version(11).upgrade(async (tx) => {
   // Reset vectors for chatArchive and documents as well because of the model change
-  await tx.chatArchive.toCollection().modify(arc => {
+  await (tx as unknown as AbelinkDB).chatArchive.toCollection().modify((arc) => {
     arc.vector = [];
   });
-  await tx.documents.toCollection().modify(doc => {
+  await (tx as unknown as AbelinkDB).documents.toCollection().modify((doc) => {
     doc.vector = [];
   });
 })
 
-db.version(12).upgrade(async tx => {
+db.version(12).upgrade(async (tx) => {
   // BUMP VERSION 12: Memastikan benar-benar terhapus (jika v11 ke-skip)
-  await tx.chatArchive.toCollection().modify(arc => {
+  await (tx as unknown as AbelinkDB).chatArchive.toCollection().modify((arc) => {
     arc.vector = [];
   });
-  await tx.documents.toCollection().modify(doc => {
+  await (tx as unknown as AbelinkDB).documents.toCollection().modify((doc) => {
     doc.vector = [];
   });
 })
@@ -99,8 +299,8 @@ db.version(15).stores({
 
 db.version(16).stores({
   config: 'id, personality, model, temperature, context, ttsRate, ttsPitch, aiProvider, groqApiKey, groqModel, embedProvider, lmStudioEmbedModel, cerebrasApiKey, cerebrasModel, tgBotToken, tgAdminIds, customEndpoint, customApiKey, customModel, awarenessEnabled, cameraDeviceId, cameraEnabled, geminiWebModel'
-}).upgrade(async tx => {
-  return tx.table('config').toCollection().modify(config => {
+}).upgrade(async (tx) => {
+  return tx.table<ConfigRow>('config').toCollection().modify((config) => {
     config.tgBotToken = config.tgBotToken || ''
     config.tgAdminIds = config.tgAdminIds || ''
     delete config.waAdminNumber
@@ -116,16 +316,16 @@ db.version(17).stores({
 
 db.version(18).stores({
   config: 'id, personality, model, temperature, context, ttsRate, ttsPitch, aiProvider, groqApiKey, groqModel, embedProvider, lmStudioEmbedModel, cerebrasApiKey, cerebrasModel, tgBotToken, tgAdminIds, customEndpoint, customApiKey, customModel, awarenessEnabled, cameraDeviceId, cameraEnabled, geminiWebModel, windowOpacity'
-}).upgrade(tx => {
-  return tx.table('config').toCollection().modify(config => {
+}).upgrade((tx) => {
+  return tx.table<ConfigRow>('config').toCollection().modify((config) => {
     config.windowOpacity = config.windowOpacity ?? 1
   })
 })
 
 db.version(19).stores({
   config: 'id, personality, model, temperature, context, ttsRate, ttsPitch, aiProvider, groqApiKey, groqModel, embedProvider, lmStudioEmbedModel, cerebrasApiKey, cerebrasModel, tgBotToken, tgAdminIds, customEndpoint, customApiKey, customModel, awarenessEnabled, cameraDeviceId, cameraEnabled, geminiWebModel, windowOpacity, localWhisperModel'
-}).upgrade(tx => {
-  return tx.table('config').toCollection().modify(config => {
+}).upgrade((tx) => {
+  return tx.table<ConfigRow>('config').toCollection().modify((config) => {
     config.localWhisperModel = config.localWhisperModel ?? 'whisper-small'
   })
 })
@@ -149,8 +349,8 @@ db.version(23).stores({
 
 db.version(24).stores({
   config: 'id, personality, model, temperature, context, ttsRate, ttsPitch, aiProvider, groqApiKey, groqModel, embedProvider, lmStudioEmbedModel, cerebrasApiKey, cerebrasModel, tgBotToken, tgAdminIds, customEndpoint, customApiKey, customModel, awarenessEnabled, cameraDeviceId, cameraEnabled, geminiWebModel, windowOpacity, localWhisperModel, sttProvider, customSttEndpoint, customSttApiKey, customSttModel, sttEnableCombo, sttFallbackEndpoint, sttFallbackApiKey, sttFallbackModel'
-}).upgrade(tx => {
-  return tx.table('config').toCollection().modify(config => {
+}).upgrade((tx) => {
+  return tx.table<ConfigRow>('config').toCollection().modify((config) => {
     config.sttProvider = 'custom'
     config.customSttEndpoint = config.customSttEndpoint || (config.groqApiKey ? 'https://api.groq.com/openai/v1/audio/transcriptions' : 'http://127.0.0.1:20128/v1/audio/transcriptions')
     config.customSttApiKey = config.customSttApiKey ?? ''
@@ -164,8 +364,8 @@ db.version(24).stores({
 
 db.version(25).stores({
   config: 'id, personality, model, temperature, context, ttsRate, ttsPitch, aiProvider, groqApiKey, groqModel, embedProvider, lmStudioEmbedModel, cerebrasApiKey, cerebrasModel, tgBotToken, tgAdminIds, customEndpoint, customApiKey, customModel, awarenessEnabled, cameraDeviceId, cameraEnabled, geminiWebModel, windowOpacity, localWhisperModel, sttProvider, customSttEndpoint, customSttApiKey, customSttModel, sttEnableCombo, sttFallbackEndpoint, sttFallbackApiKey, sttFallbackModel, sttStrategy, sttLanguage'
-}).upgrade(tx => {
-  return tx.table('config').toCollection().modify(config => {
+}).upgrade((tx) => {
+  return tx.table<ConfigRow>('config').toCollection().modify((config) => {
     config.sttProvider = config.sttProvider || 'custom'
     config.sttStrategy = config.sttStrategy || 'fallback'
     config.sttLanguage = config.sttLanguage || 'id'
@@ -207,8 +407,8 @@ db.version(25).stores({
 })
 
 // v26: STT dikunci ke gateway lokal (9router) sebagai primary; Groq hanya cadangan.
-db.version(26).upgrade(tx => {
-  return tx.table('config').toCollection().modify(config => {
+db.version(26).upgrade((tx) => {
+  return tx.table<ConfigRow>('config').toCollection().modify((config) => {
     const LOCAL_STT = 'http://127.0.0.1:20128/v1/audio/transcriptions'
     const GROQ_STT = 'https://api.groq.com/openai/v1/audio/transcriptions'
     const primaryIsGroq = (config.customSttEndpoint || '').includes('groq')
@@ -247,9 +447,9 @@ db.version(27).stores({
 
 // v28: rewrite placeholder STT yang tak ada di server -> default 9router namespaced.
 // Hanya nilai persis placeholder; pilihan manual user tak tersentuh.
-db.version(28).upgrade(tx => {
-  return tx.table('config').toCollection().modify(config => {
-    const isPlaceholder = (m) => PLACEHOLDER_STT_MODELS.includes((m || '').trim())
+db.version(28).upgrade((tx) => {
+  return tx.table<ConfigRow>('config').toCollection().modify((config) => {
+    const isPlaceholder = (m: string | undefined) => PLACEHOLDER_STT_MODELS.includes((m || '').trim())
     if (isPlaceholder(config.customSttModel)) config.customSttModel = DEFAULT_STT_MODEL
     if (Array.isArray(config.sttConnections)) {
       for (const c of config.sttConnections) {
@@ -264,8 +464,8 @@ db.version(28).upgrade(tx => {
 // non-destruktif: field baru default (0/null/'active') agar skill lama hidup.
 db.version(29).stores({
   learnedSkills: 'id, name, createdAt, updatedAt, state'
-}).upgrade(tx => {
-  return tx.table('learnedSkills').toCollection().modify(skill => {
+}).upgrade((tx) => {
+  return tx.table<LearnedSkillRow>('learnedSkills').toCollection().modify((skill) => {
     if (typeof skill.use_count !== 'number') skill.use_count = 0
     if (!skill.last_used_at) skill.last_used_at = null
     if (typeof skill.state !== 'string') skill.state = 'active'
@@ -277,8 +477,8 @@ db.version(29).stores({
 // lama dibawa utuh (custom* menang bila sudah ada); field vendor lama
 // DIPERTAHANKAN agar downgrade aman & jejak historis tidak hilang. Idempoten:
 // customEndpoint yang sudah menunjuk legacy endpoint tak diubah dua kali.
-db.version(30).upgrade(tx => {
-  return tx.table('config').toCollection().modify(config => {
+db.version(30).upgrade((tx) => {
+  return tx.table<ConfigRow>('config').toCollection().modify((config) => {
     if (config.aiProvider === 'groq') {
       config.aiProvider = 'custom'
       if (!config.customEndpoint) {
@@ -298,7 +498,7 @@ db.version(30).upgrade(tx => {
 })
 
 // --- APP CONFIG (feature flags, hardware profile, etc.) ---
-export async function getAppConfig(key, fallback = null) {
+export async function getAppConfig(key: string, fallback: unknown = null) {
   try {
     const row = await db.appConfig.get(key)
     if (row === undefined) return fallback
@@ -310,15 +510,15 @@ export async function getAppConfig(key, fallback = null) {
   } catch { return fallback }
 }
 
-export async function setAppConfig(key, value) {
+export async function setAppConfig(key: string, value: unknown) {
   await db.appConfig.put({ key, value: typeof value === 'string' ? value : JSON.stringify(value) })
 }
 
 // --- VALIDATION ---
 const VALID_TYPES = ['profile', 'preference', 'notes', 'learn'];
 
-function getValidType(type) {
-  const t = (type || '').toLowerCase().trim();
+function getValidType(type: unknown) {
+  const t = (String(type) || '').toLowerCase().trim();
   return VALID_TYPES.includes(t) ? t : 'notes';
 }
 
@@ -330,7 +530,7 @@ function getValidType(type) {
 // tetap ditulis dan diurus groomer berkala (threshold 0.60).
 export const MEMORY_WRITE_DEDUP_SIMILARITY = 0.85
 
-export async function insertMemory(data) {
+export async function insertMemory(data: { id?: number; memory: string; type: string; summary?: string }) {
   const memoryText = data.memory.trim()
   const type = getValidType(data.type)
   const vector = (await generateVector(memoryText)) || []
@@ -357,14 +557,14 @@ export async function insertMemory(data) {
   }
 }
 
-export async function saveMainThread(data) {
+export async function saveMainThread(data: unknown[] | null | undefined) {
   try {
     // Strip base64 image_url -> placeholder agar IndexedDB tidak bloat
     // (screenshot 1080p ~1-2MB × N turn). Gambar hidup di memori sesi saja.
     const slim = Array.isArray(data)
-      ? data.map((m) => {
+      ? data.map((m: unknown) => {
           if (!m || typeof m !== 'object') return m
-          const c = m.content
+          const c = (m as { content?: unknown }).content
           if (typeof c === 'string' && c.startsWith('data:image/')) {
             return { ...m, content: '[Gambar: dilampirkan saat sesi, tidak dipersist]' }
           }
@@ -379,7 +579,7 @@ export async function saveMainThread(data) {
           return m
         })
       : data
-    await db.sessions.put({ id: 1, title: 'Main Thread', data: slim, timestamp: Date.now() })
+    await db.sessions.put({ id: 1, title: 'Main Thread', data: slim ?? [], timestamp: Date.now() })
   } catch (error) {
     console.error('Error saving main thread:', error)
   }
@@ -396,7 +596,11 @@ export async function getMainThread() {
 }
 
 // --- UPDATE ---
-export async function updateMemory(data, maybeMemory, maybeType) {
+export async function updateMemory(
+  data: { id?: number; memory?: string; type?: string; summary?: string } | number | null,
+  maybeMemory?: unknown,
+  maybeType?: unknown
+) {
   try {
     let id, memoryText, typeStr, summaryStr
     if (typeof data === 'object' && data !== null) {
@@ -414,7 +618,7 @@ export async function updateMemory(data, maybeMemory, maybeType) {
     const newMemoryText = memoryText.trim()
     const type = getValidType(typeStr)
     
-    let updatePayload = {
+    const updatePayload = {
       type: type,
       summary: summaryStr,
       memory: newMemoryText,
@@ -434,7 +638,7 @@ export async function updateMemory(data, maybeMemory, maybeType) {
 }
 
 // --- DELETE ---
-export async function deleteMemory(data) {
+export async function deleteMemory(data: number | { id?: number } | null | undefined) {
   try {
     const id = typeof data === 'object' && data !== null ? data.id : Number(data)
     if (id && !isNaN(id)) {
@@ -448,7 +652,7 @@ export async function deleteMemory(data) {
     return { success: false, error: 'ID is required for deletion' }
   } catch (error) {
     console.error('Error in deleteMemory logic:', error)
-    return { success: false, error: error.message }
+    return { success: false, error: (error as Error).message }
   }
 }
 
@@ -463,7 +667,7 @@ export async function getAllMemory() {
 }
 
 // Ambil satu memori berdasarkan ID (dipakai memory groomer sebelum merge)
-export async function getMemory(id) {
+export async function getMemory(id: unknown) {
   try {
     const numId = Number(id)
     if (!numId || isNaN(numId)) return null
@@ -567,11 +771,12 @@ export async function getAllConfig() {
   }
 }
 
-export async function saveConfiguration(data) {
+export async function saveConfiguration(data: ConfigRow) {
   try {
     await db.config.put({ ...data, id: 1 })
-    if (window.api && window.api.syncConfig) {
-      window.api.syncConfig(data)
+    const nativeApi = bridgeWindow().api
+    if (nativeApi?.syncConfig) {
+      nativeApi.syncConfig(data)
     }
     window.dispatchEvent(new CustomEvent('config-updated', { detail: data }))
     // Jangan pernah print payload utuh — berisi API key & tgBotToken.
@@ -596,7 +801,7 @@ export async function getAlwaysAllowedPaths() {
   }
 }
 
-export async function addAlwaysAllowedPath(pathToAdd) {
+export async function addAlwaysAllowedPath(pathToAdd: string) {
   try {
     if (!pathToAdd) return []
     const configs = await db.config.toArray()
@@ -609,8 +814,9 @@ export async function addAlwaysAllowedPath(pathToAdd) {
       const updatedList = [...currentList, pathToAdd]
       const newConfig = { ...currentConfig, id: 1, alwaysAllowedPaths: updatedList }
       await db.config.put(newConfig)
-      if (window.api && window.api.syncConfig) {
-        window.api.syncConfig(newConfig)
+      const nativeApi = bridgeWindow().api
+      if (nativeApi?.syncConfig) {
+        nativeApi.syncConfig(newConfig)
       }
       window.dispatchEvent(new CustomEvent('config-updated', { detail: newConfig }))
       return updatedList
@@ -622,7 +828,7 @@ export async function addAlwaysAllowedPath(pathToAdd) {
   }
 }
 
-export async function removeAlwaysAllowedPath(pathToRemove) {
+export async function removeAlwaysAllowedPath(pathToRemove: string) {
   try {
     const configs = await db.config.toArray()
     const currentConfig = (configs && configs[0]) || { id: 1 }
@@ -633,8 +839,9 @@ export async function removeAlwaysAllowedPath(pathToRemove) {
     const updatedList = currentList.filter((p) => p !== pathToRemove)
     const newConfig = { ...currentConfig, id: 1, alwaysAllowedPaths: updatedList }
     await db.config.put(newConfig)
-    if (window.api && window.api.syncConfig) {
-      window.api.syncConfig(newConfig)
+    const nativeApi = bridgeWindow().api
+    if (nativeApi?.syncConfig) {
+      nativeApi.syncConfig(newConfig)
     }
     window.dispatchEvent(new CustomEvent('config-updated', { detail: newConfig }))
     return updatedList
@@ -677,9 +884,9 @@ export async function getAllSessions() {
   }
 }
 
-export async function getChatData(id) {
+export async function getChatData(id: number | string) {
   try {
-    const numId = typeof id === 'string' && !isNaN(Number(id)) ? Number(id) : id
+    const numId = (typeof id === 'string' && !isNaN(Number(id)) ? Number(id) : id) as number
     const session = await db.sessions.get(numId)
     return session?.data || []
   } catch (error) {
@@ -688,9 +895,9 @@ export async function getChatData(id) {
   }
 }
 
-export async function getSession(id) {
+export async function getSession(id: number | string) {
   try {
-    const numId = typeof id === 'string' && !isNaN(Number(id)) ? Number(id) : id
+    const numId = (typeof id === 'string' && !isNaN(Number(id)) ? Number(id) : id) as number
     return await db.sessions.get(numId)
   } catch (error) {
     console.error('Error in getSession:', error)
@@ -698,7 +905,7 @@ export async function getSession(id) {
   }
 }
 
-export async function createSession(title = 'Percakapan Baru', initialData = []) {
+export async function createSession(title: string = 'Percakapan Baru', initialData: unknown[] = []) {
   try {
     const timestamp = Date.now()
     const id = await db.sessions.add({
@@ -713,11 +920,16 @@ export async function createSession(title = 'Percakapan Baru', initialData = [])
   }
 }
 
-export async function saveSession(id, data, title = null, workspaceRoot = null) {
+export async function saveSession(
+  id: number | string,
+  data: unknown[],
+  title: string | null = null,
+  workspaceRoot: string | null = null
+) {
   try {
-    const numId = typeof id === 'string' && !isNaN(Number(id)) ? Number(id) : id
+    const numId = (typeof id === 'string' && !isNaN(Number(id)) ? Number(id) : id) as number
     const existing = await db.sessions.get(numId)
-    const updatePayload = {
+    const updatePayload: SessionRow = {
       id: numId,
       data: data,
       timestamp: Date.now()
@@ -742,12 +954,12 @@ export async function saveSession(id, data, title = null, workspaceRoot = null) 
   }
 }
 
-export async function setSessionWorkspace(id, workspaceRoot) {
+export async function setSessionWorkspace(id: number | string, workspaceRoot: string | null | undefined) {
   try {
-    const numId = typeof id === 'string' && !isNaN(Number(id)) ? Number(id) : id
+    const numId = (typeof id === 'string' && !isNaN(Number(id)) ? Number(id) : id) as number
     const existing = await db.sessions.get(numId)
     if (existing) {
-      existing.workspaceRoot = workspaceRoot
+      existing.workspaceRoot = workspaceRoot ?? undefined
       existing.timestamp = Date.now()
       await db.sessions.put(existing)
       return true
@@ -756,7 +968,7 @@ export async function setSessionWorkspace(id, workspaceRoot) {
         id: numId,
         title: numId === 1 ? 'Main Thread' : 'Percakapan Baru',
         data: [],
-        workspaceRoot,
+        workspaceRoot: workspaceRoot ?? undefined,
         timestamp: Date.now()
       })
       return true
@@ -767,9 +979,9 @@ export async function setSessionWorkspace(id, workspaceRoot) {
   }
 }
 
-export async function deleteSession(id) {
+export async function deleteSession(id: number | string) {
   try {
-    const numId = typeof id === 'string' && !isNaN(Number(id)) ? Number(id) : id
+    const numId = (typeof id === 'string' && !isNaN(Number(id)) ? Number(id) : id) as number
     if (numId === 1) {
       // Main Thread tidak boleh dihapus barisnya, hanya dikosongkan pesannya
       const existing = await db.sessions.get(1)
@@ -799,9 +1011,9 @@ export async function deleteSession(id) {
   }
 }
 
-export async function renameSession(id, newTitle) {
+export async function renameSession(id: number | string, newTitle: string) {
   try {
-    const numId = typeof id === 'string' && !isNaN(Number(id)) ? Number(id) : id
+    const numId = (typeof id === 'string' && !isNaN(Number(id)) ? Number(id) : id) as number
     const existing = await db.sessions.get(numId)
     if (existing) {
       existing.title = newTitle.trim() || existing.title
@@ -817,7 +1029,7 @@ export async function renameSession(id, newTitle) {
 }
 
 // --- CHAT ARCHIVE CRUD ---
-export async function insertChatArchive(data) {
+export async function insertChatArchive(data: ChatArchiveRow) {
   try {
     return await db.chatArchive.add(data)
   } catch (error) {
@@ -835,7 +1047,7 @@ export async function getAllChatArchives() {
   }
 }
 
-export async function deleteChatArchive(id) {
+export async function deleteChatArchive(id: number) {
   try {
     await db.chatArchive.delete(id)
   } catch (error) {
@@ -845,7 +1057,7 @@ export async function deleteChatArchive(id) {
 }
 
 // --- DOCUMENTS CRUD ---
-export async function bulkInsertDocuments(chunks) {
+export async function bulkInsertDocuments(chunks: DocumentRow[]) {
   try {
     return await db.documents.bulkAdd(chunks, { allKeys: true })
   } catch (error) {
@@ -879,7 +1091,7 @@ export async function getAllDocumentsMeta() {
   }
 }
 
-export async function getDocumentChunk(id) {
+export async function getDocumentChunk(id: unknown) {
   try {
     const numId = Number(id)
     if (!numId || isNaN(numId)) return null
@@ -890,10 +1102,10 @@ export async function getDocumentChunk(id) {
   }
 }
 
-export async function deleteDocumentByName(docName) {
+export async function deleteDocumentByName(docName: string) {
   try {
     const chunks = await db.documents.where('docName').equals(docName).toArray()
-    const ids = chunks.map(c => c.id)
+    const ids = chunks.map((c) => c.id as number)
     await db.documents.bulkDelete(ids)
     return ids
   } catch (error) {
@@ -927,7 +1139,7 @@ const DEFAULT_TRAITS = {
   reasoning: 'Baseline netral — belum ada evaluasi.'
 }
 
-export async function getRelationship(userId = 'owner') {
+export async function getRelationship(userId: string = 'owner') {
   try {
     const data = await db.relationships.get(userId)
     if (!data) {
@@ -941,7 +1153,7 @@ export async function getRelationship(userId = 'owner') {
   }
 }
 
-export async function saveRelationship(data) {
+export async function saveRelationship(data: RelationshipRow) {
   try {
     await db.relationships.put(data)
     console.log(`[DB] Relationship saved for ${data.userId}:`, data)
@@ -957,6 +1169,12 @@ export async function saveLearnedSkill({
   content,
   state,
   evidenceVerified = false
+}: {
+  name?: string
+  description?: string
+  content?: string
+  state?: 'active' | 'trial' | 'archived'
+  evidenceVerified?: boolean
 }) {
   try {
     const cleanName = (name || '').toLowerCase().replace(/[^a-z0-9-_]/g, '-').replace(/^-+|-+$/g, '')
@@ -994,7 +1212,7 @@ export async function saveLearnedSkill({
   }
 }
 
-export async function getLearnedSkill(name) {
+export async function getLearnedSkill(name?: string) {
   try {
     if (!name) return null
     const cleanName = name.toLowerCase().trim()
@@ -1014,7 +1232,7 @@ export async function getAllLearnedSkills() {
   }
 }
 
-export async function deleteLearnedSkill(idOrName) {
+export async function deleteLearnedSkill(idOrName: string) {
   try {
     if (!idOrName) return false
     const existing = (await db.learnedSkills.get(idOrName)) || (await db.learnedSkills.where('name').equalsIgnoreCase(idOrName).first())
@@ -1032,7 +1250,7 @@ export async function deleteLearnedSkill(idOrName) {
 // --- RSI reuse telemetry (ala Hermes skill_usage.bump_use) ---
 // Dipanggil tiap read-skill Dexie sukses: use_count+1 + last_used_at.
 // Mengembalikan record terbaru, atau null bila skill tak ada / gagal.
-export async function bumpLearnedSkillUse(idOrName) {
+export async function bumpLearnedSkillUse(idOrName: string) {
   try {
     if (!idOrName) return null
     const existing = (await db.learnedSkills.get(idOrName)) || (await db.learnedSkills.where('name').equalsIgnoreCase(idOrName).first())
@@ -1055,7 +1273,10 @@ export async function bumpLearnedSkillUse(idOrName) {
 // AND originating evidence was independently verified.
 // Trial kedaluwarsa (> trialDays hari tanpa reuse) -> 'archived'.
 // Mengembalikan state akhir ('active' | 'trial' | 'archived') atau null.
-export async function graduateTrialSkill(idOrName, { evalPassed = false, trialDays = 7, now = Date.now() } = {}) {
+export async function graduateTrialSkill(
+  idOrName: string,
+  { evalPassed = false, trialDays = 7, now = Date.now() }: { evalPassed?: boolean; trialDays?: number; now?: number } = {}
+) {
   try {
     if (!idOrName) return null
     const existing = (await db.learnedSkills.get(idOrName)) || (await db.learnedSkills.where('name').equalsIgnoreCase(idOrName).first())
@@ -1080,7 +1301,7 @@ export async function graduateTrialSkill(idOrName, { evalPassed = false, trialDa
 // Arsip deterministik (ala Hermes curator prune): skill active/trial yang
 // tidak dipakai > `inactiveDays` hari (default 30) -> state 'archived'.
 // Tidak menghapus (recoverable). Mengembalikan jumlah yang diarsipkan.
-export async function archiveStaleLearnedSkills(inactiveDays = 30, now = Date.now()) {
+export async function archiveStaleLearnedSkills(inactiveDays: number = 30, now: number = Date.now()) {
   try {
     const cutoff = now - Math.max(1, Number(inactiveDays) || 30) * 24 * 3600 * 1000
     const all = await db.learnedSkills.toArray()
@@ -1108,11 +1329,11 @@ export async function archiveStaleLearnedSkills(inactiveDays = 30, now = Date.no
 // masuk Dexie/Orama — korpus pencarian vektor bisa rusak permanen. Fungsi ini
 // menstrip vektor hash sebelum disimpan dan menandai provenansi model tiap baris:
 //   vectorModel: 'minilm' | 'hash' (dilarang tersimpan) | 'none' (fulltext saja)
-async function sanitizeTurnForStorage(turn) {
+async function sanitizeTurnForStorage(turn: unknown): Promise<unknown> {
   if (!turn || typeof turn !== 'object') return turn
   try {
     const { getVectorModel } = await import('./vectorMemory')
-    const safe = { ...turn }
+    const safe = { ...(turn as ChatTurnRow) }
     if (!Array.isArray(safe.vector) || safe.vector.length === 0) {
       delete safe.vector
       safe.vectorModel = safe.vectorModel || 'none'
@@ -1132,10 +1353,10 @@ async function sanitizeTurnForStorage(turn) {
   }
 }
 
-export async function saveChatTurn(turnData) {
+export async function saveChatTurn(turnData: ChatTurnRow | null | undefined) {
   try {
     if (!turnData || !turnData.pairId) return null
-    const safeTurn = await sanitizeTurnForStorage(turnData)
+    const safeTurn = (await sanitizeTurnForStorage(turnData)) as ChatTurnRow
     await db.chatTurns.put(safeTurn)
     return safeTurn
   } catch (err) {
@@ -1144,12 +1365,12 @@ export async function saveChatTurn(turnData) {
   }
 }
 
-export async function saveBatchChatTurns(turnsArray) {
+export async function saveBatchChatTurns(turnsArray: unknown) {
   try {
     if (!Array.isArray(turnsArray) || turnsArray.length === 0) return 0
-    const safeTurns = []
+    const safeTurns: ChatTurnRow[] = []
     for (const t of turnsArray) {
-      safeTurns.push(await sanitizeTurnForStorage(t))
+      safeTurns.push((await sanitizeTurnForStorage(t)) as ChatTurnRow)
     }
     await db.chatTurns.bulkPut(safeTurns)
     return safeTurns.length
@@ -1168,7 +1389,7 @@ export async function getAllChatTurns() {
   }
 }
 
-export async function getChatTurnsBySession(sessionId) {
+export async function getChatTurnsBySession(sessionId: unknown) {
   try {
     if (!sessionId) return []
     return await db.chatTurns.where('sessionId').equals(Number(sessionId)).toArray()
@@ -1178,7 +1399,7 @@ export async function getChatTurnsBySession(sessionId) {
   }
 }
 
-export async function deleteChatTurnsBySession(sessionId) {
+export async function deleteChatTurnsBySession(sessionId: unknown) {
   try {
     if (!sessionId) return 0
     return await db.chatTurns.where('sessionId').equals(Number(sessionId)).delete()
@@ -1198,7 +1419,7 @@ export async function getChatTurnCount() {
 }
 
 // --- SESSION COMPACTS (pointer ringkasan Session Compactor) ---
-export async function getSessionCompact(sessionId) {
+export async function getSessionCompact(sessionId: unknown) {
   try {
     return (await db.sessionCompacts.get(String(sessionId))) || null
   } catch (err) {
@@ -1207,7 +1428,7 @@ export async function getSessionCompact(sessionId) {
   }
 }
 
-export async function saveSessionCompact(sessionId, data = {}) {
+export async function saveSessionCompact(sessionId: unknown, data: Record<string, unknown> = {}) {
   try {
     await db.sessionCompacts.put({ sessionId: String(sessionId), ...data })
     return true
@@ -1217,7 +1438,7 @@ export async function saveSessionCompact(sessionId, data = {}) {
   }
 }
 
-export async function clearSessionCompact(sessionId) {
+export async function clearSessionCompact(sessionId: unknown) {
   try {
     await db.sessionCompacts.delete(String(sessionId))
     return true

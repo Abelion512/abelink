@@ -17,7 +17,7 @@ for (const g of ['window', 'localStorage']) {
 await import('fake-indexeddb/auto')
 
 const rt = await import('../src/api/engine/taskRuntime.js')
-const { db } = await import('../src/api/db.js')
+const { db } = await import('../src/api/db.ts')
 await db.agentTasks.clear()
 await db.agentTaskSteps.clear()
 
