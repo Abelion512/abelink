@@ -161,6 +161,21 @@ export async function modelPickerRows(state, deps = {}, query = '') {
   }
 }
 
+// Baris dialog effort (slice 3, presentasi): 7 level + penanda aktif.
+// Filter substring case-insensitive atas id. Murni + testable.
+export async function effortDialogRows(state, query = '') {
+  const { EFFORT_LEVELS } = await import('../core/index.mjs')
+  const q = String(query || '').trim().toLowerCase()
+  const active = String(state?.effort || '').toLowerCase()
+  return EFFORT_LEVELS
+    .filter((id) => !q || String(id).toLowerCase().includes(q))
+    .map((id) => ({
+      id,
+      label: id,
+      section: id.toLowerCase() === active ? 'aktif' : '',
+    }))
+}
+
 // Recent models -> cli.json (merge, 0600). Best-effort, never throws.
 export async function saveRecentModels(recent = [], { homeDir = null } = {}) {
   try {

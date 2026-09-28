@@ -141,8 +141,20 @@ export interface AppProps {
   onCommands?: () => void
 }
 
-/** Props `PromptRow`. */
-export interface PromptRowProps {
+/** Props `CenterDialog` (slice 3): presentasi daftar pilih di tengah. */
+export interface CenterDialogProps {
+  open?: boolean
+  kind?: string
+  title?: string
+  rows?: PickerRow[]
+  index?: number
+  query?: string
+  loading?: boolean
+  hint?: string | null
+  error?: string | null
+}
+
+/** Props `PromptRow`. */export interface PromptRowProps {
   value?: () => string
   onInput?: (text: string) => void
   onSubmit?: (text: string) => void

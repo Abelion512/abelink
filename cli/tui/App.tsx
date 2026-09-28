@@ -7,8 +7,9 @@
 // V2-1: echo lokal; engine wiring = slice berikut.
 import { createSignal, For, Show } from 'solid-js'
 import { useKeyboard, useTerminalDimensions } from '@opentui/solid'
-import { ABELINK_THEME, shortModel, SIDEBAR_WIDTH, isWide, messageColor, messagePrefix, visibleWindow } from './theme.ts'
+import { ABELINK_THEME, shortModel, SIDEBAR_WIDTH, isWide, isDialogKind, messageColor, messagePrefix, visibleWindow } from './theme.ts'
 import { PromptRow } from './components/PromptRow.tsx'
+import { CenterDialog } from './components/CenterDialog.tsx'
 import type { AppProps, PickerRow } from './types.ts'
 
 export { shortModel, SIDEBAR_WIDTH, isWide }
@@ -46,6 +47,12 @@ export function App(props: AppProps = {}) {
   // Picker model (opencode dialog-model): daftar + jendela baris agar
   // katalog 1200+ ID tetap muat dan pilihan selalu terlihat.
   const picker = () => props.picker?.() ?? null
+  // Slice 3: kind model/commands/sessions/effort render di dialog tengah
+  // (CenterDialog); kind lain tetap picker bawah (filter inline prompt).
+  const dialogPicker = () => {
+    const p = picker()
+    return p && isDialogKind(p.kind) ? p : null
+  }
   const pickerWindow = (): { rows: PickerRow[] } => {
     const p = picker()
     if (!p || !Array.isArray(p.rows) || !p.rows.length) return { rows: [] }
@@ -116,7 +123,7 @@ export function App(props: AppProps = {}) {
             )}
           </For>
         </scrollbox>
-        {picker() && (
+        {picker() && !dialogPicker() && (
           <box
             style={{
               // Overlay (pola dialog opencode): keluar dari flex flow supaya
@@ -237,6 +244,20 @@ export function App(props: AppProps = {}) {
           </box>
         </box>
       )}
+      {/* Slice 3: dialog tengah untuk model/commands/sessions/effort.
+          Picker bawah DIPERTAHANKAN untuk kind lain (filter inline prompt).
+          Navigasi/filter dialog memakai handler picker yang sama. */}
+      <CenterDialog
+        open={Boolean(dialogPicker())}
+        kind={dialogPicker()?.kind}
+        title={dialogPicker()?.title ?? 'pilih'}
+        rows={dialogPicker()?.rows}
+        index={dialogPicker()?.index ?? 0}
+        query={dialogPicker()?.query}
+        loading={dialogPicker()?.loading}
+        hint={dialogPicker()?.kindHint ?? dialogPicker()?.hint}
+        error={dialogPicker()?.error}
+      />
     </box>
   )
 }

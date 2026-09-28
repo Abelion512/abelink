@@ -262,6 +262,16 @@ async function main() {
     })
     bump()
   }
+  // `/effort` tanpa arg = dialog pilih level (Enter = pakai).
+  const openEffort = async () => {
+    const { effortDialogRows } = await import('../cli/tui/engine.mjs')
+    baseRows = await effortDialogRows(state)
+    setPicker({
+      kind: 'effort', title: 'pilih effort', kindHint: '↑↓ pilih · Enter pakai · Esc batal · ketik untuk filter',
+      rows: baseRows, index: Math.max(0, baseRows.findIndex((r) => String(r.id).toLowerCase() === String(state.effort || '').toLowerCase())), query: '', loading: false,
+    })
+    bump()
+  }
   const closePicker = () => { setPicker(null); bump() }
   const movePicker = (delta: number) => {
     const p = picker()
@@ -279,6 +289,7 @@ async function main() {
     const rowId = String(row.id ?? '')
     if (kind === 'commands') { await handleSubmit(rowId); return }
     if (kind === 'sessions') { await handleSubmit(`/continue ${rowId}`); return }
+    if (kind === 'effort') { await handleSubmit(`/effort ${rowId}`); return }
     await handleSubmit(`/model ${rowId}`)
   }
   const filterPicker = async (text: string) => {
@@ -294,6 +305,10 @@ async function main() {
       } catch {
         setPicker({ ...p, query: q })
       }
+    } else if ((p.kind || '') === 'effort') {
+      const { effortDialogRows } = await import('../cli/tui/engine.mjs')
+      baseRows = await effortDialogRows(state, q)
+      setPicker({ ...p, query: q, rows: baseRows, index: 0 })
     } else {
       setPicker({ ...p, query: q, rows: filterRows(q), index: 0 })
     }
@@ -322,6 +337,11 @@ async function main() {
     }
     if (/^\/commands\s*$/i.test(line.trim())) {
       await openCommands()
+      return
+    }
+    // `/effort` tanpa arg = dialog pilih level (Enter = pakai).
+    if (/^\/effort\s*$/i.test(line.trim())) {
+      await openEffort()
       return
     }
     setBusy(true)

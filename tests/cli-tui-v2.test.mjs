@@ -7,9 +7,9 @@ import { spawn } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { ABELINK_THEME, TUI_COMMANDS, AUTOCOMPLETE_MAX_ROWS, filterCompletions, shortModel, SIDEBAR_WIDTH, isWide, messageColor, messagePrefix, PROMPT_KEY_BINDINGS, autocompleteTrigger, applyCompletion, moveCompletionIndex, visibleWindow } from '../cli/tui/theme.ts'
+import { ABELINK_THEME, TUI_COMMANDS, AUTOCOMPLETE_MAX_ROWS, filterCompletions, shortModel, SIDEBAR_WIDTH, isWide, messageColor, messagePrefix, PROMPT_KEY_BINDINGS, autocompleteTrigger, applyCompletion, moveCompletionIndex, visibleWindow, DIALOG_PANEL_WIDTH, DIALOG_Z_INDEX, DIALOG_KINDS, isDialogKind, dialogVisibleRows } from '../cli/tui/theme.ts'
 import { parseSlashCommand } from '../bin/abelink-tui.mjs'
-import { createTuiState, submitLine } from '../cli/tui/engine.mjs'
+import { createTuiState, submitLine, effortDialogRows } from '../cli/tui/engine.mjs'
 
 describe('shortModel (label opencode di dalam prompt box)', () => {
   it('potong prefix provider', () => {
@@ -73,8 +73,7 @@ describe('filterCompletions', () => {
   })
 })
 
-describe('visibleWindow (jendela picker model)', () => {
-  it('daftar pendek -> seluruh baris', () => {
+describe('visibleWindow (jendela picker model)', () => {  it('daftar pendek -> seluruh baris', () => {
     expect(visibleWindow(0, 5, 12)).toEqual({ start: 0, end: 5 })
   })
   it('daftar panjang -> jendela ukuran `size`, pilihan selalu terlihat', () => {
@@ -93,6 +92,35 @@ describe('visibleWindow (jendela picker model)', () => {
     expect(visibleWindow(-5, 0, 12)).toEqual({ start: 0, end: 0 })
     expect(visibleWindow(999, 10, 4)).toEqual({ start: 6, end: 10 })
     expect(visibleWindow(0, 10, 0)).toEqual({ start: 0, end: 1 })
+  })
+})
+
+describe('dialog tengah CenterDialog (slice 3)', () => {
+  it('konstanta ikut opencode dialog.tsx (lebar 60, zIndex 3000)', () => {
+    expect(DIALOG_PANEL_WIDTH).toBe(60)
+    expect(DIALOG_Z_INDEX).toBe(3000)
+  })
+  it('DIALOG_KINDS = model/commands/sessions/effort; isDialogKind selektif', () => {
+    expect([...DIALOG_KINDS].sort()).toEqual(['commands', 'effort', 'model', 'sessions'])
+    for (const k of ['model', 'commands', 'sessions', 'effort']) expect(isDialogKind(k)).toBe(true)
+    expect(isDialogKind('other')).toBe(false)
+    expect(isDialogKind('')).toBe(false)
+  })
+  it('dialogVisibleRows = min(rows, floor(height/2)-6), minimal 1', () => {
+    // height 24 -> cap 6; height 40 -> cap 14.
+    expect(dialogVisibleRows(100, 24)).toBe(6)
+    expect(dialogVisibleRows(3, 24)).toBe(3)
+    expect(dialogVisibleRows(100, 40)).toBe(14)
+    expect(dialogVisibleRows(0, 24)).toBe(0)
+    expect(dialogVisibleRows(5, 8)).toBe(1)
+  })
+  it('effortDialogRows: 7 level + penanda aktif + filter', async () => {
+    const s = createTuiState({ effort: 'high' })
+    const all = await effortDialogRows(s)
+    expect(all.map((r) => r.id)).toEqual(['low', 'medium', 'high', 'xhigh', 'max', 'ultra', 'auto'])
+    expect(all.find((r) => r.id === 'high').section).toMatch(/aktif/)
+    const filtered = await effortDialogRows(s, 'xh')
+    expect(filtered.map((r) => r.id)).toEqual(['xhigh'])
   })
 })
 

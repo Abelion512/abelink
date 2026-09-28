@@ -144,6 +144,26 @@ export function messagePrefix(role: string = ''): string {
 // Cap baris popup autocomplete (ikut opencode height max 10).
 export const AUTOCOMPLETE_MAX_ROWS = 10
 
+// Dialog tengah (slice 3, pola opencode ui/dialog.tsx + dialog-select.tsx):
+// backdrop dim fullscreen (RGBA 0,0,0,150), panel tengah lebar 60,
+// zIndex 3000 di atas picker bawah (100) dan popup (100).
+export const DIALOG_PANEL_WIDTH = 60
+export const DIALOG_Z_INDEX = 3000
+
+/** Kind picker yang render di dialog tengah (bukan picker bawah). */
+export const DIALOG_KINDS: readonly string[] = Object.freeze(['model', 'commands', 'sessions', 'effort'])
+
+/** True bila kind picker dibuka sebagai dialog tengah. */
+export function isDialogKind(kind: string = ''): boolean {
+  return DIALOG_KINDS.includes(String(kind ?? ''))
+}
+
+/** Baris terlihat di dialog: min(rows, floor(height/2)-6), minimal 1. */
+export function dialogVisibleRows(rowCount: number = 0, termHeight: number = 24): number {
+  const cap = Math.max(1, Math.floor((Number(termHeight) || 0) / 2) - 6)
+  return Math.min(Math.max(0, Math.floor(Number(rowCount) || 0)), cap)
+}
+
 // Subsequence case-insensitive (fuzzy minimal): cukup untuk typo ringan
 // (`/mdl` -> /model) tanpa membawa skor/bobot yang butuh tuning.
 function subsequenceMatch(hay: string = '', needle: string = ''): boolean {
