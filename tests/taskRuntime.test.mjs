@@ -1,12 +1,12 @@
 // tests/taskRuntime.test.mjs
 // Boundary tests for src/api/engine/taskRuntime.js (delegate-only facade).
-// Lifecycle semantics live in taskStore.js; here we prove delegation,
+// Lifecycle semantics live in taskStore.ts; here we prove delegation,
 // events, getResult, unknown-task errors, restart recovery, and that the
 // facade imports without browser globals.
 import 'fake-indexeddb/auto'
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { db } from '../src/api/db.ts'
-import * as taskStore from '../src/api/taskStore.js'
+import * as taskStore from '../src/api/taskStore.ts'
 import {
   TASK_RUNTIME_EVENTS,
   configureTaskRuntime,
@@ -67,7 +67,7 @@ describe('taskRuntime — headless import', () => {
   })
 
   it('rejects invalid injected config', () => {
-    expect(() => configureTaskRuntime({ store: {} })).toThrow('taskStore.js interface')
+    expect(() => configureTaskRuntime({ store: {} })).toThrow('taskStore.ts interface')
     expect(() => configureTaskRuntime({ emit: 'nope' })).toThrow('must be a function')
   })
 
@@ -172,7 +172,7 @@ describe('taskRuntime — injected store + events', () => {
     expect(names).toContain('task.completed')
     expect(names).toContain('task.cancelled')
     // CONTRACT DETECTOR (bukan endorsement): store mengizinkan completed ->
-    // cancelled dan facade meneruskannya apa adanya (taskStore.js otoritatif,
+    // cancelled dan facade meneruskannya apa adanya (taskStore.ts otoritatif,
     // facade dilarang menciptakan guard sendiri). Jangan jadikan ini semantik
     // lifecycle yang didesain — CLI masa depan tidak boleh mengandalkannya.
     expect((await getTask('rt-ev')).status).toBe('cancelled')

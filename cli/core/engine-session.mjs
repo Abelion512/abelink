@@ -6,7 +6,7 @@ async function resolveTaskStore(storeOption) {
   if (storeOption && typeof storeOption === 'object') return storeOption
   if (defaultTaskStore) return defaultTaskStore
   try {
-    defaultTaskStore = await import('../../src/api/taskStore.js')
+    defaultTaskStore = await import('../../src/api/taskStore.ts')
     return defaultTaskStore
   } catch (_) {
     return null

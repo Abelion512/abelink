@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { normalizeSttUrl, getHardwareSttSupport, transcribeAudioUnified } from '../src/api/sttRouter.js'
+import { normalizeSttUrl, getHardwareSttSupport, transcribeAudioUnified } from '../src/api/sttRouter.ts'
 import { extractClipboardFiles } from '../src/utils/attachments.js'
 import * as db from '../src/api/db.ts'
 

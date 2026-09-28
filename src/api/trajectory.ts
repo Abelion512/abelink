@@ -21,9 +21,21 @@ export const HARNESS_EVENT_KINDS = [
   'turn-end'
 ]
 
-// Estimator token kasar — divisor SAMA dengan core.js (chars/2.5).
+// ---- Kontrak tipe (W2-8b) ----
+export interface TrajectoryEntry {
+  id: string
+  seq: number
+  v: number
+  ts: string
+  kind: string
+  [key: string]: unknown
+}
+
+type TrajectoryListener = (entries: TrajectoryEntry[]) => void
+
+// Estimator token kasar — divisor SAMA dengan core.ts (chars/2.5).
 // Jujur estimasi (bukan usage provider): untuk kolom tokensEst skema.
-export const estimateTokens = (...parts) => {
+export const estimateTokens = (...parts: unknown[]) => {
   let chars = 0
   for (const p of parts) {
     if (typeof p !== 'string' || !p) continue
@@ -38,7 +50,15 @@ let _seq = 0
 
 // Bentuk envelope standar. v/ts diisi otomatis; sessionId/turn/stepId
 // diisi penulis (null bila tak tersedia — validator hanya mewajibkan v/kind/ts).
-export const makeHarnessEvent = ({ sessionId = null, turn = null, stepId = null, kind, ...rest } = {}) => ({
+interface HarnessEventInput {
+  sessionId?: unknown
+  turn?: unknown
+  stepId?: unknown
+  kind?: unknown
+  [key: string]: unknown
+}
+
+export const makeHarnessEvent = ({ sessionId = null, turn = null, stepId = null, kind, ...rest }: HarnessEventInput = {}): TrajectoryEntry => ({
   id: makeId(kind || 'event'),
   seq: ++_seq,
   v: HARNESS_SCHEMA_VERSION,
@@ -46,29 +66,30 @@ export const makeHarnessEvent = ({ sessionId = null, turn = null, stepId = null,
   sessionId,
   turn,
   stepId,
-  kind,
+  kind: kind as string,
   ...rest
-})
+}) as TrajectoryEntry
 
 // Validasi konformansi skema (murni, untuk unit test + export script).
 // Kembalikan null bila valid, atau string alasan bila tidak.
-export const validateHarnessEvent = (e) => {
+export const validateHarnessEvent = (e: unknown): string | null => {
   if (!e || typeof e !== 'object') return 'event harus objek'
-  if (e.v !== HARNESS_SCHEMA_VERSION) return `v harus ${HARNESS_SCHEMA_VERSION}`
-  if (typeof e.kind !== 'string' || !HARNESS_EVENT_KINDS.includes(e.kind)) {
+  const ev = e as Record<string, unknown>
+  if (ev.v !== HARNESS_SCHEMA_VERSION) return `v harus ${HARNESS_SCHEMA_VERSION}`
+  if (typeof ev.kind !== 'string' || !HARNESS_EVENT_KINDS.includes(ev.kind)) {
     return `kind harus salah satu dari ${HARNESS_EVENT_KINDS.join(',')}`
   }
-  if (typeof e.ts !== 'string' || Number.isNaN(Date.parse(e.ts))) return 'ts harus RFC3339 valid'
+  if (typeof ev.ts !== 'string' || Number.isNaN(Date.parse(ev.ts))) return 'ts harus RFC3339 valid'
   return null
 }
 
 // Singleton buffer
-let _buffer = []
-let _listeners = new Set()
+let _buffer: TrajectoryEntry[] = []
+const _listeners = new Set<TrajectoryListener>()
 
 // Persist di-throttle (trailing 2s): stringify ±500 entri sinkron tiap log
 // memblokir main thread (UI freeze) saat loop agent padat.
-let _persistTimer = null
+let _persistTimer: ReturnType<typeof setTimeout> | null = null
 let _persistQueued = false
 const persist = () => {
   _persistQueued = true
@@ -113,13 +134,13 @@ const notify = () => {
     try {
       fn(snapshot)
     } catch (err) {
-      console.warn('[trajectory] listener error:', err?.message || err)
+      console.warn('[trajectory] listener error:', (err as Error)?.message || err)
     }
   }
 }
 
 // Subscribe ke perubahan buffer (dipakai Trajectory page)
-export const onTrajectoryUpdate = (fn) => {
+export const onTrajectoryUpdate = (fn: TrajectoryListener) => {
   _listeners.add(fn)
   // Cleanup React tidak boleh mengembalikan nilai; Set.delete() balikin boolean.
   return () => {
@@ -159,7 +180,7 @@ export const clearTrajectoryBuffer = () => {
 // push/persist/notify, ini memangkas buffer IN-MEMORY — sebelumnya hanya
 // salinan localStorage yang dibatasi, sedangkan array di RAM tumbuh tanpa
 // batas sepanjang sesi.
-const pushEntry = (entry) => {
+const pushEntry = (entry: TrajectoryEntry) => {
   _buffer.push(entry)
   if (_buffer.length > MAX_ENTRIES) {
     _buffer = _buffer.slice(-MAX_ENTRIES)
@@ -168,11 +189,13 @@ const pushEntry = (entry) => {
   notify()
 }
 
-const makeId = (prefix) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+const makeId = (prefix: unknown): string => `${String(prefix)}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
 
 // ── Logger APIs (dipanggil dari planning.ts / core.ts) ──
 
-export const logReasoning = ({ prompt, model, tokens, duration, ...rest } = {}) => {
+type LogInput = Record<string, unknown>
+
+export const logReasoning = ({ prompt, model, tokens, duration, ...rest }: LogInput = {}) => {
   pushEntry({
     ...makeHarnessEvent({ kind: 'reasoning', ...rest }),
     prompt: typeof prompt === 'string' ? prompt.slice(0, 2000) : undefined,
@@ -183,7 +206,7 @@ export const logReasoning = ({ prompt, model, tokens, duration, ...rest } = {}) 
   })
 }
 
-export const logToolCall = ({ tool, args, result, success, duration, ...rest } = {}) => {
+export const logToolCall = ({ tool, args, result, success, duration, ...rest }: LogInput = {}) => {
   const finalArgs = args !== undefined ? args : (rest.query !== undefined ? rest.query : undefined)
   const isSuccess = success !== undefined ? success !== false : (rest.ok !== false)
   const finalResult =
@@ -205,7 +228,7 @@ export const logToolCall = ({ tool, args, result, success, duration, ...rest } =
 
 // Observasi = apa yang model LIHAT (teks [OBSERVATION] yang masuk loop).
 // Cap 3000 = batas yang sama dipakai loop saat memotong observasi.
-export const logObservation = ({ observation, tool = null, ...rest } = {}) => {
+export const logObservation = ({ observation, tool = null, ...rest }: LogInput = {}) => {
   pushEntry({
     ...makeHarnessEvent({ kind: 'observation', ...rest }),
     tool,
@@ -214,7 +237,7 @@ export const logObservation = ({ observation, tool = null, ...rest } = {}) => {
 }
 
 // Jawaban final per giliran (teks bubble + outcome sistem).
-export const logAnswer = ({ answer, outcome = null, ...rest } = {}) => {
+export const logAnswer = ({ answer, outcome = null, ...rest }: LogInput = {}) => {
   pushEntry({
     ...makeHarnessEvent({ kind: 'answer', ...rest }),
     answer: typeof answer === 'string' ? answer.slice(0, 4000) : answer,
@@ -224,15 +247,15 @@ export const logAnswer = ({ answer, outcome = null, ...rest } = {}) => {
 
 // Framing giliran (gaya AOS turn/start|end): start tiap iterasi loop,
 // end hanya di jawaban terminal. Start-tanpa-end = interupsi (jujur).
-export const logTurnStart = ({ turn = null, ...rest } = {}) => {
+export const logTurnStart = ({ turn = null, ...rest }: LogInput = {}) => {
   pushEntry({ ...makeHarnessEvent({ kind: 'turn-start', turn, ...rest }) })
 }
 
-export const logTurnEnd = ({ turn = null, outcome = null, reason = null, ...rest } = {}) => {
+export const logTurnEnd = ({ turn = null, outcome = null, reason = null, ...rest }: LogInput = {}) => {
   pushEntry({ ...makeHarnessEvent({ kind: 'turn-end', turn, outcome, reason, ...rest }) })
 }
 
-export const logSubAgentSpawn = ({ name, parentAgentId, ...rest } = {}) => {
+export const logSubAgentSpawn = ({ name, parentAgentId, ...rest }: LogInput = {}) => {
   pushEntry({
     ...makeHarnessEvent({ kind: 'sub-agent', ...rest }),
     name,
@@ -240,7 +263,7 @@ export const logSubAgentSpawn = ({ name, parentAgentId, ...rest } = {}) => {
   })
 }
 
-export const logStep = ({ step, total, description, status, ...rest } = {}) => {
+export const logStep = ({ step, total, description, status, ...rest }: LogInput = {}) => {
   pushEntry({
     ...makeHarnessEvent({ kind: 'step', ...rest }),
     step,

@@ -4,11 +4,28 @@ import { detectProviderFromUrl } from './ai/providerDetect.ts'
 import { resolveEndpointUrl } from './ai/providerRegistry.ts'
 import { DEFAULT_STT_MODEL, filterSegments } from './sttGuard.ts'
 
+// ---- Kontrak tipe (W2-8b) ----
+interface SttEndpointConfig {
+  endpoint: unknown
+  apiKey?: unknown
+  model?: unknown
+  language?: unknown
+}
+
+interface SttError extends Error {
+  httpStatus?: number
+}
+
+interface SttVerboseData {
+  text?: unknown
+  segments?: unknown
+}
+
 /**
  * Nama tampilan koneksi: nama provider terdeteksi dari URL bila dikenal,
  * fallback generik bila tidak (mis. endpoint privat tanpa keyword/port umum).
  */
-export const connectionDisplayName = (endpoint, fallback) => {
+export const connectionDisplayName = (endpoint: unknown, fallback: unknown) => {
   const detected = detectProviderFromUrl(endpoint)
   return detected.id === 'custom' ? fallback : detected.name
 }
@@ -18,7 +35,7 @@ export const connectionDisplayName = (endpoint, fallback) => {
  * (smart, satu aturan untuk chat/stt/tts): trailing slash, localhost,
  * suffix lengkap, /v1 ada/tidak — semua dirapikan deterministik.
  */
-export const normalizeSttUrl = (rawUrl) => resolveEndpointUrl(rawUrl, 'stt')
+export const normalizeSttUrl = (rawUrl: unknown) => resolveEndpointUrl(rawUrl, 'stt')
 
 /**
  * Eksekusi panggilan HTTP multipart audio transcription ke server OpenAI-compatible STT.
@@ -33,7 +50,10 @@ export const normalizeSttUrl = (rawUrl) => resolveEndpointUrl(rawUrl, 'stt')
  *   (no_speech_prob/avg_logprob/compression_ratio) bisa difilter; fallback
  *   ke json untuk endpoint yang menolak verbose_json.
  */
-export const transcribeToEndpoint = async (pcmBuffer, { endpoint, apiKey, model, language = 'id' }) => {
+export const transcribeToEndpoint = async (
+  pcmBuffer: Float32Array,
+  { endpoint, apiKey, model, language = 'id' }: SttEndpointConfig
+): Promise<string> => {
   const targetUrl = normalizeSttUrl(endpoint)
   if (!targetUrl) {
     throw new Error('Endpoint STT kosong atau tidak valid')
@@ -41,22 +61,22 @@ export const transcribeToEndpoint = async (pcmBuffer, { endpoint, apiKey, model,
 
   const wavFile = pcmToWav(pcmBuffer, 16000)
 
-  const buildForm = (responseFormat) => {
+  const buildForm = (responseFormat: string) => {
     const formData = new FormData()
     formData.append('file', wavFile, 'audio.wav')
-    formData.append('model', model || DEFAULT_STT_MODEL)
+    formData.append('model', String(model || DEFAULT_STT_MODEL))
     formData.append('response_format', responseFormat)
     formData.append('temperature', '0')
-    if (language) formData.append('language', language)
+    if (language) formData.append('language', String(language))
     return formData
   }
 
-  const headers = {}
-  if (apiKey && apiKey.trim()) {
-    headers['Authorization'] = `Bearer ${apiKey.trim()}`
+  const headers: Record<string, string> = {}
+  if (apiKey && String(apiKey).trim()) {
+    headers['Authorization'] = `Bearer ${String(apiKey).trim()}`
   }
 
-  const postOnce = async (responseFormat, timeoutMs) => {
+  const postOnce = async (responseFormat: string, timeoutMs: number) => {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
     try {
@@ -69,7 +89,7 @@ export const transcribeToEndpoint = async (pcmBuffer, { endpoint, apiKey, model,
       clearTimeout(timeoutId)
       if (!res.ok) {
         const errText = await res.text().catch(() => '')
-        const err = new Error(`HTTP ${res.status}: ${errText || res.statusText}`)
+        const err = new Error(`HTTP ${res.status}: ${errText || res.statusText}`) as SttError
         err.httpStatus = res.status
         throw err
       }
@@ -80,15 +100,16 @@ export const transcribeToEndpoint = async (pcmBuffer, { endpoint, apiKey, model,
     }
   }
 
-  const parseText = (data) => {
-    if (typeof data?.text === 'string') {
+  const parseText = (data: unknown): string => {
+    const d = data as SttVerboseData | null
+    if (typeof d?.text === 'string') {
       // Segmen bermetrik verbose_json -> filter sunyi/tak-percaya-diri/repetitif.
-      if (Array.isArray(data?.segments)) {
-        const filtered = filterSegments(data.segments)
+      if (Array.isArray(d?.segments)) {
+        const filtered = filterSegments(d.segments)
         if (typeof filtered === 'string' && filtered) return filtered
         if (typeof filtered === 'string') return ''
       }
-      return data.text
+      return d.text as string
     }
     if (typeof data === 'string') {
       return data
@@ -101,16 +122,18 @@ export const transcribeToEndpoint = async (pcmBuffer, { endpoint, apiKey, model,
       return parseText(await postOnce('verbose_json', 20000)) // 20s timeout
     } catch (err) {
       // Endpoint yang tak kenal verbose_json (400/422/415) -> fallback json polos.
-      if (err?.httpStatus === 400 || err?.httpStatus === 422 || err?.httpStatus === 415) {
+      const status = (err as SttError)?.httpStatus
+      if (status === 400 || status === 422 || status === 415) {
         return parseText(await postOnce('json', 20000))
       }
       throw err
     }
   } catch (err) {
-    if (err.name === 'AbortError') {
+    const e = err as SttError
+    if (e.name === 'AbortError') {
       throw new Error(`Koneksi ke STT ${targetUrl} timeout (20 detik)`)
     }
-    if (err.message === 'Load failed' || (err.name === 'TypeError' && err.message === 'Failed to fetch')) {
+    if (e.message === 'Load failed' || (e.name === 'TypeError' && e.message === 'Failed to fetch')) {
       throw new Error(`Koneksi ke STT ${targetUrl} gagal (Network/CORS/DNS error)`)
     }
     throw err
@@ -122,12 +145,13 @@ let roundRobinCounter = 0
 /**
  * Deteksi kapabilitas CPU & RAM laptop untuk rekomendasi Local Whisper vs Custom STT
  */
-export const getHardwareSttSupport = async () => {
+export const getHardwareSttSupport = async (): Promise<{ cores: number; isLiteMode: boolean; isLowEnd: boolean; recommendation: string; reason: string }> => {
   const cores = typeof navigator !== 'undefined' ? (navigator.hardwareConcurrency || 2) : 2
   let isLiteMode = false
   try {
-    if (window.api && window.api.getLiteMode) {
-      isLiteMode = await window.api.getLiteMode()
+    const w = typeof window !== 'undefined' ? (window as unknown as { api?: { getLiteMode?: () => Promise<boolean> } }) : null
+    if (w?.api?.getLiteMode) {
+      isLiteMode = await w.api.getLiteMode()
     }
   } catch (_) {}
 
@@ -148,11 +172,15 @@ export const getHardwareSttSupport = async () => {
  * Mengadopsi arsitektur AI Gateway (9router & OmniRoute):
  * Mendukung unlimited connections dengan strategi Fallback (Priority Chain) & Round Robin.
  */
-export const transcribeAudioUnified = async (pcmBuffer, onProgress, setStatusMessage) => {
+export const transcribeAudioUnified = async (
+  pcmBuffer: Float32Array,
+  onProgress: unknown,
+  setStatusMessage: unknown
+): Promise<string> => {
   const configs = await getAllConfig()
   const cfg = configs[0] || {}
 
-  const updateStatus = (msg) => {
+  const updateStatus = (msg: string) => {
     if (typeof setStatusMessage === 'function') {
       setStatusMessage(msg)
     }
@@ -163,12 +191,13 @@ export const transcribeAudioUnified = async (pcmBuffer, onProgress, setStatusMes
     updateStatus('Mentranskrip via Local Whisper (On-Device)...')
     try {
       const { transcribeAudioLocal } = await import('./localWhisper.ts')
-      const text = await transcribeAudioLocal(pcmBuffer, onProgress)
+      const text = await transcribeAudioLocal(pcmBuffer as unknown as ArrayBuffer, onProgress as (p: unknown) => void)
       updateStatus('')
       return text
     } catch (localErr) {
-      console.warn('[sttRouter] Local Whisper gagal:', localErr.message)
-      updateStatus(`Local Whisper gagal (${localErr.message.slice(0, 40)}...). Beralih ke Custom Gateway...`)
+      const le = localErr as Error
+      console.warn('[sttRouter] Local Whisper gagal:', le.message)
+      updateStatus(`Local Whisper gagal (${le.message.slice(0, 40)}...). Beralih ke Custom Gateway...`)
       // Otomatis fallback ke Custom jika lokal gagal
     }
   }
@@ -195,7 +224,7 @@ export const transcribeAudioUnified = async (pcmBuffer, onProgress, setStatusMes
     connections = [
       {
         id: 'conn-bootstrap-1',
-        name: connectionDisplayName(defaultEndpoint, 'Local STT Gateway'),
+        name: connectionDisplayName(defaultEndpoint, 'Local STT Gateway') as string,
         endpoint: defaultEndpoint,
         apiKey: defaultKey,
         model: defaultModel,
@@ -206,7 +235,7 @@ export const transcribeAudioUnified = async (pcmBuffer, onProgress, setStatusMes
     if (cfg.sttFallbackEndpoint && cfg.sttFallbackEndpoint !== defaultEndpoint) {
       connections.push({
         id: 'conn-bootstrap-2',
-        name: connectionDisplayName(cfg.sttFallbackEndpoint, 'Secondary Fallback'),
+        name: connectionDisplayName(cfg.sttFallbackEndpoint, 'Secondary Fallback') as string,
         endpoint: cfg.sttFallbackEndpoint,
         apiKey: cfg.sttFallbackApiKey || cfg.groqApiKey || '',
         model: cfg.sttFallbackModel || 'whisper-large-v3-turbo',
@@ -265,7 +294,7 @@ export const transcribeAudioUnified = async (pcmBuffer, onProgress, setStatusMes
       return text
     } catch (err) {
       const elapsed = Math.round(performance.now() - t0)
-      const reason = err.message || 'Error tidak diketahui'
+      const reason = (err as Error).message || 'Error tidak diketahui'
       console.warn(`[sttRouter] [${providerName}] gagal (${elapsed}ms):`, reason)
       failureReports.push(`[${providerName}]: ${reason}`)
 
@@ -282,12 +311,13 @@ export const transcribeAudioUnified = async (pcmBuffer, onProgress, setStatusMes
       console.warn('[sttRouter] Semua gateway remote gagal. Mencoba fallback ke Local Whisper...')
       updateStatus('Gateway STT gagal. Mencoba Local Whisper...')
       const { transcribeAudioLocal } = await import('./localWhisper.ts')
-      const localText = await transcribeAudioLocal(pcmBuffer, onProgress)
+      const localText = await transcribeAudioLocal(pcmBuffer as unknown as ArrayBuffer, onProgress as (p: unknown) => void)
       updateStatus('')
       return localText
     } catch (localErr) {
-      console.warn('[sttRouter] Fallback Local Whisper juga gagal:', localErr.message)
-      failureReports.push(`[Local Whisper Fallback]: ${localErr.message}`)
+      const le = localErr as Error
+      console.warn('[sttRouter] Fallback Local Whisper juga gagal:', le.message)
+      failureReports.push(`[Local Whisper Fallback]: ${le.message}`)
     }
   }
 
