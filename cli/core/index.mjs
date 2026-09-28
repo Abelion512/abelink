@@ -23,6 +23,7 @@ export {
 } from './parser.mjs'
 export { renderStepLine, renderThoughtLine } from './render.mjs'
 export { buildAgentsMd, extractFileRefs, resolveFileRefs } from './files.mjs'
+export { extractImagePaths, resolveImageRefs, isImagePath, IMAGE_EXTS } from './imageRefs.mjs'
 export { checkTurnAborted, createTuiTurn, makeAbortedToolResult, nextPromptAction } from './turn.mjs'
 export {
   listTuiSessions,
