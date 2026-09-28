@@ -8,6 +8,8 @@ import path from 'node:path'
 import {
   MODELS_CACHE_TTL_MS,
   RECENT_CAP,
+  CUSTOM_MODELS_CAP,
+  cliJsonPath,
   normalizeCatalogEntry,
   normalizeCatalogList,
   readCatalogCache,
@@ -16,8 +18,13 @@ import {
   curatePicker,
   pushRecent,
   resolveCatalogModel,
+  normalizeCustomEntry,
+  normalizeCustomList,
+  readCustomModels,
+  upsertCustomModel,
+  withCustomCapabilities,
 } from '../cli/tui/modelCatalog.mjs'
-import { loadModelCatalog, saveRecentModels, modelPickerRows } from '../cli/tui/engine.mjs'
+import { loadModelCatalog, saveRecentModels, modelPickerRows, submitLine, createTuiState } from '../cli/tui/engine.mjs'
 
 const SAMPLE = [
   { id: 'claude-work', object: 'model', capabilities: { reasoning: false, contextWindow: 128000, maxOutput: 384000, thinkingFormat: null, thinkingCanDisable: true } },
@@ -207,5 +214,84 @@ describe('modelPickerRows — default hanya model yang pernah dipakai', () => {
     const d = mkDeps()
     const r = await modelPickerRows(state, d, 'im')
     expect(r.rows.some((x) => x.id.includes('mimo'))).toBe(true)
+  })
+})
+
+describe('model custom bebas (slice 2: cli.json customModels)', () => {
+  it('normalize: field + lastSeen default; kosong -> null', () => {
+    expect(normalizeCustomEntry({ id: 'acme/x', ctx: 8000, maxOut: 1000, reasoning: true }))
+      .toMatchObject({ id: 'acme/x', ctx: 8000, maxOut: 1000, reasoning: true, lastSeen: 0 })
+    expect(normalizeCustomEntry({})).toBe(null)
+    expect(normalizeCustomList([{}, { id: 'a' }]).map((e) => e.id)).toEqual(['a'])
+    expect(normalizeCustomList(null)).toEqual([])
+  })
+  it('upsert: dedup ke depan + merge (field lain utuh) + cap 50', () => {
+    const f = memFs()
+    upsertCustomModel({ id: 'acme/x' }, { fsMod: f, pathMod: memPath(), homeDir: '/h', now: 7 })
+    upsertCustomModel({ id: 'acme/y' }, { fsMod: f, pathMod: memPath(), homeDir: '/h', now: 8 })
+    upsertCustomModel({ id: 'acme/x' }, { fsMod: f, pathMod: memPath(), homeDir: '/h', now: 9 })
+    const saved = JSON.parse(f.files.get(cliJsonPath('/h')))
+    expect(saved.customModels.map((e) => e.id)).toEqual(['acme/x', 'acme/y'])
+    expect(saved.customModels[0].lastSeen).toBe(9)
+    let big = memFs()
+    for (let i = 0; i < CUSTOM_MODELS_CAP + 5; i++) {
+      upsertCustomModel({ id: `m${i}` }, { fsMod: big, pathMod: memPath(), homeDir: '/h', now: i })
+    }
+    expect(JSON.parse(big.files.get(cliJsonPath('/h'))).customModels.length).toBe(CUSTOM_MODELS_CAP)
+  })
+  it('upsert merge: model/apiKey lama tak hilang', () => {
+    const f = memFs()
+    f.files.set(cliJsonPath('/h'), JSON.stringify({ model: 'qwen', apiKey: 'k' }))
+    upsertCustomModel({ id: 'acme/x' }, { fsMod: f, pathMod: memPath(), homeDir: '/h', now: 1 })
+    expect(JSON.parse(f.files.get(cliJsonPath('/h')))).toMatchObject({ model: 'qwen', apiKey: 'k' })
+  })
+  it('read: hilang/korup -> []; isi -> list', () => {
+    expect(readCustomModels({ fsMod: memFs(), homeDir: '/h' })).toEqual([])
+    const f = memFs()
+    f.files.set(cliJsonPath('/h'), '{rusak')
+    expect(readCustomModels({ fsMod: f, homeDir: '/h' })).toEqual([])
+    f.files.set(cliJsonPath('/h'), JSON.stringify({ customModels: [{ id: 'acme/x' }] }))
+    expect(readCustomModels({ fsMod: f, homeDir: '/h' }).map((e) => e.id)).toEqual(['acme/x'])
+  })
+  it('withCustomCapabilities: katalog menang; custom asing jadi entri', () => {
+    const models = normalizeCatalogList(SAMPLE)
+    const merged = withCustomCapabilities(models, [{ id: 'qwen', ctx: 1 }, { id: 'acme/x', ctx: 8000 }])
+    expect(merged.find((m) => m.id === 'qwen').ctx).toBe(262144)
+    expect(merged.find((m) => m.id === 'acme/x')).toMatchObject({ id: 'acme/x', ctx: 8000 })
+  })
+  it('curatePicker: section Custom tampil + filter + dedup vs recent', () => {
+    const models = normalizeCatalogList(SAMPLE)
+    const p = curatePicker({ models, recent: ['acme/x'], custom: [{ id: 'acme/x' }, { id: 'acme/y' }] })
+    expect(p.custom).toEqual(['acme/y'])
+    expect(curatePicker({ models, custom: [{ id: 'bebas-1' }], query: 'bebas' }).custom).toEqual(['bebas-1'])
+    expect(curatePicker({ models, custom: [{ id: 'bebas-1' }], query: 'zzz' }).custom).toEqual([])
+  })
+  it('/model acme/x (tmp HOME): passthrough + simpan Custom + capability dynamic', async () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'abelink-custom-'))
+    const state = createTuiState()
+    const d = { homeDir: home, aliases: {}, cliConfig: {} }
+    await submitLine(state, '/model acme/x', d)
+    expect(state.model).toBe('acme/x')
+    const saved = JSON.parse(fs.readFileSync(path.join(home, '.config', 'abelink', 'cli.json'), 'utf8'))
+    expect(saved.customModels.map((e) => e.id)).toEqual(['acme/x'])
+    expect(saved.recentModels).toEqual(['acme/x'])
+    expect(state.messages.at(-1).text).toContain('ID bebas tersimpan ke Custom')
+    // Sesi berikut: picker tampilkan section Custom dari disk (dynamic).
+    const rows = await modelPickerRows(createTuiState(), { homeDir: home, aliases: {}, cliConfig: {} }, '')
+    expect(rows.rows.some((x) => x.section === 'Custom' && x.id === 'acme/x')).toBe(true)
+  })
+  it('/models teks: section Custom tampil dari disk', async () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'abelink-custom2-'))
+    upsertCustomModel({ id: 'acme/y' }, { fsMod: fs, pathMod: path, homeDir: home, now: 1 })
+    const state = createTuiState()
+    await submitLine(state, '/models', { homeDir: home, aliases: {}, cliConfig: {} })
+    expect(state.messages.at(-1).text).toContain('Custom:\n  acme/y')
+  })
+  it('/effort persist tetap jalan (verifikasi, bukan duplikasi dialog)', async () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'abelink-eff-'))
+    const state = createTuiState()
+    await submitLine(state, '/effort xhigh', { homeDir: home })
+    expect(state.effort).toBe('xhigh')
+    expect(JSON.parse(fs.readFileSync(path.join(home, '.config', 'abelink', 'cli.json'), 'utf8')).effort).toBe('xhigh')
   })
 })

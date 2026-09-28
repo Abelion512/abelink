@@ -51,13 +51,16 @@ export function createTuiState(overrides = {}) {
 // Baca katalog dari cache disk saja (tanpa network). Dipakai jalur /model dan
 // /models tanpa filter supaya tidak memicu GET /v1/models yang lambat
 // (5-26 dtk) hanya untuk menampilkan daftar.
+// `custom` = ID bebas simpanan user (cli.json customModels), dibaca dari disk
+// tiap panggil (dynamic) supaya ID yang disimpan sesi ini langsung dipakai.
 export async function readCachedCatalog(deps = {}) {
-  const { readCatalogCache } = await import('./modelCatalog.mjs')
+  const { readCatalogCache, readCustomModels } = await import('./modelCatalog.mjs')
   const osMod = await import('node:os')
   const fsMod = deps.fsMod || await import('node:fs')
   const home = deps.homeDir || osMod.homedir?.() || process.env.HOME || ''
   const cached = readCatalogCache({ fsMod, homeDir: home })
-  return { models: cached.ok ? cached.models : [], stale: cached.stale === true, error: null }
+  const custom = readCustomModels({ fsMod, homeDir: home })
+  return { models: cached.ok ? cached.models : [], custom, stale: cached.stale === true, error: null }
 }
 
 // `state.onPush` = hook repaint (dipasang entry TUI). Tanpa ini pesan baru
@@ -73,15 +76,16 @@ export function pushMessage(state, role, text) {
 // Cache fresh -> pakai langsung. Stale/kosong -> coba live (timeout pendek);
 // live gagal -> cache stale + error jujur; tanpa cache -> alias statis saja.
 export async function loadModelCatalog(state, deps = {}, forceRefresh = false) {
-  const { readCatalogCache, writeCatalogCache, fetchLiveCatalog } = await import('./modelCatalog.mjs')
+  const { readCatalogCache, writeCatalogCache, fetchLiveCatalog, readCustomModels } = await import('./modelCatalog.mjs')
   const os = await import('node:os')
   const fsMod = deps.fsMod || await import('node:fs')
   const pathMod = deps.pathMod || await import('node:path')
   const homeDir = deps.homeDir || null
   const home = homeDir || os.homedir?.() || process.env.HOME || ''
   const cached = readCatalogCache({ fsMod, homeDir: home })
+  const custom = readCustomModels({ fsMod, homeDir: home })
   if (cached.ok && cached.stale === false && !forceRefresh) {
-    return { models: cached.models, stale: false, error: null }
+    return { models: cached.models, custom, stale: false, error: null }
   }
   const fetchFn = deps.fetchFn || null
   const live = await fetchLiveCatalog({
@@ -90,12 +94,12 @@ export async function loadModelCatalog(state, deps = {}, forceRefresh = false) {
   })
   if (live.ok && live.models.length) {
     writeCatalogCache(live.models, { fsMod, pathMod, homeDir: home })
-    return { models: live.models, stale: false, error: null }
+    return { models: live.models, custom, stale: false, error: null }
   }
   if (cached.ok && cached.models.length) {
-    return { models: cached.models, stale: true, error: live.error ? `Discovery gagal (${live.error}); pakai cache.` : null }
+    return { models: cached.models, custom, stale: true, error: live.error ? `Discovery gagal (${live.error}); pakai cache.` : null }
   }
-  return { models: [], stale: true, error: live.error ? `Discovery gagal (${live.error}); pakai alias statis.` : 'Katalog kosong; pakai alias statis.' }
+  return { models: [], custom, stale: true, error: live.error ? `Discovery gagal (${live.error}); pakai alias statis.` : 'Katalog kosong; pakai alias statis.' }
 }
 
 // Baris picker model (presentasi; recent tetap milik engine).
@@ -128,15 +132,18 @@ export async function modelPickerRows(state, deps = {}, query = '') {
   let catalogTotal = 0
   let catalogError = null
   let catalogLoaded = false
+  let catalogCustom = null
   if (deps.loadCatalog === true) {
     const catalog = await loadModelCatalog(state, deps)
     catalogModels = catalog.models
     catalogStale = catalog.stale === true
     catalogError = catalog.error || null
     catalogLoaded = true
+    if (Array.isArray(catalog.custom)) catalogCustom = catalog.custom
   } else {
     // Baca cache disk saja (tanpa network) — murah, dan membuat filter picker
     // berguna bila katalog pernah dimuat tanpa memaksa fetch tiap buka.
+    // Custom (ID bebas simpanan) ikut dibaca tiap buka: dynamic, bukan snapshot.
     const osMod = await import('node:os')
     const fsMod = deps.fsMod || await import('node:fs')
     const home = deps.homeDir || osMod.homedir?.() || process.env.HOME || ''
@@ -147,7 +154,32 @@ export async function modelPickerRows(state, deps = {}, query = '') {
       catalogLoaded = true
     }
   }
-  const picked = curatePicker({ models: catalogModels, query: q, perSection: 40 })
+  const { readCustomModels } = await import('./modelCatalog.mjs')
+  if (!catalogCustom) {
+    try {
+      const osMod = await import('node:os')
+      const fsMod = deps.fsMod || await import('node:fs')
+      const home = deps.homeDir || osMod.homedir?.() || process.env.HOME || ''
+      catalogCustom = readCustomModels({ fsMod, homeDir: home })
+    } catch {
+      catalogCustom = []
+    }
+  }
+  const picked = curatePicker({
+    models: catalogModels,
+    favorites: deps.cliConfig?.favModels || [],
+    recent: state.recentModels || deps.cliConfig?.recentModels || [],
+    custom: [...catalogCustom, ...(deps.cliConfig?.customModels || [])],
+    query: q,
+    perSection: 40,
+  })
+  const seenIds = new Set(rows.map((r) => r.id))
+  for (const id of picked.custom) {
+    if (!seenIds.has(id)) {
+      rows.push({ id, section: 'Custom', label: id })
+      seenIds.add(id)
+    }
+  }
   for (const id of picked.models) rows.push({ id, section: 'Katalog', label: id })
   const hint = !catalogLoaded && !q
     ? 'Katalog penuh: /models --all'
@@ -272,7 +304,7 @@ async function runSlash(state, cmd, deps) {
         pushMessage(state, 'info', `Model aktif: ${modelSourceLabel(state.model, state.provider)}`)
         return { kind: 'message', role: 'info' }
       }
-      const { resolveCatalogModel, pushRecent } = await import('./modelCatalog.mjs')
+      const { resolveCatalogModel, pushRecent, upsertCustomModel, withCustomCapabilities } = await import('./modelCatalog.mjs')
       const { cacheSwitchWarning, persistCliField } = await import('./modelEffort.mjs')
       const headless = await import('../../src/api/ai/headlessCli.js').catch(() => ({}))
       // Live hanya bila katalog sudah di-opt-in; selain itu cache disk saja
@@ -280,8 +312,14 @@ async function runSlash(state, cmd, deps) {
       const catalog = deps.loadCatalog === true
         ? await loadModelCatalog(state, deps)
         : await readCachedCatalog(deps)
+      // Custom (simpanan cli.json) digabung dynamic: ID bebas yang pernah
+      // disimpan membawa capability-nya walau tak ada di katalog live/cache.
+      const merged = withCustomCapabilities(catalog.models, [
+        ...(catalog.custom || []),
+        ...(deps.cliConfig?.customModels || []),
+      ])
       const r = resolveCatalogModel(cmd.arg, {
-        models: catalog.models,
+        models: merged,
         aliases: deps.aliases || {},
         // Satu sumber kebenaran, bukan daftar lokal di modelCatalog.
         forbidden: headless.FORBIDDEN_MODELS || ['claude-work'],
@@ -291,14 +329,35 @@ async function runSlash(state, cmd, deps) {
         return { kind: 'message', role: 'error' }
       }
       state.model = r.id
-      state.modelCapabilities = catalog.models.find((m) => m.id === r.id) || null
+      const hit = merged.find((m) => m.id === r.id) || null
+      state.modelCapabilities = hit
       const recent = pushRecent(deps.cliConfig?.recentModels || state.recentModels || [], r.id)
       state.recentModels = recent
       const warn = cacheSwitchWarning(state.history)
       const saved = await persistCliField('model', r.via === 'alias' ? cmd.arg : r.id, { homeDir: deps.homeDir || null })
       await saveRecentModels(recent, { homeDir: deps.homeDir || null })
-      const bits = [`Model: ${r.label}${catalog.stale ? ' (katalog stale)' : ''}`]
+      // ID bebas (passthrough, via 'langsung') disimpan ke cli.json ->
+      // customModels[{id, ctx, maxOut, reasoning, lastSeen}] supaya muncul di
+      // section Custom picker sesi berikut. Capability dari katalog bila ada,
+      // null (tak diketahui) bila murni bebas.
+      let customNote = null
+      if (r.via === 'langsung') {
+        const fsMod = deps.fsMod || await import('node:fs')
+        const pathMod = deps.pathMod || await import('node:path')
+        const up = upsertCustomModel(
+          { id: r.id, ctx: hit?.ctx ?? null, maxOut: hit?.maxOut ?? null, reasoning: hit?.reasoning ?? false },
+          { fsMod, pathMod, homeDir: deps.homeDir || null },
+        )
+        customNote = up.ok ? `ID bebas tersimpan ke Custom (${r.id}).` : `Simpan Custom gagal: ${up.error}.`
+      }
+      // Rapikan warning passthrough: label resolve membawa kalimat panjang;
+      // ringkas jadi satu baris status.
+      const resolvedLabel = r.via === 'langsung'
+        ? `${r.id} (ID bebas — tak ada di katalog, bisa gagal di provider)`
+        : r.label
+      const bits = [`Model: ${resolvedLabel}${catalog.stale ? ' (katalog stale)' : ''}`]
       if (warn) bits.push(warn)
+      if (customNote) bits.push(customNote)
       bits.push(saved.ok ? `Tersimpan permanen (${saved.path}).` : `Persist gagal: ${saved.error} (sesi ini tetap pakai ${r.id}).`)
       pushMessage(state, 'info', bits.join('\n'))
       return { kind: 'message', role: 'info' }
@@ -317,12 +376,14 @@ async function runSlash(state, cmd, deps) {
         models: catalog.models,
         favorites: deps.cliConfig?.favModels || [],
         recent: state.recentModels || deps.cliConfig?.recentModels || [],
+        custom: [...(catalog.custom || []), ...(deps.cliConfig?.customModels || [])],
         aliases: deps.aliases || {},
         query: q,
       })
       const out = []
       if (picked.favorites.length) out.push('Favorites:\n' + picked.favorites.map((id) => `  ${id}`).join('\n'))
       if (picked.recent.length) out.push('Recent:\n' + picked.recent.map((id) => `  ${id}`).join('\n'))
+      if (picked.custom.length) out.push('Custom:\n' + picked.custom.map((id) => `  ${id}`).join('\n'))
       const aliasRows = Object.entries(deps.aliases || {}).filter(([k]) => !q || k.toLowerCase().includes(q.toLowerCase()))
       if (aliasRows.length) out.push('Alias:\n' + aliasRows.map(([k, v]) => `  ${k} -> ${v}`).join('\n'))
       if (picked.models.length) out.push(`Katalog (${picked.total} model${catalog.stale ? ', stale' : ''}):\n` + picked.models.map((id) => `  ${id}`).join('\n'))

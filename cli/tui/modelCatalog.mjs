@@ -12,9 +12,14 @@
 
 export const MODELS_CACHE_TTL_MS = 5 * 60 * 1000
 export const RECENT_CAP = 10
+export const CUSTOM_MODELS_CAP = 50
 
 export function modelsCachePath(homeDir = '') {
   return `${homeDir}/.config/abelink/models-cache.json`
+}
+
+export function cliJsonPath(homeDir = '') {
+  return `${homeDir}/.config/abelink/cli.json`
 }
 
 // Normalisasi satu entri /v1/models -> bentuk katalog (hanya field dipakai).
@@ -105,16 +110,27 @@ export async function fetchLiveCatalog({ fetchFn = null, endpoint = 'http://127.
   return { ok: false, models: [], error: 'Discovery gagal setelah retry.' }
 }
 
-// Kurasi picker: Favorites -> Recent -> providers (filter query, cap tiap
-// seksi agar 1322 model tak ditumpahkan mentah).
-export function curatePicker({ models = [], favorites = [], recent = [], aliases = {}, query = '', perSection = 30 } = {}) {
+// Kurasi picker: Favorites -> Recent -> Custom -> providers (filter query,
+// cap tiap seksi agar 1322 model tak ditumpahkan mentah). `custom` = ID
+// bebas simpanan user (cli.json customModels) — selalu tampil apa adanya
+// (tak difilter katalog) karena ID combo 9Router sah walau tak di discovery.
+export function curatePicker({ models = [], favorites = [], recent = [], custom = [], aliases = {}, query = '', perSection = 30 } = {}) {
   const q = String(query || '').toLowerCase()
   const match = (id) => !q || String(id || '').toLowerCase().includes(q)
   const byId = new Map(models.map((m) => [m.id, m]))
   const fav = favorites.filter((id) => byId.has(id) && match(id)).slice(0, perSection)
   const rec = recent.filter((id) => byId.has(id) && !fav.includes(id) && match(id)).slice(0, RECENT_CAP)
+  // Dedup custom terhadap RAW recent/fav (bukan hasil filter katalog):
+  // engine merender Recent/Favorit dari daftar mentah, jadi ID yang sudah
+  // tampil di sana tak boleh diulang di section Custom.
+  const rawRecent = new Set((recent || []).map((id) => String(id)))
+  const rawFav = new Set((favorites || []).map((id) => String(id)))
+  const cus = normalizeCustomList(custom)
+    .map((e) => e.id)
+    .filter((id) => !rawFav.has(id) && !rawRecent.has(id) && match(id))
+    .slice(0, perSection)
   const rest = models.map((m) => m.id).filter((id) => !fav.includes(id) && !rec.includes(id) && match(id)).slice(0, perSection)
-  return { favorites: fav, recent: rec, models: rest, total: models.length }
+  return { favorites: fav, recent: rec, custom: cus, models: rest, total: models.length }
 }
 
 // Recent: tambah id ke depan, dedup, cap 10 (opencode recentModels).
@@ -122,6 +138,80 @@ export function pushRecent(recent = [], id = '') {
   const clean = String(id || '').trim()
   if (!clean) return Array.isArray(recent) ? [...recent] : []
   return [clean, ...(Array.isArray(recent) ? recent : []).filter((x) => x !== clean)].slice(0, RECENT_CAP)
+}
+
+// Model custom bebas (slice 2): ID passthrough simpanan user di
+// cli.json -> customModels[{id, ctx, maxOut, reasoning, lastSeen}].
+// Dibaca tiap resolve (dynamic, bukan snapshot bootstrap) supaya picker sesi
+// berikut langsung menampilkan ID yang disimpan sesi ini.
+export function normalizeCustomEntry(e = {}) {
+  const id = String(e?.id ?? '').trim()
+  if (!id) return null
+  const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : null)
+  return {
+    id,
+    ctx: num(e?.ctx),
+    maxOut: num(e?.maxOut),
+    reasoning: e?.reasoning === true,
+    lastSeen: Number(e?.lastSeen) || 0,
+  }
+}
+
+export function normalizeCustomList(list = []) {
+  if (!Array.isArray(list)) return []
+  return list.map(normalizeCustomEntry).filter(Boolean)
+}
+
+// Baca customModels dari cli.json. Hilang/korup -> []. Never throws.
+export function readCustomModels({ fsMod = null, homeDir = '' } = {}) {
+  const fs = fsMod || defaultFs()
+  try {
+    const parsed = JSON.parse(fs.readFileSync(cliJsonPath(homeDir), 'utf8'))
+    return normalizeCustomList(parsed?.customModels)
+  } catch {
+    return []
+  }
+}
+
+// Simpan/update satu ID custom: dedup ke depan, cap 50, merge 0600
+// (bukan overwrite — field lain cli.json dipertahankan). Never throws.
+export function upsertCustomModel(entry = {}, { fsMod = null, pathMod = null, homeDir = '', now = Date.now() } = {}) {
+  const norm = normalizeCustomEntry(entry)
+  if (!norm) return { ok: false, error: 'ID custom kosong.' }
+  const fs = fsMod || defaultFs()
+  const path = pathMod || defaultPath()
+  const file = cliJsonPath(homeDir)
+  try {
+    let current = {}
+    try {
+      current = JSON.parse(fs.readFileSync(file, 'utf8'))
+      if (!current || typeof current !== 'object') current = {}
+    } catch {}
+    const rest = normalizeCustomList(current.customModels).filter((e) => e.id !== norm.id)
+    const next = [{ ...norm, lastSeen: now }, ...rest].slice(0, CUSTOM_MODELS_CAP)
+    fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 })
+    fs.writeFileSync(file, JSON.stringify({ ...current, customModels: next }, null, 2) + '\n', { mode: 0o600 })
+    try { fs.chmodSync?.(file, 0o600) } catch {}
+    return { ok: true, path: file }
+  } catch (err) {
+    return { ok: false, error: String(err?.message || err) }
+  }
+}
+
+// Gabung daftar katalog dengan simpanan custom untuk resolve.
+// Terima entri mentah /v1/models MAUPUN yang sudah normalisasi (ctx/maxOut):
+// re-normalisasi entri jadi akan menghilangkan capability, jadi bentuk
+// normalisasi dipertahankan apa adanya. Entri katalog menang bila ID sama
+// (lebih segar); ID custom yang tak ada di katalog ditambahkan sebagai entri
+// katalog (capability simpanan).
+export function withCustomCapabilities(models = [], custom = []) {
+  const list = Array.isArray(models) ? models : []
+  const base = list.length && list[0]?.capabilities ? normalizeCatalogList(list) : list.filter((m) => m?.id)
+  const seen = new Set(base.map((m) => m.id))
+  const extra = normalizeCustomList(custom)
+    .filter((e) => !seen.has(e.id))
+    .map((e) => ({ id: e.id, reasoning: e.reasoning, ctx: e.ctx, maxOut: e.maxOut, thinkFmt: null, thinkDisable: true }))
+  return [...base, ...extra]
 }
 
 // Resolve input /model terhadap katalog + alias:

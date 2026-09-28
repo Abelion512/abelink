@@ -27,10 +27,11 @@ export interface PickerRow {
 
 /**
  * State overlay. `kind` menentukan aksi Enter di entry:
- * `model` -> `/model <id>`, `commands` -> jalankan perintah, `sessions` -> `/continue <id>`.
+ * `model` -> `/model <id>`, `commands` -> jalankan perintah, `sessions` -> `/continue <id>`,
+ * `effort` -> `/effort <level>`.
  */
 export interface PickerState {
-  kind?: 'model' | 'commands' | 'sessions' | string
+  kind?: 'model' | 'commands' | 'sessions' | 'effort' | string
   title?: string
   kindHint?: string
   rows?: PickerRow[]
@@ -87,11 +88,21 @@ export interface TuiProgressEvent {
   type?: string
 }
 
+/** Satu entri model custom bebas (cli.json customModels). */
+export interface CustomModelEntry {
+  id: string
+  ctx?: number | null
+  maxOut?: number | null
+  reasoning?: boolean
+  lastSeen?: number
+}
+
 /** Isi cli.json / shared.json yang dibaca TUI (bentuk longgar, key asing diizinkan). */
 export interface TuiFileConfig {
   effort?: string | null
   recentModels?: string[]
   favModels?: string[]
+  customModels?: CustomModelEntry[]
   [key: string]: unknown
 }
 
