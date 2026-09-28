@@ -27,7 +27,19 @@ const groomerSchema = {
   }
 }
 
-export function buildGroomerPrompt(clusters) {
+// ---- Kontrak tipe (W2-6) ----
+export interface MemoryCluster {
+  id?: number
+  [key: string]: unknown
+}
+
+export interface Consolidation {
+  keep_id: number
+  merged_text: string
+  delete_ids: number[]
+}
+
+export function buildGroomerPrompt(clusters: MemoryCluster[]) {
   const payload = JSON.stringify(clusters, null, 2)
   return `Kamu adalah Abelink Hippocampus Engine - mesin konsolidasi memori otonom.
 Tugasmu adalah memeriksa kelompok-kelompok (clusters) ingatan tentang user yang mirip atau memiliki kesinambungan kronologis, lalu mengonsolidasi setiap cluster menjadi SATU kalimat yang utuh dan runtut secara kronologis.
@@ -56,15 +68,15 @@ Wajib kembalikan HANYA objek JSON dengan skema:
 }`
 }
 
-export function parseGroomerResponse(rawResponse) {
+export function parseGroomerResponse(rawResponse: unknown): Consolidation[] {
   if (!rawResponse) return []
   try {
-    const parsed = cleanAndParse(typeof rawResponse === 'string' ? rawResponse : JSON.stringify(rawResponse))
+    const parsed = cleanAndParse(typeof rawResponse === 'string' ? rawResponse : JSON.stringify(rawResponse)) as { consolidations?: unknown } | null
     if (parsed && Array.isArray(parsed.consolidations)) {
-      return parsed.consolidations.map(c => ({
+      return (parsed.consolidations as Array<Record<string, unknown>>).map(c => ({
         keep_id: Number(c.keep_id),
         merged_text: String(c.merged_text || '').trim(),
-        delete_ids: Array.isArray(c.delete_ids) ? c.delete_ids.map(id => Number(id)) : []
+        delete_ids: Array.isArray(c.delete_ids) ? (c.delete_ids as unknown[]).map(id => Number(id)) : []
       })).filter(c => !isNaN(c.keep_id) && c.merged_text.length > 0)
     }
   } catch (err) {
@@ -73,7 +85,7 @@ export function parseGroomerResponse(rawResponse) {
   return []
 }
 
-export async function runBatchConsolidation(clusters) {
+export async function runBatchConsolidation(clusters: MemoryCluster[]): Promise<Consolidation[]> {
   if (!clusters || clusters.length === 0) return []
 
   const prompt = buildGroomerPrompt(clusters)

@@ -1,6 +1,6 @@
 // compactZone boundary gaps (fraksi MAX_SESSION_CHARS).
 import { describe, expect, it } from 'vitest'
-import { COMPACT_SUGGEST_AT, COMPACT_WARN_AT, MAX_SESSION_CHARS, compactZone } from '../src/api/ai/sessionCompactor.js'
+import { COMPACT_SUGGEST_AT, COMPACT_WARN_AT, MAX_SESSION_CHARS, compactZone } from '../src/api/ai/sessionCompactor.ts'
 
 const pct = (p) => Math.floor(MAX_SESSION_CHARS * p)
 

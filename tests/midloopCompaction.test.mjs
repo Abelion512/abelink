@@ -5,7 +5,7 @@ import {
   MIDLOOP_COMPACT_COOLDOWN_TURNS,
   shouldCompactLoop,
   buildCompactedLoopWindow
-} from '../src/api/ai/sessionCompactor.js'
+} from '../src/api/ai/sessionCompactor.ts'
 
 const THRESHOLD = MAX_SESSION_CHARS * COMPACT_WARN_AT
 
