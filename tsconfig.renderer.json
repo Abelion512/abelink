@@ -12,5 +12,8 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": []
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx"]
+  // sidecar/types/*.d.ts: deklarasi ambient lintas-zona (bun:sqlite, deps
+  // tanpa tipe) — headlessCli.ts di src/api/ai memakainya dan di-load program
+  // node-zone via import test, jadi program renderer juga wajib melihatnya.
+  "include": ["src/**/*.ts", "src/**/*.tsx", "sidecar/types/**/*.d.ts"]
 }

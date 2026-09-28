@@ -9,7 +9,7 @@
 
 import { describe, it, expect } from 'vitest'
 import 'fake-indexeddb/auto'
-import { runAgentLoop } from '../src/api/ai/agentRunner.js'
+import { runAgentLoop } from '../src/api/ai/agentRunner.ts'
 import {
   canAttemptEvidenceRecovery,
   MAX_VERIFY_REPLANS,

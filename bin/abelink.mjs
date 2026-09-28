@@ -34,7 +34,7 @@ import {
   trajectoryHeadlessEnabled
 } from '../cli/core/index.mjs'
 
-const { runAgentLoop } = await import('../src/api/ai/agentRunner.js')
+const { runAgentLoop } = await import('../src/api/ai/agentRunner.ts')
 const { evaluateHeadlessSecurity } = await import('../src/api/ai/headlessSecurity.js')
 const { NATIVE_TOOLS } = await import('../sidecar/main/node-tools.js')
 
@@ -347,7 +347,7 @@ async function main() {
   try { fs.mkdirSync(cliOptions.workspace, { recursive: true }) } catch {}
 
   // Stream 3: headless helpers (pure module; engine stays untouched).
-  const headless = await import('../src/api/ai/headlessCli.js').catch(() => ({}))
+  const headless = await import('../src/api/ai/headlessCli.ts').catch(() => ({}))
   const {
     resolveApprovalDecision = null,
     loadCliFileConfig = null,

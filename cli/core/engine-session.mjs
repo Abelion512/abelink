@@ -1,4 +1,4 @@
-import { runAgentLoop } from '../../src/api/ai/agentRunner.js'
+import { runAgentLoop } from '../../src/api/ai/agentRunner.ts'
 import { ProviderRuntime } from './provider-runtime.mjs'
 
 let defaultTaskStore = null

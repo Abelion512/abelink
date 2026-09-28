@@ -7,7 +7,7 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import 'fake-indexeddb/auto'
 
-import { runAgentLoop } from '../src/api/ai/agentRunner.js'
+import { runAgentLoop } from '../src/api/ai/agentRunner.ts'
 import {
   evaluateEvidence,
   gateCompletion,
@@ -18,7 +18,7 @@ import { resolvePlanStepBudget } from '../src/api/ai/planStepBudget.js'
 import { classifyObjectiveKind } from '../src/api/ai/objectiveVerifier.js'
 
 const GUI_LOOP = 'src/hooks/agent/useAbelinkPlan.js'
-const HEADLESS_LOOP = 'src/api/ai/agentRunner.js'
+const HEADLESS_LOOP = 'src/api/ai/agentRunner.ts'
 
 // Skema kontrak (tunggal untuk kedua loop) — kalau tabel ini berubah tanpa
 // ADR, test paritas harus ikut berubah (sinyal, bukan hambatan diam-diam).

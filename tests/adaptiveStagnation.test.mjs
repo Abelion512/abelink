@@ -8,7 +8,7 @@
 
 import { describe, it, expect } from 'vitest'
 import 'fake-indexeddb/auto'
-import { runAgentLoop, MAX_NO_PROGRESS_STREAK, MAX_NO_ACTION_TERMINAL_STREAK } from '../src/api/ai/agentRunner.js'
+import { runAgentLoop, MAX_NO_PROGRESS_STREAK, MAX_NO_ACTION_TERMINAL_STREAK } from '../src/api/ai/agentRunner.ts'
 import {
   STRATEGY_LADDER,
   LADDER_STAGES,

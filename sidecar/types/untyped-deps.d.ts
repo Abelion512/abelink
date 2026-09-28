@@ -1,6 +1,13 @@
-// Deklarasi ambient untuk deps tanpa .d.ts (cek package.json 2026-09-28).
+// Deklarasi ambient untuk deps/modul tanpa .d.ts (cek 2026-09-28).
 // Bentuk MINIMAL yang dipakai repo — bukan peta API penuh. Naikkan bila
 // pemakaian baru butuh shape lain.
+declare module 'bun:sqlite' {
+  export class Database {
+    constructor(path: string, opts?: { readonly?: boolean; create?: boolean })
+    query(sql: string): { get: (...params: unknown[]) => Record<string, unknown> | null; all: (...params: unknown[]) => Array<Record<string, unknown>>; run: (...params: unknown[]) => void }
+    close(): void
+  }
+}
 declare module 'mammoth' {
   const mammoth: {
     extractRawText: (input: { buffer: Buffer }) => Promise<{ value: string }>

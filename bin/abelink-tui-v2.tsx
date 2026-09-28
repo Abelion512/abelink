@@ -27,9 +27,9 @@ export const TUI_V2_VERSION = TUI_VERSION
 
 // Modul headless (masih .js sampai M4). Dipakai lewat `Partial` karena beberapa
 // jalur memuatnya dengan `.catch(() => ({}))` saat modul tak tersedia.
-type HeadlessCliModule = typeof import('../src/api/ai/headlessCli.js')
+type HeadlessCliModule = typeof import('../src/api/ai/headlessCli.ts')
 
-/** Hasil `resolveCliAuth` (src/api/ai/headlessCli.js — masih JS). */
+/** Hasil `resolveCliAuth` (src/api/ai/headlessCli.ts — masih JS). */
 interface CliAuth {
   provider?: string | null
   model?: string | null
@@ -57,7 +57,7 @@ interface TuiDeps {
 }
 
 export async function bootstrapTuiState(cliOptions: TuiCliOptions, deps: BootstrapDeps = {}) {
-  const headless = deps.headless || await import('../src/api/ai/headlessCli.js').catch(() => ({} as Partial<HeadlessCliModule>))
+  const headless = deps.headless || await import('../src/api/ai/headlessCli.ts').catch(() => ({} as Partial<HeadlessCliModule>))
   const {
     loadCliFileConfig = null,
     resolveCliAuth = null,
@@ -75,10 +75,12 @@ export async function bootstrapTuiState(cliOptions: TuiCliOptions, deps: Bootstr
       // Hanya override bila user set flag eksplisit — sisanya biarkan GUI
       // (shared.json) / cli.json / default menentukan (adopsi satu produk).
       flags: {
-        provider: cliOptions.providerExplicit ? cliOptions.provider : null,
-        model: cliOptions.modelExplicit ? cliOptions.model : null,
-        modelVersion: null,
-        apiKey: null,
+        // null/undefined = tidak diset — biarkan GUI (shared.json) / cli.json /
+        // default menentukan (adopsi satu produk).
+        provider: cliOptions.providerExplicit ? cliOptions.provider : undefined,
+        model: cliOptions.modelExplicit ? cliOptions.model : undefined,
+        modelVersion: undefined,
+        apiKey: undefined,
       },
       env: process.env,
       fileConfig,
@@ -129,7 +131,7 @@ async function main() {
   const { state, auth, aliases, maxTurns } = boot
   // Keputusan owner: ID terlarang ditolak sebelum render (bukan saat prompt
   // pertama) supaya pesannya jelas dan tidak ada request yang terkirim.
-  const headlessMod = await import('../src/api/ai/headlessCli.js').catch(() => ({} as Partial<HeadlessCliModule>))
+  const headlessMod = await import('../src/api/ai/headlessCli.ts').catch(() => ({} as Partial<HeadlessCliModule>))
   if (typeof headlessMod.isForbiddenModel === 'function' && headlessMod.isForbiddenModel(state.model)) {
     // `!` disengaja: modul ini didefinisikan berpasangan (isForbiddenModel +
     // forbiddenModelError). Perilaku lama = apa pun dari modul itu; `!` menjaga
