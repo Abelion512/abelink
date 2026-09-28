@@ -1,5 +1,5 @@
 // Registry terpadu CapabilityDescriptor: connectors + MCP custom + plugins + skills.
-// Satu sumber untuk blok prompt registry (planning.js) dan validasi bundle.
+// Satu sumber untuk blok prompt registry (planning.ts) dan validasi bundle.
 // Prinsip: tidak pernah throw — sumber yang gagal / deskriptor invalid hanya
 // dibuang dengan console.warn. Lazy-import agar tidak ada siklus modul dan
 // startup sidecar tetap instan.

@@ -24,7 +24,7 @@ describe('pc_automation dorman (keputusan owner 2026-09-27)', () => {
 
   it('planner tidak merekrut grup dormant ke prompt (filter dormant di planning)', async () => {
     const { readFileSync } = await import('node:fs')
-    const src = readFileSync('src/api/ai/planning.js', 'utf8')
+    const src = readFileSync('src/api/ai/planning.ts', 'utf8')
     // Filter dormant dipasang pada baris daftar grup deferred:
     expect(src).toMatch(/\.filter\(\(\[, v\]\) => !v\.dormant\)/)
     // Contoh teks prompt tidak lagi menyebut pc_automation:
