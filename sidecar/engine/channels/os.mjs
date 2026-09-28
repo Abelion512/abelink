@@ -5,7 +5,7 @@
 // Sebelumnya stub `unsupported` sukses-semu; kini eksekusi nyata dan
 // fail-fast (throw) bila gagal. Approval tetap di lapisan tool (needsApproval)
 // + gate Rust untuk aksi destruktif.
-import { on } from '../registry.mjs'
+import { on } from '../registry.ts'
 
 // Lazy agar startup sidecar tetap instan (node-tools + pc-agent hanya
 // di-load saat channel os:* pertama dipakai — pola sama seperti ai.mjs).

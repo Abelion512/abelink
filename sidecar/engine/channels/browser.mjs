@@ -14,7 +14,7 @@
 //   show      (sessionId)             -> tab difokuskan
 // Argumen ke-2+ tetap spread oleh registry `on()` (payload array).
 
-import { on, emit } from '../registry.mjs'
+import { on, emit } from '../registry.ts'
 import { startBrowserBridge, bridgeReady, stopBrowserBridge } from '../../main/browser/server.mjs'
 import {
   dispatchCommand,

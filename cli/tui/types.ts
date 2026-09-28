@@ -1,10 +1,11 @@
 // cli/tui/types.ts — kontrak tipe permukaan TUI (M2a).
 //
-// Kenapa terpisah: engine (`engine.mjs`) tetap JS (keputusan D3: `.mjs` tidak
-// di-rename tanpa nilai), jadi tipe harus tinggal di satu tempat yang bisa
-// dirujuk komponen .tsx DAN entry `bin/abelink-tui-v2.tsx`. Tanpa ini setiap
-// berkas mendefinisikan bentuk props sendiri dan error `TS2339 property does
-// not exist on type '{}'` muncul kembali (114 error pra-M2a).
+// Kenapa terpisah: engine TUI (`cli/tui/engine.mjs`) masih JS (keputusan D3
+// berlaku untuk TUI; sidecar engine sudah `.ts` sejak W1-1), jadi tipe harus
+// tinggal di satu tempat yang bisa dirujuk komponen .tsx DAN entry
+// `bin/abelink-tui-v2.tsx`. Tanpa ini setiap berkas mendefinisikan bentuk
+// props sendiri dan error `TS2339 property does not exist on type '{}'`
+// muncul kembali (114 error pra-M2a).
 //
 // Kontrak runtime TIDAK berubah: semua field opsional mengikuti perilaku
 // pemanggil yang memang sudah memakai `?.`/`??`.

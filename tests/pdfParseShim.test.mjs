@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { extractPdfText } from '../sidecar/engine/pdf-parse-shim.mjs'
+import { extractPdfText } from '../sidecar/engine/pdf-parse-shim.ts'
 
 // PDF 1 halaman minimal bertuliskan Halo Abelink (dibangun manual, tanpa dep).
 function tinyPdf(text) {

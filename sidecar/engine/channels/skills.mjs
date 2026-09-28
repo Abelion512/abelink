@@ -6,7 +6,7 @@
 // Format SKILL.md mengikuti pola Agent Skills (metadata + isi instruksi,
 // progressive disclosure): daftar skill hanya butuh nama + deskripsi; isi
 // SKILL.md baru dibaca saat skill dipakai.
-import { on, emit } from '../registry.mjs'
+import { on, emit } from '../registry.ts'
 import fs from 'fs'
 import path from 'path'
 import { brandDir } from '../../main/utils/dataHome.mjs'

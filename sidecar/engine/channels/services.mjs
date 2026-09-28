@@ -1,6 +1,6 @@
 // Channel: plugin system, Google services, Workspace RAG, awareness tracker.
 // Modul ini hanya mendaftarkan handler; semua I/O via helper registry.
-import { on, lazy } from '../registry.mjs'
+import { on, lazy } from '../registry.ts'
 
 const getPl = lazy(() => import('../../main/plugins/plugin-loader.js'))
 const getGsvc = lazy(() => import('../../main/google/google-service.js'))

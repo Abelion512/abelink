@@ -1,6 +1,6 @@
 // Channel: Telegram — kontrol bot, dashboard benchmark, broadcast admin.
 // Modul ini hanya mendaftarkan handler; semua I/O via helper registry.
-import { on, emit, lazy } from '../registry.mjs'
+import { on, emit, lazy } from '../registry.ts'
 
 const getTg = lazy(() => import('../../main/telegram/telegram-service.js'))
 

@@ -20,7 +20,7 @@ fs.rmSync(PROFILE, { recursive: true, force: true })
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 // ---------- sidecar RPC ----------
-const child = spawn('bun', [path.join(ROOT, 'sidecar', 'engine.mjs')], {
+const child = spawn('bun', [path.join(ROOT, 'sidecar', 'engine.ts')], {
   cwd: ROOT,
   stdio: ['pipe', 'pipe', 'pipe'],
 })

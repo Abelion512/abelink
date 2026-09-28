@@ -25,7 +25,7 @@ import {
   EXTENSION_ID,
 } from '../sidecar/main/browser/native-host.mjs'
 import { startBrowserBridge, stopBrowserBridge } from '../sidecar/main/browser/server.mjs'
-import { handlers } from '../sidecar/engine/registry.mjs'
+import { handlers } from '../sidecar/engine/registry.ts'
 import '../sidecar/engine/channels/browser.mjs'
 
 const TEST_PORT = 49799

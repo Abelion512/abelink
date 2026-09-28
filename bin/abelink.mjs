@@ -40,7 +40,7 @@ const { NATIVE_TOOLS } = await import('../sidecar/main/node-tools.js')
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
-const SIDECAR_ENTRY = path.join(ROOT, 'sidecar', 'engine.mjs')
+const SIDECAR_ENTRY = path.join(ROOT, 'sidecar', 'engine.ts')
 const BUN_BIN = process.env.BUN_BIN || 'bun'
 
 // Versi TIDAK hardcoded: dibaca dari package.json, yang di-sync dari

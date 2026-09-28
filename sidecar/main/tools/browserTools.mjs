@@ -36,7 +36,7 @@ const ensureExtensionUp = async ({ url = null, sessionId = 'default', onStatus =
       ? onStatus
       : async (msg) => {
           try {
-            const { emit } = await import('../../engine/registry.mjs')
+            const { emit } = await import('../../engine/registry.ts')
             emit('browser:status', msg)
           } catch {}
         }
@@ -70,7 +70,7 @@ const tryExtensionAct = async (payload, sessionId = 'default', opts = {}) => {
         sessionId: targetSession,
         onStatus: async (m) => {
           try {
-            const { emit } = await import('../../engine/registry.mjs')
+            const { emit } = await import('../../engine/registry.ts')
             emit('browser:status', m)
           } catch {}
         }
