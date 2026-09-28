@@ -21,6 +21,7 @@ import {
   PROMPT_KEY_BINDINGS,
 } from '../theme.ts'
 import type { PromptCompletion, PromptRowProps, TextareaHandle, TuiKeyEvent } from '../types.ts'
+import { movePromptHistory } from '../../core/promptHistory.mjs'
 
 export { PROMPT_KEY_BINDINGS }
 export { filterCompletions }
@@ -61,6 +62,7 @@ export function PromptRow(props: PromptRowProps) {
   // (Stream D: agentName mengikuti pola yang sama untuk label mode.)
   const meta = () => (typeof props.modelLabel === 'function' ? props.modelLabel() : (props.modelLabel ?? ''))
   const agent = () => (typeof props.agentName === 'function' ? props.agentName() : (props.agentName ?? 'Abelink'))
+  const permMode = () => (typeof props.permissionMode === 'function' ? props.permissionMode() : (props.permissionMode ?? 'auto'))
   const [selected, setSelected] = createSignal(0)
   let ta: TextareaHandle | null = null
   const readText = (): string => {
@@ -170,6 +172,7 @@ export function PromptRow(props: PromptRowProps) {
 
   const submitNow = (text: string) => {
     const t = String(text ?? '')
+    recallChain = false
     setSelected(0)
     setDismissed(false)
     clearTextarea()
@@ -206,6 +209,26 @@ export function PromptRow(props: PromptRowProps) {
     wasPickerOpen = open
   })
 
+  // Port opencode prompt.history (index.tsx:871-926): flag rantai recall
+  // persisten antar-keypress. TextareaHandle tak expose cursor offset, jadi
+  // guard didekatkan jujur: recall hanya dari buffer SATU baris
+  // (multi-baris = Up/Down milik kursor), KECUALI rantai recall aktif (baru
+  // saja recall -> Up/Down lanjut menelusuri; opencode set cursorOffset di
+  // sini). Ketikan manual + submit mereset rantai.
+  let recallChain = false
+  const recall = (dir: 1 | -1): boolean => {
+    const hist = props.promptHistory
+    if (!hist || !hist.entries?.length) return false
+    const buf = readText()
+    if (!recallChain && buf.includes('\n')) return false
+    const recalled = movePromptHistory(hist, dir, buf)
+    if (recalled === null) { recallChain = false; return false }
+    recallChain = true
+    setTextareaText(recalled)
+    props.onInput?.(recalled)
+    return true
+  }
+
   const onKeyDown = (e: TuiKeyEvent) => {
     // Mode-stack: picker model menang atas autocomplete (opencode
     // dialog-model): Up/Down/Enter/Esc diarahkan ke picker.
@@ -237,6 +260,16 @@ export function PromptRow(props: PromptRowProps) {
     }
     if (!popup) {
       if (e.name === 'escape') props.onEscape?.()
+      // Histori prompt (Up/Down) hanya saat popup tutup. Ctrl+p/n milik
+      // autocomplete bila popup buka (di bawah); saat tutup = recall juga.
+      if (e.name === 'up' || (e.name === 'p' && e.ctrl)) {
+        if (recall(-1)) { e.preventDefault?.(); return }
+        return
+      }
+      if (e.name === 'down' || (e.name === 'n' && e.ctrl)) {
+        if (recall(1)) { e.preventDefault?.(); return }
+        return
+      }
       return
     }
     if (e.name === 'up' || (e.name === 'p' && e.ctrl)) {
@@ -362,8 +395,10 @@ export function PromptRow(props: PromptRowProps) {
             ref={(r: TextareaHandle) => { ta = r }}
             onContentChange={() => {
               setSelected(0)
-              // Ketikan baru = niat baru: buka lagi popup yang tadi di-Esc.
+              // Ketikan baru = niat baru: buka lagi popup yang tadi di-Esc,
+              // dan putus rantai recall histori (guard movePromptHistory).
               setDismissed(false)
+              recallChain = false
               // Picu render ulang popup dari buffer live (lihat renderList).
               setBufTick((t) => t + 1)
               const t = readText()
@@ -375,16 +410,19 @@ export function PromptRow(props: PromptRowProps) {
             onSubmit={() => resolveEnter(readText())}
           />
           {/* Meta row, port opencode prompt/index.tsx:1442-1478: agen
-              Titlecase + `auto` (bila permission auto) · model + provider.
-              Tanpa fade/variant (animasi + konsep variant ditunda jujur). */}
+              Titlecase + `auto` (HANYA bila permission auto) · model +
+              provider (HANYA bila permission normal — pola opencode:
+              meta model disembunyikan saat auto). Tanpa fade/variant. */}
           <box style={{ flexDirection: 'row', flexShrink: 0, paddingTop: 1, gap: 1, justifyContent: 'space-between' }}>
             <box style={{ flexDirection: 'row', gap: 1 }}>
               <text fg={ABELINK_THEME.accent}>{agent()}</text>
-              <Show when={(props.permissionMode ?? 'auto') === 'auto'}>
+              <Show when={permMode() === 'auto'}>
                 <text fg={ABELINK_THEME.textMuted}>auto</text>
               </Show>
-              <text fg={ABELINK_THEME.textMuted}>·</text>
-              <text fg={ABELINK_THEME.text}>{meta()}</text>
+              <Show when={permMode() !== 'auto'}>
+                <text fg={ABELINK_THEME.textMuted}>·</text>
+                <text fg={ABELINK_THEME.text}>{meta()}</text>
+              </Show>
             </box>
             <Show when={props.right}>
               <box style={{ flexDirection: 'row', gap: 1, alignItems: 'center' }}>

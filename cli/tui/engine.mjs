@@ -40,6 +40,8 @@ import { estimateLiveTokens } from './usageStats.mjs'
 
 export { parseSlashCommand, parseShellLine, resolveFileRefs, buildAgentsMd }
 export { SESSION_MESSAGE_CAP }
+export { movePromptHistory, appendPromptHistory, createPromptHistory } from '../core/promptHistory.mjs'
+export { normalizePaste, shouldSummarizePaste, summarizePaste } from '../core/paste.mjs'
 
 export function createTuiState(overrides = {}) {
   return {
@@ -48,8 +50,10 @@ export function createTuiState(overrides = {}) {
     effort: 'low',
     // Stream D: mode plan/build (opencode agent.cycle build<->plan via tab).
     // Default build = perilaku lama (eksekusi normal). Meta row tampilkan
-    // via modeAgentLabel; permissionMode TIDAK dipakai (tetap 'auto').
+    // via modeAgentLabel; permissionMode = auto/normal (opencode
+    // context/permission.tsx: /permissions toggle).
     mode: 'build',
+    permissionMode: 'auto',
     workspace: process.cwd(),
     sessionId: `session-${Date.now()}`,
     history: [],
@@ -398,7 +402,14 @@ export async function saveRecentModels(recent = [], { homeDir = null } = {}) {
 // -> { kind:'exit' } | { kind:'message', role, text } (sudah push ke state)
 // Tidak melempar; error jadi pesan role 'error'.
 export async function submitLine(state, line, deps = {}) {
-  const text = String(line ?? '')
+  // Port opencode onPaste/pasteInputText: CRLF/CR -> LF di boundary input.
+  // TTY paste lintas-OS (Windows CRLF, macOS klasik CR) ternormalisasi di
+  // SINI (satu choke point) agar normalisasi tak tercecer per-caller.
+  let text = String(line ?? '')
+  try {
+    const { normalizePaste } = await import('../core/paste.mjs')
+    text = normalizePaste(text)
+  } catch { /* normalisasi opsional, jangan gagalkan kirim */ }
   const shellCmd = parseShellLine(text)
   if (shellCmd !== null) {
     const out = await runShell(deps, state, shellCmd)
@@ -442,9 +453,12 @@ async function runPrompt(state, text, deps) {
   if (resolved.attached?.length) {
     pushMessage(state, 'info', `Lampirkan ${resolved.attached.length} file.`)
   }
-  // Gambar drop/paste: path mentah -> base64 -> deskripsi vision via sidecar
-  // (pola GUI visionTools: contentArray + fetchVisionAI chain). Jalur TUI
-  // string-only, jadi deskripsi disisipkan sebagai teks konteks sebelum turn.
+  // Gambar drop/paste: path mentah -> attachment -> deskripsi vision via
+  // sidecar (pola GUI visionTools: contentArray + fetchVisionAI chain).
+  // Jalur TUI string-only, jadi deskripsi disisipkan sebagai teks konteks.
+  // Port opencode prompt/local-attachment.ts: SVG = TEKS (markup langsung,
+  // bukan base64); image/* lain + PDF = binary bytes. PDF ke LLM vision =
+  // tolak-jujur (catat path, isi tak dikirim — tanpa parser PDF di CLI).
   // Tanpa sidecar (test/pipe): lampirkan penanda jujur, bukan fabrikasi isi.
   const { resolveImageRefs } = await import('../core/imageRefs.mjs')
   const fsMod = deps.fsMod || await import('node:fs').catch(() => null)
@@ -454,11 +468,24 @@ async function runPrompt(state, text, deps) {
   const imgResolved = resolveImageRefs(resolved.text, { workspace: state.workspace, fsMod, pathMod })
   let effectiveText = resolved.text
   if (imgResolved.attached?.length) {
-    pushMessage(state, 'info', `Lampirkan ${imgResolved.attached.length} gambar (${imgResolved.attached.map((a) => a.ref).join(', ')}).`)
+    const bins = imgResolved.attached.filter((a) => a.kind !== 'text')
+    const svgs = imgResolved.attached.filter((a) => a.kind === 'text')
+    const pdfs = bins.filter((a) => a.mime === 'application/pdf')
+    const imgs = bins.filter((a) => a.mime !== 'application/pdf')
+    const labels = imgResolved.attached.map((a) => a.ref).join(', ')
+    pushMessage(state, 'info', `Lampirkan ${imgResolved.attached.length} lampiran (${labels}).`)
     effectiveText = imgResolved.text
+    // SVG = teks: markup disisip inline agar model baca langsung.
+    for (const s of svgs) {
+      effectiveText += `\n[ISI SVG ${s.ref}]\n${String(s.text ?? '').slice(0, 20000)}\n[/ISI]\n`
+    }
+    // PDF = tolak-jujur: catat path, isi tak dikirim (tanpa parser PDF).
+    for (const p of pdfs) {
+      effectiveText += `\n[PDF ${p.ref}: isi tak dikirim — tanpa parser PDF di CLI; baca manual bila relevan.]\n`
+    }
     const sidecar = deps.sidecar || null
-    if (sidecar?.rpc) {
-      for (const img of imgResolved.attached) {
+    if (sidecar?.rpc && imgs.length) {
+      for (const img of imgs) {
         try {
           const resp = await sidecar.rpc('ai:fetch', [{
             messages: [{ role: 'user', content: [
@@ -474,7 +501,7 @@ async function runPrompt(state, text, deps) {
           pushMessage(state, 'info', `Gambar ${img.ref}: deskripsi vision gagal (${String(err?.message || err).slice(0, 120)}), kirim tanpa deskripsi.`)
         }
       }
-    } else {
+    } else if (imgs.length) {
       pushMessage(state, 'info', 'Tanpa sidecar: gambar tercatat sebagai path, isi tak dideskripsikan.')
     }
   }
@@ -482,6 +509,13 @@ async function runPrompt(state, text, deps) {
     pushMessage(state, 'info', `Gambar dilewati: ${s.ref} (${s.reason}).`)
   }
   pushMessage(state, 'user', text)
+  // Port opencode prompt/history.tsx append: prompt terkirim masuk histori
+  // (dedup + cap 50). state.promptHistory malas-dibuat agar state lama aman.
+  try {
+    const { appendPromptHistory, createPromptHistory } = await import('../core/promptHistory.mjs')
+    if (!state.promptHistory) state.promptHistory = createPromptHistory()
+    appendPromptHistory(state.promptHistory, text)
+  } catch { /* histori prompt opsional, jangan gagalkan kirim */ }
   const runTurn = deps.runTurn || defaultRunTurn
   // Stream D: plan = prompt prefix (planMode.mjs). Penahanan tool di engine
   // SENGAJA tidak ada (butuh ubah src/): lihat catatan jujur di planMode.mjs.
@@ -714,7 +748,27 @@ async function runSlash(state, cmd, deps) {
         pushMessage(state, 'info', 'Editor kosong — batal.')
         return { kind: 'message', role: 'info' }
       }
+      // Port opencode normalizePromptContent: CRLF user Windows -> LF.
+      try {
+        const { normalizePaste } = await import('../core/paste.mjs')
+        const norm = normalizePaste(text)
+        if (norm !== text) return runPrompt(state, norm, deps)
+      } catch { /* normalisasi opsional */ }
       return runPrompt(state, text, deps)
+    }
+    // Port opencode app.tsx permission.mode: toggle auto-approve tool.
+    // KONSEP TERPISAH dari plan mode (plan = rencana vs eksekusi; ini =
+    // tool jalan otomatis vs minta izin). Idempotent: arg eksplisit boleh.
+    case 'permissions': {
+      const arg = String(cmd.arg || '').toLowerCase()
+      const cur = state.permissionMode === 'normal' ? 'normal' : 'auto'
+      const next = arg === 'auto' ? 'auto' : arg === 'normal' ? 'normal' : (cur === 'auto' ? 'normal' : 'auto')
+      state.permissionMode = next
+      try { state.onPush?.() } catch { /* repaint opsional */ }
+      pushMessage(state, 'info', next === 'auto'
+        ? 'Permission: AUTO (tool auto-approve, tercatat di harness). Matikan: /permissions normal.'
+        : 'Permission: NORMAL (tool sensitif minta izin eksplisit). Nyalakan: /permissions auto.')
+      return { kind: 'message', role: 'info' }
     }
     case 'init': {
       const draft = buildAgentsMd({ workspace: state.workspace, entries: deps.listDir ? deps.listDir(state.workspace) : [] })
@@ -903,11 +957,14 @@ export async function defaultRunTurn(state, prompt, deps = {}) {
         if (aborted) return aborted
         const secCheck = evaluateHeadlessSecurity(toolName, query, { workspaceRoot: state.workspace })
         if (!secCheck.allowed) {
+          // Port opencode permission mode: auto = proceed tercatat; normal =
+          // mode 'manual' (tanpa --approve-all = tolak + instruksi).
+          const permMode = state.permissionMode === 'normal' ? 'manual' : 'auto'
           const decision = typeof headless.resolveApprovalDecision === 'function'
-            ? headless.resolveApprovalDecision(secCheck, { approveAll: false, denyAll: false, mode: 'auto' })
-            : { proceed: true, reason: 'auto default' }
+            ? headless.resolveApprovalDecision(secCheck, { approveAll: false, denyAll: false, mode: permMode })
+            : { proceed: permMode !== 'manual', reason: permMode === 'manual' ? 'normal mode: izin eksplisit' : 'auto default' }
           if (!decision.proceed) {
-            const errMsg = `[BLOCKED] Tool "${toolName}" ditolak: ${secCheck.message}`
+            const errMsg = `[BLOCKED] Tool "${toolName}" ditolak (${state.permissionMode === 'normal' ? 'permission NORMAL' : decision.reason}: ${secCheck.message}). Jalankan manual atau /permissions auto.`
             return { ok: false, result: errMsg, error: { code: secCheck.code || 'security-denied', message: secCheck.message } }
           }
         }

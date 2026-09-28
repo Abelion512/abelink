@@ -333,7 +333,7 @@ describe('image refs (drop/paste path gambar)', () => {
     const { extractImagePaths, isImagePath } = await import('../cli/core/imageRefs.mjs')
     expect(isImagePath("'/home/u/a.png'")).toBe(true)
     expect(isImagePath('doc.txt')).toBe(false)
-    expect(extractImagePaths("lihat '/tmp/shot.png' dan invo.pdf ya")).toEqual(['/tmp/shot.png'])
+    expect(extractImagePaths("lihat '/tmp/shot.png' dan invo.pdf ya")).toEqual(['/tmp/shot.png', 'invo.pdf'])
     expect(extractImagePaths('tanpa gambar')).toEqual([])
   })
   it('resolveImageRefs: base64 + batas workspace', async () => {
@@ -383,5 +383,85 @@ describe('@file x gambar (merge-review Critical #1)', () => {
     })
     expect(seen).toContain('ISI-A')
     expect(seen).toContain('[GAMBAR /w/b.png terlampir]')
+  })
+})
+
+describe('port D: attach/paste/permission/history', () => {
+  it('SVG sebagai teks (bukan base64) + PDF didukung + .bmp ditolak mime gate', async () => {
+    const { resolveImageRefs, isAttachablePath, isPdfPath } = await import('../cli/core/imageRefs.mjs')
+    const pathMod = { resolve: (...a) => a.join('/').replace(/\/+/g, '/'), sep: '/' }
+    const fsMod = {
+      statSync: () => ({ isFile: () => true, size: 10 }),
+      readFileSync: (p, enc) => (enc === 'utf8' ? '<svg></svg>' : Buffer.from([1, 2, 3])),
+    }
+    const svg = resolveImageRefs("lihat '/w/a.svg'", { workspace: '/w', fsMod, pathMod })
+    expect(svg.attached.length).toBe(1)
+    expect(svg.attached[0].kind).toBe('text')
+    expect(svg.attached[0].mime).toBe('image/svg+xml')
+    expect(svg.attached[0].text).toContain('<svg>')
+    const pdf = resolveImageRefs("baca '/w/d.pdf'", { workspace: '/w', fsMod, pathMod })
+    expect(pdf.attached.length).toBe(1)
+    expect(pdf.attached[0].mime).toBe('application/pdf')
+    expect(pdf.text).toContain('[PDF /w/d.pdf terlampir]')
+    expect(isPdfPath('x.pdf')).toBe(true)
+    expect(isAttachablePath('x.bmp')).toBe(false)
+  })
+  it('normalizePaste: CRLF/CR -> LF; ringkasan >=3 baris/>150 char', async () => {
+    const { normalizePaste, shouldSummarizePaste, summarizePaste } = await import('../cli/core/paste.mjs')
+    expect(normalizePaste('a\r\nb\rc')).toBe('a\nb\nc')
+    expect(shouldSummarizePaste('a\nb\nc')).toBe(true)
+    expect(shouldSummarizePaste('x'.repeat(151))).toBe(true)
+    expect(shouldSummarizePaste('pendek')).toBe(false)
+    expect(summarizePaste('a\nb\nc')).toBe('[Pasted ~3 lines]')
+  })
+  it('promptHistory: append dedup + move guard draft + cap', async () => {
+    const { createPromptHistory, appendPromptHistory, movePromptHistory } = await import('../cli/core/promptHistory.mjs')
+    const h = createPromptHistory()
+    appendPromptHistory(h, 'satu')
+    appendPromptHistory(h, 'satu')
+    expect(h.entries.length).toBe(1)
+    appendPromptHistory(h, 'dua')
+    expect(movePromptHistory(h, -1, '')).toBe('dua')
+    expect(movePromptHistory(h, -1, 'dua')).toBe('satu')
+    expect(movePromptHistory(h, 1, 'satu')).toBe('dua')
+    expect(movePromptHistory(h, 1, 'dua')).toBe('')
+    expect(movePromptHistory(h, -1, 'ketikan manual')).toBeNull()
+  })
+  it('/permissions toggle auto/normal + arg eksplisit', async () => {
+    const { createTuiState, submitLine } = await import('../cli/tui/engine.mjs')
+    const s = createTuiState({ workspace: '/w' })
+    expect(s.permissionMode).toBe('auto')
+    await submitLine(s, '/permissions', {})
+    expect(s.permissionMode).toBe('normal')
+    await submitLine(s, '/permissions', {})
+    expect(s.permissionMode).toBe('auto')
+    await submitLine(s, '/permissions normal', {})
+    expect(s.permissionMode).toBe('normal')
+  })
+  it('submitLine normalisasi CRLF di boundary', async () => {
+    const { createTuiState, submitLine } = await import('../cli/tui/engine.mjs')
+    const s = createTuiState({ workspace: '/w' })
+    let seen = ''
+    await submitLine(s, 'baris1\r\nbaris2', {
+      runTurn: async (st, prompt) => { seen = prompt; return { reply: 'ok', outcome: 'completed', terminalReason: 't', stepCount: 1, toolCallsCount: 0 } },
+    })
+    expect(seen).not.toContain('\r')
+    expect(seen).toContain('baris1\nbaris2')
+  })
+  it('runPrompt: SVG inline teks + PDF tolak-jujur tanpa sidecar', async () => {
+    const { createTuiState, submitLine } = await import('../cli/tui/engine.mjs')
+    const s = createTuiState({ workspace: '/w' })
+    let seen = ''
+    const fsMod = {
+      statSync: () => ({ isFile: () => true, size: 8 }),
+      readFileSync: (p, enc) => (String(p).endsWith('.svg') && enc === 'utf8' ? '<svg>x</svg>' : Buffer.from([1, 2])),
+    }
+    const pathMod = { resolve: (...a) => a.join('/').replace(/\/+/g, '/'), sep: '/' }
+    await submitLine(s, "lihat '/w/a.svg' dan '/w/d.pdf'", {
+      fsMod, pathMod,
+      runTurn: async (st, prompt) => { seen = prompt; return { reply: 'ok', outcome: 'completed', terminalReason: 't', stepCount: 1, toolCallsCount: 0 } },
+    })
+    expect(seen).toContain('[ISI SVG /w/a.svg]')
+    expect(seen).toContain('tanpa parser PDF')
   })
 })

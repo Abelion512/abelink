@@ -171,6 +171,8 @@ export function App(props: AppProps = {}) {
         onPickerSelect={props.onPickerSelect}
         onPickerCancel={props.onPickerCancel}
         onPickerFilter={props.onPickerFilter}
+        promptHistory={props.promptHistory}
+        permissionMode={props.permissionMode}
       />
       {/* Cap nested, port opencode prompt/index.tsx:1488-1511: box left +
           inner bottom, horizontal ▀ bila bg opaque else spasi. */}

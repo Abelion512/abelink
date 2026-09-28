@@ -473,9 +473,12 @@ async function main() {
           onCommands={openCommands}
           // Stream D: meta row tampilkan MODE plan/build (opencode:
           // agent name Titlecase di meta row prompt/index.tsx:1450).
-          // permissionMode TIDAK dioper (PromptRow default 'auto' statis,
-          // konsep terpisah — ditunda, lihat stream-D-report).
           agentName={() => (state.mode === 'plan' ? 'Plan' : 'Build')}
+          // Port opencode permission.tsx + history.tsx: histori prompt
+          // Up/Down + mode auto/normal untuk meta row (auto = label `auto`,
+          // normal = model+provider). tick dibaca agar reaktif.
+          promptHistory={state.promptHistory}
+          permissionMode={() => { tick(); return state.permissionMode === 'normal' ? 'normal' : 'auto' }}
           // Stream D: working label = status bar pola opencode (spinner +
           // step/tool) sejauh engine expose via state.working.
           statusRight={busy() ? workingLabel(state.working) : null}
