@@ -73,6 +73,7 @@ export const TUI_COMMANDS: TuiCommand[] = Object.freeze([
   { name: '/details', desc: 'Tampilkan/sembunyikan detail tool' },
   { name: '/plan', desc: 'Mode rencana: model susun rencana tanpa tool (toggle ctrl+o)' },
   { name: '/build', desc: 'Mode eksekusi normal (toggle ctrl+o)' },
+  { name: '/permissions', desc: 'Toggle auto-approve tool auto/normal' },
   { name: '/editor', desc: 'Tulis prompt di $EDITOR' },
   { name: '/init', desc: 'Buat/perbarui AGENTS.md' },
   { name: '/help', desc: 'Tampilkan bantuan' },

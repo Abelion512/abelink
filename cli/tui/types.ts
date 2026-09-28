@@ -60,6 +60,10 @@ export interface TuiState {
   // Stream D: mode plan/build (default 'build') + status working per turn
   // ({ steps, tool } — ditulis engine via noteWorking, dibaca entry).
   mode?: string
+  // Port opencode permission.tsx + history.tsx: mode auto/normal + histori
+  // prompt Up/Down (mutable, dibuat malas di runPrompt).
+  permissionMode?: string
+  promptHistory?: { entries: string[]; index: number }
   working?: { steps?: number; tool?: string | null }
   /** Diisi entry dari fileConfig (recent models) saat bootstrap. */
   recentModels?: string[]
@@ -158,6 +162,10 @@ export interface AppProps {
   // accessor agar ikut re-render saat engine ubah mode (pola model tick).
   agentName?: string | (() => string)
   onModeToggle?: () => void
+  // Port opencode permission.tsx: histori prompt Up/Down (objek mutable dari
+  // engine: { entries, index }) + mode permission untuk meta row.
+  promptHistory?: { entries: string[]; index: number }
+  permissionMode?: string | (() => string)
   // Paritas opencode thinking toggle: diteruskan ke MessageLine.
   showThinking?: boolean | (() => boolean)
   showDetails?: boolean | (() => boolean)
@@ -215,7 +223,10 @@ export interface HomeViewProps {
   // Stream D: accessor didukung agar label mode ikut re-render (pola
   // modelLabel: nilai dibaca di dalam render yang reaktif).
   agentName?: string | (() => string)
-  permissionMode?: string
+  // Port opencode permission.tsx + history.tsx: histori prompt (mutable dari
+  // engine) + mode permission (auto/normal, string atau accessor reaktif).
+  promptHistory?: { entries: string[]; index: number }
+  permissionMode?: string | (() => string)
 }
 
 /** Item autocomplete prompt (`/` slash dan `@` file). */

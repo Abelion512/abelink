@@ -23,7 +23,7 @@ export {
 } from './parser.mjs'
 export { renderStepLine, renderThoughtLine } from './render.mjs'
 export { buildAgentsMd, extractFileRefs, resolveFileRefs } from './files.mjs'
-export { extractImagePaths, resolveImageRefs, isImagePath, IMAGE_EXTS } from './imageRefs.mjs'
+export { extractImagePaths, resolveImageRefs, isImagePath, isPdfPath, isAttachablePath, IMAGE_EXTS, PDF_EXTS } from './imageRefs.mjs'
 export { checkTurnAborted, createTuiTurn, makeAbortedToolResult, nextPromptAction } from './turn.mjs'
 export {
   listTuiSessions,
@@ -33,6 +33,8 @@ export {
   sessionToInitialHistory
 } from './session-store.mjs'
 export { createSidecarClient } from './sidecar-client.mjs'
+export { normalizePaste, pasteLineCount, shouldSummarizePaste, summarizePaste } from './paste.mjs'
+export { createPromptHistory, appendPromptHistory, movePromptHistory, MAX_PROMPT_HISTORY } from './promptHistory.mjs'
 export {
   createHarnessWriter,
   createHeadlessHarnessLogger,

@@ -42,6 +42,9 @@ export function parseSlashCommand(line = '') {
     // `/plan` = tahan eksekusi tool; `/build` = eksekusi normal.
     case 'plan': return { kind: 'plan', arg: null }
     case 'build': return { kind: 'build', arg: null }
+    // Port opencode app.tsx permission.mode: toggle auto/normal (konsep
+    // TERPISAH dari plan mode — ini soal auto-approve tool, bukan rencana).
+    case 'permissions': return { kind: 'permissions', arg: arg || null }
     case 'editor': return { kind: 'editor', arg: null }
     case 'init': return { kind: 'init', arg: arg || null }
     case 'help': return { kind: 'help', arg: null }
