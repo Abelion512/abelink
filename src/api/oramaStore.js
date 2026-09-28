@@ -1,4 +1,4 @@
-import { create, insert, insertMultiple, search, remove, removeMultiple } from '@orama/orama'
+import { create, insert, insertMultiple, search, remove } from '@orama/orama'
 import { generateVector, cosineSimilarity } from './vectorLoader'
 import { asyncPool } from '../utils/asyncPool'
 

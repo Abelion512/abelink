@@ -11,7 +11,7 @@ import { render } from '@opentui/solid'
 import { createSignal } from 'solid-js'
 import { App } from '../cli/tui/App.tsx'
 import { createTuiState, submitLine } from '../cli/tui/engine.mjs'
-import { parseTuiArgs, parseSlashCommand, parseShellLine, TUI_HELP, TUI_VERSION } from '../cli/core/index.mjs'
+import { parseTuiArgs, TUI_HELP, TUI_VERSION } from '../cli/core/index.mjs'
 import type {
   PickerRow,
   PickerState,
