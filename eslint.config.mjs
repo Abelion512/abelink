@@ -137,5 +137,14 @@ export default [
       'react/no-unescaped-entities': 'warn',
       'react/no-unknown-property': 'warn'
     }
+  },
+  {
+    // OpenTUI/Solid intrinsics (fg, focused, placeholderColor, keyBindings,
+    // ...) bukan DOM — react plugin selalu false-positive di sini. Off scoped,
+    // bukan global, agar webview check di src/ tetap warn.
+    files: ['cli/tui/**/*.{ts,tsx}', 'bin/**/*.{ts,tsx}'],
+    rules: {
+      'react/no-unknown-property': 'off'
+    }
   }
 ]
