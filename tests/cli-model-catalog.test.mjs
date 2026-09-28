@@ -53,6 +53,21 @@ describe('normalizeCatalogEntry', () => {
     expect(m).toMatchObject({ id: 'nara/muse-spark-1.3-contributor-free', reasoning: true, ctx: 1048576, maxOut: 131072, thinkFmt: 'openai', thinkDisable: true })
     expect(normalizeCatalogEntry({})).toMatchObject({ id: '', reasoning: false, ctx: null, thinkFmt: null })
   })
+  it('null/"" -> null (bukan 0): Number(null)=Number("")=0 palsu', () => {
+    expect(normalizeCatalogEntry({ id: 'x', capabilities: { contextWindow: null } }).ctx).toBe(null)
+    expect(normalizeCatalogEntry({ id: 'x', capabilities: { contextWindow: '' } }).ctx).toBe(null)
+    expect(normalizeCatalogEntry({ id: 'x', capabilities: { maxOutput: null } }).maxOut).toBe(null)
+    expect(normalizeCustomEntry({ id: 'x', ctx: null }).ctx).toBe(null)
+    expect(normalizeCustomEntry({ id: 'x', ctx: '' }).ctx).toBe(null)
+    expect(normalizeCustomEntry({ id: 'x', ctx: 8000 }).ctx).toBe(8000)
+  })
+  it('self-merge dedup: custom ganda -> sekali (curate + merge)', () => {
+    const models = normalizeCatalogList(SAMPLE)
+    const p = curatePicker({ models, custom: [{ id: 'acme/x' }, { id: 'acme/x' }] })
+    expect(p.custom).toEqual(['acme/x'])
+    const merged = withCustomCapabilities(models, [{ id: 'acme/x' }, { id: 'acme/x' }])
+    expect(merged.filter((m) => m.id === 'acme/x').length).toBe(1)
+  })
   it('list filter tanpa id', () => {
     expect(normalizeCatalogList([...SAMPLE, {}]).length).toBe(3)
     expect(normalizeCatalogList(null)).toEqual([])

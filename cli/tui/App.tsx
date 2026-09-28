@@ -291,6 +291,8 @@ export function App(props: AppProps = {}) {
         loading={dialogPicker()?.loading}
         hint={dialogPicker()?.kindHint ?? dialogPicker()?.hint}
         error={dialogPicker()?.error}
+        stale={dialogPicker()?.stale}
+        total={dialogPicker()?.total}
       />
     </box>
   )

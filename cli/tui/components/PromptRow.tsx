@@ -6,6 +6,7 @@
 // Referensi: opencode/ clone (packages/tui/src/component/prompt/
 // autocomplete.tsx, config/keybind.ts:214-218, prompt/display.ts).
 import { For, Show, createSignal, createMemo, createEffect } from 'solid-js'
+import { useTerminalDimensions } from '@opentui/solid'
 import {
   ABELINK_THEME,
   AUTOCOMPLETE_MAX_ROWS,
@@ -13,6 +14,8 @@ import {
   autocompleteTrigger,
   applyCompletion,
   moveCompletionIndex,
+  popupHeight,
+  selectedForeground,
   PROMPT_KEY_BINDINGS,
 } from '../theme.ts'
 import type { PromptCompletion, PromptRowProps, TextareaHandle, TuiKeyEvent } from '../types.ts'
@@ -64,13 +67,22 @@ export function PromptRow(props: PromptRowProps) {
   // Esc tutup popup tanpa ubah teks (ala opencode autocomplete.cancel):
   // flag ini yang menutup, bukan teks — ketikan berikutnya buka lagi.
   const [dismissed, setDismissed] = createSignal(false)
+  const pickerOpen = () => Boolean(props.picker?.())
   // Daftar yang TERLIHAT untuk logika tombol: dismissed = dianggap tutup
   // (Enter submit apa adanya, Up/Down/Tab tembus ke textarea).
+  // Bug 2: picker/dialog terbuka -> popup inline disuppress PENUH (render +
+  // logika): ketikan `/` jadi filter dialog saja (via onPickerFilter), bukan
+  // daftar ganda inline + dialog.
   // SATU-SATUNYA sumber daftar popup — dipakai logika tombol (buffer live)
   // maupun render di bawah, sehingga baris tampil tak pernah basi relatif
   // terhadap apa yang Enter tindaklanjuti (exact-match rule aman).
   const visibleFor = (text: string): PromptCompletion[] =>
-    (dismissed() ? [] : completionsFor(text))
+    (dismissed() || pickerOpen() ? [] : completionsFor(text))
+  // Trigger aktif (cermin opencode store.visible): ada trigger slash/file,
+  // tak di-dismiss, picker tutup. Render popup ikut ini (bukan panjang
+  // daftar) supaya empty-state "No matching items" tampil ala opencode.
+  const triggerFor = (text: string): boolean =>
+    !dismissed() && !pickerOpen() && autocompleteTrigger(text) !== null
   // Render WAJIB dari sumber yang sama dengan logika tombol (buffer live via
   // readText(), bukan signal props.value yang tertinggal 1 tick — terukur PTY:
   // SUBMIT fire sebelum IN). Memo tetap butuh dependensi reaktif, jadi
@@ -82,10 +94,26 @@ export function PromptRow(props: PromptRowProps) {
     readTextSignal()
     return visibleFor(readText())
   })
-  const popupOpen = createMemo(() => renderList().length > 0)
+  // Trigger ikut render (punya dependensi reaktif yang sama): popup tampil
+  // saat trigger aktif walau daftar kosong (empty-state), tutup saat
+  // dismissed/picker (Bug 2) atau trigger hilang.
+  const triggerOpen = createMemo(() => {
+    bufTick()
+    readTextSignal()
+    return triggerFor(readText())
+  })
+  const popupOpen = createMemo(() => triggerOpen())
   // Cap 10 baris ala opencode (height max 10): popup tak tumbuh tanpa batas.
   // (filterCompletions slash sudah cap; slice di sini menyeragamkan file-mode.)
   const popupRows = createMemo(() => renderList().slice(0, AUTOCOMPLETE_MAX_ROWS))
+  // Tinggi dinamis cermin opencode (min(10, jumlah, ruang di atas prompt)):
+  // tanpa cap ini ruang kecil membuat popup terdorong keluar layar.
+  const dims = useTerminalDimensions()
+  const popupMaxHeight = createMemo(() => {
+    dims()
+    const h = dims()?.height ?? 24
+    return popupHeight(Math.max(1, popupRows().length || 1), Math.max(1, h - 6))
+  })
 
   const setTextareaText = (text: string) => {
     try {
@@ -145,8 +173,6 @@ export function PromptRow(props: PromptRowProps) {
     const exact = item && String(item.name) === String(buf ?? '').trim()
     if (exact || acceptSelected(buf) === false) submitNow(buf)
   }
-
-  const pickerOpen = () => Boolean(props.picker?.())
 
   // Tutup picker (pilih ATAU batal) -> buang teks filter dari textarea,
   // supaya sisa ketikan tidak ikut terkirim sebagai prompt berikutnya.
@@ -220,7 +246,9 @@ export function PromptRow(props: PromptRowProps) {
           position absolute -> keluar dari flex flow, buka/tutup popup TIDAK
           dorong layout prompt di bawahnya. bottom 100% = di atas prompt box.
           (Polanya sama dengan picker overlay di App.tsx.)
-          Esc tutup popup (ditangani onKeyDown: reset selected + onEscape). */}
+          Esc tutup popup (ditangani onKeyDown: reset selected + onEscape).
+          Paritas: fallback "No matching items" (Index fallback opencode),
+          footer hint keys, tinggi dinamis min(10, ruang). */}
       <Show when={popupOpen()}>
         <box
           style={{
@@ -236,24 +264,43 @@ export function PromptRow(props: PromptRowProps) {
             backgroundColor: ABELINK_THEME.backgroundMenu,
           }}
         >
-          <For each={popupRows()}>
-            {(c, i) => (
-              <box
-                style={{
-                  flexDirection: 'row',
-                  flexShrink: 0,
-                  paddingLeft: 1,
-                  paddingRight: 1,
-                  backgroundColor:
-                    i() === selected() % popupRows().length ? ABELINK_THEME.primary : undefined,
-                }}
-              >
-                <text fg={i() === selected() % popupRows().length ? ABELINK_THEME.text : undefined}>
-                  {(i() === selected() % popupRows().length ? '> ' : '  ') + c.name + ' — ' + (c.desc ?? '')}
-                </text>
+          <Show
+            when={popupRows().length > 0}
+            fallback={
+              <box style={{ flexDirection: 'row', flexShrink: 0, paddingLeft: 1, paddingRight: 1 }}>
+                <text fg={ABELINK_THEME.textMuted}>No matching items</text>
               </box>
-            )}
-          </For>
+            }
+          >
+            <box style={{ flexDirection: 'column', flexShrink: 0, height: popupMaxHeight() }}>
+              <For each={popupRows()}>
+                {(c, i) => (
+                  <box
+                    style={{
+                      flexDirection: 'row',
+                      flexShrink: 0,
+                      paddingLeft: 1,
+                      paddingRight: 1,
+                      backgroundColor:
+                        i() === selected() % popupRows().length ? ABELINK_THEME.primary : undefined,
+                    }}
+                  >
+                    <text fg={i() === selected() % popupRows().length ? selectedForeground() : ABELINK_THEME.text} flexShrink={0}>
+                      {(i() === selected() % popupRows().length ? '> ' : '  ') + c.name}
+                    </text>
+                    <Show when={c.desc}>
+                      <text fg={i() === selected() % popupRows().length ? selectedForeground() : ABELINK_THEME.textMuted} wrapMode="none">
+                        {' ' + (c.desc ?? '').trimStart()}
+                      </text>
+                    </Show>
+                  </box>
+                )}
+              </For>
+            </box>
+          </Show>
+          <box style={{ flexDirection: 'row', flexShrink: 0, paddingLeft: 1, paddingRight: 1 }}>
+            <text fg={ABELINK_THEME.textMuted}>↑↓ nav · Tab/Enter pilih · Esc tutup</text>
+          </box>
         </box>
       </Show>
       <box
