@@ -13,15 +13,15 @@
 // treat them as `basic` runs when comparing against a new one.
 export const ARCH_VALUES = Object.freeze(['vanilla', 'basic'])
 
-export function resolveBenchArch(value) {
+export function resolveBenchArch(value: unknown): 'vanilla' | 'basic' {
   const v = typeof value === 'string' ? value.trim().toLowerCase() : ''
-  return ARCH_VALUES.includes(v) ? v : 'basic'
+  return (ARCH_VALUES as readonly string[]).includes(v) ? (v as 'vanilla' | 'basic') : 'basic'
 }
 
 // Reads ABELINK_BENCH_ARCH from an explicit env object, else globalThis.process.
 // Never throws, never touches window/db/network.
-export function currentBenchArch(env) {
-  const table =
+export function currentBenchArch(env?: Record<string, string | undefined>): 'vanilla' | 'basic' {
+  const table: Record<string, string | undefined> =
     env ||
     (typeof globalThis !== 'undefined' &&
     globalThis.process &&

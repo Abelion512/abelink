@@ -1,5 +1,5 @@
 // Regression tests: pesan error AI yang ramah & informatif.
-// Target: src/api/ai/fetchError.js — kasus asal: 9Router dimatikan,
+// Target: src/api/ai/fetchError.ts — kasus asal: 9Router dimatikan,
 // user hanya melihat "AI fetch gagal" tanpa sebab & tanpa aksi perbaikan.
 //
 // Kontrak:
@@ -8,7 +8,7 @@
 // - Pesan kosong (sebab tertelan di bridge) -> fallback beraksi, bukan buta.
 
 import { describe, it, expect } from 'vitest'
-import { friendlyAiFetchError } from '../src/api/ai/fetchError.js'
+import { friendlyAiFetchError } from '../src/api/ai/fetchError.ts'
 
 describe('friendlyAiFetchError', () => {
   it('meneruskan pesan informatif apa adanya', () => {

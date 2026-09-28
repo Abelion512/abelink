@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { cleanAndParse, extractLenientField } from '../src/api/ai/core.js'
+import { cleanAndParse, extractLenientField } from '../src/api/ai/core.ts'
 
 // Parser harus tahan banting: model kecil/China sering keluarkan curly quotes,
 // reasoning <think>, atau JSON rusak — jangan buang jawabannya.

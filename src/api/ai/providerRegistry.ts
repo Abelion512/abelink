@@ -85,7 +85,7 @@ const SUFFIXES = Object.freeze({
 
 const V1_RE = /\/v\d+$/
 
-const stripTrailingSlashes = (s) => s.replace(/\/+$/, '')
+const stripTrailingSlashes = (s: string) => s.replace(/\/+$/, '')
 
 /**
  * Bersihkan input mentah ke bentuk base kanonik:
@@ -95,7 +95,7 @@ const stripTrailingSlashes = (s) => s.replace(/\/+$/, '')
  *   (mis. endpoint user berisi .../v1/chat/completions -> .../v1)
  * TIDAK menambah /v1 — keputusan itu milik resolveEndpointUrl.
  */
-export function canonicalizeEndpointUrl(raw, kind = 'chat') {
+export function canonicalizeEndpointUrl(raw: unknown, kind: 'chat' | 'stt' | 'tts' = 'chat') {
   const suffixes = SUFFIXES[kind] || []
   let cleaned = stripTrailingSlashes(String(raw || '').trim())
   if (!cleaned) return ''
@@ -122,7 +122,7 @@ export function canonicalizeEndpointUrl(raw, kind = 'chat') {
  * Menerima bentuk dengan ATAU tanpa versi di tengah, mis.
  *   https://host:port/openai/v1  dan  https://host:port/openai/v1/chat/completions
  */
-export function resolveEndpointUrl(raw, kind = 'chat') {
+export function resolveEndpointUrl(raw: unknown, kind: 'chat' | 'stt' | 'tts' = 'chat') {
   const suffix = kind === 'stt' ? 'audio/transcriptions' : kind === 'tts' ? 'audio/speech' : 'chat/completions'
   const base = canonicalizeEndpointUrl(raw, kind)
   if (!base) return ''
@@ -139,9 +139,9 @@ export function resolveEndpointUrl(raw, kind = 'chat') {
  * dari LEGACY_HOSTS + kredensial lama, tanpa cabang vendor di runtime.
  * Murni; mengembalikan objek BARU (input tidak dimutasi).
  */
-export function normalizeLegacyProviderConfig(conf = {}) {
+export function normalizeLegacyProviderConfig(conf: Record<string, unknown> = {}) {
   const provider = String(conf?.aiProvider || '').trim().toLowerCase()
-  if (provider !== 'groq' && provider !== 'cerebras') return conf
+  if (provider !== 'groq' && provider !== 'cerebras') return conf as Record<string, unknown>
   const marker = provider === 'groq' ? 'api.groq.com' : 'api.cerebras.ai'
   const legacyEndpoint = LEGACY_HOSTS[marker]
   return {
@@ -152,21 +152,21 @@ export function normalizeLegacyProviderConfig(conf = {}) {
     customApiKey: conf.customApiKey || conf.groqApiKey || conf.cerebrasApiKey || '',
     customModel: conf.customModel || conf.groqModel || conf.cerebrasModel || 'default-model',
     customApiProtocol: 'openai',
-  }
+  } as Record<string, unknown>
 }
 
 /**
  * URL final per preset per kind. Preset tanpa kapabilitas kind tertentu
  * mengembalikan '' (dipakai UI untuk menyembunyikan opsi yang tak relevan).
  */
-export function presetEndpoint(id, kind = 'chat') {
-  const p = PRESETS[id]
+export function presetEndpoint(id: unknown, kind: 'chat' | 'stt' | 'tts' = 'chat') {
+  const p = (PRESETS as Record<string, { id: string; name: string; protocol: string; chat: string; stt: string; tts: string } | undefined>)[String(id)]
   if (!p) return ''
   return p[kind] || ''
 }
 
-export function getPreset(id) {
-  return PRESETS[id] || null
+export function getPreset(id: unknown) {
+  return (PRESETS as Record<string, { id: string; name: string; protocol: string; chat: string; stt: string; tts: string } | undefined>)[String(id)] || null
 }
 
 export function listPresets() {
@@ -180,10 +180,10 @@ export function listPresets() {
  * 3. aiProvider 'lm-studio' -> preset lm-studio (kompatibilitas config lama).
  * 4. Fallback: 9Router lokal.
  */
-export function resolveChatEndpoint(conf = {}) {
-  const finalFor = (id) => resolveEndpointUrl(presetEndpoint(id, 'chat'), 'chat')
-  if (conf.presetId && PRESETS[conf.presetId]) {
-    return finalFor(conf.presetId)
+export function resolveChatEndpoint(conf: Record<string, unknown> = {}) {
+  const finalFor = (id: string) => resolveEndpointUrl(presetEndpoint(id, 'chat'), 'chat')
+  if (conf.presetId && getPreset(conf.presetId as string)) {
+    return finalFor(conf.presetId as string)
   }
   if (conf.aiProvider === 'lm-studio') {
     return finalFor('lm-studio')
@@ -198,12 +198,13 @@ export function resolveChatEndpoint(conf = {}) {
  * Hanya SARAN: keputusan final tetap milik customApiProtocol user ('auto'
  * = ikut hint). Tidak pernah throw.
  */
-export function suggestProtocol(conf = {}) {
+export function suggestProtocol(conf: Record<string, unknown> = {}) {
   if (conf.customApiProtocol && conf.customApiProtocol !== 'auto') return conf.customApiProtocol
   const preset = conf.presetId ? getPreset(conf.presetId) : null
   if (preset) return preset.protocol
   const presetId = detectFromUrl(conf.customEndpoint)
-  if (getPreset(presetId)) return getPreset(presetId).protocol
+  const presetHint = getPreset(presetId)
+  if (presetHint) return presetHint.protocol
   // URL berisi 'anthropic' (proxy/reverse) -> sarankan protokol Anthropic
   // (paritas dengan heuristik lama ai-bridge).
   if (/anthropic/i.test(String(conf.customEndpoint || ''))) return 'anthropic'
@@ -216,7 +217,7 @@ export function suggestProtocol(conf = {}) {
  * (api.groq.com dkk) sengaja TIDAK dipetakan ke preset — mereka jalur custom,
  * bukan target bawaan.
  */
-export function detectFromUrl(raw) {
+export function detectFromUrl(raw: unknown): string | null {
   const low = String(raw || '').toLowerCase()
   if (!low) return null
   for (const p of Object.values(PRESETS)) {

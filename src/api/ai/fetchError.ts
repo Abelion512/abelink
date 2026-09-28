@@ -30,7 +30,13 @@ const TRANSLATIONS = [
  * @param {object} res NodeResponse { success, data, error }
  * @returns {string} pesan siap tampil (tidak pernah kosong)
  */
-export function friendlyAiFetchError(res) {
+export interface AiBridgeResponse {
+  error?: { message?: string; code?: string } | string | null
+  code?: string
+  [key: string]: unknown
+}
+
+export function friendlyAiFetchError(res: AiBridgeResponse | null | undefined) {
   const raw = typeof res?.error === 'string' ? res.error : res?.error?.message
   const text = String(raw ?? '').trim()
   if (!text) {

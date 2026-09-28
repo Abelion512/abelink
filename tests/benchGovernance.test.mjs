@@ -15,7 +15,7 @@
 // describes the required behavior — update the loop, not this test.
 
 import { describe, it, expect } from 'vitest'
-import { getArchPolicy } from '../src/api/ai/archPolicy.js'
+import { getArchPolicy } from '../src/api/ai/archPolicy.ts'
 import {
   evaluateEvidence,
   gateCompletion,

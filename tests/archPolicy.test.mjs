@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getArchPolicy, archTerminalReason } from '../src/api/ai/archPolicy.js'
+import { getArchPolicy, archTerminalReason } from '../src/api/ai/archPolicy.ts'
 
 describe('archPolicy truth-table', () => {
   it('vanilla disables supervisor + gate, trusts the claim', () => {

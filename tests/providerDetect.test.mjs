@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { detectProviderFromUrl } from '../src/api/ai/providerDetect.js'
+import { detectProviderFromUrl } from '../src/api/ai/providerDetect.ts'
 
 describe('detectProviderFromUrl', () => {
   it('keyword mengalahkan port', () => {

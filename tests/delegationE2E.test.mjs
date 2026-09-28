@@ -81,7 +81,7 @@ const pickScript = (systemPrompt = '') => {
   return SCRIPTS.harga
 }
 
-vi.mock('../src/api/ai/core.js', () => ({
+vi.mock('../src/api/ai/core.ts', () => ({
   fetchAI: (messages = []) => {
     const script = pickScript(messages[0]?.content)
     if (script.step) return Promise.resolve({ content: JSON.stringify(script.step) })

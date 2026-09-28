@@ -21,7 +21,7 @@ import { db, deleteSession, getSessionCompact, saveSessionCompact } from '../src
 
 // Mock fetchAI (dipakai summarizer) agar coverage AI nyata bisa diuji tanpa network.
 const { fetchAIMock } = vi.hoisted(() => ({ fetchAIMock: vi.fn() }))
-vi.mock('../src/api/ai/core.js', () => ({ fetchAI: fetchAIMock }))
+vi.mock('../src/api/ai/core.ts', () => ({ fetchAI: fetchAIMock }))
 
 beforeEach(() => {
   fetchAIMock.mockReset()

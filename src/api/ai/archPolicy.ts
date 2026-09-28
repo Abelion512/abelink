@@ -12,9 +12,14 @@
 // basic   = thin trajectory supervisor + verification gate (production
 //           default): claims need world-state proof (reason `verify:<state>`).
 
-import { resolveBenchArch } from './benchArch.js'
+import { resolveBenchArch } from './benchArch'
 
-export function getArchPolicy(arch) {
+export function getArchPolicy(arch: unknown): {
+  arch: 'vanilla' | 'basic'
+  supervisorEnabled: boolean
+  verifyGateEnabled: boolean
+  completionClaimTrusted: boolean
+} {
   const resolved = resolveBenchArch(arch)
   if (resolved === 'vanilla') {
     return {
@@ -34,7 +39,10 @@ export function getArchPolicy(arch) {
 
 // Terminal reason for a completion claim under a policy: vanilla skips the
 // gate (claim trusted), basic records the gate's own reason.
-export function archTerminalReason(policy, gateReason = '') {
+export function archTerminalReason(
+  policy: { verifyGateEnabled?: boolean } | null | undefined,
+  gateReason = ''
+) {
   if (!policy || policy.verifyGateEnabled !== true) return 'verify:skipped-vanilla'
   return `verify:${gateReason || 'unknown'}`
 }

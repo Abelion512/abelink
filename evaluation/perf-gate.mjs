@@ -32,7 +32,7 @@ const MIN_ABSOLUTE_DELTA_MS = 0.5 // 500µs — di bawah ini = noise scheduler/J
 // Semua workload IMPORT modul asli (bukan copy) supaya mengukur jalur produksi.
 
 const workloadParserValid = async () => {
-  const { cleanAndParse } = await import(path.join(ROOT, 'src/api/ai/core.js'))
+  const { cleanAndParse } = await import(path.join(ROOT, 'src/api/ai/core.ts'))
   const sample =
     '{"thought":"analisis permintaan user secara mendalam","intermediate_answer":null,"is_done":true,"suggested_mode":"direct","task_status":"done","objective":null,"action":null,"answer":"Jawaban lengkap dengan markdown **bold** dan tautan [contoh](https://example.com)","should_learn":false,"mood":"neutral","active_topic":"Ngobrol","memory":null}'
   let sink = 0
@@ -46,7 +46,7 @@ const workloadParserValid = async () => {
 }
 
 const workloadParserMalformed = async () => {
-  const { cleanAndParse } = await import(path.join(ROOT, 'src/api/ai/core.js'))
+  const { cleanAndParse } = await import(path.join(ROOT, 'src/api/ai/core.ts'))
   const samples = [
     '```json\n{"thought":"x","answer":"jawaban dalam fence"}\n```',
     '{"answer":"trailing comma","action":null,}',
@@ -66,7 +66,7 @@ const workloadParserMalformed = async () => {
 }
 
 const workloadLenientField = async () => {
-  const { extractLenientField } = await import(path.join(ROOT, 'src/api/ai/core.js'))
+  const { extractLenientField } = await import(path.join(ROOT, 'src/api/ai/core.ts'))
   const raw =
     '{"thought":"proses","intermediate_answer":"Bentar ya bro, gue cek dulu","answer":"Jawaban akhir yang cukup panjang untuk diukur performa pemulihannya","action":null}'
   let sink = 0

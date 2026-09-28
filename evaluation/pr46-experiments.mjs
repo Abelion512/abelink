@@ -19,7 +19,7 @@ export const EXPERIMENT_KINDS = Object.freeze({
   MODEL_COMPATIBILITY: 'model-compatibility',
 })
 
-// The architecture axis the runtime can actually execute (src/api/ai/benchArch.js
+// The architecture axis the runtime can actually execute (src/api/ai/benchArch.ts
 // ARCH_VALUES = vanilla|basic). `vanilla` is the model-only baseline (pre-PR45
 // behavior); `basic` is the PR45 general agentic runtime. A label such as `pr45`
 // is NOT a runnable arch, so using it as an arm produced a comparison that could

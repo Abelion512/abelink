@@ -17,7 +17,7 @@ import {
   validateAblationPair,
   modelCompatibilitySpec,
 } from '../evaluation/pr46-experiments.mjs'
-import { ARCH_VALUES } from '../src/api/ai/benchArch.js'
+import { ARCH_VALUES } from '../src/api/ai/benchArch.ts'
 
 const exactIdentity = { provider: 'anthropic', modelId: 'claude-fable-5.1', modelVersion: '2026-09-01' }
 
