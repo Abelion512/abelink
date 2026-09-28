@@ -93,9 +93,13 @@ export function App(props: AppProps = {}) {
   // tengah max-width (pola opencode home: prompt column maxWidth 75) supaya
   // sejajar HomeView; saat non-kosong full-width seperti semula.
   // Fungsi lokal (bukan komponen): Solid tak perlu, hindari remount textarea.
+  // SATU box kolom (bukan fragment): anak-anak (PromptRow + cap) resolve
+  // width terhadap SATU parent definite, sehingga maxWidth kolom tengah dari
+  // pembungkus Show berlaku untuk keduanya. Terukur PTY R1: fragment membuat
+  // cap border lolos dari constraint (full-width ▀) sementara PromptRow taat.
   const empty = () => messages().length === 0
   const promptArea = () => (
-    <>
+    <box style={{ flexDirection: 'column', width: '100%', gap: 1 }}>
       <PromptRow
         value={value}
         onInput={setValue}
@@ -114,9 +118,11 @@ export function App(props: AppProps = {}) {
         onPickerCancel={props.onPickerCancel}
         onPickerFilter={props.onPickerFilter}
       />
-      {/* Bottom cap prompt (opencode prompt/index.tsx). */}
+      {/* Bottom cap prompt (opencode prompt/index.tsx). width 100% eksplisit:
+          resolve terhadap kolom promptArea, bukan kolom konten penuh. */}
       <box
         style={{
+          width: '100%',
           height: 1,
           flexShrink: 0,
           border: ['bottom'],
@@ -124,7 +130,7 @@ export function App(props: AppProps = {}) {
           customBorderChars: PROMPT_CAP_BORDER,
         }}
       />
-    </>
+    </box>
   )
 
   return (
