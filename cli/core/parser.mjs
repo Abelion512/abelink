@@ -38,6 +38,10 @@ export function parseSlashCommand(line = '') {
     case 'summarize': return { kind: 'compact', arg: null }
     case 'thinking': return { kind: 'thinking', arg: null }
     case 'details': return { kind: 'details', arg: null }
+    // Stream D: mode plan/build (opencode agent.cycle build<->plan).
+    // `/plan` = tahan eksekusi tool; `/build` = eksekusi normal.
+    case 'plan': return { kind: 'plan', arg: null }
+    case 'build': return { kind: 'build', arg: null }
     case 'editor': return { kind: 'editor', arg: null }
     case 'init': return { kind: 'init', arg: arg || null }
     case 'help': return { kind: 'help', arg: null }

@@ -11,6 +11,7 @@ import { render } from '@opentui/solid'
 import { createSignal } from 'solid-js'
 import { App } from '../cli/tui/App.tsx'
 import { createTuiState, submitLine } from '../cli/tui/engine.mjs'
+import { workingLabel } from '../cli/tui/planMode.mjs'
 import { parseTuiArgs, parseSlashCommand, parseShellLine, TUI_HELP, TUI_VERSION } from '../cli/core/index.mjs'
 import type {
   PickerRow,
@@ -320,6 +321,22 @@ async function main() {
   const handleSubmit = async (text: string) => {
     if (busy()) return
     const line = String(text ?? '')
+    // Stream D: /plan & /build = toggle mode (jalan TANPA sidecar: submitLine
+    // -> runSlash kind plan/build tak butuh engine; router needEngine di bawah
+    // hanya true untuk kind 'prompt'). Keybind ctrl+o memakai jalur sama.
+    if (/^\/(plan|build)\s*$/i.test(line.trim())) {
+      setBusy(true)
+      bump()
+      try {
+        await submitLine(state, line, { ...deps, sidecar: null })
+      } catch (err: unknown) {
+        state.messages.push({ role: 'error', text: String((err as Error)?.message || err) })
+      } finally {
+        setBusy(false)
+        bump()
+      }
+      return
+    }
     // `/models --all` = opt-in muat katalog penuh (default picker hanya model
     // yang pernah dipakai; katalog 1300+ ID tidak dimuat otomatis).
     if (/^\/models\s+(--all|--refresh)\s*$/i.test(line.trim())) {
@@ -346,6 +363,10 @@ async function main() {
       await openEffort()
       return
     }
+    // Stream D: /plan & /build = toggle mode (jalan TANPA sidecar — toggle
+    // lokal di engine, cermin slash-info di atas). Router needEngine di bawah
+    // hanya true untuk kind 'prompt', jadi mode toggle tak pernah spawn.
+    // Keybind ctrl+o (di App useKeyboard) memakai jalur yang sama.
     setBusy(true)
     bump()
     try {
@@ -391,6 +412,15 @@ async function main() {
           onPickerCancel={closePicker}
           onPickerFilter={filterPicker}
           onCommands={openCommands}
+          // Stream D: meta row tampilkan MODE plan/build (opencode:
+          // agent name Titlecase di meta row prompt/index.tsx:1450).
+          // permissionMode TIDAK dioper (PromptRow default 'auto' statis,
+          // konsep terpisah — ditunda, lihat stream-D-report).
+          agentName={() => (state.mode === 'plan' ? 'Plan' : 'Build')}
+          // Stream D: working label = status bar pola opencode (spinner +
+          // step/tool) sejauh engine expose via state.working.
+          statusRight={busy() ? workingLabel(state.working) : null}
+          onModeToggle={() => { void handleSubmit(state.mode === 'plan' ? '/build' : '/plan') }}
         />
       </KeymapProvider>
     ),

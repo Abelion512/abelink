@@ -41,7 +41,9 @@ export function PromptRow(props: PromptRowProps) {
   // modelLabel boleh string atau accessor. Accessor diperlukan agar label
   // ikut refresh saat model/effort berubah: Solid tak tracking mutasi objek
   // state, jadi nilai harus dibaca di dalam effect yang memang reaktif.
+  // (Stream D: agentName mengikuti pola yang sama untuk label mode.)
   const meta = () => (typeof props.modelLabel === 'function' ? props.modelLabel() : (props.modelLabel ?? ''))
+  const agent = () => (typeof props.agentName === 'function' ? props.agentName() : (props.agentName ?? 'Abelink'))
   const [selected, setSelected] = createSignal(0)
   let ta: TextareaHandle | null = null
   const readText = (): string => {
@@ -352,7 +354,7 @@ export function PromptRow(props: PromptRowProps) {
               permission (muted) · model (text) — pemisah `·` muted. */}
           <box style={{ flexDirection: 'row', flexShrink: 0, paddingTop: 1, gap: 1, justifyContent: 'space-between' }}>
             <box style={{ flexDirection: 'row', gap: 1 }}>
-              <text fg={ABELINK_THEME.accent}>{props.agentName ?? 'Abelink'}</text>
+              <text fg={ABELINK_THEME.accent}>{agent()}</text>
               <text fg={ABELINK_THEME.textMuted}>·</text>
               <text fg={ABELINK_THEME.textMuted}>{props.permissionMode ?? 'auto'}</text>
               <text fg={ABELINK_THEME.textMuted}>·</text>

@@ -29,6 +29,13 @@ import {
   resolveHarnessRoot,
 } from '../core/index.mjs'
 
+import {
+  buildTurnPrompt,
+  initWorking,
+  noteWorking,
+  modeStatusText,
+} from './planMode.mjs'
+
 export { parseSlashCommand, parseShellLine, resolveFileRefs, buildAgentsMd }
 export { SESSION_MESSAGE_CAP }
 
@@ -37,6 +44,10 @@ export function createTuiState(overrides = {}) {
     provider: 'custom',
     model: 'oc/muse-spark-1.3-contributor-free',
     effort: 'low',
+    // Stream D: mode plan/build (opencode agent.cycle build<->plan via tab).
+    // Default build = perilaku lama (eksekusi normal). Meta row tampilkan
+    // via modeAgentLabel; permissionMode TIDAK dipakai (tetap 'auto').
+    mode: 'build',
     workspace: process.cwd(),
     sessionId: `session-${Date.now()}`,
     history: [],
@@ -325,7 +336,11 @@ async function runPrompt(state, text, deps) {
   }
   pushMessage(state, 'user', text)
   const runTurn = deps.runTurn || defaultRunTurn
-  const result = await runTurn(state, effectiveText, deps)
+  // Stream D: plan = prompt prefix + disableTools (planMode.mjs).
+  // Prefix membungkus effectiveText (bukan resolved.text) agar deskripsi
+  // gambar stream B ikut terkirim saat plan mode aktif.
+  const mode = state.mode === 'plan' ? 'plan' : 'build'
+  const result = await runTurn(state, buildTurnPrompt(mode, effectiveText), deps)
   if (result?.reply) pushMessage(state, 'assistant', result.reply)
   pushMessage(
     state, 'meta',
@@ -522,6 +537,22 @@ async function runSlash(state, cmd, deps) {
       state.showDetails = !state.showDetails
       pushMessage(state, 'info', `Detail tool: ${state.showDetails ? 'TAMPIL' : 'SEMBUNYI'}.`)
       return { kind: 'message', role: 'info' }
+    // Stream D: mode plan/build (pola opencode agent.cycle build<->plan).
+    // Idempotent: sudah di mode itu -> status saja, tanpa noise.
+    case 'plan':
+    case 'build': {
+      const next = cmd.kind === 'plan' ? 'plan' : 'build'
+      if (state.mode === next) {
+        pushMessage(state, 'info', next === 'plan'
+          ? 'Sudah mode PLAN (eksekusi tool ditahan).'
+          : 'Sudah mode BUILD (eksekusi normal).')
+        return { kind: 'message', role: 'info' }
+      }
+      state.mode = next
+      try { state.onPush?.() } catch { /* repaint opsional */ }
+      pushMessage(state, 'info', modeStatusText(next))
+      return { kind: 'message', role: 'info' }
+    }
     case 'editor': {
       const runEditor = deps.runEditor || defaultRunEditor
       const text = await runEditor()
@@ -629,6 +660,9 @@ async function defaultWriteFile(workspace, target, draft) {
 export async function defaultRunTurn(state, prompt, deps = {}) {
   const turn = createTuiTurn()
   state.currentTurn = turn
+  // Stream D: status working per turn (opencode spinner + step/tool).
+  // Di-reset tiap turn; dibaca entry via state.working.
+  state.working = initWorking()
   try {
     const { runAgentLoop } = await import('../../src/api/ai/agentRunner.js')
     const { evaluateHeadlessSecurity } = await import('../../src/api/ai/headlessSecurity.js')
@@ -758,6 +792,10 @@ export async function defaultRunTurn(state, prompt, deps = {}) {
         if (line && deps.onEvent) deps.onEvent({ type: 'thought', line })
       },
       onStep: (stepRecord) => {
+        // Stream D: catat progres SEBELUM gate showDetails — indikator
+        // working harus hidup walau detail tool disembunyikan.
+        try { noteWorking(state.working, stepRecord) } catch { /* status opsional */ }
+        try { state.onPush?.() } catch { /* repaint opsional */ }
         if (state.showDetails === false && stepRecord?.kind === 'tool') return
         const line = renderStepLine(stepRecord)
         if (line && deps.onEvent) deps.onEvent({ type: 'step', line })
