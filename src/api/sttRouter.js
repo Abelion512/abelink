@@ -1,6 +1,7 @@
 import { getAllConfig } from './db'
 import { pcmToWav } from './groq'
 import { detectProviderFromUrl } from './ai/providerDetect.js'
+import { resolveEndpointUrl } from './ai/providerRegistry.js'
 import { DEFAULT_STT_MODEL, filterSegments } from './sttGuard.js'
 
 /**
@@ -13,25 +14,11 @@ export const connectionDisplayName = (endpoint, fallback) => {
 }
 
 /**
- * Normalisasi URL target endpoint STT.
- * Menangani URL berakhiran /v1/audio/transcriptions, /v1, atau baseURL murni.
+ * Normalisasi URL target endpoint STT — delegasi ke providerRegistry
+ * (smart, satu aturan untuk chat/stt/tts): trailing slash, localhost,
+ * suffix lengkap, /v1 ada/tidak — semua dirapikan deterministik.
  */
-export const normalizeSttUrl = (rawUrl) => {
-  if (!rawUrl || typeof rawUrl !== 'string') return ''
-  let cleaned = rawUrl.trim().replace(/\/+$/, '')
-  if (!cleaned) return ''
-
-  // Linux WebKit: konversi localhost ke 127.0.0.1 agar bebas dari isu resolusi IPv6 [::1]
-  cleaned = cleaned.replace(/^(https?:\/\/)(localhost)(:\d+)?/i, '$1127.0.0.1$3')
-
-  if (cleaned.endsWith('/audio/transcriptions')) {
-    return cleaned
-  }
-  if (cleaned.endsWith('/v1')) {
-    return `${cleaned}/audio/transcriptions`
-  }
-  return `${cleaned}/v1/audio/transcriptions`
-}
+export const normalizeSttUrl = (rawUrl) => resolveEndpointUrl(rawUrl, 'stt')
 
 /**
  * Eksekusi panggilan HTTP multipart audio transcription ke server OpenAI-compatible STT.

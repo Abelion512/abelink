@@ -248,6 +248,55 @@ export default function VoiceVideoSection({
             </select>
           </div>
 
+          {/* TTS Provider (registry data-driven): edge | custom */}
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-white/70">{tx(config, 'voice.ttsProvider')}</label>
+            <select
+              className="select select-bordered select-sm w-full rounded-xl bg-base-100/60 border-white/10 text-xs"
+              value={config.ttsProvider || 'edge'}
+              onChange={(e) => setConfig((prev) => ({ ...prev, ttsProvider: e.target.value }))}
+            >
+              <option value="edge">{tx(config, 'voice.ttsEdge')}</option>
+              <option value="custom">{tx(config, 'voice.ttsCustom')}</option>
+            </select>
+          </div>
+
+          {config.ttsProvider === 'custom' && (
+            <div className="space-y-3 rounded-xl border border-white/5 bg-base-100/40 p-3">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-white/70">{tx(config, 'voice.ttsEndpoint')}</label>
+                <input
+                  type="text"
+                  placeholder={tx(config, 'voice.ttsEndpointPh')}
+                  className="input input-bordered w-full rounded-xl bg-base-100/60 text-xs border-white/10"
+                  value={config.customTtsEndpoint || ''}
+                  onChange={(e) => setConfig((prev) => ({ ...prev, customTtsEndpoint: e.target.value }))}
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-white/70">{tx(config, 'voice.ttsModel')}</label>
+                  <input
+                    type="text"
+                    placeholder={tx(config, 'voice.ttsModelPh')}
+                    className="input input-bordered w-full rounded-xl bg-base-100/60 text-xs border-white/10"
+                    value={config.customTtsModel || ''}
+                    onChange={(e) => setConfig((prev) => ({ ...prev, customTtsModel: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-white/70">{tx(config, 'voice.ttsApiKey')}</label>
+                  <input
+                    type="password"
+                    className="input input-bordered w-full rounded-xl bg-base-100/60 text-xs border-white/10"
+                    value={config.customTtsApiKey || ''}
+                    onChange={(e) => setConfig((prev) => ({ ...prev, customTtsApiKey: e.target.value }))}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* TTS Rate & Pitch Slider */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
             <div className="space-y-1.5">

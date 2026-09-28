@@ -21,9 +21,9 @@ describe('providerOfflineMessage', () => {
     expect(msg).toContain('API key')
   })
 
-  it('groq menyebut Groq (bukan localhost)', () => {
-    const msg = providerOfflineMessage('groq', 'https://api.groq.com/openai/v1/chat/completions')
-    expect(msg).toContain('Groq')
+  it('endpoint remote generik menyebut endpoint-nya (bukan localhost)', () => {
+    const msg = providerOfflineMessage('custom', 'https://api.groq.com/openai/v1/chat/completions')
+    expect(msg).toContain('api.groq.com')
     expect(msg).not.toContain('localhost')
   })
 
@@ -31,7 +31,7 @@ describe('providerOfflineMessage', () => {
     for (const msg of [
       providerOfflineMessage(undefined, ''),
       providerOfflineMessage('custom', ''),
-      providerOfflineMessage('groq', '')
+      providerOfflineMessage('custom', 'https://x.example/v1/chat/completions')
     ]) {
       expect(msg.length).toBeGreaterThan(30)
       expect(/nyalakan|cek|coba lagi/i.test(msg)).toBe(true)

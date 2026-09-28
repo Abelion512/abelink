@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Bot, Terminal, Plug } from 'lucide-react'
 import { detectProviderFromUrl } from '../../api/ai/providerDetect.js'
+import { listPresets, resolveEndpointUrl } from '../../api/ai/providerRegistry.js'
 import { MobiusLoader } from '../core/MobiusLoader'
 import { tx } from '../../api/locale'
 
@@ -211,6 +212,32 @@ export default function ModelSection({
         </div>
       ) : config.aiProvider === 'custom' ? (
         <div className="space-y-4">
+          {/* Preset gateway (data-driven dari providerRegistry): satu klik
+              mengisi endpoint; kosong = Custom murni. */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-semibold">{tx(config, 'model.preset')}</label>
+            <select
+              className="select select-bordered w-full rounded-xl bg-base-100/60 border-white/10 text-xs font-medium"
+              value={config.presetId || ''}
+              onChange={(e) => {
+                const id = e.target.value || null
+                setConfig((prev) => ({
+                  ...prev,
+                  presetId: id,
+                  // Pilih preset = endpoint ikut terisi (dapat ditimpa manual).
+                  customEndpoint: id
+                    ? listPresets().find((p) => p.id === id)?.chat || prev.customEndpoint
+                    : prev.customEndpoint,
+                }))
+              }}
+            >
+              <option value="">{tx(config, 'model.presetNone')}</option>
+              {listPresets().map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+
           <div className="space-y-1.5">
             <label className="text-sm font-semibold">{tx(config, 'model.endpoint')}</label>
             <input
@@ -222,8 +249,19 @@ export default function ModelSection({
                   : 'border-white/10'
               }`}
               value={config.customEndpoint || ''}
-              onChange={(e) => setConfig((prev) => ({ ...prev, customEndpoint: e.target.value }))}
+              onChange={(e) => setConfig((prev) => ({ ...prev, customEndpoint: e.target.value, presetId: null }))}
             />
+            {/* Smart URL preview: bentuk final siap-POST (trailing slash,
+                /v1 hilang, suffix dobel — semua dirapikan otomatis). */}
+            {(() => {
+              const trimmed = (config.customEndpoint || '').trim()
+              if (!trimmed) return null
+              try {
+                return <p className="text-[11px] text-primary/80 font-mono break-all">{resolveEndpointUrl(trimmed, 'chat')}</p>
+              } catch {
+                return null
+              }
+            })()}
             {(() => {
               const detected = detectProviderFromUrl(config.customEndpoint)
               if (detected.id === 'custom' || !config.customEndpoint?.trim()) return null

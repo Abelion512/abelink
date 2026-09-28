@@ -1,25 +1,25 @@
 import { jsonrepair } from 'jsonrepair'
 import { generateGeminiResponse } from './services/gemini-web'
+import { resolveChatEndpoint, suggestProtocol, presetEndpoint, normalizeLegacyProviderConfig } from '../../src/api/ai/providerRegistry.js'
 
-// Pesan offline sesuai provider yang DIPAKAI (bukan tebakan generik).
+// Pesan offline sesuai endpoint yang DIPAKAI (bukan tebakan generik).
 // Sebelumnya: endpoint apapun yang mati selalu dilaporkan sebagai
-// "LM Studio mati ... port 1234" — menyesatkan saat user memakai 9Router,
-// Groq, atau Custom API. Fungsi murni agar bisa di-unit-test.
+// "LM Studio mati ... port 1234" — menyesatkan saat user memakai 9Router
+// atau Custom API. Fungsi murni agar bisa di-unit-test.
 export const providerOfflineMessage = (aiProvider, endpoint) => {
   const ep = String(endpoint || '').replace(/\/v1\/chat\/completions\/?$/, '')
-  if (aiProvider === 'custom') {
+  // Endpoint remote (custom/gateway) vs lokal (komposit 9Router) — generic:
+  // pesan menyebut endpoint yang DIPAKAI, bukan nama vendor hardcoded.
+  const isLocal = !ep || /127\.0\.0\.1:20128|localhost:20128/i.test(endpoint || '')
+  if (isLocal) {
     return (
-      `Custom API tidak merespons${ep ? ` di ${ep}` : ''}. ` +
-      'Cek URL endpoint, API key, dan koneksi internet, lalu coba lagi.'
+      'Server AI lokal tidak merespons di localhost:20128 (9Router/LM Studio). ' +
+      'Nyalakan dulu aplikasinya, lalu coba lagi.'
     )
   }
-  if (aiProvider === 'groq') {
-    return 'Groq API tidak merespons. Cek koneksi internet dan API key Groq, lalu coba lagi.'
-  }
-  // Jalur default: komposit 9Router (meneruskan ke LM Studio/model lokal).
   return (
-    'Server AI lokal tidak merespons di localhost:20128 (9Router/LM Studio). ' +
-    'Nyalakan dulu aplikasinya, lalu coba lagi.'
+    `Server AI tidak merespons di ${ep}. ` +
+    'Cek URL endpoint, API key, dan koneksi internet, lalu coba lagi.'
   )
 }
 
@@ -148,7 +148,9 @@ export const fetchAI = async (
   // menyebutkannya di pesan error provider-aware.
   let activeEndpoint = ''
   try {
-    const conf = config || globalConfig
+    // Legacy provider (groq/cerebras pra-registry) dinormalisasi SEKALI di
+    // sini ke jalur custom generik — semua kode di bawah vendor-agnostic.
+    const conf = normalizeLegacyProviderConfig(config || globalConfig)
     let messages = inputMessages.map((m) => ({ ...m }))
 
     if (conf.aiProvider === 'gemini-web') {
@@ -300,51 +302,40 @@ export const fetchAI = async (
       })
     }
 
-    if (conf.aiProvider === 'groq') {
-      // Groq Cloud — free tier besar, latensi terendah untuk model open
-      // (Llama/Qwen/Kimi). Prioritas owner: cloud API yang punya free tier.
-      // Keputusan 2026-09-04: Groq kini juga CHAT provider (sebelumnya hanya STT).
-      if (!conf.groqApiKey) {
-        throw new Error(
-          'Groq API Key kosong. Isi di Configuration → Model, atau ambil gratis di console.groq.com/keys'
-        )
-      }
-      customProtocol = 'openai'
-      endpoint = 'https://api.groq.com/openai/v1/chat/completions'
-      headers['Authorization'] = `Bearer ${conf.groqApiKey}`
-      body.model = conf.customModel || conf.groqModel || 'llama-3.1-8b-instant'
-    } else if (conf.aiProvider === 'custom') {
-      const rawEndpoint = (conf.customEndpoint || 'http://localhost:1234/v1')
-        .trim()
-        .replace(/\/+$/, '')
-      const preferAnthropic =
-        conf.customApiProtocol === 'anthropic' ||
-        (conf.customApiProtocol !== 'openai' && /anthropic/i.test(rawEndpoint))
-      if (preferAnthropic) {
-        // Protokol Anthropic Messages: /v1/messages + header x-api-key.
+    if (conf.aiProvider === 'custom') {
+      // SATU jalur generik data-driven: endpoint di-resolve smart oleh
+      // providerRegistry (trailing slash, /v1 hilang, suffix dobel, localhost
+      // — semua dirapikan deterministik). Protokol dari saran registry
+      // (preset > URL > auto), keputusan eksplisit user tetap menang.
+      const rawEndpoint = conf.customEndpoint || 'http://127.0.0.1:1234/v1'
+      const proto = suggestProtocol({
+        presetId: conf.presetId,
+        customApiProtocol: conf.customApiProtocol,
+        customEndpoint: rawEndpoint,
+      })
+      const resolved = resolveChatEndpoint({ presetId: conf.presetId, customEndpoint: rawEndpoint })
+      if (proto === 'anthropic') {
         customProtocol = 'anthropic'
-        endpoint = rawEndpoint.endsWith('/v1/messages')
-          ? rawEndpoint
-          : rawEndpoint.endsWith('/v1')
-            ? `${rawEndpoint}/messages`
-            : `${rawEndpoint}/v1/messages`
+        // resolveChatEndpoint membangun path chat; untuk Anthropic ganti
+        // suffix chat/completions -> messages (registry tak menambah suffix
+        // anthropic di buildChatUrl).
+        endpoint = resolved
+          .replace(/\/chat\/completions\/?$/, '/messages')
         headers = {
           'Content-Type': 'application/json',
           'x-api-key': conf.customApiKey || '',
           'anthropic-version': '2023-06-01'
         }
       } else {
-        // Protokol OpenAI-Compatible: user cukup menulis base .../v1.
-        endpoint = rawEndpoint.endsWith('/chat/completions')
-          ? rawEndpoint
-          : `${rawEndpoint}/chat/completions`
+        endpoint = resolved
         if (conf.customApiKey) {
           headers['Authorization'] = `Bearer ${conf.customApiKey}`
         }
       }
       body.model = conf.customModel || 'default-model'
     } else {
-      endpoint = `http://127.0.0.1:20128/v1/chat/completions` // 9Router composite
+      endpoint = presetEndpoint('9router', 'chat') // komposit 9Router (base; resolved di bawah)
+      endpoint = endpoint ? `${endpoint}/chat/completions` : 'http://127.0.0.1:20128/v1/chat/completions'
       body.model = conf.model || conf.customModel || 'claude-work'
       if (conf.customApiKey) {
         headers['Authorization'] = `Bearer ${conf.customApiKey}`
@@ -398,11 +389,11 @@ export const fetchAI = async (
     // Provider tanpa dukungan effort terdokumentasi: 9Router composite
     // (teruskan apa adanya — composite yang menerjemahkan), LM-Studio,
     // endpoint OpenAI-compatible generik. Hanya kirim reasoning_effort bila
-    // endpoint eksplisit custom/Groq (Anthropic-native menyusul di blok
+    // endpoint eksplisit custom (Anthropic-native menyusul di blok
     // konversi di bawah).
     const isAnthropicNative = customProtocol === 'anthropic'
     const isGenericPassthrough =
-      conf.aiProvider !== 'custom' && conf.aiProvider !== 'groq' && !isAnthropicNative
+      conf.aiProvider !== 'custom' && !isAnthropicNative
     if (!isGenericPassthrough && !noThinking) {
       body.reasoning_effort = effortForWire
     }
@@ -583,9 +574,7 @@ export const fetchAI = async (
         const errorProvider =
           conf.aiProvider === 'custom'
             ? 'Custom API'
-            : conf.aiProvider === 'groq'
-              ? 'Groq'
-              : '9Router/LM Studio'
+            : '9Router/LM Studio'
         let finalErrorMessage = typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg)
 
         // Auto-retry: sebagian endpoint (mis. DeepSeek) menolak payload gambar
@@ -726,9 +715,9 @@ export const fetchAI = async (
     }
 
     if (jsonSchema) {
-      if (conf.aiProvider === 'custom' || conf.aiProvider === 'groq') {
-        // Inject schema instructions manually for Custom API
-        body.messages = body.messages.map((m) => ({ ...m }))
+    if (conf.aiProvider === 'custom') {
+      // Inject schema instructions manually for Custom API
+      body.messages = body.messages.map((m) => ({ ...m }))
         let sysIdx = body.messages.findIndex((m) => m.role === 'system')
         const instruction = `\n\n[CRITICAL] YOU MUST RETURN ONLY VALID JSON THAT STRICTLY MATCHES THIS EXACT SCHEMA:\n${JSON.stringify(jsonSchema)}\n`
         if (sysIdx >= 0) {

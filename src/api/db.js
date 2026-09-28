@@ -1,6 +1,10 @@
 import Dexie from 'dexie'
 import { generateVector, cosineSimilarity } from './vectorLoader'
 import { DEFAULT_STT_MODEL, PLACEHOLDER_STT_MODELS } from './sttGuard.js'
+import { LEGACY_HOSTS } from './ai/providerRegistry.js'
+
+// Endpoint chat legacy provider groq (pra-registry) — dipakai migrasi v30.
+const LEGACY_GROQ_CHAT_ENDPOINT = LEGACY_HOSTS['api.groq.com']
 
 // Lazy (bukan impor statis) agar tidak ada siklus modul db<->oramaStore:
 // oramaStore sudah lazy-import db untuk hydrate; sisi ini simetris.
@@ -265,6 +269,31 @@ db.version(29).stores({
     if (typeof skill.use_count !== 'number') skill.use_count = 0
     if (!skill.last_used_at) skill.last_used_at = null
     if (typeof skill.state !== 'string') skill.state = 'active'
+  })
+})
+
+// v30: provider registry era — provider hardcoded vendor (groq) dilebur ke
+// jalur custom generik (data-driven, providerRegistry.js). Kredensial & model
+// lama dibawa utuh (custom* menang bila sudah ada); field vendor lama
+// DIPERTAHANKAN agar downgrade aman & jejak historis tidak hilang. Idempoten:
+// customEndpoint yang sudah menunjuk legacy endpoint tak diubah dua kali.
+db.version(30).upgrade(tx => {
+  return tx.table('config').toCollection().modify(config => {
+    if (config.aiProvider === 'groq') {
+      config.aiProvider = 'custom'
+      if (!config.customEndpoint) {
+        config.customEndpoint = LEGACY_GROQ_CHAT_ENDPOINT
+      }
+      if (!config.customApiKey) config.customApiKey = config.groqApiKey || ''
+      if (!config.customModel) config.customModel = config.groqModel || ''
+      if (!config.customApiProtocol || config.customApiProtocol === 'auto') {
+        config.customApiProtocol = 'openai'
+      }
+    }
+    // 'cerebras' tidak pernah jadi cabang chat runtime — tapi bersihkan
+    // residual field agar UI tak lagi menampilkannya.
+    delete config.cerebrasApiKey
+    delete config.cerebrasModel
   })
 })
 
