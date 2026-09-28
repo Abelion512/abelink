@@ -35,7 +35,61 @@
  */
 import { fetchAI } from './core'
 import { compactCodeBlocks } from './contextCompactor'
-import { clearSessionCompact, getSessionCompact, saveSessionCompact, saveSession } from '../db'
+import { clearSessionCompact, getSessionCompact, saveSessionCompact, saveSession, type SessionCompactRow } from '../db'
+
+// ---- Kontrak tipe (W2-6) ----
+export interface CompactionMessage {
+  id?: unknown
+  messageId?: unknown
+  created_at?: unknown
+  createdAt?: unknown
+  timestamp?: unknown
+  role?: string
+  content?: unknown
+  reasoning?: unknown
+  thought?: unknown
+  executedTools?: Array<Record<string, unknown>>
+  tool_calls?: unknown[]
+  isThinking?: boolean
+  isSearching?: boolean
+  isSummarizing?: boolean
+  [key: string]: unknown
+}
+
+export interface CompactionResult {
+  success: boolean
+  isCompacted: boolean
+  prunedOnly?: boolean
+  error?: string
+  compactedMessages: CompactionMessage[]
+  tailMessages: CompactionMessage[]
+  lastCompactedMessageId: string | null
+  newSummaryBlock?: string
+  summaryBlock?: string
+  summaryCoverage?: {
+    covered: number
+    total: number
+    partial: boolean
+    chunks: number
+    usedFallback: boolean
+  } | null
+  summarizedCount?: number
+  pendingSummarizeCount?: number
+  currentChars: number
+  uncompactedTurns?: number
+}
+
+interface CompactRecord {
+  success?: unknown
+  isCompacted?: unknown
+  summaryBlock?: unknown
+  newSummaryBlock?: unknown
+  prunedOnly?: unknown
+  compactedMessages?: unknown
+  lastCompactedMessageId?: unknown
+  tailMessages?: unknown
+  [key: string]: unknown
+}
 
 // Hybrid compaction: 45.000 karakter (~11k token) & batas giliran aktif (Hermes/Anthropic pattern)
 export const MAX_SESSION_CHARS = 45000
@@ -61,7 +115,7 @@ export const MIDLOOP_PRUNE_EVERY_TURNS = 5
 
 // Pure trigger decision untuk kompaksi mid-loop (unit-testable, tanpa I/O).
 // Default turnsSinceCompact = Infinity artinya "cooldown lewat, boleh".
-export function shouldCompactLoop({ chars = 0, turnsSinceCompact = Infinity } = {}) {
+export function shouldCompactLoop({ chars = 0, turnsSinceCompact = Infinity }: { chars?: number; turnsSinceCompact?: number } = {}): boolean {
   if ((Number(chars) || 0) < MAX_SESSION_CHARS * COMPACT_WARN_AT) return false
   const since = turnsSinceCompact ?? Infinity
   if (Number(since) < MIDLOOP_COMPACT_COOLDOWN_TURNS) return false
@@ -73,19 +127,22 @@ export function shouldCompactLoop({ chars = 0, turnsSinceCompact = Infinity } = 
 // yang boleh disuntik. success:false / tidak terkompaksi -> null (skip
 // diam-diam). Summary tanpa pointer terverifikasi -> null (JANGAN injeksi
 // cakupan palsu). pruned-only tanpa summary AI -> pesan terprune (aman).
-export function buildCompactedLoopWindow(loopMessages = [], comp = null) {
+export function buildCompactedLoopWindow(
+  loopMessages: CompactionMessage[] = [],
+  comp: CompactRecord | null = null
+): CompactionMessage[] | null {
   if (!comp || comp.success !== true || comp.isCompacted !== true) return null
-  const summary = comp.summaryBlock || comp.newSummaryBlock || ''
+  const summary = (comp.summaryBlock || comp.newSummaryBlock || '') as string
   if (comp.prunedOnly && !summary && Array.isArray(comp.compactedMessages)) {
-    return [...comp.compactedMessages]
+    return [...(comp.compactedMessages as CompactionMessage[])]
   }
   if (!summary || !comp.lastCompactedMessageId) return null
-  const base = Array.isArray(comp.compactedMessages) ? comp.compactedMessages : loopMessages
+  const base = (Array.isArray(comp.compactedMessages) ? comp.compactedMessages : loopMessages) as CompactionMessage[]
   if (findMessageIndex(base, comp.lastCompactedMessageId) === -1) return null
   if (!Array.isArray(comp.tailMessages)) return null
   return [
     { role: 'user', content: `[ COMPACTED MESSAGE SUMMARY ] ${summary}` },
-    ...comp.tailMessages,
+    ...(comp.tailMessages as CompactionMessage[]),
     {
       role: 'user',
       content:
@@ -104,12 +161,12 @@ export const SUMMARY_PER_MESSAGE_CHARS = 2500
 // Batas jumlah panggilan AI per kompaksi; sisanya dilanjutkan kompaksi berikutnya.
 export const MAX_SUMMARY_CHUNKS_PER_RUN = 4
 
-const isPresentId = (value) => value !== undefined && value !== null && value !== ''
+const isPresentId = (value: unknown) => value !== undefined && value !== null && value !== ''
 
 // Ordered candidates deliberately include legacy timestamp values. New messages
 // carry an `id`; older persisted sessions can still be matched by their original
 // `created_at` or timestamp pointer during migration.
-const messageIdCandidates = (msg, fallbackIndex = 0) => {
+const messageIdCandidates = (msg: CompactionMessage | null | undefined, fallbackIndex = 0): string[] => {
   if (!msg) return [`msg-${fallbackIndex}`]
   const ids = [msg.id, msg.messageId, msg.created_at, msg.createdAt, msg.timestamp]
     .filter(isPresentId)
@@ -117,26 +174,26 @@ const messageIdCandidates = (msg, fallbackIndex = 0) => {
   return ids.length > 0 ? [...new Set(ids)] : [`msg-${fallbackIndex}`]
 }
 
-export function getMessageId(msg, fallbackIndex = 0) {
+export function getMessageId(msg: CompactionMessage | null | undefined, fallbackIndex = 0): string {
   return messageIdCandidates(msg, fallbackIndex)[0]
 }
 
-export function findMessageIndex(messages = [], messageId = null) {
+export function findMessageIndex(messages: CompactionMessage[] = [], messageId: unknown = null): number {
   if (!Array.isArray(messages) || !isPresentId(messageId)) return -1
   const targetId = String(messageId)
   return messages.findIndex((msg, index) => messageIdCandidates(msg, index).includes(targetId))
 }
 
-const hasUsablePointer = (messages, summaryBlock, lastCompactedMessageId) =>
+const hasUsablePointer = (messages: CompactionMessage[], summaryBlock: unknown, lastCompactedMessageId: unknown) =>
   Boolean(summaryBlock && isPresentId(lastCompactedMessageId) && findMessageIndex(messages, lastCompactedMessageId) !== -1)
 
-export function getCompactionTail(messages = [], summaryBlock = '', lastCompactedMessageId = null) {
+export function getCompactionTail(messages: CompactionMessage[] = [], summaryBlock: unknown = '', lastCompactedMessageId: unknown = null): CompactionMessage[] {
   if (!Array.isArray(messages)) return []
   if (!hasUsablePointer(messages, summaryBlock, lastCompactedMessageId)) return messages
   return messages.slice(findMessageIndex(messages, lastCompactedMessageId) + 1)
 }
 
-export function calculateMessageChars(msg) {
+export function calculateMessageChars(msg: CompactionMessage | null | undefined): number {
   if (!msg) return 0
   let total = 0
   if (typeof msg.content === 'string') {
@@ -157,17 +214,17 @@ export function calculateMessageChars(msg) {
   return total
 }
 
-const isSkipped = (m) =>
+const isSkipped = (m: CompactionMessage | null | undefined): boolean =>
   !m || m.isThinking || m.isSearching || m.isSummarizing || m.role === 'command'
 
 // Hasil akuntansi ber-saturasi di `maxChars` (default = budget). Caller yang
 // butuh angka pasti cukup membandingkan dengan MAX_SESSION_CHARS.
 export function calculateSessionChars(
-  messages = [],
-  summaryBlock = '',
-  lastCompactedMessageId = null,
+  messages: CompactionMessage[] = [],
+  summaryBlock: unknown = '',
+  lastCompactedMessageId: unknown = null,
   maxChars = MAX_SESSION_CHARS
-) {
+): number {
   if (!Array.isArray(messages)) return 0
   const cap = Number.isFinite(maxChars) && maxChars > 0 ? maxChars : MAX_SESSION_CHARS
   // INVARIANT: summary tanpa pointer yang bisa diresolvakan sengaja dikecualikan.
@@ -191,7 +248,10 @@ export function calculateSessionChars(
  * Tahap 1: prune output tool lama in-memory (murni, tanpa AI).
  * 4 giliran terbaru utuh; yang lama: executedTools diringkas + kode dikompaksi.
  */
-export function pruneOldToolResultsInMemory(messages = [], preserveRecentTurns = PRESERVE_RECENT_TURNS) {
+export function pruneOldToolResultsInMemory(
+  messages: CompactionMessage[] = [],
+  preserveRecentTurns = PRESERVE_RECENT_TURNS
+): CompactionMessage[] {
   if (!Array.isArray(messages) || messages.length === 0) return []
   const cloned = messages.map((m) => ({ ...m }))
   const totalValid = cloned.filter((m) => !isSkipped(m)).length
@@ -207,7 +267,7 @@ export function pruneOldToolResultsInMemory(messages = [], preserveRecentTurns =
         Array.isArray(item.executedTools) &&
         item.executedTools.length > 0
       ) {
-        item.executedTools = item.executedTools.map((t) => {
+        item.executedTools = item.executedTools.map((t: Record<string, unknown>) => {
           if (typeof t.fullResult === 'string' && t.fullResult.length > 500) {
             return {
               ...t,
@@ -220,7 +280,7 @@ export function pruneOldToolResultsInMemory(messages = [], preserveRecentTurns =
       continue
     }
     if (Array.isArray(item.executedTools) && item.executedTools.length > 0) {
-      item.executedTools = item.executedTools.map((t) => ({
+      item.executedTools = item.executedTools.map((t: Record<string, unknown>) => ({
         tool: t.tool || 'unknown_tool',
         query: t.query ? String(t.query).slice(0, 100) : '',
         resultSummary: t.resultSummary || `[tool result dipangkas: ${t.tool || 'tool'}]`,
@@ -234,8 +294,8 @@ export function pruneOldToolResultsInMemory(messages = [], preserveRecentTurns =
   return cloned
 }
 
-const renderSummaryLine = (msg, index, maxChars = SUMMARY_PER_MESSAGE_CHARS) => {
-  if (isSkipped(msg)) return null
+const renderSummaryLine = (msg: CompactionMessage | null | undefined, index: number, maxChars = SUMMARY_PER_MESSAGE_CHARS): string | null => {
+  if (!msg || isSkipped(msg)) return null
   const sender = msg.role === 'user' ? 'User' : 'Abelink'
   let text = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content || '')
   if (text.length > maxChars) {
@@ -253,10 +313,10 @@ const renderSummaryLine = (msg, index, maxChars = SUMMARY_PER_MESSAGE_CHARS) => 
  * pesan sementara pointer tetap maju. `lastIndex` = indeks pesan terakhir yang
  * benar-benar masuk chunk (dipakai caller untuk memajukan pointer).
  */
-export function buildSummaryChunks(messagesToSummarize = [], maxChars = MAX_SUMMARY_INPUT_CHARS) {
+export function buildSummaryChunks(messagesToSummarize: CompactionMessage[] = [], maxChars = MAX_SUMMARY_INPUT_CHARS) {
   const budget = Math.max(1000, Number(maxChars) || MAX_SUMMARY_INPUT_CHARS)
-  const chunks = []
-  let lines = []
+  const chunks: Array<{ text: string; count: number; lastIndex: number }> = []
+  let lines: string[] = []
   let size = 0
   let lastIndex = -1
   const flush = () => {
@@ -290,7 +350,16 @@ export function buildSummaryChunks(messagesToSummarize = [], maxChars = MAX_SUMM
  * konten yang tidak pernah dilihat model, dan ringkasan tidak boleh mengklaim
  * cakupan palsu.
  */
-async function summarizeChunk(messagesText, existingSummaryBlock, activeConfig) {
+interface SummarizeChunkResult {
+  summaryBlock: string | null
+  usedFallback: boolean
+}
+
+async function summarizeChunk(
+  messagesText: string,
+  existingSummaryBlock: string,
+  activeConfig: Record<string, unknown>
+): Promise<SummarizeChunkResult> {
   const systemPrompt = `Kamu adalah sistem internal Abelink untuk context compaction.
 Tugasmu: Buat SATU ringkasan padat dan komprehensif yang memperbarui ringkasan lama dengan percakapan baru.
 
@@ -313,11 +382,12 @@ Aturan Ringkasan:
       ...(activeConfig || {}),
       ...(activeConfig?.aiProvider ? {} : { aiProvider: 'gemini-web', geminiWebModel: 'gemini-3.5-flash-thinking' })
     })
-    if (response && response.content && !response.error) {
-      return { summaryBlock: response.content.trim(), usedFallback: false }
+    const res = response as { content?: string; error?: unknown } | null
+    if (res && res.content && !res.error) {
+      return { summaryBlock: res.content.trim(), usedFallback: false }
     }
   } catch (err) {
-    console.warn('[sessionCompactor] summarizer provider aktif gagal:', err?.message)
+    console.warn('[sessionCompactor] summarizer provider aktif gagal:', (err as Error)?.message)
   }
   return { summaryBlock: null, usedFallback: true }
 }
@@ -332,7 +402,21 @@ Aturan Ringkasan:
  * TIDAK maju melewatinya (pointer tetap jujur), fold sejauh chunk sukses
  * dipertahankan, dan sisanya diulang pada kompaksi berikutnya.
  */
-export async function summarizeMiddle(messagesToSummarize = [], existingSummaryBlock = '', activeConfig = {}, options = {}) {
+interface SummarizeMiddleResult {
+  summaryBlock: string
+  coveredCount: number
+  chunks: number
+  totalChunks: number
+  partial: boolean
+  usedFallback: boolean
+}
+
+export async function summarizeMiddle(
+  messagesToSummarize: CompactionMessage[] = [],
+  existingSummaryBlock = '',
+  activeConfig: Record<string, unknown> = {},
+  options: { maxInputChars?: number; maxChunks?: number } = {}
+): Promise<SummarizeMiddleResult> {
   if (!Array.isArray(messagesToSummarize) || messagesToSummarize.length === 0) {
     return {
       summaryBlock: existingSummaryBlock || '',
@@ -360,7 +444,7 @@ export async function summarizeMiddle(messagesToSummarize = [], existingSummaryB
       usedFallback = true
       break
     }
-    summaryBlock = result.summaryBlock
+    summaryBlock = result.summaryBlock || ''
     coveredCount = chunk.lastIndex + 1
     processed++
   }
@@ -380,6 +464,15 @@ export async function summarizeMiddle(messagesToSummarize = [], existingSummaryB
  * (yang disimpan ke sessions tetap versi prune; ringkasan hidup di store
  * sessionCompacts + dirakit ke prompt oleh caller).
  */
+interface ExecuteCompactionOptions {
+  sessionId?: string
+  messages?: CompactionMessage[]
+  activeConfig?: Record<string, unknown>
+  onProgress?: ((p: { stage: string; text: string }) => void) | null
+  force?: boolean
+  persist?: boolean
+}
+
 export async function executeSessionCompaction({
   sessionId = '1',
   messages = [],
@@ -390,21 +483,21 @@ export async function executeSessionCompaction({
   // riwayat asli). Caller prompt-only wajib false. Pointer sessionCompacts tetap
   // disimpan (butuh untuk delta).
   persist = true
-} = {}) {
+}: ExecuteCompactionOptions = {}): Promise<CompactionResult> {
   let existingSummaryBlock = ''
-  let existingLastCompactedId = null
+  let existingLastCompactedId: unknown = null
   try {
-    const existingData = await getSessionCompact(sessionId)
+    const existingData = (await getSessionCompact(sessionId)) as SessionCompactRow | null
     if (existingData) {
-      existingSummaryBlock = existingData.summaryBlock || ''
+      existingSummaryBlock = (existingData.summaryBlock as string) || ''
       existingLastCompactedId = existingData.lastCompactedMessageId || null
     }
   } catch (err) {
-    console.warn('[sessionCompactor] Gagal mengambil session_compact lama:', err?.message)
+    console.warn('[sessionCompactor] Gagal mengambil session_compact lama:', (err as Error)?.message)
   }
   if (existingSummaryBlock && !hasUsablePointer(messages, existingSummaryBlock, existingLastCompactedId)) {
     console.warn('[sessionCompactor] Pointer ringkasan tidak cocok dengan riwayat aktif; membuang ringkasan stale.')
-    const cleared = await clearSessionCompact(sessionId)
+    const cleared: boolean = await clearSessionCompact(sessionId)
     if (!cleared) console.warn('[sessionCompactor] Gagal menghapus session_compact stale dari penyimpanan.')
     existingSummaryBlock = ''
     existingLastCompactedId = null
@@ -426,7 +519,7 @@ export async function executeSessionCompaction({
       tailMessages: getCompactionTail(messages, existingSummaryBlock, existingLastCompactedId),
       newSummaryBlock: existingSummaryBlock,
       summaryBlock: existingSummaryBlock,
-      lastCompactedMessageId: existingLastCompactedId,
+      lastCompactedMessageId: existingLastCompactedId as string | null,
       currentChars,
       uncompactedTurns
     }
@@ -444,7 +537,7 @@ export async function executeSessionCompaction({
       try {
         await saveSession(sessionId, prunedMessages)
       } catch (e) {
-        console.warn('[sessionCompactor] Gagal menyimpan pruned messages:', e?.message)
+        console.warn('[sessionCompactor] Gagal menyimpan pruned messages:', (e as Error)?.message)
       }
     }
     return {
@@ -455,7 +548,7 @@ export async function executeSessionCompaction({
       tailMessages: getCompactionTail(prunedMessages, existingSummaryBlock, existingLastCompactedId),
       newSummaryBlock: existingSummaryBlock,
       summaryBlock: existingSummaryBlock,
-      lastCompactedMessageId: existingLastCompactedId,
+      lastCompactedMessageId: existingLastCompactedId as string | null,
       currentChars: prunedChars
     }
   }
@@ -469,10 +562,10 @@ export async function executeSessionCompaction({
   const startIndexToSummarize = pointerIndex + 1
   const effectiveTailIndex = Math.max(tailStartIndex, startIndexToSummarize)
   const messagesToSummarize = prunedMessages.slice(startIndexToSummarize, effectiveTailIndex)
-  let newSummaryBlock = existingSummaryBlock
-  let lastCompactedMessageId = existingLastCompactedId
+  let newSummaryBlock: string = existingSummaryBlock
+  let lastCompactedMessageId: string | null = existingLastCompactedId as string | null
   let lastCoveredIndex = -1
-  let summaryCoverage = null
+  let summaryCoverage: CompactionResult['summaryCoverage'] = null
   if (messagesToSummarize.length > 0) {
     const run = await summarizeMiddle(messagesToSummarize, existingSummaryBlock, activeConfig)
     newSummaryBlock = run.summaryBlock
@@ -526,7 +619,7 @@ export async function executeSessionCompaction({
       lastCompactedAt: Date.now()
     })
   } catch (err) {
-    console.error('[sessionCompactor] Gagal menyimpan session_compact:', err?.message)
+    console.error('[sessionCompactor] Gagal menyimpan session_compact:', (err as Error)?.message)
   }
   if (!compactSaved) {
     return {
@@ -545,7 +638,7 @@ export async function executeSessionCompaction({
     try {
       await saveSession(sessionId, prunedMessages)
     } catch (e) {
-      console.warn('[sessionCompactor] Gagal menyimpan sessions:', e?.message)
+      console.warn('[sessionCompactor] Gagal menyimpan sessions:', (e as Error)?.message)
     }
   }
   // currentChars = sisa SETELAH pointer pada input (bukan hanya tail 1 pesan),
@@ -573,10 +666,18 @@ export async function executeSessionCompaction({
  * Rakit payload prompt non-destruktif: summary block sebagai pesan user
  * pembuka + slice tail terkini.
  */
-export function assembleCompactedPayload({ messages = [], sessionCompact = null, systemPrompt = '' } = {}) {
-  const payload = []
+export function assembleCompactedPayload({
+  messages = [],
+  sessionCompact = null,
+  systemPrompt = ''
+}: {
+  messages?: CompactionMessage[]
+  sessionCompact?: SessionCompactRow | null
+  systemPrompt?: string
+} = {}): Array<{ role?: string; content: unknown }> {
+  const payload: Array<{ role?: string; content: unknown }> = []
   if (systemPrompt) payload.push({ role: 'system', content: systemPrompt })
-  const summaryBlock = sessionCompact?.summaryBlock
+  const summaryBlock = sessionCompact?.summaryBlock as string | undefined
   const lastCompactedId = sessionCompact?.lastCompactedMessageId
   if (hasUsablePointer(messages, summaryBlock, lastCompactedId)) {
     const activeSlice = getCompactionTail(messages, summaryBlock, lastCompactedId)

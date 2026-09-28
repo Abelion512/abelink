@@ -6,10 +6,45 @@
  * - Memastikan respons tetap instan (sub-second) tanpa kehilangan konsistensi coding
  */
 
+// ---- Kontrak tipe (W2-6) ----
+interface ExecutedToolEntry {
+  tool?: string
+  query?: string
+  fullResult?: unknown
+  resultSummary?: unknown
+  [key: string]: unknown
+}
+
+interface ChatHistoryItem {
+  role?: string
+  content?: unknown
+  isThinking?: boolean
+  isSearching?: boolean
+  isSummarizing?: boolean
+  isTaskDone?: boolean
+  executedTools?: ExecutedToolEntry[]
+  mood?: string
+  isProactive?: boolean
+  timestamp?: string
+  source?: string
+  sender?: string
+  [key: string]: unknown
+}
+
+export interface OptimizedChatMessage {
+  role: string
+  content: unknown
+  mood?: string
+  isProactive?: boolean
+  timestamp?: string
+  source?: string
+  sender?: string
+}
+
 /**
  * Meringkas blok kode markdown panjang (> 300 char atau > 10 baris)
  */
-export const compactCodeBlocks = (text) => {
+export const compactCodeBlocks = (text: unknown): string => {
   if (!text || typeof text !== 'string') return ''
 
   return text.replace(/```([a-zA-Z0-9_\-./]*)\n([\s\S]*?)```/g, (match, lang, code) => {
@@ -36,17 +71,17 @@ export const IMAGE_PLACEHOLDER = '[Gambar terlampir]'
 const DATA_URL_RE = /data:image\/[a-zA-Z+.-]+;base64,[A-Za-z0-9+/=]{100,}/g
 
 /** Potong dataURL base64 dari teks bebas (query embedding, ringkasan, log). */
-export const stripDataUrls = (text) => {
-  if (typeof text !== 'string' || !text.includes('data:image')) return text ?? ''
+export const stripDataUrls = (text: unknown): string => {
+  if (typeof text !== 'string' || !text.includes('data:image')) return (text ?? '') as string
   return text.replace(DATA_URL_RE, IMAGE_PLACEHOLDER)
 }
 
-export const stripImageContent = (content, keepImages = false) => {
+export const stripImageContent = (content: unknown, keepImages = false): unknown => {
   if (Array.isArray(content)) {
     if (keepImages) return content
     const out = content
-      .filter((p) => p?.type === 'text' || typeof p === 'string')
-      .map((p) => (typeof p === 'string' ? { type: 'text', text: p } : p))
+      .filter((p: unknown) => (p as { type?: string })?.type === 'text' || typeof p === 'string')
+      .map((p: unknown) => (typeof p === 'string' ? { type: 'text', text: p } : p))
     if (out.length === 0) return [{ type: 'text', text: IMAGE_PLACEHOLDER }]
     return out
   }
@@ -61,8 +96,8 @@ export const stripImageContent = (content, keepImages = false) => {
  * Potong observasi / hasil tool raksasa (> 4000 char) jadi head 2500 + tail 500.
  * Dipakai saat merakit history lama, bukan saat eksekusi live.
  */
-export const truncateGiantObservation = (text) => {
-  if (typeof text !== 'string') return text ?? ''
+export const truncateGiantObservation = (text: unknown): string => {
+  if (typeof text !== 'string') return (text ?? '') as string
   if (text.length <= 4000) return text
   return (
     text.slice(0, 2500) +
@@ -74,10 +109,10 @@ export const truncateGiantObservation = (text) => {
 /**
  * Mengompaksi daftar riwayat percakapan untuk prompt LLM
  */
-export const buildOptimizedChatSession = (sourceChatData, maxTurns = 20) => {
+export const buildOptimizedChatSession = (sourceChatData: unknown, maxTurns = 20): OptimizedChatMessage[] => {
   if (!Array.isArray(sourceChatData)) return []
 
-  const validMessages = sourceChatData.filter(
+  const validMessages = (sourceChatData as ChatHistoryItem[]).filter(
     (item) =>
       item &&
       item.role !== 'command' &&
@@ -93,7 +128,7 @@ export const buildOptimizedChatSession = (sourceChatData, maxTurns = 20) => {
     const isRecentTurn = idx >= totalCount - 2 // 2 pesan terakhir dibiarkan resolusi tinggi
     // In-progress retention: Jika pesan AI ini belum selesai (tanya user/in-progress) atau pesan AI paling akhir
     const isInProgress = item.isTaskDone === false || (item.isTaskDone !== true && isRecentTurn)
-    let msgContent = item.content || ''
+    let msgContent: unknown = item.content || ''
 
     if (item.role === 'ai') {
       // 1. Kompaksi log tool
@@ -102,7 +137,7 @@ export const buildOptimizedChatSession = (sourceChatData, maxTurns = 20) => {
         if (isInProgress) {
           // Smart Retention: Pertahankan detail hasil tool secara terukur (maks 2000 char)
           toolLog = item.executedTools
-            .map((t) => {
+            .map((t: ExecutedToolEntry) => {
               let res = t.fullResult || t.resultSummary || 'OK'
               if (typeof res === 'string' && res.length > 2000) {
                 res =
@@ -116,7 +151,7 @@ export const buildOptimizedChatSession = (sourceChatData, maxTurns = 20) => {
         } else if (isRecentTurn) {
           toolLog = item.executedTools
             .map(
-              (t) =>
+              (t: ExecutedToolEntry) =>
                 `  * [Tool: ${t.tool}] query: "${t.query || ''}" -> Hasil: ${truncateGiantObservation(t.resultSummary || 'OK')}`
             )
             .join('\n')
@@ -124,7 +159,7 @@ export const buildOptimizedChatSession = (sourceChatData, maxTurns = 20) => {
           // Giliran lama: 2 baris per tool (nama+query, lalu 200 char pertama hasil)
           // agar keputusan survive lebih lama tanpa membengkakkan konteks.
           toolLog = item.executedTools
-            .map((t) => {
+            .map((t: ExecutedToolEntry) => {
               const raw = t.fullResult ?? t.resultSummary ?? 'OK'
               const res = typeof raw === 'string' ? raw : String(raw)
               const snippet = res.slice(0, 200)
@@ -137,13 +172,14 @@ export const buildOptimizedChatSession = (sourceChatData, maxTurns = 20) => {
       }
 
       // 2. Kompaksi blok kode panjang pada giliran lama (hanya jika sudah bukan in-progress)
-      let formattedBody = msgContent
+      let formattedBody: unknown = msgContent
       if (!isRecentTurn && !isInProgress) {
-        formattedBody = compactCodeBlocks(msgContent)
+        const compacted = compactCodeBlocks(msgContent)
+        formattedBody = compacted
         // Batasi panjang teks maksimal pada pesan lama
-        if (formattedBody.length > 1500) {
+        if (compacted.length > 1500) {
           formattedBody =
-            formattedBody.slice(0, 1200) +
+            compacted.slice(0, 1200) +
             '\n\n[... sisa teks lampau diringkas. Gunakan tool terkait jika butuh detail lengkap ...]'
         }
       }

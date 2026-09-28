@@ -16,7 +16,7 @@ import {
   executeSessionCompaction,
   summarizeMiddle,
   buildSummaryChunks
-} from '../src/api/ai/sessionCompactor.js'
+} from '../src/api/ai/sessionCompactor.ts'
 import { db, deleteSession, getSessionCompact, saveSessionCompact } from '../src/api/db.ts'
 
 // Mock fetchAI (dipakai summarizer) agar coverage AI nyata bisa diuji tanpa network.

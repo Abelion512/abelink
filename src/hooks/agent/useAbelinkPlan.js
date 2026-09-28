@@ -494,7 +494,7 @@ export const useAbelinkPlan = ({
     try {
       if ((config?.[0] || {}).sessionCompactionEnabled !== false) {
         const { executeSessionCompaction, findMessageIndex } = await import(
-          '../../api/ai/sessionCompactor.js'
+          '../../api/ai/sessionCompactor.ts'
         )
         const comp = await executeSessionCompaction({
           sessionId: String(activeSessionNum),

@@ -24,9 +24,9 @@ const ERROR_HANDLING = [
 // ---- Self improvement ----
 const SELF_IMPROVEMENT = [
   S('Relasi: 5 trait (warmth/sarcasm/trust/energy/obedience) bergeser maks 0.05 per evaluasi', 'relationship.js'),
-  S('Ingatan: grooming berkala menggabung memori duplikat tanpa buang riwayat', 'memoryGroomer.js'),
+  S('Ingatan: grooming berkala menggabung memori duplikat tanpa buang riwayat', 'memoryGroomer.ts'),
   S('Skill: pola kerja yang berhasil disintesis jadi skill tersimpan', 'skillSynthesizer.js'),
-  S('Konteks: riwayat dipadatkan + diindeks sebagai pasangan tanya-jawab bervector', 'contextCompactor.js, turnPairMigrator.js')
+  S('Konteks: riwayat dipadatkan + diindeks sebagai pasangan tanya-jawab bervector', 'contextCompactor.ts, turnPairMigrator.js')
 ]
 
 // ---- Batas (tahu diri) ----
