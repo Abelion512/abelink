@@ -16,7 +16,7 @@ const initWorker = () => {
   // Lazy: Worker obj dibuat saat pertama kali loadWhisper() dipanggil.
   // Static import ?worker membuat Worker object saat module load — ini menghabiskan RAM
   // walau user tidak pernah pakai voice. Lazy creation: 0 RAM until first use.
-  worker = new Worker(new URL('./whisperWorker.js', import.meta.url), { type: 'module' })
+  worker = new Worker(new URL('./whisperWorker.ts', import.meta.url), { type: 'module' })
   worker.onmessage = (e) => {
     const { type, data, error, id, text } = e.data
 

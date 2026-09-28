@@ -166,7 +166,7 @@ export async function routeTurnMemoryContext({
   let unifiedContext = { memories: [], archives: [], documents: [], turnPairs: [] }
   try {
     const fetchContext = getUnifiedContextFn || (async (q, m) => {
-      const { getUnifiedContext } = await import('../vectorMemory.js')
+      const { getUnifiedContext } = await import('../vectorMemory.ts')
       return getUnifiedContext(q, m)
     })
 

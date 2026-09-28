@@ -4,7 +4,7 @@ import 'fake-indexeddb/auto'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 const { generateVectorMock } = vi.hoisted(() => ({ generateVectorMock: vi.fn() }))
-vi.mock('../src/api/vectorLoader.js', () => ({
+vi.mock('../src/api/vectorLoader.ts', () => ({
   generateVector: generateVectorMock,
   cosineSimilarity: (a, b) => {
     if (!Array.isArray(a) || !Array.isArray(b) || a.length === 0) return 0

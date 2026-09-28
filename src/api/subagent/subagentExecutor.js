@@ -15,7 +15,7 @@ import { getArchPolicy } from '../ai/archPolicy'
 import { getAllConfig } from '../db'
 import { core_tools } from '../tools/core-tools'
 import { GROUP_TOOLS_DEFINITION, loadGroupToolsText } from '../tools/group-tools'
-import { executeMemorySearch } from '../vectorMemory.js'
+import { executeMemorySearch } from '../vectorMemory.ts'
 import { executeMemoryTool } from '../ai/memoryTool.js'
 import { LEAD_AGENT_TAG, CREATOR_TAG } from '../../utils/messageTags'
 
