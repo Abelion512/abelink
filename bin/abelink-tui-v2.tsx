@@ -250,19 +250,36 @@ async function main() {
     bump()
   }
   // `/sessions`: dialog sesi tersimpan (Enter = lanjut sesi).
+  // Port dialog-session-list: kategori Pinned/Today/tanggal via
+  // sessionDialogRows, ukuran large (dialog.setSize("large")), ● sesi aktif.
   const openSessions = async () => {
     const { listTuiSessions } = await import('../cli/core/index.mjs')
-    let sessions: Array<{ id: string; outcome?: string; updatedAt?: string; prompt?: string }> = []
+    const { sessionDialogRows } = await import('../cli/tui/engine.mjs')
+    let sessions: Array<{ id: string; title?: string; outcome?: string; updatedAt?: string; prompt?: string }> = []
     try {
       const r = await listTuiSessions((deps as { store?: unknown }).store || null)
       sessions = r?.sessions || []
     } catch { /* tanpa store -> daftar kosong */ }
-    baseRows = sessions.map((s) => ({ id: s.id, label: s.id, section: `${s.outcome || '?'} · ${s.updatedAt || ''} · ${(s.prompt || '').slice(0, 48)}` }))
+    baseRows = (sessionDialogRows(sessions, { currentId: state.sessionId }) as PickerRow[]).filter((r): r is PickerRow => Boolean(r))
     setPicker({
       kind: 'sessions', title: 'sesi tersimpan', kindHint: '↑↓ pilih · Enter lanjut · Esc batal · ketik untuk filter',
-      rows: baseRows, index: 0, query: '', loading: false,
+      rows: baseRows, index: Math.max(0, baseRows.findIndex((r) => String(r.id) === String(state.sessionId))), query: '', loading: false, size: 'large',
       hint: baseRows.length ? null : 'Belum ada sesi tersimpan untuk workspace ini.',
     })
+    bump()
+  }
+  // Port dialog-confirm (/new sesi kotor): dua tombol Ya/Batal, ←→/Tab
+  // pindah, Enter eksekusi. Dipicu engine kind 'confirm' (lihat handleSubmit).
+  const openConfirm = (title: string, action: string, detail: string) => {
+    baseRows = [
+      { id: 'cancel', label: 'Batal', section: '' },
+      { id: 'confirm', label: 'Ya, lanjutkan', section: '' },
+    ]
+    setPicker({
+      kind: 'confirm', title, kindHint: '←→/Tab pilih · Enter jalankan · Esc batal',
+      rows: baseRows, index: 0, query: '', loading: false,
+      hint: detail, confirmAction: action,
+    } as PickerState)
     bump()
   }
   // `/effort` tanpa arg = dialog pilih level (Enter = pakai).
@@ -283,13 +300,27 @@ async function main() {
     setPicker({ ...p, index: ((((p.index ?? 0) + delta) % n) + n) % n })
     bump()
   }
+  // Port dialog-confirm ←→/Tab: pindah antar tombol Ya/Batal.
+  const movePickerSide = (dir: 1 | -1) => {
+    const p = picker()
+    if (!p || (p.kind || '') !== 'confirm' || !p.rows?.length) { movePicker(dir); return }
+    const n = p.rows.length
+    setPicker({ ...p, index: ((((p.index ?? 0) + dir) % n) + n) % n })
+    bump()
+  }
   const selectPicker = async () => {
     const p = picker()
     if (!p || !p.rows?.length) return
     const row = p.rows[Math.min(Math.max(0, p.index ?? 0), p.rows.length - 1)]
     const kind = p.kind || 'model'
-    closePicker()
     const rowId = String(row.id ?? '')
+    if (kind === 'confirm') {
+      closePicker()
+      // Batal = diam; Ya = jalankan aksi ({action} --force: guard dilewati).
+      if (rowId === 'confirm' && p.confirmAction) await handleSubmit(`/${p.confirmAction} --force`)
+      return
+    }
+    closePicker()
     if (kind === 'commands') { await handleSubmit(rowId); return }
     if (kind === 'sessions') { await handleSubmit(`/continue ${rowId}`); return }
     if (kind === 'effort') { await handleSubmit(`/effort ${rowId}`); return }
@@ -298,6 +329,8 @@ async function main() {
   const filterPicker = async (text: string) => {
     const p = picker()
     if (!p) return
+    // Port dialog-confirm: dua tombol tetap, ketikan diabaikan (tanpa filter).
+    if ((p.kind || '') === 'confirm') return
     const q = String(text || '').trim()
     if (q === p.query) return
     if ((p.kind || 'model') === 'model') {
@@ -387,6 +420,12 @@ async function main() {
         },
       })
       if (r?.kind === 'exit') exit()
+      // Port dialog-confirm: engine minta konfirmasi (/new sesi kotor) ->
+      // buka dialog dua tombol; pipe/E2E tetap teks (openConfirm hanya TTY).
+      if (r?.kind === 'confirm' && !piped) {
+        openConfirm(`Mulai sesi baru?`, String((r as { action?: string }).action || 'new'),
+          `Sesi berjalan (${state.history.length} pesan) akan dibuang.`)
+      }
     } catch (err: unknown) {
       state.messages.push({ role: 'error', text: String((err as Error)?.message || err) })
     } finally {

@@ -212,6 +212,10 @@ export function PromptRow(props: PromptRowProps) {
     if (pickerOpen()) {
       if (e.name === 'up') { e.preventDefault?.(); props.onPickerMove?.(-1); return }
       if (e.name === 'down') { e.preventDefault?.(); props.onPickerMove?.(1); return }
+      // Port dialog-confirm ←→ + dialog-select Tab: pindah antar opsi.
+      if (e.name === 'left') { e.preventDefault?.(); props.onPickerMove?.(-1); return }
+      if (e.name === 'right') { e.preventDefault?.(); props.onPickerMove?.(1); return }
+      if (e.name === 'tab') { e.preventDefault?.(); props.onPickerMove?.(e.shift ? -1 : 1); return }
       if (e.name === 'escape') { e.preventDefault?.(); props.onPickerCancel?.(); return }
       if ((e.name === 'return' || e.name === 'linefeed') && !e.shift && !e.ctrl && !e.meta) {
         e.preventDefault?.()

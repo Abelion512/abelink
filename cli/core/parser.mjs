@@ -33,7 +33,7 @@ export function parseSlashCommand(line = '') {
     case 'commands': return { kind: 'commands', arg: arg || null }
     case 'continue': return { kind: 'continue', arg: arg || null }
     case 'new':
-    case 'clear': return { kind: 'new', arg: null }
+    case 'clear': return { kind: 'new', arg: arg || null }
     case 'compact':
     case 'summarize': return { kind: 'compact', arg: null }
     case 'thinking': return { kind: 'thinking', arg: null }
