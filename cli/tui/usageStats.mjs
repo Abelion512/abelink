@@ -119,6 +119,17 @@ export function renderUsage({ perSession = {}, label = '' } = {}) {
   return lines.join('\n')
 }
 
+// Estimasi token sesi BERJALAN dari state engine (history + messages).
+// JUJUR: chars/2.5 seperti summarizeSession (skema harness), BUKAN billing,
+// BUKAN token model. Dipakai sidebar + status line TUI.
+export function estimateLiveTokens({ history = [], messages = [] } = {}) {
+  let chars = 0
+  const feed = (s) => { if (typeof s === 'string') chars += s.length }
+  for (const m of Array.isArray(history) ? history : []) feed(m?.content)
+  for (const m of Array.isArray(messages) ? messages : []) feed(m?.text)
+  return Math.round(chars / 2.5)
+}
+
 function defaultFs() {
   return { readdirSync: () => { throw new Error('no fs') }, readFileSync: () => { throw new Error('no fs') } }
 }

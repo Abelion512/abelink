@@ -2,7 +2,11 @@
 // cli/tui/components/MessageLine.tsx — satu baris pesan.
 // Port opencode session-ui/message: teks polos TANPA prefix dekoratif
 // (`>`/`◆` dihapus — opencode tak pakai penanda role). Warna via messageColor.
-import { messageColor } from '../theme.ts'
+// Batch C: markdown ringan TANPA dep (renderMarkdownLines dari theme.ts —
+// link/hr/list-enumerasi/nested-quote + fence multi-baris dijaga). Baris code
+// dibedakan via warna secondary; prosa ikut warna role.
+import { For } from 'solid-js'
+import { ABELINK_THEME, messageColor, renderMarkdownLines } from '../theme.ts'
 
 export interface MessageLineProps {
   role?: string
@@ -16,9 +20,15 @@ export function MessageLine(props: MessageLineProps) {
   // Paritas opencode: thought/tool hanya render bila toggle nyala.
   if (role === 'thought' && props.showThinking === false) return (<></>)
   if (role === 'tool' && props.showDetails === false) return (<></>)
+  const base = () => messageColor(role)
+  const lines = () => renderMarkdownLines(String(props.text ?? ''))
   return (
-    <text fg={messageColor(role)}>
-      {String(props.text ?? '')}
-    </text>
+    <box style={{ flexDirection: 'column' }}>
+      <For each={lines()}>
+        {(l) => (
+          <text fg={l.code ? ABELINK_THEME.secondary : base()}>{l.text || ' '}</text>
+        )}
+      </For>
+    </box>
   )
 }

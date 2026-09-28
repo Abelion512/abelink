@@ -36,6 +36,8 @@ import {
   modeStatusText,
 } from './planMode.mjs'
 
+import { estimateLiveTokens } from './usageStats.mjs'
+
 export { parseSlashCommand, parseShellLine, resolveFileRefs, buildAgentsMd }
 export { SESSION_MESSAGE_CAP }
 
@@ -55,8 +57,71 @@ export function createTuiState(overrides = {}) {
     showThinking: true,
     showDetails: false,
     busy: false,
+    // Batch C (sidebar opencode jujur — tanpa fabrikasi): sinyal usage sesi
+    // BERJALAN. null = belum terukur (UI tampilkan '—'). MCP/LSP hanya diisi
+    // bila engine expose (default null = segmen di-skip, tanpa angka palsu).
+    usage: { tokensEst: null, modelCtx: null },
+    mcpConnected: null,
+    mcpError: false,
+    lspCount: null,
+    onSessionSwitch: null,
     ...overrides,
   }
+}
+
+// Batch C: segarkan usage sesi BERJALAN (chars/2.5, pola summarizeSession
+// di usageStats.mjs). Sinkron supaya bisa dipanggil tiap pushMessage;
+// modelCtx sticky (diisi touchSessionUsage saat katalog tersedia, atau dari
+// state.modelCapabilities saat ganti model). null = belum terukur.
+export function refreshSessionUsage(state) {
+  try {
+    const tokensEst = estimateLiveTokens({ history: state.history, messages: state.messages })
+    const cap = Number(state?.modelCapabilities?.ctx)
+    const modelCtx = Number.isFinite(cap) && cap > 0 ? cap
+      : (Number.isFinite(Number(state?.usage?.modelCtx)) && Number(state.usage.modelCtx) > 0
+        ? Number(state.usage.modelCtx) : null)
+    state.usage = { tokensEst, modelCtx }
+  } catch { /* usage opsional, jangan gagalkan pesan */ }
+  return state.usage
+}
+
+// Batch C: cari ctx model aktif di katalog disk (tanpa network), lalu
+// refresh. Dipanggil setelah /model, /continue, bootstrap (fire-and-forget).
+// Cache + custom dibaca TERPISAH: custom korup tak boleh menenggelamkan
+// hit cache yang valid.
+export async function touchSessionUsage(state, deps = {}) {
+  let hit = null
+  try {
+    const { readCatalogCache, readCustomModels } = await import('./modelCatalog.mjs')
+    const osMod = await import('node:os')
+    const fsMod = deps.fsMod || await import('node:fs')
+    const home = deps.homeDir || osMod.homedir?.() || process.env.HOME || ''
+    let cachedModels = []
+    let customModels = []
+    try { cachedModels = readCatalogCache({ fsMod, homeDir: home }).models || [] } catch { /* cache tak terbaca */ }
+    try { customModels = readCustomModels({ fsMod, homeDir: home }) || [] } catch { /* custom korup */ }
+    hit = [...cachedModels, ...customModels]
+      .find((m) => String(m?.id || '') === String(state.model || '')) || null
+    if (Number.isFinite(Number(hit?.ctx)) && Number(hit.ctx) > 0) {
+      state.modelCapabilities = hit
+    }
+  } catch { /* katalog tak terbaca -> ctx null (jujur) */ }
+  refreshSessionUsage(state)
+  try { state.onPush?.() } catch { /* repaint opsional */ }
+  return state.usage
+}
+
+// Batch C: alihkan ke sesi tersimpan (dipakai /continue + dialog sessions).
+// Menyatukan baris yang sebelumnya inline di case 'continue'. Usage
+// disegarkan (histori baru); ctx dicari ulang oleh caller via touch.
+export function switchToSession(state, session) {
+  state.sessionId = session.id
+  state.history = sessionToInitialHistory(session)
+  if (session.model) state.model = session.model
+  if (session.effort) state.effort = session.effort
+  refreshSessionUsage(state)
+  try { state.onSessionSwitch?.(session.id) } catch { /* hook opsional */ }
+  return state.history.length
 }
 
 // Baca katalog dari cache disk saja (tanpa network). Dipakai jalur /model dan
@@ -79,6 +144,8 @@ export async function readCachedCatalog(deps = {}) {
 // TUI tampak beku selama turn panjang (terukur PTY 2026-09-26).
 export function pushMessage(state, role, text) {
   state.messages.push({ role, text: String(text ?? '') })
+  // Batch C: usage sesi berjalan ikut segar tiap pesan (sinkron, murah).
+  try { refreshSessionUsage(state) } catch { /* usage opsional */ }
   try { state.onPush?.() } catch { /* repaint opsional, jangan gagalkan pesan */ }
   return state.messages.length
 }
@@ -394,6 +461,8 @@ async function runSlash(state, cmd, deps) {
       state.model = r.id
       const hit = merged.find((m) => m.id === r.id) || null
       state.modelCapabilities = hit
+      // Batch C: ctx model baru langsung dipakai sidebar (tanpa tunggu touch).
+      refreshSessionUsage(state)
       const recent = pushRecent(deps.cliConfig?.recentModels || state.recentModels || [], r.id)
       state.recentModels = recent
       const warn = cacheSwitchWarning(state.history)
@@ -511,10 +580,10 @@ async function runSlash(state, cmd, deps) {
         return { kind: 'message', role: 'error' }
       }
       state.sessionId = r.session.id || cmd.arg
-      state.history = sessionToInitialHistory(r.session)
-      if (r.session.model) state.model = r.session.model
-      if (r.session.effort) state.effort = r.session.effort
-      pushMessage(state, 'info', `Lanjut sesi ${state.sessionId} (${state.history.length} pesan histori).`)
+      const switched = switchToSession(state, { ...r.session, id: state.sessionId })
+      // ctx model sesi lanjutan dicari di katalog disk (fire-and-forget).
+      void touchSessionUsage(state, deps)
+      pushMessage(state, 'info', `Lanjut sesi ${state.sessionId} (${switched} pesan histori).`)
       return { kind: 'message', role: 'info' }
     }
     case 'new':
@@ -832,6 +901,8 @@ export async function defaultRunTurn(state, prompt, deps = {}) {
     }
     state.history.push({ role: 'user', content: prompt })
     if (result.reply) state.history.push({ role: 'assistant', content: result.reply })
+    // Batch C: usage sesi berjalan segar tiap turn selesai (reply masuk).
+    refreshSessionUsage(state)
     // PLAN-T1: turn-end + patch outcome ke sesi (harus sebelum saveTuiSession
     // agar save menulis versi yang SUDAH dipatch — tidak saling timpa).
     try { await audit?.finalize({ outcome: result.outcome, terminalReason: result.terminalReason, turn: result.stepCount }) } catch { }

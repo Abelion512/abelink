@@ -21,11 +21,12 @@ export {
   parseTuiArgs,
   resolveTuiModel
 } from './parser.mjs'
-export { renderStepLine, renderThoughtLine } from './render.mjs'
+export { collapseToolOutput, firstLine, renderStepLine, renderThoughtLine } from './render.mjs'
 export { buildAgentsMd, extractFileRefs, resolveFileRefs } from './files.mjs'
 export { extractImagePaths, resolveImageRefs, isImagePath, IMAGE_EXTS } from './imageRefs.mjs'
 export { checkTurnAborted, createTuiTurn, makeAbortedToolResult, nextPromptAction } from './turn.mjs'
 export {
+  lastTuiSession,
   listTuiSessions,
   loadFase1Store,
   loadTuiSession,

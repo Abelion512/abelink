@@ -66,6 +66,16 @@ export async function listTuiSessions(store = null) {
   }
 }
 
+// Sesi TERAKHIR diubah (session-destination opencode: "lanjut sesi
+// terakhir?"). updatedAt ISO desc; corrupt dilewati. null = belum ada.
+export async function lastTuiSession(store = null) {
+  const r = await listTuiSessions(store)
+  if (!r || r.ok === false || !Array.isArray(r.sessions) || !r.sessions.length) return null
+  const sorted = [...r.sessions].sort((a, b) =>
+    String(b?.updatedAt || '').localeCompare(String(a?.updatedAt || '')))
+  return sorted[0] || null
+}
+
 // Passed as options.initialHistory per §2 contract (runAgentLoop seeds
 // loopMessages with it). Filter mirrors the §2 rule: only user/assistant
 // string-content messages, capped at 50.
