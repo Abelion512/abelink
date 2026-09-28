@@ -4,6 +4,8 @@ import { on, lazy } from '../registry.mjs'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
+import { canonicalizeEndpointUrl } from '../../../src/api/ai/providerRegistry.js'
+import { getGlobalConfig } from '../../main/ai-bridge.js'
 
 const getYt = lazy(async () => {
   // Paket CJS: fungsi utama bisa di default atau namespace (normalkan).
@@ -13,7 +15,56 @@ const getYt = lazy(async () => {
 const getYts = lazy(async () => (await import('yt-search')).default)
 
 let globalTTS
+// TTS router data-driven (providerRegistry): edge (default, tanpa key) atau
+// custom OpenAI-compatible /v1/audio/speech (9Router dkk). Fallback edge
+// otomatis bila custom gagal. Return data-URL audio atau null.
 on('tts-speak', async (text, rate, pitch) => {
+  const conf = getGlobalConfig() || {}
+  if (conf.ttsProvider === 'custom') {
+    const endpoint = resolveTtsEndpointUrl(conf.customTtsEndpoint)
+    if (endpoint) {
+      try {
+        return await speakViaOpenAiCompatible({ endpoint, apiKey: conf.customTtsApiKey, model: conf.customTtsModel, text })
+      } catch (error) {
+        console.error('[engine] TTS custom gagal, fallback edge:', error.message)
+      }
+    }
+  }
+  return speakViaEdge(text, rate, pitch)
+})
+
+function resolveTtsEndpointUrl(raw) {
+  const base = canonicalizeEndpointUrl(raw, 'tts')
+  if (!base) return ''
+  if (/\/v\d+$/.test(base)) return `${base}/audio/speech`
+  return `${base}/v1/audio/speech`
+}
+
+async function speakViaOpenAiCompatible({ endpoint, apiKey, model, text }) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 30000)
+  try {
+    const headers = { 'Content-Type': 'application/json' }
+    if (apiKey && apiKey.trim()) headers['Authorization'] = `Bearer ${apiKey.trim()}`
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ model: model || 'tts-1', input: String(text || ''), voice: 'alloy', response_format: 'mp3' }),
+      signal: controller.signal
+    })
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '')
+      throw new Error(`HTTP ${res.status}: ${errText.slice(0, 200) || res.statusText}`)
+    }
+    const buf = Buffer.from(await res.arrayBuffer())
+    if (!buf.length) throw new Error('response body kosong')
+    return `data:audio/mp3;base64,${buf.toString('base64')}`
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+async function speakViaEdge(text, rate, pitch) {
   try {
     if (!globalTTS) {
       const mod = await import('msedge-tts')
@@ -36,7 +87,7 @@ on('tts-speak', async (text, rate, pitch) => {
     console.error('[engine] TTS gagal:', error.message)
     return null
   }
-})
+}
 
 on('get-youtube-transcript', async (url) => {
   const yt = await getYt()

@@ -2,6 +2,7 @@
 import { on, handlers, emit, lazy } from '../registry.mjs'
 import { setLatestConfig } from './telegram.mjs'
 import { writeSharedConfig } from '../../main/shared-config.js'
+import { normalizeLegacyProviderConfig } from '../../main/legacy-provider-shim.mjs'
 
 const getAi = lazy(() => import('../../main/ai-bridge.js'))
 const getNt = lazy(() => import('../../main/node-tools.js'))
@@ -37,6 +38,10 @@ on('ai:list-models', async (endpoint, apiKey, protocol) =>
 )
 on('sync-config', async (config) => {
   const aiMod = await getAi()
+  // Legacy provider (groq/cerebras pra-registry) dinormalisasi sebelum masuk
+  // global config + shared.json — runtime di bawah vendor-agnostic.
+  const { normalizeLegacyProviderConfig } = await import('../../main/legacy-provider-shim.mjs')
+  config = normalizeLegacyProviderConfig(config)
   aiMod.setGlobalConfig(config)
   setLatestConfig(config)
   // Jembatan GUI -> CLI/TUI (satu produk): snapshot config AI ke

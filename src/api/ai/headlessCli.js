@@ -75,6 +75,8 @@ export function sharedConfigToCliConfig(shared = {}) {
     }
   }
   if (provider === 'groq') {
+    // Legacy pra-registry: dikirim apa adanya; engine ai-bridge menormalisasi
+    // ke jalur custom generik via normalizeLegacyProviderConfig (satu titik).
     return {
       ...meta,
       provider: 'groq',
