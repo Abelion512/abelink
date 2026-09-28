@@ -1,7 +1,7 @@
 # SPEC: Penyelesaian Migrasi JS → TS 100% (Abelink)
 
 Tanggal: 2026-09-28
-Status: SPEC SIAP EKSEKUSI (belum ada perubahan kode)
+Status: **EKSEKUSI BERJALAN** — W0 ✓ (PR #87), W1 ✓ (PR #88–#92, sidecar/engine 100% .ts, 9/9 channel); W2 boundary src/api berikutnya; sisanya belum.
 Pemilik keputusan: Abelion512 (via interview 2026-09-28)
 Akar hukum: melanjutkan `docs/PLANNED/2026-09-26_master-migration-program.md` (P1) + `docs/PLANNED/2026-09-26_js-to-ts-migration.md`; dokumen ini menjadi peta jalan tunggal sisa migrasi dan men-SUPERSEDE dokumen migrasi lama (lihat W0).
 

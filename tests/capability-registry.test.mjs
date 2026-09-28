@@ -12,7 +12,7 @@ process.env.XDG_DATA_HOME = tmpRoot
 process.env.XDG_DOCUMENTS_DIR = path.join(tmpRoot, 'Documents')
 
 const { pluginToDescriptors } = await import('../sidecar/main/plugins/plugin-loader.js')
-const { skillToDescriptor } = await import('../sidecar/engine/channels/skills.mjs')
+const { skillToDescriptor } = await import('../sidecar/engine/channels/skills.ts')
 const { listRegistry } = await import('../sidecar/main/capabilities/registry.mjs')
 
 beforeAll(async () => {

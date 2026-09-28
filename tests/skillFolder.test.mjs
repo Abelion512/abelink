@@ -8,7 +8,7 @@ import {
 import {
   sanitizeSkillRelPath,
   getSkillFolderManifest
-} from '../sidecar/engine/channels/skills.mjs'
+} from '../sidecar/engine/channels/skills.ts'
 
 describe('parseSkillQuery', () => {
   it('mem-parse nama skill sederhana tanpa subpath', () => {
