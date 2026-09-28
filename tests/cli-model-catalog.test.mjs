@@ -259,6 +259,24 @@ describe('model custom bebas (slice 2: cli.json customModels)', () => {
     expect(merged.find((m) => m.id === 'qwen').ctx).toBe(262144)
     expect(merged.find((m) => m.id === 'acme/x')).toMatchObject({ id: 'acme/x', ctx: 8000 })
   })
+  it('curatePicker: Custom-wins — ID custom yang dikenal katalog HANYA di Custom', () => {
+    const models = normalizeCatalogList(SAMPLE)
+    // 'qwen' ada di katalog live DAN disimpan user sebagai custom.
+    const p = curatePicker({ models, custom: [{ id: 'qwen', ctx: 1 }] })
+    expect(p.custom).toEqual(['qwen'])
+    expect(p.models).not.toContain('qwen')
+    expect(p.models).toContain('nara/muse-spark-1.3-contributor-free')
+  })
+  it('modelPickerRows: tanpa duplikat Custom+Katalog bila discovery mengenal ID simpanan', async () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'abelink-cw-'))
+    upsertCustomModel({ id: 'qwen' }, { fsMod: fs, pathMod: path, homeDir: home, now: 1 })
+    // Katalog cache mengenal qwen (simulasi discovery live kemudian).
+    writeCatalogCache(SAMPLE, { fsMod: fs, pathMod: path, homeDir: home, now: Date.now() })
+    const r = await modelPickerRows(createTuiState(), { homeDir: home, aliases: {}, cliConfig: {} }, '')
+    const hits = r.rows.filter((x) => x.id === 'qwen')
+    expect(hits.length).toBe(1)
+    expect(hits[0].section).toBe('Custom')
+  })
   it('curatePicker: section Custom tampil + filter + dedup vs recent', () => {
     const models = normalizeCatalogList(SAMPLE)
     const p = curatePicker({ models, recent: ['acme/x'], custom: [{ id: 'acme/x' }, { id: 'acme/y' }] })
@@ -293,5 +311,20 @@ describe('model custom bebas (slice 2: cli.json customModels)', () => {
     await submitLine(state, '/effort xhigh', { homeDir: home })
     expect(state.effort).toBe('xhigh')
     expect(JSON.parse(fs.readFileSync(path.join(home, '.config', 'abelink', 'cli.json'), 'utf8')).effort).toBe('xhigh')
+  })
+  it('/effort + /model-alias persist PERTAHANKAN customModels (writeCliSetup merge)', async () => {
+    // writeCliSetup (src/api/ai/headlessCli.js) merge {...current} dan hanya
+    // menyentuh provider/model/apiKey — customModels tak tersentuh. Test ini
+    // mengunci kontrak itu dari sisi engine (tanpa menyentuh src/).
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'abelink-pres-'))
+    upsertCustomModel({ id: 'acme/keep', ctx: 8000 }, { fsMod: fs, pathMod: path, homeDir: home, now: 1 })
+    const state = createTuiState()
+    await submitLine(state, '/effort xhigh', { homeDir: home, aliases: {}, cliConfig: {} })
+    let saved = JSON.parse(fs.readFileSync(path.join(home, '.config', 'abelink', 'cli.json'), 'utf8'))
+    expect(saved.effort).toBe('xhigh')
+    expect(saved.customModels.map((e) => e.id)).toEqual(['acme/keep'])
+    await submitLine(state, '/model zen', { homeDir: home, aliases: { zen: 'oc/muse-spark-1.3-contributor-free' }, cliConfig: {} })
+    saved = JSON.parse(fs.readFileSync(path.join(home, '.config', 'abelink', 'cli.json'), 'utf8'))
+    expect(saved.customModels.map((e) => e.id)).toEqual(['acme/keep'])
   })
 })

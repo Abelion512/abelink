@@ -129,7 +129,11 @@ export function curatePicker({ models = [], favorites = [], recent = [], custom 
     .map((e) => e.id)
     .filter((id) => !rawFav.has(id) && !rawRecent.has(id) && match(id))
     .slice(0, perSection)
-  const rest = models.map((m) => m.id).filter((id) => !fav.includes(id) && !rec.includes(id) && match(id)).slice(0, perSection)
+  // Custom-wins: ID yang user simpan eksplisit tampil HANYA di section Custom,
+  // walau discovery live kemudian mengenalinya. Tanpa ini ID yang sama render
+  // ganda (Custom + Katalog) dan capability simpanan tertutup entri live.
+  const cusSet = new Set(cus)
+  const rest = models.map((m) => m.id).filter((id) => !fav.includes(id) && !rec.includes(id) && !cusSet.has(id) && match(id)).slice(0, perSection)
   return { favorites: fav, recent: rec, custom: cus, models: rest, total: models.length }
 }
 

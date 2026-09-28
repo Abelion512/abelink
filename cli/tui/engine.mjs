@@ -180,7 +180,15 @@ export async function modelPickerRows(state, deps = {}, query = '') {
       seenIds.add(id)
     }
   }
-  for (const id of picked.models) rows.push({ id, section: 'Katalog', label: id })
+  // Custom-wins dipertahankan di push site juga: curatePicker sudah
+  // mengecualikan custom dari rest, tapi seenIds menutup jalur ganda bila
+  // daftar custom berubah di antara curate dan push.
+  for (const id of picked.models) {
+    if (!seenIds.has(id)) {
+      rows.push({ id, section: 'Katalog', label: id })
+      seenIds.add(id)
+    }
+  }
   const hint = !catalogLoaded && !q
     ? 'Katalog penuh: /models --all'
     : null
