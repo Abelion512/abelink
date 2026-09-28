@@ -158,6 +158,9 @@ export interface AppProps {
   // accessor agar ikut re-render saat engine ubah mode (pola model tick).
   agentName?: string | (() => string)
   onModeToggle?: () => void
+  // Paritas opencode thinking toggle: diteruskan ke MessageLine.
+  showThinking?: boolean | (() => boolean)
+  showDetails?: boolean | (() => boolean)
 }
 
 /** Props `CenterDialog` (slice 3): presentasi daftar pilih di tengah. */
@@ -173,6 +176,8 @@ export interface CenterDialogProps {
   error?: string | null
   /** Katalog stale (footer jujur, cermin format picker bawah App). */
   stale?: boolean
+  /** Ukuran panel ala opencode dialog.tsx: medium 60 / large 88 / xlarge 116. */
+  size?: 'medium' | 'large' | 'xlarge'
   /** Jumlah model katalog (bukan baris terlihat). */
   total?: number
 }
@@ -192,6 +197,8 @@ export interface HomeViewProps {
   onSubmit?: (text: string) => void
   modelLabel?: string | (() => string)
   right?: string | null
+  /** true = right dirender dengan Spinner animasi (port opencode). */
+  spinRight?: boolean
   picker?: () => PickerState | null
   onPickerMove?: (delta: number) => void
   onPickerSelect?: () => void

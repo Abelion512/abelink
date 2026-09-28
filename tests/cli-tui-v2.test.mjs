@@ -26,12 +26,12 @@ describe('shortModel (label opencode di dalam prompt box)', () => {
 })
 
 describe('ABELINK_THEME', () => {
-  it('memakai token DaisyUI abelink (single source)', () => {
+  it('token port opencode.json dark (single source)', () => {
     expect(ABELINK_THEME.base100).toBe('#161618')
-    expect(ABELINK_THEME.primary).toBe('#0a84ff')
-    expect(ABELINK_THEME.success).toBe('#30d158')
-    expect(ABELINK_THEME.warning).toBe('#ff9f0a')
-    expect(ABELINK_THEME.error).toBe('#ff453a')
+    expect(ABELINK_THEME.primary).toBe('#fab283')
+    expect(ABELINK_THEME.success).toBe('#7fd88f')
+    expect(ABELINK_THEME.warning).toBe('#f5a742')
+    expect(ABELINK_THEME.error).toBe('#e06c75')
   })
   it('frozen (tak termutasi runtime)', () => {
     expect(Object.isFrozen(ABELINK_THEME)).toBe(true)
@@ -135,15 +135,12 @@ describe('layout opencode (sidebar 42, wide > 120)', () => {
 })
 
 describe('messageColor/messagePrefix (scrollbox per role)', () => {
-  it('user/error/shell/meta/info/assistant', () => {
-    expect(messagePrefix('user')).toBe('> ')
-    expect(messagePrefix('error')).toBe('× ')
-    expect(messagePrefix('shell')).toBe('! ')
-    expect(messagePrefix('meta')).toBe('— ')
-    expect(messagePrefix('info')).toBe('· ')
-    expect(messagePrefix('assistant')).toBe('◆ ')
+  it('paritas opencode: tanpa prefix dekoratif, warna per role', () => {
+    for (const r of ['user', 'error', 'shell', 'meta', 'info', 'assistant']) {
+      expect(messagePrefix(r)).toBe('')
+    }
     expect(messageColor('error')).toBe(ABELINK_THEME.error)
-    expect(messageColor('user')).toBe(ABELINK_THEME.primary)
+    expect(messageColor('user')).toBe(ABELINK_THEME.text)
   })
 })
 
@@ -442,8 +439,9 @@ describe('layar awal tengah HomeView (slice 4, pola opencode home.tsx)', () => {
 })
 
 describe('popup slash paritas opencode (stream C)', () => {
-  it('selectedForeground = background (kontras di atas primary)', () => {
-    expect(selectedForeground()).toBe(ABELINK_THEME.background)
+  it('selectedForeground = luminance (port theme/index.ts)', () => {
+    expect(selectedForeground('#ffffff')).toBe('#000000')
+    expect(selectedForeground('#000000')).toBe('#ffffff')
   })
   it('popupHeight = min(10, jumlah, ruang di atas)', () => {
     expect(popupHeight(14, 24)).toBe(10)

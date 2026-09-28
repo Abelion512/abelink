@@ -6,6 +6,7 @@
 // komponen ini HANYA isi scrollbox saat messages kosong (prompt pertama
 // langsung jalan via App.submit).
 import { ABELINK_THEME, homePromptMaxWidth } from '../theme.ts'
+import { Logo } from './Logo.tsx'
 import type { HomeViewProps } from '../types.ts'
 
 export function HomeView(props: HomeViewProps) {
@@ -14,7 +15,7 @@ export function HomeView(props: HomeViewProps) {
     <box style={{ flexDirection: 'column', alignItems: 'center', width: '100%', paddingTop: 3 }}>
       <box style={{ flexDirection: 'column', width: '100%', maxWidth: maxWidth(), gap: 1 }}>
         <box style={{ flexDirection: 'column', alignItems: 'center' }}>
-          <text fg={ABELINK_THEME.text}><b>Abelink</b></text>
+          <Logo />
           <text fg={ABELINK_THEME.textMuted}>{props.title ?? 'Abelink'} v{props.version ?? ''}</text>
         </box>
         <box style={{ flexDirection: 'column', alignItems: 'center', paddingTop: 1 }}>

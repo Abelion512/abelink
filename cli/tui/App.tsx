@@ -7,7 +7,8 @@
 // V2-1: echo lokal; engine wiring = slice berikut.
 import { createSignal, For, Show, onMount, onCleanup } from 'solid-js'
 import { useKeyboard, useTerminalDimensions } from '@opentui/solid'
-import { ABELINK_THEME, shortModel, SIDEBAR_WIDTH, isWide, isDialogKind, messageColor, messagePrefix, visibleWindow, homePlaceholder } from './theme.ts'
+import { ABELINK_THEME, shortModel, SIDEBAR_WIDTH, isWide, isDialogKind, visibleWindow, homePlaceholder } from './theme.ts'
+import { MessageLine } from './components/MessageLine.tsx'
 import { PromptRow } from './components/PromptRow.tsx'
 import { HomeView } from './components/HomeView.tsx'
 import { CenterDialog } from './components/CenterDialog.tsx'
@@ -117,12 +118,15 @@ export function App(props: AppProps = {}) {
           return `${shortModel(model())} ${provider()}`
         }}
         right={busy() ? (props.statusRight ?? 'working…') : (props.statusRight ?? null)}
+        spinRight={busy()}
         agentName={() => {
           // Baca `tick` agar label mode ikut re-render saat engine toggle
           // (pola modelLabel di atas: Solid tak tracking mutasi objek state).
           props.tick?.()
           const a = props.agentName
-          return typeof a === 'function' ? (a() ?? 'Abelink') : (a ?? 'Abelink')
+          // Port opencode prompt/index.tsx:1448: nama agen Titlecase.
+          const raw = typeof a === 'function' ? (a() ?? 'Abelink') : (a ?? 'Abelink')
+          return raw.charAt(0).toUpperCase() + raw.slice(1)
         }}
         picker={picker}
         onPickerMove={props.onPickerMove}
@@ -130,18 +134,30 @@ export function App(props: AppProps = {}) {
         onPickerCancel={props.onPickerCancel}
         onPickerFilter={props.onPickerFilter}
       />
-      {/* Bottom cap prompt (opencode prompt/index.tsx). width 100% eksplisit:
-          resolve terhadap kolom promptArea, bukan kolom konten penuh. */}
+      {/* Cap nested, port opencode prompt/index.tsx:1488-1511: box left +
+          inner bottom, horizontal ▀ bila bg opaque else spasi. */}
       <box
         style={{
           width: '100%',
           height: 1,
           flexShrink: 0,
-          border: ['bottom'],
-          borderColor: ABELINK_THEME.backgroundElement,
+          border: ['left'],
+          borderColor: ABELINK_THEME.border,
           customBorderChars: PROMPT_CAP_BORDER,
         }}
-      />
+      >
+        <box
+          style={{
+            width: '100%',
+            height: 1,
+            border: ['bottom'],
+            borderColor: ABELINK_THEME.backgroundElement,
+            customBorderChars: ABELINK_THEME.backgroundElement === 'transparent'
+              ? { ...PROMPT_CAP_BORDER, horizontal: ' ' }
+              : PROMPT_CAP_BORDER,
+          }}
+        />
+      </box>
     </box>
   )
 
@@ -179,10 +195,12 @@ export function App(props: AppProps = {}) {
           </Show>
           <For each={messages()}>
             {(l) => (
-              <text>
-                <ColoredSpan fg={messageColor(l.role)}>{messagePrefix(l.role)}</ColoredSpan>
-                {l.text}
-              </text>
+              <MessageLine
+                role={String(l.role ?? '')}
+                text={String(l.text ?? '')}
+                showThinking={typeof props.showThinking === 'function' ? props.showThinking() : props.showThinking}
+                showDetails={typeof props.showDetails === 'function' ? props.showDetails() : props.showDetails}
+              />
             )}
           </For>
         </scrollbox>

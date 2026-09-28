@@ -7,6 +7,7 @@
 // autocomplete.tsx, config/keybind.ts:214-218, prompt/display.ts).
 import { For, Show, createSignal, createMemo, createEffect } from 'solid-js'
 import { useTerminalDimensions } from '@opentui/solid'
+import { Spinner } from './Spinner.tsx'
 import {
   ABELINK_THEME,
   AUTOCOMPLETE_MAX_ROWS,
@@ -27,6 +28,21 @@ export const PROMPT_BORDER_CHARS = Object.freeze({
   topLeft: '',
   topRight: '',
   bottomLeft: '╹',
+  bottomRight: '',
+  horizontal: ' ',
+  vertical: '┃',
+  topT: '',
+  bottomT: '',
+  leftT: '',
+  rightT: '',
+  cross: '',
+})
+
+// SplitBorder opencode ui/border.ts: border kiri+kanan saja (┃).
+export const POPUP_BORDER_CHARS = Object.freeze({
+  topLeft: '',
+  topRight: '',
+  bottomLeft: '',
   bottomRight: '',
   horizontal: ' ',
   vertical: '┃',
@@ -244,37 +260,39 @@ export function PromptRow(props: PromptRowProps) {
 
   return (
     <box style={{ flexDirection: 'column', width: '100%' }}>
-      {/* Floating overlay ala opencode prompt/autocomplete.tsx:724-736:
-          position absolute -> keluar dari flex flow, buka/tutup popup TIDAK
-          dorong layout prompt di bawahnya. bottom 100% = di atas prompt box.
-          (Polanya sama dengan picker overlay di App.tsx.)
-          Esc tutup popup (ditangani onKeyDown: reset selected + onEscape).
-          Paritas: fallback "No matching items" (Index fallback opencode),
-          footer hint keys, tinggi dinamis min(10, ruang). */}
+      {/* Floating overlay, port opencode prompt/autocomplete.tsx:724-736:
+          position absolute di atas prompt (top = anchor - height), selebar
+          prompt box, SplitBorder kiri+kanan (┃), scrollbox tanpa scrollbar,
+          highlight bg primary + fg luminance, mouse hover/klik, tanpa footer. */}
       <Show when={popupOpen()}>
         <box
           style={{
             position: 'absolute',
-            left: 0,
-            right: 0,
+            left: 2,
+            right: 2,
             bottom: '100%',
             zIndex: 100,
             flexShrink: 0,
             flexDirection: 'column',
-            border: true,
+            border: ['left', 'right'],
             borderColor: ABELINK_THEME.border,
+            customBorderChars: POPUP_BORDER_CHARS,
             backgroundColor: ABELINK_THEME.backgroundMenu,
           }}
         >
-          <Show
-            when={popupRows().length > 0}
-            fallback={
-              <box style={{ flexDirection: 'row', flexShrink: 0, paddingLeft: 1, paddingRight: 1 }}>
-                <text fg={ABELINK_THEME.textMuted}>No matching items</text>
-              </box>
-            }
+          <scrollbox
+            backgroundColor={ABELINK_THEME.backgroundMenu}
+            height={popupMaxHeight()}
+            scrollbarOptions={{ visible: false }}
           >
-            <box style={{ flexDirection: 'column', flexShrink: 0, height: popupMaxHeight() }}>
+            <Show
+              when={popupRows().length > 0}
+              fallback={
+                <box style={{ flexDirection: 'row', flexShrink: 0, paddingLeft: 1, paddingRight: 1 }}>
+                  <text fg={ABELINK_THEME.textMuted}>No matching items</text>
+                </box>
+              }
+            >
               <For each={popupRows()}>
                 {(c, i) => (
                   <box
@@ -286,9 +304,11 @@ export function PromptRow(props: PromptRowProps) {
                       backgroundColor:
                         i() === selected() % popupRows().length ? ABELINK_THEME.primary : undefined,
                     }}
+                    onMouseOver={() => setSelected(i())}
+                    onMouseUp={() => { setSelected(i()); acceptSelected(readText()) }}
                   >
                     <text fg={i() === selected() % popupRows().length ? selectedForeground() : ABELINK_THEME.text} flexShrink={0}>
-                      {(i() === selected() % popupRows().length ? '> ' : '  ') + c.name}
+                      {c.name}
                     </text>
                     <Show when={c.desc}>
                       <text fg={i() === selected() % popupRows().length ? selectedForeground() : ABELINK_THEME.textMuted} wrapMode="none">
@@ -298,18 +318,17 @@ export function PromptRow(props: PromptRowProps) {
                   </box>
                 )}
               </For>
-            </box>
-          </Show>
-          <box style={{ flexDirection: 'row', flexShrink: 0, paddingLeft: 1, paddingRight: 1 }}>
-            <text fg={ABELINK_THEME.textMuted}>↑↓ nav · Tab/Enter pilih · Esc tutup</text>
-          </box>
+            </Show>
+          </scrollbox>
         </box>
       </Show>
       <box
         style={{
           width: '100%',
+          // Port opencode: border netral theme.border; highlight agen
+          // (tint + fade) ditunda jujur — tanpa itu cyan menyala tidak setia.
           border: ['left'],
-          borderColor: props.accent ?? ABELINK_THEME.borderActive,
+          borderColor: ABELINK_THEME.border,
           customBorderChars: PROMPT_BORDER_CHARS,
         }}
       >
@@ -331,7 +350,8 @@ export function PromptRow(props: PromptRowProps) {
             placeholderColor={ABELINK_THEME.textMuted}
             textColor={ABELINK_THEME.text}
             minHeight={1}
-            maxHeight={props.maxHeight ?? 10}
+            // Port opencode: max(6, floor(height/3)) bongsor ikut terminal.
+            maxHeight={props.maxHeight ?? Math.max(6, Math.floor(((dims()?.height ?? 24)) / 3))}
             focusedBackgroundColor={ABELINK_THEME.backgroundElement}
             cursorColor={ABELINK_THEME.text}
             keyBindings={props.picker?.() ? [] : (props.keyBindings ?? PROMPT_KEY_BINDINGS)}
@@ -350,21 +370,30 @@ export function PromptRow(props: PromptRowProps) {
             onKeyDown={onKeyDown}
             onSubmit={() => resolveEnter(readText())}
           />
-          {/* Meta row ala opencode prompt/index.tsx: agen (accent) · mode
-              permission (muted) · model (text) — pemisah `·` muted. */}
+          {/* Meta row, port opencode prompt/index.tsx:1442-1478: agen
+              Titlecase + `auto` (bila permission auto) · model + provider.
+              Tanpa fade/variant (animasi + konsep variant ditunda jujur). */}
           <box style={{ flexDirection: 'row', flexShrink: 0, paddingTop: 1, gap: 1, justifyContent: 'space-between' }}>
             <box style={{ flexDirection: 'row', gap: 1 }}>
               <text fg={ABELINK_THEME.accent}>{agent()}</text>
-              <text fg={ABELINK_THEME.textMuted}>·</text>
-              <text fg={ABELINK_THEME.textMuted}>{props.permissionMode ?? 'auto'}</text>
+              <Show when={(props.permissionMode ?? 'auto') === 'auto'}>
+                <text fg={ABELINK_THEME.textMuted}>auto</text>
+              </Show>
               <text fg={ABELINK_THEME.textMuted}>·</text>
               <text fg={ABELINK_THEME.text}>{meta()}</text>
             </box>
-            {props.right && (
-              <box style={{ flexDirection: 'row', gap: 1 }}>
-                <text fg={ABELINK_THEME.textMuted}>{props.right}</text>
+            <Show when={props.right}>
+              <box style={{ flexDirection: 'row', gap: 1, alignItems: 'center' }}>
+                <Show
+                  when={props.spinRight === true}
+                  fallback={<text fg={ABELINK_THEME.textMuted}>{props.right}</text>}
+                >
+                  <Spinner color={ABELINK_THEME.textMuted}>
+                    {props.right as never}
+                  </Spinner>
+                </Show>
               </box>
-            )}
+            </Show>
           </box>
         </box>
       </box>

@@ -1,11 +1,10 @@
 import type { KeyBinding } from '@opentui/core'
 
-// cli/tui/theme.ts — TUI-V2-1: token tema tunggal, dipetik dari tema DaisyUI
-// `abelink` (src/assets/main.css). Satu sumber: ubah di sini, seluruh TUI ikut.
-// Token mengikuti SEMANTIK opencode theme (`background`/`backgroundPanel`/
-// `backgroundElement`/`text`/`textMuted`/`border*`) supaya komponen bisa
-// dipetakan 1:1 dari theme/index.ts opencode, sambil mempertahankan nama
-// warisan (base100/base200/baseContent/muted) yang sudah dipakai test + komponen.
+// cli/tui/theme.ts — token tema tunggal, dipetik LANGSUNG dari source
+// opencode (packages/tui/src/theme/assets/opencode.json, varian dark).
+// Satu sumber: ubah di sini, seluruh TUI ikut. Nama warisan
+// (base100/base200/baseContent/muted) dipertahankan karena test + komponen
+// lama bergantung — JANGAN hapus.
 export interface AbelinkTheme {
   base100: string
   base200: string
@@ -36,24 +35,24 @@ export const ABELINK_THEME: AbelinkTheme = Object.freeze({
   base200: '#121214',
   base300: '#0a0a0c',
   baseContent: '#ffffff',
-  primary: '#0a84ff',
-  success: '#30d158',
-  warning: '#ff9f0a',
-  error: '#ff453a',
   muted: '#8e8e93',
-  // --- semantik opencode (theme/index.ts Theme) ---
-  background: '#161618', // = base100
-  backgroundPanel: '#121214', // = base200 (sidebar)
-  backgroundElement: '#1e1e21', // = area prompt/elemen
-  backgroundMenu: '#1e1e21', // = popup/picker
-  text: '#ffffff',
-  textMuted: '#8e8e93',
-  secondary: '#bf5af2',
-  accent: '#0a84ff',
-  info: '#64d2ff',
-  border: '#2c2c2e',
-  borderActive: '#0a84ff',
-  borderSubtle: '#232325',
+  // --- port opencode.json dark (darkStep/darkSecondary/darkAccent/...) ---
+  background: '#0a0a0a', // darkStep1
+  backgroundPanel: '#141414', // darkStep2 (sidebar)
+  backgroundElement: '#1e1e1e', // darkStep3 (area prompt/elemen)
+  backgroundMenu: '#1e1e1e', // = element (popup/picker)
+  text: '#eeeeee', // darkStep12
+  textMuted: '#808080', // darkStep11
+  primary: '#fab283', // darkStep9
+  secondary: '#5c9cf5', // darkSecondary
+  accent: '#9d7cd8', // darkAccent
+  info: '#56b6c2', // darkCyan
+  success: '#7fd88f', // darkGreen
+  warning: '#f5a742', // darkOrange
+  error: '#e06c75', // darkRed
+  border: '#484848', // darkStep7
+  borderActive: '#606060', // darkStep8
+  borderSubtle: '#3c3c3c', // darkStep6
 }) as AbelinkTheme
 
 export interface TuiCommand {
@@ -107,6 +106,10 @@ export function isWide(width: number = 80): boolean {
 // Tipe dirujuk LANGSUNG dari OpenTUI supaya `action` tetap union sempit
 // miliknya (`newline`, ...) — bukan `string` yang bikin tidak assignable
 // ke prop `KeyBinding[]` (Textarea.d.ts:22).
+// Keybind newline, port opencode config/keybind.ts:164
+// (input_newline: shift+return, ctrl+return, alt+return, ctrl+j).
+// `linefeed` = nama OpenTUI untuk LF (terminal kirim LF untuk Shift+Enter);
+// `return` = CR. Keduanya didaftarkan agar newline jalan di semua terminal.
 export const PROMPT_KEY_BINDINGS: KeyBinding[] = Object.freeze([
   { name: 'return', shift: true, action: 'newline' },
   { name: 'linefeed', shift: true, action: 'newline' },
@@ -117,12 +120,11 @@ export const PROMPT_KEY_BINDINGS: KeyBinding[] = Object.freeze([
   { name: 'j', ctrl: true, action: 'newline' },
 ]) as KeyBinding[]
 
-// Pewarnaan pesan scrollbox per role (single source; App presentational).
-// Semantik opencode messages: user = accent/primary, teks asisten = text
-// (netral), meta/tool = textMuted, error = error.
+// Pewarnaan pesan scrollbox per role. Port opencode session-ui/message:
+// user/assistant teks polos (tanpa prefix dekoratif), info/error/mode warna,
+// meta/shell muted. Prefix dikosongkan — opencode tak pakai penanda `>`/`◆`.
 export function messageColor(role: string = ''): string {
   switch (String(role)) {
-    case 'user': return ABELINK_THEME.accent
     case 'error': return ABELINK_THEME.error
     case 'shell':
     case 'meta': return ABELINK_THEME.textMuted
@@ -131,22 +133,25 @@ export function messageColor(role: string = ''): string {
   }
 }
 
-// Prefix baris pesan (opencode memakai penanda minimal, bukan ikon dekoratif).
-export function messagePrefix(role: string = ''): string {
-  switch (String(role)) {
-    case 'user': return '> '
-    case 'shell': return '! '
-    case 'error': return '× '
-    case 'meta': return '— '
-    case 'info': return '· '
-    default: return '◆ '
-  }
+// Prefix baris pesan: string kosong (paritas opencode — tanpa dekorasi).
+// Fungsi dipertahankan sebagai kontrak (konsumen + test lama).
+export function messagePrefix(_role: string = ''): string {
+  return ''
 }
 
-// Warna teks di atas highlight primary (cermin opencode
-// `selectedForeground`: background opak -> pakai background).
-export function selectedForeground(): string {
-  return ABELINK_THEME.background
+// Warna teks di atas highlight primary. Port langsung opencode
+// theme/index.ts `selectedForeground`: berbasis luminance bg — terang ->
+// hitam, gelap -> putih. Hex -> RGB diparse (tanpa dependensi baru).
+export function selectedForeground(bg?: string): string {
+  const hex = String(bg ?? ABELINK_THEME.primary ?? '').replace('#', '')
+  const full = hex.length === 3 ? hex.split('').map((c) => c + c).join('') : hex
+  const m = /^([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})/.exec(full)
+  if (!m) return ABELINK_THEME.background
+  const r = parseInt(m[1], 16) / 255
+  const g = parseInt(m[2], 16) / 255
+  const b = parseInt(m[3], 16) / 255
+  const luminance = 0.299 * r + 0.587 * g + 0.114 * b
+  return luminance > 0.5 ? '#000000' : '#ffffff'
 }
 
 // Tinggi popup autocomplete (cermin opencode autocomplete.tsx:712-717):

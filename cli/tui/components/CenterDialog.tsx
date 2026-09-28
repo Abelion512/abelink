@@ -1,11 +1,9 @@
 /** @jsxImportSource @opentui/solid */
-// cli/tui/components/CenterDialog.tsx — wadah dialog tengah (slice 3).
-// Pola opencode packages/tui/src/ui/dialog.tsx: backdrop dim fullscreen
-// (RGBA 0,0,0,150), panel tengah lebar 60, zIndex 3000, paddingTop height/4.
-// Tinggi daftar ikut dialog-select.tsx: min(rows, floor(height/2)-6).
-// Dipakai untuk /models, /effort, /sessions, /commands (ctrl+p).
-// Picker bawah lama (App.tsx) DIPERTAHANKAN untuk filter inline prompt;
-// dialog ini hanya presentasi daftar pilih (filter/navigasi via props).
+// cli/tui/components/CenterDialog.tsx — wadah dialog tengah.
+// Port opencode ui/dialog.tsx + ui/dialog-select.tsx: backdrop dim fullscreen
+// (RGBA 0,0,0,150), panel tengah TANPA border, judul + "esc" kanan,
+// opsi kategori + truncate, footer hint. Dipakai untuk /models, /effort,
+// /sessions, /commands (ctrl+p).
 import { For, Show } from 'solid-js'
 import { useTerminalDimensions } from '@opentui/solid'
 import { RGBA } from '@opentui/core'
@@ -15,15 +13,26 @@ import {
   DIALOG_Z_INDEX,
   dialogFooterText,
   dialogVisibleRows,
+  selectedForeground,
   visibleWindow,
 } from '../theme.ts'
 import type { CenterDialogProps } from '../types.ts'
+
+/** Potong tengah ala opencode Locale.truncate (default 61). */
+function truncateMiddle(s: string, max: number = 61): string {
+  const t = String(s ?? '')
+  if (t.length <= max || max < 5) return t
+  const keep = Math.floor((max - 3) / 2)
+  return t.slice(0, keep) + '...' + t.slice(t.length - (max - 3 - keep))
+}
 
 export function CenterDialog(props: CenterDialogProps) {
   const dims = useTerminalDimensions()
   const height = () => dims()?.height ?? 24
   const rows = () => (Array.isArray(props.rows) ? props.rows : [])
   const index = () => props.index ?? 0
+  // Port opencode dialog.tsx: medium 60 / large 88 / xlarge 116.
+  const panelWidth = () => props.size === 'xlarge' ? 116 : props.size === 'large' ? 88 : DIALOG_PANEL_WIDTH
   const visible = () => {
     const all = rows()
     if (!all.length) return []
@@ -51,21 +60,21 @@ export function CenterDialog(props: CenterDialogProps) {
           style={{
             flexDirection: 'column',
             flexShrink: 0,
-            width: DIALOG_PANEL_WIDTH,
+            width: panelWidth(),
             maxWidth: Math.max(10, (dims()?.width ?? 80) - 2),
             backgroundColor: ABELINK_THEME.backgroundPanel,
             paddingTop: 1,
-            paddingLeft: 2,
-            paddingRight: 2,
-            paddingBottom: 1,
-            border: true,
-            borderColor: ABELINK_THEME.border,
+            paddingLeft: 4,
+            paddingRight: 4,
           }}
         >
-          <text fg={ABELINK_THEME.text}>
-            <b>{props.title ?? 'pilih'}</b>
-            {props.query ? ` — filter: ${props.query}` : ''}
-          </text>
+          <box style={{ flexDirection: 'row', justifyContent: 'space-between', flexShrink: 0 }}>
+            <text fg={ABELINK_THEME.text}>
+              <b>{props.title ?? 'pilih'}</b>
+              {props.query ? ` — filter: ${props.query}` : ''}
+            </text>
+            <text fg={ABELINK_THEME.textMuted}>esc</text>
+          </box>
           <For each={visible()}>
             {(row) => (
               <box
@@ -76,9 +85,14 @@ export function CenterDialog(props: CenterDialogProps) {
                     row.index === index() ? ABELINK_THEME.primary : undefined,
                 }}
               >
-                <text fg={row.index === index() ? ABELINK_THEME.text : ABELINK_THEME.textMuted}>
-                  {(row.index === index() ? '> ' : '  ') + (row.label ?? row.id ?? '') + (row.section ? ' — ' + row.section : '')}
+                <text fg={row.index === index() ? selectedForeground() : ABELINK_THEME.text} flexShrink={0}>
+                  {truncateMiddle(String(row.label ?? row.id ?? ''))}
                 </text>
+                <Show when={row.section}>
+                  <text fg={row.index === index() ? selectedForeground() : ABELINK_THEME.textMuted} wrapMode="none">
+                    {' ' + String(row.section ?? '').trimStart()}
+                  </text>
+                </Show>
               </box>
             )}
           </For>
