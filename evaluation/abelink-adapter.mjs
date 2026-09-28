@@ -11,8 +11,8 @@
 import { spawn } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { ARCH_VALUES, resolveBenchArch, currentBenchArch } from '../src/api/ai/benchArch.js'
-import { getArchPolicy } from '../src/api/ai/archPolicy.js'
+import { ARCH_VALUES, resolveBenchArch, currentBenchArch } from '../src/api/ai/benchArch.ts'
+import { getArchPolicy } from '../src/api/ai/archPolicy.ts'
 import {
   classifyObjectiveKind,
   evaluateEvidence,

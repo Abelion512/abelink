@@ -17,7 +17,7 @@ import { synthesizeSkillAndSave } from '../src/api/ai/skillSynthesizer.js'
 // tested without network. Mirrors the sessionCompactor test pattern.
 const { fetchAIMock } = vi.hoisted(() => ({ fetchAIMock: vi.fn() }))
 // Keep the real deterministic parser (cleanAndParse); only the network call is faked.
-vi.mock('../src/api/ai/core.js', async (importOriginal) => {
+vi.mock('../src/api/ai/core.ts', async (importOriginal) => {
   const actual = await importOriginal()
   return { ...actual, fetchAI: fetchAIMock }
 })

@@ -19,7 +19,7 @@ export const SPIRAL_STOP_STREAK = 8
 // os:emergency-stop is NEVER blocked — the brake itself must always work.
 const ALWAYS_ALLOWED = ['os:emergency-stop']
 
-export function isDestructive(tool = '') {
+export function isDestructive(tool = ''): boolean {
   const t = String(tool || '')
   if (ALWAYS_ALLOWED.includes(t)) return false
   if (t.startsWith('os:')) return true
@@ -36,7 +36,7 @@ export function createCircuitBreaker({ threshold = DEFAULT_CONSECUTIVE_THRESHOLD
     isOpen: () => open,
     // success=true resets the streak. Non-boolean (e.g. user-denied approval)
     // is ignored: a refusal is a decision, not a malfunction.
-    record: (success) => {
+    record: (success: unknown) => {
       if (typeof success !== 'boolean') return
       if (success) {
         consecutiveFailures = 0
@@ -45,7 +45,7 @@ export function createCircuitBreaker({ threshold = DEFAULT_CONSECUTIVE_THRESHOLD
       consecutiveFailures++
       if (consecutiveFailures >= threshold) open = true
     },
-    shouldBlock: (tool) => open && isDestructive(tool),
+    shouldBlock: (tool: unknown) => open && isDestructive(tool as string),
     // Spiral stop: streak mencapai batas -> pemanggil WAJIB menghentikan loop
     // dengan jawaban final yang jujur (bukan tool lagi).
     shouldSpiralStop: () => consecutiveFailures >= SPIRAL_STOP_STREAK,

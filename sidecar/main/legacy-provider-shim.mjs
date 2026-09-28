@@ -11,4 +11,4 @@ export {
   detectFromUrl,
   normalizeLegacyProviderConfig,
   LEGACY_HOSTS,
-} from '../../src/api/ai/providerRegistry.js'
+} from '../../src/api/ai/providerRegistry.ts'

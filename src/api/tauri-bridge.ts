@@ -12,7 +12,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { splitTgAdminIds } from '../utils/telegramTargets'
 import { stripDataUrlPrefix } from '../utils/dataUrl'
-import { friendlyAiFetchError } from './ai/fetchError'
+import { friendlyAiFetchError, type AiBridgeResponse } from './ai/fetchError'
 
 /** Config yang mengalir ke tool calls (subset yang dibaca bridge). */
 type ToolConfig = {
@@ -313,9 +313,9 @@ export const api = {
     }).then((res) => {
       const r = res as NodeInvokeResult
       if (!r?.success) {
-        // Pesan ramah + informatif (fetchError.js): menyebut sebab & aksi,
+        // Pesan ramah + informatif (fetchError.ts): menyebut sebab & aksi,
         // bukan "AI fetch gagal" yang buta.
-        const msg = friendlyAiFetchError(r as object)
+        const msg = friendlyAiFetchError(r as AiBridgeResponse)
         throw Object.assign(new Error(msg), {
           code: (r?.error as { code?: string } | undefined)?.code || 'AI_FETCH_ERROR'
         })

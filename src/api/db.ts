@@ -2,7 +2,7 @@ import Dexie from 'dexie'
 import type { Table } from 'dexie'
 import { generateVector, cosineSimilarity } from './vectorLoader'
 import { DEFAULT_STT_MODEL, PLACEHOLDER_STT_MODELS } from './sttGuard.js'
-import { LEGACY_HOSTS } from './ai/providerRegistry.js'
+import { LEGACY_HOSTS } from './ai/providerRegistry.ts'
 
 // W2-2 (js-to-ts-spec.md): rename + tipe baris Dexie per store (schema v30
 // BEKU — upgrade path tidak disentuh). Tipe konsumen dipertahankan longgar
@@ -473,7 +473,7 @@ db.version(29).stores({
 })
 
 // v30: provider registry era — provider hardcoded vendor (groq) dilebur ke
-// jalur custom generik (data-driven, providerRegistry.js). Kredensial & model
+// jalur custom generik (data-driven, providerRegistry.ts). Kredensial & model
 // lama dibawa utuh (custom* menang bila sudah ada); field vendor lama
 // DIPERTAHANKAN agar downgrade aman & jejak historis tidak hilang. Idempoten:
 // customEndpoint yang sudah menunjuk legacy endpoint tak diubah dua kali.

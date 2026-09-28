@@ -77,7 +77,7 @@ on('sync-config', async (rawConfig: unknown) => {
   const aiMod = await getAi()
   // Legacy provider (groq/cerebras pra-registry) dinormalisasi sebelum masuk
   // global config + shared.json — runtime di bawah vendor-agnostic.
-  const config = normalizeLegacyProviderConfig(rawConfig as object) as Record<string, unknown>
+  const config = normalizeLegacyProviderConfig(rawConfig as Record<string, unknown>)
   aiMod.setGlobalConfig(config)
   setLatestConfig(config)
   // Jembatan GUI -> CLI/TUI (satu produk): snapshot config AI ke

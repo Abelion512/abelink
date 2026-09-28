@@ -1,41 +1,90 @@
+/// <reference types="vite/client" />
 import { getAllConfig } from '../db'
 import { jsonrepair } from 'jsonrepair'
 import { stripImageContent, stripDataUrls } from './contextCompactor'
 import { resolveEffortLevel } from './effortEstimator'
 import { EffortLevel, resolve_effort } from './effortSystem'
 
+// ---- Kontrak tipe (W2-4) ----
+// Pesan chat lintas provider: content string ATAU array part (vision).
+export interface ChatMessage {
+  role?: string
+  content?: unknown
+  [key: string]: unknown
+}
+
+// Wrapper AbortSignal-like (session transport): payload session { transport, fetchAI, ... }.
+interface SessionOptions {
+  signal?: AbortSignal | null
+  isSmallTask?: boolean
+  jsonSchema?: unknown
+  configOverride?: Record<string, unknown> | null
+  onToken?: ((chunk: string) => void) | null
+  transport?: FetchTransport | null
+  fetchAI?: FetchTransport | null
+  [key: string]: unknown
+}
+
+type FetchTransport = (req: {
+  messages: ChatMessage[]
+  config: Record<string, unknown>
+  isSmallTask: boolean
+  jsonSchema: unknown
+  stream: boolean
+}) => Promise<FetchResult>
+
+// Bentuk frame ai:fetch (wire sidecar): sukses { content?, usage?, ... },
+// gagal { error: { message, code } }.
+interface FetchResult {
+  error?: { message?: string; code?: string } | null
+  content?: string
+  [key: string]: unknown
+}
+
+type TokenListener = ((cb: (payload: unknown) => void) => () => void) | null
+
+interface Abortable {
+  aborted?: boolean
+  addEventListener?: (type: string, fn: () => void) => void
+  removeEventListener?: (type: string, fn: () => void) => void
+}
+
 export const fetchAI = async (
-  messages,
-  signalOrOptions = null,
+  messages: ChatMessage[],
+  signalOrOptions:
+    | AbortSignal
+    | SessionOptions
+    | null = null,
   isSmallTask = false,
-  jsonSchema = null,
-  configOverride = null,
-  onTokenPositional = null
-) => {
-  let signal = signalOrOptions
+  jsonSchema: unknown = null,
+  configOverride: Record<string, unknown> | null = null,
+  onTokenPositional: ((chunk: string) => void) | null = null
+): Promise<FetchResult | null> => {
+  let signal: Abortable | null = signalOrOptions instanceof AbortSignal ? signalOrOptions : null
   let smallTask = isSmallTask
   let schema = jsonSchema
   let override = configOverride
 
-  let onToken = null
-  let transport = null
+  let onToken: ((chunk: string) => void) | null = null
+  let transport: FetchTransport | null = null
   if (
     signalOrOptions &&
     typeof signalOrOptions === 'object' &&
     !(signalOrOptions instanceof AbortSignal) &&
-    typeof signalOrOptions.addEventListener !== 'function'
+    typeof (signalOrOptions as Abortable).addEventListener !== 'function'
   ) {
-    signal = signalOrOptions.signal || null
-    smallTask = signalOrOptions.isSmallTask ?? isSmallTask
-    schema = signalOrOptions.jsonSchema ?? jsonSchema
-    override = signalOrOptions.configOverride ?? configOverride
-    onToken = typeof signalOrOptions.onToken === 'function' ? signalOrOptions.onToken : null
-    transport = signalOrOptions.transport || signalOrOptions.fetchAI || null
+    const opts = signalOrOptions as SessionOptions
+    signal = (opts.signal as Abortable) || null
+    smallTask = opts.isSmallTask ?? isSmallTask
+    schema = opts.jsonSchema ?? jsonSchema
+    override = opts.configOverride ?? configOverride
+    onToken = typeof opts.onToken === 'function' ? opts.onToken : null
+    transport = opts.transport || opts.fetchAI || null
   }
   if (!onToken && typeof onTokenPositional === 'function') onToken = onTokenPositional
 
   const currentConfig = await getAllConfig()
-  const conf = { ...(currentConfig[0] || {}), ...(override || {}) }
+  const conf: Record<string, unknown> = { ...(currentConfig[0] || {}), ...(override || {}) }
 
   // Effort 'auto': estimasi kompleksitas dari prompt terakhir + task context.
   // Transparan: keputusan dilog dengan skor + alasan (bisa dieval via console).
@@ -50,8 +99,9 @@ export const fetchAI = async (
   // Proactive effort metadata attached to the fetch context for observability.
   // This does not change canonical policy; it is read-only metadata flowing into
   // sidecar/observer hooks and trajectory logs.
-  if (effortDecision.effort && EffortLevel[effortDecision.effort.toUpperCase()]) {
-    const canonical = resolve_effort(EffortLevel[effortDecision.effort.toUpperCase()])
+  const effortKey = String(effortDecision.effort || '').toUpperCase()
+  if (effortDecision.effort && (EffortLevel as Record<string, { value: string }>)[effortKey]) {
+    const canonical = resolve_effort((EffortLevel as Record<string, { value: string }>)[effortKey])
     conf.__effortMetadata = {
       requested: effortDecision.effort,
       canonical: canonical.policy.level.value,
@@ -65,11 +115,11 @@ export const fetchAI = async (
     }
   }
 
-  return new Promise((resolve, reject) => {
+  return new Promise<FetchResult | null>((resolve, reject) => {
     let hasResolved = false
     // Holder agar onAbort (didefinisikan duluan) bisa melepas listener token
     // yang baru dipasang belakangan.
-    let releaseTokenEarly = null
+    let releaseTokenEarly: (() => void) | null = null
 
     const onAbort = () => {
       if (hasResolved) return
@@ -77,8 +127,11 @@ export const fetchAI = async (
       try {
         releaseTokenEarly?.()
       } catch (_) {}
-      const api = (typeof window !== 'undefined' && window.api) || globalThis.__ABELINK_API__ || null
-      if (api && api.abortFetchAI) api.abortFetchAI()
+      const bridgeWindow = typeof window !== 'undefined' ? (window as unknown as { api?: unknown }) : null
+      const api = (bridgeWindow && bridgeWindow.api) || (globalThis as Record<string, unknown>).__ABELINK_API__ || null
+      if (api && typeof api === 'object' && 'abortFetchAI' in api) {
+        ;(api as { abortFetchAI: () => void }).abortFetchAI()
+      }
       const err = new Error('AbortError')
       err.name = 'AbortError'
       reject(err)
@@ -96,7 +149,7 @@ export const fetchAI = async (
         `[fetchAI] ${smallTask ? 'Small' : 'Main'} task, ${messages.length} msgs`
       )
       console.log(
-        `%c~${Math.round(messages.reduce((s, m) => s + (m.content?.length || 0), 0) / 2.5)} est. tokens`,
+        `%c~${Math.round(messages.reduce((s, m) => s + ((m.content as { length?: number } | undefined)?.length || 0), 0) / 2.5)} est. tokens`,
         'color: #ef4444'
       )
       console.groupEnd()
@@ -107,7 +160,7 @@ export const fetchAI = async (
     // (~1M token) tidak pernah sampai ke sidecar/provider manapun.
     let lastImageIdx = -1
     messages.forEach((m, i) => {
-      if (Array.isArray(m?.content) && m.content.some((p) => p?.type === 'image_url')) {
+      if (Array.isArray(m?.content) && (m.content as Array<{ type?: string }>).some((p) => p?.type === 'image_url')) {
         lastImageIdx = i
       }
     })
@@ -124,13 +177,17 @@ export const fetchAI = async (
 
     // Stream opt-in: pasang listener ai:token hanya bila onToken ada;
     // dilepas saat resolve/reject/abort agar tidak bocor antar giliran.
-    const api = (typeof window !== 'undefined' && window.api) || globalThis.__ABELINK_API__ || null
-    let unlistenToken = null
-    if (onToken && api?.onAiToken) {
+    const bridgeWindow = typeof window !== 'undefined' ? (window as unknown as { api?: unknown }) : null
+    const api =
+      (bridgeWindow && bridgeWindow.api) ||
+      ((globalThis as Record<string, unknown>).__ABELINK_API__ as TokenListener) ||
+      null
+    let unlistenToken: (() => void) | null = null
+    if (onToken && api && typeof api === 'object' && 'onAiToken' in api) {
       try {
-        unlistenToken = api.onAiToken((chunk) => {
+        unlistenToken = (api as { onAiToken: NonNullable<TokenListener> }).onAiToken((chunk: unknown) => {
           try {
-            onToken(chunk)
+            onToken?.(chunk as string)
           } catch (_) {}
         })
       } catch (_) {
@@ -145,7 +202,11 @@ export const fetchAI = async (
     }
     releaseTokenEarly = releaseToken
 
-    const fetchTransport = transport || api?.fetchAI || globalThis.__ABELINK_AI_FETCH__
+    const fetchTransport =
+      transport ||
+      (api && typeof api === 'object' && 'fetchAI' in api
+        ? (api as { fetchAI: FetchTransport }).fetchAI
+        : ((globalThis as Record<string, unknown>).__ABELINK_AI_FETCH__ as FetchTransport | undefined))
     if (!fetchTransport) {
       hasResolved = true
       releaseToken()
@@ -173,7 +234,7 @@ export const fetchAI = async (
 
         if (result && result.error) {
           const err = new Error(result.error.message)
-          err.code = result.error.code
+          ;(err as Error & { code?: string }).code = result.error.code
           reject(err)
           return
         }
@@ -200,7 +261,7 @@ export const fetchAI = async (
             const name = String(mdl).trim()
             if (name) {
               const prev = JSON.parse(localStorage.getItem(k) || '[]')
-              const next = [name, ...(Array.isArray(prev) ? prev.filter((m) => m !== name) : [])].slice(0, 10)
+              const next = [name, ...(Array.isArray(prev) ? (prev as unknown[]).filter((m) => m !== name) : [])].slice(0, 10)
               localStorage.setItem(k, JSON.stringify(next))
             }
           }
@@ -211,13 +272,13 @@ export const fetchAI = async (
         if (hasResolved) return
         hasResolved = true
         releaseToken()
-        if (signal) signal.removeEventListener('abort', onAbort)
+        if (signal) signal.removeEventListener!('abort', onAbort)
         reject(e)
       })
   })
 }
 
-export const cleanAndParse = (rawResponse) => {
+export const cleanAndParse = (rawResponse: unknown): unknown => {
   try {
     if (!rawResponse) return null
 
@@ -229,25 +290,26 @@ export const cleanAndParse = (rawResponse) => {
 
     // If it's already an object
     if (typeof rawResponse === 'object') {
+      const obj = rawResponse as Record<string, unknown>
       if (
-        rawResponse.thought !== undefined ||
-        rawResponse.action !== undefined ||
-        rawResponse.answer !== undefined
+        obj.thought !== undefined ||
+        obj.action !== undefined ||
+        obj.answer !== undefined
       ) {
         return rawResponse
       }
-      if (typeof rawResponse.content === 'string' && rawResponse.content.trim().length > 0) {
-        rawResponse = rawResponse.content
+      if (typeof obj.content === 'string' && obj.content.trim().length > 0) {
+        rawResponse = obj.content
       } else if (
-        typeof rawResponse.reasoning === 'string' &&
-        rawResponse.reasoning.includes('{') &&
-        rawResponse.reasoning.includes('}')
+        typeof obj.reasoning === 'string' &&
+        obj.reasoning.includes('{') &&
+        obj.reasoning.includes('}')
       ) {
-        rawResponse = rawResponse.reasoning
-      } else if (typeof rawResponse.text === 'string' && rawResponse.text.trim().length > 0) {
-        rawResponse = rawResponse.text
-      } else if (typeof rawResponse.message === 'string' && rawResponse.message.trim().length > 0) {
-        rawResponse = rawResponse.message
+        rawResponse = obj.reasoning
+      } else if (typeof obj.text === 'string' && obj.text.trim().length > 0) {
+        rawResponse = obj.text
+      } else if (typeof obj.message === 'string' && obj.message.trim().length > 0) {
+        rawResponse = obj.message
       } else {
         try {
           rawResponse = JSON.stringify(rawResponse)
@@ -261,7 +323,7 @@ export const cleanAndParse = (rawResponse) => {
       rawResponse = String(rawResponse || '')
     }
 
-    let text = rawResponse
+    let text = rawResponse as string
     if (text.includes('<think>')) {
       text = text.replace(/<think>[\s\S]*?<\/think>/gi, '')
     }
@@ -341,7 +403,7 @@ export const cleanAndParse = (rawResponse) => {
   } catch (error) {
     console.error('Gagal Parse JSON:', error)
     try {
-      const lastResort = rawResponse.trim().replace(/^\xEF\xBB\xBF/, '')
+      const lastResort = String(rawResponse || '').trim().replace(/^\uFEFF/, '')
       const match = lastResort.match(/\{[\s\S]*\}/)
       return match ? JSON.parse(match[0]) : null
     } catch {
@@ -353,7 +415,7 @@ export const cleanAndParse = (rawResponse) => {
 // Pemulihan lapangan dari output MALFORMED (bukan JSON valid): scan regex
 // "field":"value" dan unescape manual. Dipakai planning sebagai jaring penyelamat
 // agar jawaban model tidak dibuang cuma karena formatnya rusak.
-export const extractLenientField = (raw, field) => {
+export const extractLenientField = (raw: unknown, field: string): string | null => {
   if (!raw || typeof raw !== 'string') return null
   // 1. Coba regex standar yang menangkap escaped quotes dan ditutup dengan pemisah valid (koma, kurung kurawal, komentar, atau akhir)
   const standardRe = new RegExp(`"${field}\\s*"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"\\s*(?:,|\\}|\\]|\\/\\/|$)`, 'm')

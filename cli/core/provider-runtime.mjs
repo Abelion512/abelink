@@ -1,7 +1,7 @@
 // cli/core/provider-runtime.mjs — Session-scoped provider runtime (Phase A1).
 // Mengisolasi konfigurasi model dan transport fetch per sesi tanpa global mutable state.
 
-import { fetchAI } from '../../src/api/ai/core.js'
+import { fetchAI } from '../../src/api/ai/core.ts'
 
 export class ProviderRuntime {
   constructor({

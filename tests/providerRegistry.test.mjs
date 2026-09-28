@@ -11,7 +11,7 @@ import {
   suggestProtocol,
   detectFromUrl,
   LEGACY_HOSTS,
-} from '../src/api/ai/providerRegistry.js'
+} from '../src/api/ai/providerRegistry.ts'
 
 describe('canonicalizeEndpointUrl', () => {
   it('membuang trailing slash (termasuk dobel) secara idempoten', () => {

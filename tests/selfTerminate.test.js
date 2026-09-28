@@ -7,7 +7,7 @@ import {
   isSelfTerminateText,
   isExplicitSelfTerminate
 } from '../src/api/ai/agentDecision.js'
-import { createCircuitBreaker, isDestructive, SPIRAL_STOP_STREAK } from '../src/api/ai/circuitBreaker.js'
+import { createCircuitBreaker, isDestructive, SPIRAL_STOP_STREAK } from '../src/api/ai/circuitBreaker.ts'
 
 describe('self-terminate — explicit marker beats action (emergency brake)', () => {
   it('completion:self_terminate + action => SELF_TERMINATE, tool never runs', () => {

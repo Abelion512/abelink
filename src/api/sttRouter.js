@@ -1,7 +1,7 @@
 import { getAllConfig } from './db'
 import { pcmToWav } from './groq'
-import { detectProviderFromUrl } from './ai/providerDetect.js'
-import { resolveEndpointUrl } from './ai/providerRegistry.js'
+import { detectProviderFromUrl } from './ai/providerDetect.ts'
+import { resolveEndpointUrl } from './ai/providerRegistry.ts'
 import { DEFAULT_STT_MODEL, filterSegments } from './sttGuard.js'
 
 /**

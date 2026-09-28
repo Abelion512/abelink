@@ -38,7 +38,7 @@ import {
   shouldRenewBudget,
   renewBudgetWindow
 } from './planStepBudget.js'
-import { currentBenchArch } from './benchArch.js'
+import { currentBenchArch } from './benchArch'
 
 export const MAX_NO_PROGRESS_STREAK = 3
 export const MAX_NO_ACTION_TERMINAL_STREAK = 8

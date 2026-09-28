@@ -2,13 +2,13 @@
 // Modul ini hanya mendaftarkan handler; semua I/O via helper registry.
 //
 // W1-3 (js-to-ts-spec.md): rename + tipe. Specifier lintas-zona ke
-// src/api/ai/providerRegistry.js DIBIARKAN (file sumber belum .ts; allowJs
+// src/api/ai/providerRegistry.ts DIBIARKAN (file sumber belum .ts; allowJs
 // membuat tsc membacanya) — diupdate lagi di PR W2-4 saat boundary dikonversi.
 import { on, lazy } from '../registry.ts'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
-import { canonicalizeEndpointUrl } from '../../../src/api/ai/providerRegistry.js'
+import { canonicalizeEndpointUrl } from '../../../src/api/ai/providerRegistry.ts'
 import { getGlobalConfig } from '../../main/ai-bridge.js'
 import type { MsEdgeTTS } from 'msedge-tts'
 

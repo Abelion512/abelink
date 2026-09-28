@@ -1,6 +1,6 @@
 import { jsonrepair } from 'jsonrepair'
 import { generateGeminiResponse } from './services/gemini-web'
-import { resolveChatEndpoint, suggestProtocol, presetEndpoint, normalizeLegacyProviderConfig } from '../../src/api/ai/providerRegistry.js'
+import { resolveChatEndpoint, suggestProtocol, presetEndpoint, normalizeLegacyProviderConfig } from '../../src/api/ai/providerRegistry.ts'
 
 // Pesan offline sesuai endpoint yang DIPAKAI (bukan tebakan generik).
 // Sebelumnya: endpoint apapun yang mati selalu dilaporkan sebagai
@@ -915,7 +915,7 @@ export const fetchAI = async (
   }
 }
 
-// Paritas dengan src/api/ai/core.js (renderer): think-strip, ekstraksi
+// Paritas dengan src/api/ai/core.ts (renderer): think-strip, ekstraksi
 // brace/bracket, control-char clean, lalu jsonrepair. Dua salinan wajib
 // berperilaku sama — tests/core.parse.test.js mengunci paritasnya.
 export const cleanAndParse = (rawResponse) => {
