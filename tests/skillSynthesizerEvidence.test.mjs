@@ -10,7 +10,7 @@ import 'fake-indexeddb/auto'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
-import { db } from '../src/api/db.js'
+import { db } from '../src/api/db.ts'
 import { synthesizeSkillAndSave } from '../src/api/ai/skillSynthesizer.js'
 
 // Mock fetchAI (synthesizer LLM call) so the grounding/promotion contract can be

@@ -2,7 +2,7 @@
 // Offline verification test for Durable Task: pause -> restart -> resume consistency.
 import 'fake-indexeddb/auto'
 import { describe, it, expect, beforeEach } from 'vitest'
-import { db } from '../src/api/db.js'
+import { db } from '../src/api/db.ts'
 import {
   createAgentTask,
   getAgentTaskWithSteps,

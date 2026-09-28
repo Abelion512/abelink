@@ -12,7 +12,7 @@ vi.mock('../src/api/vectorLoader.js', () => ({
   }
 }))
 
-const { db, insertMemory, getAllMemory } = await import('../src/api/db.js')
+const { db, insertMemory, getAllMemory } = await import('../src/api/db.ts')
 
 beforeEach(async () => {
   generateVectorMock.mockReset()

@@ -8,7 +8,7 @@ const S = (claim, source) => ({ claim, source })
 
 // ---- Dirancang atas apa (arsitektur) ----
 const DESIGN = [
-  S('Local-first & privacy-first: data di IndexedDB/Dexie lokal, nol telemetri', 'src/api/db.js'),
+  S('Local-first & privacy-first: data di IndexedDB/Dexie lokal, nol telemetri', 'src/api/db.ts'),
   S('3 lapis: renderer React (UI) / shell Tauri-Rust (IPC, approval) / engine Bun-sidecar (AI, tools)', 'src-tauri/, sidecar/engine.mjs'),
   S('Tool destruktif selalu lewat approval gate native sebelum jalan', 'cmd_node_bridge.rs APPROVAL_ACTIONS'),
   S('Selesai = klaim model + verifikasi sistem, bukan sekadar jawaban', 'objectiveVerifier.js + agentDecision.js')

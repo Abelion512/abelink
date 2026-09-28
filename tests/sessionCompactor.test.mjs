@@ -17,7 +17,7 @@ import {
   summarizeMiddle,
   buildSummaryChunks
 } from '../src/api/ai/sessionCompactor.js'
-import { db, deleteSession, getSessionCompact, saveSessionCompact } from '../src/api/db.js'
+import { db, deleteSession, getSessionCompact, saveSessionCompact } from '../src/api/db.ts'
 
 // Mock fetchAI (dipakai summarizer) agar coverage AI nyata bisa diuji tanpa network.
 const { fetchAIMock } = vi.hoisted(() => ({ fetchAIMock: vi.fn() }))
