@@ -558,11 +558,20 @@ async function main() {
         if (resolved.attached.length) {
           console.log(`[TUI] Lampirkan ${resolved.attached.length} file: ${resolved.attached.map((a) => `${a.ref} (${a.bytes}B)`).join(', ')}`)
         }
+        // Stream B: gambar drop/paste di v1 = penanda path jujur (tanpa
+        // describe vision; v1 tak punya jalur sidecar rpc seperti v2).
+        const { resolveImageRefs } = await import('../cli/core/imageRefs.mjs')
+        const imgResolved = resolveImageRefs(resolved.text, { workspace: state.workspace })
+        let effectiveText = resolved.text
+        if (imgResolved.attached?.length) {
+          console.log(`[TUI] Lampirkan ${imgResolved.attached.length} gambar: ${imgResolved.attached.map((a) => a.ref).join(', ')} (isi tak dideskripsikan di v1 — pakai TUI v2 untuk vision).`)
+          effectiveText = imgResolved.text
+        }
         // Stream D: mode plan v1 (prefix saja; penahanan engine ditunda —
         // lihat cli/tui/planMode.mjs). Import statis dilarang di bin ini
         // (pola dynamic import existing), jadi inline prefix via modul.
         const { buildTurnPrompt } = await import('../cli/tui/planMode.mjs')
-        await runTurn(buildTurnPrompt(state.mode, resolved.text))
+        await runTurn(buildTurnPrompt(state.mode, effectiveText))
       } finally {
         busy = false
         if (!rl.closed) rl.prompt()

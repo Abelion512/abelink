@@ -369,3 +369,19 @@ describe('image refs (drop/paste path gambar)', () => {
     expect(s.messages.some((m) => m.text.includes('Tanpa sidecar'))).toBe(true)
   })
 })
+
+describe('@file x gambar (merge-review Critical #1)', () => {
+  it('ekspansi @file bertahan saat gambar terlampir', async () => {
+    const { createTuiState, submitLine } = await import('../cli/tui/engine.mjs')
+    const s = createTuiState({ workspace: '/w' })
+    let seen = ''
+    await submitLine(s, 'lihat @a.txt dan /w/b.png', {
+      resolveFileRefs: () => ({ ok: true, text: 'ISI-A dan /w/b.png', attached: [{ ref: 'a.txt', bytes: 5 }] }),
+      fsMod: { statSync: () => ({ isFile: () => true, size: 4 }), readFileSync: () => Buffer.from([1, 2, 3, 4]) },
+      pathMod: { resolve: (...a) => a.join('/').replace(/\/+/g, '/'), sep: '/' },
+      runTurn: async (st, prompt) => { seen = prompt; return { reply: 'ok', outcome: 'completed', terminalReason: 't', stepCount: 1, toolCallsCount: 0 } },
+    })
+    expect(seen).toContain('ISI-A')
+    expect(seen).toContain('[GAMBAR /w/b.png terlampir]')
+  })
+})

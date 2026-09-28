@@ -5,7 +5,9 @@
 // model hanya melihat string path (laporan user 2026-09-28).
 // Pola: extractFileRefs (files.mjs) + readLocalAttachment (opencode
 // prompt/local-attachment.ts, mime map). Murni + testable (inject fsMod).
-// Batas: dalam workspace, maks file + bytes ikut TUI_FILE_REF_*.
+// Batas: dalam workspace, maks file + bytes ikut TUI_FILE_REF_* (import,
+// bukan copy — cegah drift).
+import { TUI_FILE_REF_MAX_FILES, TUI_FILE_REF_MAX_BYTES } from './constants.mjs'
 
 export const IMAGE_EXTS = Object.freeze(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.avif', '.svg', '.bmp'])
 
@@ -53,7 +55,7 @@ export function extractImagePaths(text = '') {
 // Resolve kandidat ke attachment; gambar dibaca base64 (bukan utf8 seperti
 // @file teks). Non-gambar/hilang/kebesaran = dilewati dengan catatan,
 // bukan error fatal (input utama tetap jalan).
-export function resolveImageRefs(text = '', { workspace = process.cwd(), fsMod = null, pathMod = null, maxFiles = 5, maxBytes = 51200 } = {}) {
+export function resolveImageRefs(text = '', { workspace = process.cwd(), fsMod = null, pathMod = null, maxFiles = TUI_FILE_REF_MAX_FILES, maxBytes = TUI_FILE_REF_MAX_BYTES } = {}) {
   const fs = fsMod || defaultFs()
   const path = pathMod || defaultPath()
   const cands = extractImagePaths(text)

@@ -304,7 +304,9 @@ async function runPrompt(state, text, deps) {
   const { resolveImageRefs } = await import('../core/imageRefs.mjs')
   const fsMod = deps.fsMod || await import('node:fs').catch(() => null)
   const pathMod = deps.pathMod || await import('node:path').catch(() => null)
-  const imgResolved = resolveImageRefs(text, { workspace: state.workspace, fsMod, pathMod })
+  // resolveImageRefs makan resolved.text (bukan text mentah) agar ekspansi
+  // @file tidak terbuang saat gambar terlampir (merge-review Critical #1).
+  const imgResolved = resolveImageRefs(resolved.text, { workspace: state.workspace, fsMod, pathMod })
   let effectiveText = resolved.text
   if (imgResolved.attached?.length) {
     pushMessage(state, 'info', `Lampirkan ${imgResolved.attached.length} gambar (${imgResolved.attached.map((a) => a.ref).join(', ')}).`)
@@ -336,7 +338,8 @@ async function runPrompt(state, text, deps) {
   }
   pushMessage(state, 'user', text)
   const runTurn = deps.runTurn || defaultRunTurn
-  // Stream D: plan = prompt prefix + disableTools (planMode.mjs).
+  // Stream D: plan = prompt prefix (planMode.mjs). Penahanan tool di engine
+  // SENGAJA tidak ada (butuh ubah src/): lihat catatan jujur di planMode.mjs.
   // Prefix membungkus effectiveText (bukan resolved.text) agar deskripsi
   // gambar stream B ikut terkirim saat plan mode aktif.
   const mode = state.mode === 'plan' ? 'plan' : 'build'
@@ -544,7 +547,7 @@ async function runSlash(state, cmd, deps) {
       const next = cmd.kind === 'plan' ? 'plan' : 'build'
       if (state.mode === next) {
         pushMessage(state, 'info', next === 'plan'
-          ? 'Sudah mode PLAN (eksekusi tool ditahan).'
+          ? 'Sudah mode PLAN (prompt prefix aktif; tool tetap tak ditahan engine).'
           : 'Sudah mode BUILD (eksekusi normal).')
         return { kind: 'message', role: 'info' }
       }
