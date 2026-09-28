@@ -11,14 +11,36 @@
 //
 // Load-when-needed: main/capabilities hanya di-import saat channel pertama
 // dipakai; startup sidecar tetap instan.
+//
+// W1-3 (js-to-ts-spec.md): rename + tipe; kontrak manager dianotasi lokal.
 
 import { on } from '../registry.ts'
 
+type ConnectorAction = { summary: unknown; inputSchema: unknown; scopes?: unknown[] }
+type ConnectorDef = {
+  id: unknown
+  name: unknown
+  description: unknown
+  scopes: unknown
+  actions: Record<string, ConnectorAction>
+}
+type ManagerModule = {
+  listConnectors: () => unknown
+  getConnector: (id: unknown) => ConnectorDef | null
+  getActionGuide: (connectorId: unknown, actionId: unknown) => unknown
+  executeCapability: (opts: Record<string, unknown>) => Promise<unknown>
+  listConnections: () => unknown
+  authorizeConnector: (id: string, scopes: string[]) => Promise<unknown>
+  revokeConnector: (id: string) => Promise<unknown>
+  readAudit: (limit: unknown, offset: unknown) => Promise<unknown>
+  registerConnector: (def: unknown) => Promise<Record<string, unknown>>
+}
+
 const getManager = lazyManager()
 
-function lazyManager() {
-  let p = null
-  return () => (p ??= import('../../main/capabilities/manager.mjs'))
+function lazyManager(): () => Promise<ManagerModule> {
+  let p: Promise<ManagerModule> | null = null
+  return () => (p ??= import('../../main/capabilities/manager.mjs') as unknown as Promise<ManagerModule>)
 }
 
 on('capabilities:list', async () => {
@@ -26,7 +48,7 @@ on('capabilities:list', async () => {
   return listConnectors()
 })
 
-on('capabilities:inspect', async (connectorId) => {
+on('capabilities:inspect', async (connectorId: unknown) => {
   const { getConnector } = await getManager()
   const c = getConnector(connectorId)
   if (!c) throw new Error(`Connector tidak dikenal: ${connectorId} (lihat capabilities:list)`)
@@ -44,7 +66,7 @@ on('capabilities:inspect', async (connectorId) => {
   }
 })
 
-on('capabilities:guide', async (connectorId, actionId) => {
+on('capabilities:guide', async (connectorId: unknown, actionId: unknown) => {
   const { getActionGuide } = await getManager()
   const guide = getActionGuide(connectorId, actionId)
   if (!guide) {
@@ -53,14 +75,15 @@ on('capabilities:guide', async (connectorId, actionId) => {
   return guide
 })
 
-on('capabilities:execute', async (connectorId, actionId, args, opts) => {
+on('capabilities:execute', async (connectorId: unknown, actionId: unknown, args: unknown, opts: unknown) => {
   const { executeCapability } = await getManager()
+  const o = opts as { sessionId?: unknown; deniedScopes?: unknown } | null | undefined
   return executeCapability({
     connectorId: String(connectorId || ''),
     actionId: String(actionId || ''),
     args: args || {},
-    sessionId: opts?.sessionId,
-    deniedScopes: opts?.deniedScopes
+    sessionId: o?.sessionId,
+    deniedScopes: o?.deniedScopes
   })
 })
 
@@ -69,7 +92,7 @@ on('capabilities:connections', async () => {
   return listConnections()
 })
 
-on('capabilities:authorize', async (connectorId, grantedScopes) => {
+on('capabilities:authorize', async (connectorId: unknown, grantedScopes: unknown) => {
   const { authorizeConnector } = await getManager()
   return authorizeConnector(
     String(connectorId || ''),
@@ -77,12 +100,12 @@ on('capabilities:authorize', async (connectorId, grantedScopes) => {
   )
 })
 
-on('capabilities:revoke', async (connectorId) => {
+on('capabilities:revoke', async (connectorId: unknown) => {
   const { revokeConnector } = await getManager()
   return revokeConnector(String(connectorId || ''))
 })
 
-on('capabilities:audit', async (limit, offset) => {
+on('capabilities:audit', async (limit: unknown, offset: unknown) => {
   const { readAudit } = await getManager()
   return readAudit(limit, offset)
 })
@@ -92,7 +115,7 @@ on('capabilities:registry', async () => {
   return listRegistry()
 })
 
-on('capabilities:bundle-install', async (bundle) => {
+on('capabilities:bundle-install', async (bundle: unknown) => {
   const { installBundle } = await import('../../main/capabilities/bundles.mjs')
   return installBundle(bundle || {})
 })
@@ -102,7 +125,7 @@ on('capabilities:bundle-list', async () => {
   return listBundles()
 })
 
-on('capabilities:bundle-remove', async (id) => {
+on('capabilities:bundle-remove', async (id: unknown) => {
   const { removeBundle } = await import('../../main/capabilities/bundles.mjs')
   return removeBundle(id)
 })
@@ -110,14 +133,14 @@ on('capabilities:bundle-remove', async (id) => {
 // Registrasi runtime connector eksternal (custom MCP dari UI). Dipanggil
 // tiap load hub agar sidecar (proses terpisah, tanpa localStorage) mengenal
 // id custom sebelum authorize/execute. Idempotent: daftar ulang = replace.
-on('capabilities:register-custom', async (list) => {
+on('capabilities:register-custom', async (list: unknown) => {
   const { registerConnector } = await getManager()
-  const out = []
+  const out: Array<Record<string, unknown>> = []
   for (const def of Array.isArray(list) ? list : []) {
     try {
       out.push({ ...(await registerConnector(def)), ok: true })
     } catch (e) {
-      out.push({ id: def?.id || null, ok: false, error: e.message })
+      out.push({ id: (def as { id?: unknown } | null)?.id || null, ok: false, error: (e as Error).message })
     }
   }
   return out
