@@ -26,7 +26,7 @@ import {
 } from '../sidecar/main/browser/native-host.mjs'
 import { startBrowserBridge, stopBrowserBridge } from '../sidecar/main/browser/server.mjs'
 import { handlers } from '../sidecar/engine/registry.ts'
-import '../sidecar/engine/channels/browser.mjs'
+import '../sidecar/engine/channels/browser.ts'
 
 const TEST_PORT = 49799
 const S = 'e2e-http'

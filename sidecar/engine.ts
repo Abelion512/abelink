@@ -19,7 +19,7 @@ import './engine/channels/telegram.ts'
 import './engine/channels/services.ts'
 import './engine/channels/music.ts'
 import './engine/channels/skills.mjs'
-import './engine/channels/browser.mjs'
+import './engine/channels/browser.ts'
 import './engine/channels/capabilities.ts'
 import './engine/channels/os.ts'
 // NOTE: tasks:* channel deferred (post-merge audit PR #26) — Bun has no
