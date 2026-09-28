@@ -1,0 +1,69 @@
+{
+  "schema_version": "1.0.0",
+  "benchmark_id": "abelink-agentic-rag",
+  "benchmark_version": "1.0.0",
+  "created_at": "2026-09-28T00:00:00Z",
+  "protocol": {
+    "session_policy": "fresh_session_per_task_configuration",
+    "same_prompt_across_configurations": true,
+    "carry_history_between_tasks": false,
+    "long_horizon_same_session": true,
+    "raw_export_before_normalization": true,
+    "batch_normalization_after_collection": true,
+    "manual_response_edit_before_raw_export": false,
+    "allow_ai_generated_export": true,
+    "ai_generated_export_is_raw": false,
+    "unknown_is_not_pass": true,
+    "private_chain_of_thought_required": false
+  },
+  "output_contract": {
+    "version": "1.0.0",
+    "required_sections": [
+      "answer_or_verdict",
+      "evidence_table",
+      "observable_retrieval_or_action_summary",
+      "conflicts_or_gaps",
+      "source_list"
+    ]
+  },
+  "tasks": [
+    {"task_id": "TASK-001", "title": "Tauri 2 Capability and Permission Grounding", "capabilities": ["official_retrieval", "security_boundary", "evidence_mapping"], "prompt_ref": "TASK-001"},
+    {"task_id": "TASK-002", "title": "MCP Authentication Boundary", "capabilities": ["multi_source_retrieval", "specification_reading", "normative_vs_optional"], "prompt_ref": "TASK-002"},
+    {"task_id": "TASK-003", "title": "SQLite WAL and Network Filesystems", "capabilities": ["conflict_resolution", "primary_source_grounding", "risk_identification"], "prompt_ref": "TASK-003"},
+    {"task_id": "TASK-004", "title": "ONNX Runtime Node on Android/Termux", "capabilities": ["compatibility_research", "issue_retrieval", "iterative_investigation"], "prompt_ref": "TASK-004"},
+    {"task_id": "TASK-005", "title": "1M Context Capability Verification", "capabilities": ["current_documentation", "version_discrimination", "surface_capability"], "prompt_ref": "TASK-005"},
+    {"task_id": "TASK-006", "title": "Benchmark Score Does Not Automatically Prove AGI", "capabilities": ["definition_grounding", "benchmark_author_retrieval", "epistemic_boundary"], "prompt_ref": "TASK-006"},
+    {"task_id": "TASK-007", "title": "Latest Release and Breaking-Change Investigation", "capabilities": ["tool_selection", "repository_retrieval", "change_impact"], "prompt_ref": "TASK-007"},
+    {"task_id": "TASK-008", "title": "Low-Resource Agent Execution Architecture", "capabilities": ["long_horizon_research", "multi_source_synthesis", "architecture_reasoning"], "prompt_ref": "TASK-008"},
+    {"task_id": "TASK-009", "title": "Retrieval Strategy Evidence Review", "capabilities": ["research_synthesis", "evidence_quality", "retrieval_comparison"], "prompt_ref": "TASK-009"},
+    {"task_id": "TASK-010", "title": "Adversarial Evidence and Overclaim Detection", "capabilities": ["adversarial_retrieval", "disconfirmation_search", "source_authority", "uncertainty"], "prompt_ref": "TASK-010"}
+  ],
+  "configurations": [
+    {"config_id": "CFG-001", "model_label": "Claude Sonnet 5", "surface": "chat", "reasoning_mode": "medium", "web_search": null, "model_version": null, "quantization": null, "inference_engine": null},
+    {"config_id": "CFG-002", "model_label": "Gemini 3.8 Flash", "surface": "chat", "reasoning_mode": "extended", "web_search": null, "model_version": null, "quantization": null, "inference_engine": null},
+    {"config_id": "CFG-003", "model_label": "GPT 5.6 Luna", "surface": "chat", "reasoning_mode": null, "web_search": null, "model_version": null, "quantization": null, "inference_engine": null},
+    {"config_id": "CFG-004", "model_label": "DeepSeek", "surface": "chat", "reasoning_mode": "reasoning", "web_search": true, "model_version": null, "quantization": null, "inference_engine": null},
+    {"config_id": "CFG-005", "model_label": "Kimi Instant", "surface": "chat", "reasoning_mode": null, "web_search": null, "model_version": null, "quantization": null, "inference_engine": null},
+    {"config_id": "CFG-006", "model_label": "Kimi 2.8 Preview", "surface": "chat", "reasoning_mode": null, "web_search": null, "model_version": null, "quantization": null, "inference_engine": null},
+    {"config_id": "CFG-007", "model_label": "Kimi 3", "surface": "chat", "reasoning_mode": null, "web_search": null, "model_version": null, "quantization": null, "inference_engine": null},
+    {"config_id": "CFG-008", "model_label": "Qwen 3.8 Max", "surface": "chat", "reasoning_mode": null, "web_search": null, "model_version": null, "quantization": null, "inference_engine": null},
+    {"config_id": "CFG-009", "model_label": "Grok", "surface": "chat", "reasoning_mode": null, "web_search": null, "model_version": null, "quantization": null, "inference_engine": null},
+    {"config_id": "CFG-010", "model_label": "Manus 1.6-Lite", "surface": "chat", "reasoning_mode": null, "web_search": null, "model_version": null, "quantization": null, "inference_engine": null},
+    {"config_id": "CFG-011", "model_label": "GLM 5.3 Flash Max", "surface": "chat", "reasoning_mode": "max", "web_search": null, "model_version": null, "quantization": null, "inference_engine": null},
+    {"config_id": "CFG-012", "model_label": "DeepSeek V4.1 Flash Max", "surface": "chat", "reasoning_mode": "max", "web_search": null, "model_version": null, "quantization": null, "inference_engine": null},
+    {"config_id": "CFG-013", "model_label": "MiMo 2.6 Flash", "surface": "chat", "reasoning_mode": null, "web_search": null, "model_version": null, "quantization": null, "inference_engine": null},
+    {"config_id": "CFG-014", "model_label": "Solar Pro 4", "surface": "chat", "reasoning_mode": null, "web_search": null, "model_version": null, "quantization": null, "inference_engine": null},
+    {"config_id": "CFG-015", "model_label": "Solar Mini 4", "surface": "chat", "reasoning_mode": null, "web_search": null, "model_version": null, "quantization": null, "inference_engine": null},
+    {"config_id": "CFG-016", "model_label": "Space Bunny Alpha", "surface": "chat", "reasoning_mode": null, "web_search": null, "model_version": null, "quantization": null, "inference_engine": null},
+    {"config_id": "CFG-017", "model_label": "Muse 1.2", "surface": "chat", "reasoning_mode": null, "web_search": null, "model_version": null, "quantization": null, "inference_engine": null},
+    {"config_id": "CFG-018", "model_label": "Muse 1.3", "surface": "chat", "reasoning_mode": null, "web_search": null, "model_version": null, "quantization": null, "inference_engine": null}
+  ],
+  "runs": [],
+  "artifacts": {
+    "prompt_document": "abelink_agentic_rag_benchmark_v1.md",
+    "raw_export_root": "raw/",
+    "normalized_root": "normalized/",
+    "evaluation_root": "eval/",
+    "distillation_candidate_root": "distillation/"
+  }
+}

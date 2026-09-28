@@ -9,7 +9,7 @@ import {
   PEAK_RMS_MIN,
   SPEECH_RATIO_MIN,
   VOCAL_SEC_MIN,
-} from '../src/api/sttGuard.js'
+} from '../src/api/sttGuard.ts'
 import { transcribeToEndpoint } from '../src/api/sttRouter.js'
 import * as db from '../src/api/db.ts'
 import { resolveDataHome, brandDir } from '../sidecar/main/utils/dataHome.mjs'

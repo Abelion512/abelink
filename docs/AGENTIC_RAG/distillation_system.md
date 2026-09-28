@@ -1406,3 +1406,204 @@ only then evaluate whether a subset is worth distilling
 Schema normalized adalah contract untuk automation, bukan pekerjaan manual per chat.
 
 Jika export platform menyediakan field tambahan, field tersebut dapat dipertahankan. Jika tidak tersedia, jangan diinvent.
+
+
+# 39. Benchmark v1 and Experiment Manifest
+
+Eksperimen distillation Abelink sekarang memiliki dua artefak operasional yang terpisah tetapi saling terkait:
+
+```text
+abelink_agentic_rag_benchmark_v1.md
+    ↓
+exact task prompts + acceptance criteria + global output contract
+
+experiment_manifest.json
+    ↓
+experiment metadata + task/configuration matrix + run/artifact contract
+```
+
+`abelink_agentic_rag_benchmark_v1.md` adalah **human-readable benchmark protocol**. Dokumen tersebut memuat 10 task final:
+
+```text
+TASK-001  Tauri 2 Capability and Permission Grounding
+TASK-002  MCP Authentication Boundary
+TASK-003  SQLite WAL and Network Filesystems
+TASK-004  ONNX Runtime Node on Android/Termux
+TASK-005  1M Context Capability Verification
+TASK-006  Benchmark Score Does Not Automatically Prove AGI
+TASK-007  Latest Release and Breaking-Change Investigation
+TASK-008  Low-Resource Agent Execution Architecture
+TASK-009  Retrieval Strategy Evidence Review
+TASK-010  Adversarial Evidence and Overclaim Detection
+```
+
+Benchmark tersebut menggunakan output contract yang meminta answer/verdict, evidence table, observable retrieval/action summary, conflicts/gaps, dan source list. Private chain-of-thought bukan requirement.
+
+`experiment_manifest.json` adalah **machine-readable experiment contract**, bukan hasil eksperimen. Manifest saat ini mendefinisikan:
+
+```text
+10 tasks
+×
+18 model/configuration candidates
+```
+
+Configuration dapat dibedakan berdasarkan:
+
+- provider
+- model label/version
+- surface
+- reasoning mode/effort
+- web search availability
+- quantization
+- inference engine
+- context configuration bila tersedia
+- tool configuration bila relevan
+
+Configuration yang belum dapat diverifikasi harus tetap `null`/unknown. Jangan mengisi metadata berdasarkan tebakan.
+
+---
+
+# 40. Export and Normalization Contract
+
+Export harus dilakukan dengan urutan:
+
+```text
+MODEL RUN
+   ↓
+RAW EXPORT
+   ↓
+preserve unchanged
+   ↓
+BATCH NORMALIZATION
+   ↓
+NORMALIZED JSONL
+   ↓
+VERIFICATION / LABELING
+```
+
+Jangan mengetik normalized JSON satu per satu setelah setiap chat.
+
+### Native Export
+
+Jika platform menyediakan native conversation/data export, simpan hasil tersebut sebagai raw source.
+
+### AI-Generated Export
+
+Jika platform tidak menyediakan export yang memadai, model boleh diminta membuat structured export sebagai **derived artifact**. Namun:
+
+```text
+AI-generated export
+    !=
+raw transcript
+```
+
+AI-generated export harus diberi metadata `export_method` yang berbeda dan tidak boleh diperlakukan sebagai bukti bahwa semua field benar-benar ada di transcript asli.
+
+### Missing Telemetry
+
+Field berikut hanya boleh diisi jika benar-benar tersedia dari source:
+
+```text
+latency_ms
+token_usage
+tool_calls
+retrieval_queries
+documents_selected
+documents_rejected
+sources
+citations
+quantization
+```
+
+Jika tidak tersedia:
+
+```text
+missing ≠ zero
+missing ≠ guessed
+missing → null / empty collection sesuai semantics
+```
+
+### Observable Trajectory
+
+Agentic RAG trajectory hanya mencatat actions/observations yang observable atau benar-benar tersedia dari export/runtime log.
+
+Private chain-of-thought bukan field wajib dan tidak boleh direkonstruksi dari final answer.
+
+---
+
+# 41. Current Experimental State
+
+Status eksperimen yang berlaku setelah benchmark v1:
+
+```text
+10 final benchmark tasks
+        ↓
+18 candidate model/configurations
+        ↓
+fresh session per task/configuration
+        ↓
+raw export
+        ↓
+batch normalization
+        ↓
+verification / labeling
+        ↓
+benchmark + system analysis
+        ↓
+distillation candidate selection
+        ↓
+student training only if justified
+        ↓
+independent evaluation
+```
+
+180 potential runs (`10 × 18`) adalah **full matrix**, bukan kewajiban untuk pilot pertama.
+
+Pilot dapat menggunakan subset configuration terlebih dahulu untuk memvalidasi:
+
+- prompt reproducibility
+- export availability
+- normalization contract
+- telemetry coverage
+- evidence verification
+- dataset quality
+
+Setelah pipeline terbukti bekerja, matrix dapat diperluas.
+
+---
+
+# 42. Artifact Boundary
+
+Artefak eksperimen harus tetap dibedakan:
+
+```text
+abelink_agentic_rag_benchmark_v1.md
+    = benchmark definition
+
+experiment_manifest.json
+    = machine-readable experiment configuration
+
+raw/
+    = immutable source exports
+
+normalized/
+    = normalized trajectory records
+
+eval/
+    = evaluation cases/results
+
+distillation/
+    = approved teacher-target candidates
+```
+
+Tidak boleh menganggap `experiment_manifest.json` sebagai dataset hasil run.
+
+Tidak boleh menganggap seluruh `raw/` sebagai distillation corpus.
+
+Tidak boleh memindahkan sample ke `distillation/` hanya karena teacher menghasilkan jawaban yang terlihat bagus. Sample harus memenuhi verification/quality criteria yang ditetapkan eksperimen.
+
+---
+
+# 43. Updated One-Line Operational Model
+
+> **Run the same benchmark tasks in isolated sessions across explicit model/configuration variants, preserve raw exports, normalize without inventing telemetry, verify observable outcomes, then reuse validated trajectories separately for evaluation, system improvement, or student-model distillation.**

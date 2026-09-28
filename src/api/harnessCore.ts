@@ -1,5 +1,5 @@
-// harnessCore.js — kontrak harness SATU SKEMA, dua penulis (PLAN-T1).
-// Penulis GUI: src/api/harness.js -> Rust harness_append (rotasi 50MB×3).
+// harnessCore.ts — kontrak harness SATU SKEMA, dua penulis (PLAN-T1).
+// Penulis GUI: src/api/harness.ts -> Rust harness_append (rotasi 50MB×3).
 // Penulis headless: cli/core/harness-writer.mjs -> fs langsung, root SAMA,
 // envelope + bentuk event SAMA agar scripts/harness-{diagnose,export}.mjs
 // membaca keduanya tanpa cabang khusus headless.
@@ -16,7 +16,7 @@ export const HARNESS_CORE_VERSION = 1
 
 // Kinds file harness headless. Nama FILE mengikuti kebiasaan GUI:
 // logToolCall -> 'tool-calls', logTurnStart/logTurnEnd -> 'turn-start'/'turn-end'
-// (lihat src/api/harness.js). harness:diagnose menampilkan kind sesuai nama file.
+// (lihat src/api/harness.ts). harness:diagnose menampilkan kind sesuai nama file.
 export const HARNESS_FILE_KINDS = {
   toolCall: 'tool-calls',
   turnStart: 'turn-start',
@@ -26,7 +26,27 @@ export const HARNESS_FILE_KINDS = {
 // Bentuk event headless — field dipetakan dari docs/HARNESS-LOG-SCHEMA.md
 // + paritas payload GUI (useAbelinkPlan.js logToolCall): {tool, query≤200,
 // ok, rejected, resultSummary≤2000, sessionId, turn}. Caps = batas jujur skema.
-export function makeHarnessToolCall({ tool, query, ok, rejected = false, resultSummary, sessionId = null, turn = null, ...rest } = {}) {
+// ---- Kontrak tipe (W2-8a) ----
+interface HarnessToolCallInput {
+  tool?: unknown
+  query?: unknown
+  ok?: unknown
+  rejected?: boolean
+  resultSummary?: unknown
+  sessionId?: unknown
+  turn?: unknown
+  [key: string]: unknown
+}
+
+interface HarnessTurnInput {
+  turn?: unknown
+  sessionId?: unknown
+  outcome?: unknown
+  reason?: unknown
+  [key: string]: unknown
+}
+
+export function makeHarnessToolCall({ tool, query, ok, rejected = false, resultSummary, sessionId = null, turn = null, ...rest }: HarnessToolCallInput = {}) {
   const okVal = ok !== false
   return {
     ...rest,
@@ -45,18 +65,18 @@ export function makeHarnessToolCall({ tool, query, ok, rejected = false, resultS
   }
 }
 
-export function makeHarnessTurnStart({ turn = null, sessionId = null, ...rest } = {}) {
+export function makeHarnessTurnStart({ turn = null, sessionId = null, ...rest }: HarnessTurnInput = {}) {
   return { ...rest, kind: 'turn-start', turn, sessionId }
 }
 
-export function makeHarnessTurnEnd({ turn = null, sessionId = null, outcome = null, reason = null, ...rest } = {}) {
+export function makeHarnessTurnEnd({ turn = null, sessionId = null, outcome = null, reason = null, ...rest }: HarnessTurnInput = {}) {
   return { ...rest, kind: 'turn-end', turn, sessionId, outcome, reason }
 }
 
 // Session id aman untuk filter diagnose/export: harness:diagnose memakai
 // String(env.sessionId). Renderer memakai integer (Dexie), headless memakai
 // string `session-...` — keduanya cocok lewat koersi String.
-export function normalizeHarnessSessionId(sessionId) {
+export function normalizeHarnessSessionId(sessionId: unknown): string | null {
   if (sessionId === null || sessionId === undefined) return null
   const s = String(sessionId).trim()
   return s || null

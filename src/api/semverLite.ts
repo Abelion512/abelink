@@ -6,8 +6,17 @@
 const SEMVER_RE =
   /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/
 
+// ---- Kontrak tipe (W2-8a) ----
+export interface SemVer {
+  major: number
+  minor: number
+  patch: number
+  prerelease: string[]
+  build: string[]
+}
+
 /** Pecah versi jadi komponen; null bila bukan SemVer valid. */
-export function parse(input) {
+export function parse(input: unknown): SemVer | null {
   const m = SEMVER_RE.exec(String(input ?? '').trim())
   if (!m) return null
   return {
@@ -20,11 +29,11 @@ export function parse(input) {
 }
 
 /** Kembalikan versi ter-trim bila valid, null bila tidak (mirip semver.valid). */
-export const valid = (input) => (parse(input) ? String(input).trim() : null)
+export const valid = (input: unknown): string | null => (parse(input) ? String(input).trim() : null)
 
 // SemVer 11.4.1-11.4.3: identifier numerik dibandingkan sebagai angka dan
 // selalu lebih rendah dari identifier alfanumerik.
-const compareIdentifiers = (a, b) => {
+const compareIdentifiers = (a: string, b: string): number => {
   const aNum = /^(0|[1-9]\d*)$/.test(a)
   const bNum = /^(0|[1-9]\d*)$/.test(b)
   if (aNum && bNum) {
@@ -38,13 +47,13 @@ const compareIdentifiers = (a, b) => {
 }
 
 /** -1 bila a < b, 0 bila setara, 1 bila a > b. Build metadata diabaikan (SemVer 10). */
-export function compare(a, b) {
+export function compare(a: unknown, b: unknown): number {
   const pa = parse(a)
   const pb = parse(b)
   if (!pa) throw new Error(`SemVer tidak valid: ${a}`)
   if (!pb) throw new Error(`SemVer tidak valid: ${b}`)
 
-  for (const key of ['major', 'minor', 'patch']) {
+  for (const key of ['major', 'minor', 'patch'] as const) {
     if (pa[key] !== pb[key]) return pa[key] < pb[key] ? -1 : 1
   }
 
@@ -65,9 +74,9 @@ export function compare(a, b) {
   return 0
 }
 
-export const gt = (a, b) => compare(a, b) > 0
-export const lt = (a, b) => compare(a, b) < 0
-export const eq = (a, b) => compare(a, b) === 0
-export const rcompare = (a, b) => compare(b, a)
+export const gt = (a: unknown, b: unknown) => compare(a, b) > 0
+export const lt = (a: unknown, b: unknown) => compare(a, b) < 0
+export const eq = (a: unknown, b: unknown) => compare(a, b) === 0
+export const rcompare = (a: unknown, b: unknown) => compare(b, a)
 
 export default { parse, valid, compare, gt, lt, eq, rcompare }

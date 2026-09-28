@@ -1,4 +1,4 @@
-// sttGuard.js — pure anti-halusinasi VAD/STT (tanpa I/O, unit-testable).
+// sttGuard.ts — pure anti-halusinasi VAD/STT (tanpa I/O, unit-testable).
 //
 // Standar: OpenAI Whisper (no_speech_threshold, compression_ratio_threshold,
 // logprob_threshold, condition_on_previous_text=false) + faster-whisper VAD
@@ -72,7 +72,7 @@ export function isSpeechValid({ peakRms = 0, speechFrames = 0, totalFrames = 0, 
  * Filter pasca-STT atas teks polos (fallback saat endpoint tak kembalikan segmen).
  * return { drop: true, reason } atau { drop: false }.
  */
-export function isHallucinationText(text, durationSec = 0) {
+export function isHallucinationText(text: unknown, durationSec = 0) {
   const t = String(text || '').trim()
   if (!t) return { drop: true, reason: 'teks kosong' }
   if (t.length <= 1) return { drop: true, reason: 'teks 1 char' }
@@ -92,7 +92,7 @@ export function isHallucinationText(text, durationSec = 0) {
  * Filter segmen verbose_json: buang segmen sunyi / tak percaya diri / repetitif,
  * gabung sisanya. return string ('' bila semua segmen dibuang).
  */
-export function filterSegments(segments) {
+export function filterSegments(segments: unknown) {
   if (!Array.isArray(segments)) return null
   const kept = []
   for (const s of segments) {

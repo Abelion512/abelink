@@ -20,7 +20,7 @@ export function resetMicFailure() {
   lastFailAt = 0
 }
 
-export async function resolveMicConstraints(savedId, audioSettings = {}) {
+export async function resolveMicConstraints(savedId: unknown, audioSettings: Record<string, unknown> = {}) {
   let deviceOk = false
   try {
     if (navigator?.mediaDevices?.enumerateDevices) {

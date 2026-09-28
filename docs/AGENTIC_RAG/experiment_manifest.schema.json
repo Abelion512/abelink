@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://abelink.local/schemas/experiment-manifest.schema.json",
+  "title": "Abelink Agentic RAG Experiment Manifest",
+  "type": "object",
+  "required": ["schema_version", "benchmark_id", "benchmark_version", "created_at", "protocol", "output_contract", "tasks", "configurations", "runs", "artifacts"],
+  "properties": {
+    "schema_version": {"type": "string"},
+    "benchmark_id": {"type": "string"},
+    "benchmark_version": {"type": "string"},
+    "created_at": {"type": "string", "format": "date-time"},
+    "protocol": {
+      "type": "object",
+      "required": ["session_policy", "same_prompt_across_configurations", "carry_history_between_tasks", "long_horizon_same_session", "raw_export_before_normalization", "batch_normalization_after_collection", "manual_response_edit_before_raw_export", "unknown_is_not_pass"],
+      "properties": {
+        "session_policy": {"type": "string"},
+        "same_prompt_across_configurations": {"type": "boolean"},
+        "carry_history_between_tasks": {"type": "boolean"},
+        "long_horizon_same_session": {"type": "boolean"},
+        "raw_export_before_normalization": {"type": "boolean"},
+        "batch_normalization_after_collection": {"type": "boolean"},
+        "manual_response_edit_before_raw_export": {"type": "boolean"},
+        "allow_ai_generated_export": {"type": "boolean"},
+        "ai_generated_export_is_raw": {"type": "boolean"},
+        "unknown_is_not_pass": {"type": "boolean"},
+        "private_chain_of_thought_required": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "output_contract": {
+      "type": "object",
+      "required": ["version", "required_sections"],
+      "properties": {
+        "version": {"type": "string"},
+        "required_sections": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "tasks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["task_id", "title", "capabilities", "prompt_ref"],
+        "properties": {
+          "task_id": {"type": "string", "pattern": "^TASK-[0-9]{3}$"},
+          "title": {"type": "string"},
+          "capabilities": {"type": "array", "items": {"type": "string"}},
+          "prompt_ref": {"type": "string"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "configurations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["config_id", "model_label"],
+        "properties": {
+          "config_id": {"type": "string", "pattern": "^CFG-[0-9]{3}$"},
+          "model_label": {"type": "string"},
+          "provider": {"type": ["string", "null"]},
+          "surface": {"type": ["string", "null"]},
+          "model_version": {"type": ["string", "null"]},
+          "reasoning_mode": {"type": ["string", "null"]},
+          "web_search": {"type": ["boolean", "null"]},
+          "browser": {"type": ["boolean", "null"]},
+          "function_calling": {"type": ["boolean", "null"]},
+          "quantization": {"type": ["string", "null"]},
+          "inference_engine": {"type": ["string", "null"]},
+          "context_window": {"type": ["integer", "null"], "minimum": 1}
+        },
+        "additionalProperties": false
+      }
+    },
+    "runs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["run_id", "task_id", "config_id", "status", "raw_export"],
+        "properties": {
+          "run_id": {"type": "string"},
+          "task_id": {"type": "string", "pattern": "^TASK-[0-9]{3}$"},
+          "config_id": {"type": "string", "pattern": "^CFG-[0-9]{3}$"},
+          "session_id": {"type": ["string", "null"]},
+          "started_at": {"type": ["string", "null"], "format": "date-time"},
+          "completed_at": {"type": ["string", "null"], "format": "date-time"},
+          "status": {"enum": ["planned", "running", "completed", "failed", "blocked", "cancelled"]},
+          "export_method": {"enum": ["native_export", "copy_transcript", "ai_generated_export", "manual_structured_capture", "unknown"]},
+          "raw_export": {"type": "string"},
+          "normalized_record": {"type": ["string", "null"]},
+          "tool_telemetry": {"enum": ["available", "partial", "unavailable", "unknown"]},
+          "verification_status": {"enum": ["verified", "failed", "unknown", "not_evaluated"]},
+          "notes": {"type": ["string", "null"]}
+        },
+        "additionalProperties": false
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "required": ["prompt_document", "raw_export_root", "normalized_root", "evaluation_root", "distillation_candidate_root"],
+      "properties": {
+        "prompt_document": {"type": "string"},
+        "raw_export_root": {"type": "string"},
+        "normalized_root": {"type": "string"},
+        "evaluation_root": {"type": "string"},
+        "distillation_candidate_root": {"type": "string"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

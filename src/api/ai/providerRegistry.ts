@@ -3,7 +3,7 @@
 // Prinsip (singkat owner): "modular, dynamic, and more smart". Menambah
 // provider berarti menambah ENTRI di PRESETS, bukan menambah if/else per
 // vendor di kode runtime. Semua fungsi MURNI (tanpa I/O) sehingga bisa
-// dipakai renderer, sidecar, dan test — pola yang sama dengan semverLite.js.
+// dipakai renderer, sidecar, dan test — pola yang sama dengan semverLite.ts.
 //
 // Smart system-nya ada di normalizeEndpointUrl(): user boleh menulis bentuk
 // apa pun (base murni, dengan /v1, dengan suffix path lengkap, trailing

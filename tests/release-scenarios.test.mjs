@@ -3,7 +3,7 @@
  * Validates helper functions in isolation (no git remote needed).
  */
 import { describe, it, expect } from 'vitest'
-import { parse as semverParse, gt as semverGt, rcompare as semverRcompare } from '../src/api/semverLite.js'
+import { parse as semverParse, gt as semverGt, rcompare as semverRcompare } from '../src/api/semverLite.ts'
 import {
   nextVersion,
   nextAlphaVersion as nextAlphaVersionReal,

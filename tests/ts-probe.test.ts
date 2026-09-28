@@ -11,7 +11,7 @@
 // Sengaja mengimpor modul .js melalui seam bertipe eksplisit: ini pola yang
 // dipakai selama strangler (file lama tetap JS, konsumen baru boleh TS).
 import { describe, it, expect } from 'vitest'
-import { compare, valid } from '../src/api/semverLite.js'
+import { compare, valid } from '../src/api/semverLite.ts'
 
 const version: string | null = valid('1.0.0-alpha.5')
 

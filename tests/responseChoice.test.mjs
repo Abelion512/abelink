@@ -3,7 +3,7 @@
 // opsi tidak pernah render di home dan agent menunggu klik yang tak bisa
 // diberikan user. Lihat tests/responseChoice failing-first.
 import { describe, it, expect } from 'vitest'
-import { mapChatItemToResponse } from '../src/api/choiceBus.js'
+import { mapChatItemToResponse } from '../src/api/choiceBus.ts'
 
 const choiceMsg = {
   role: 'ai',

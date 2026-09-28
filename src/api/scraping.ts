@@ -1,14 +1,31 @@
-export const scrapeGoogle = async (webview, url, onCaptcha) => {
+// ---- Kontrak tipe (W2-8a) ----
+interface WebviewLike {
+  executeJavaScript: (code: string) => Promise<unknown>
+}
+
+interface SearchResult {
+  title: string
+  link: string
+  snippet: string
+}
+
+interface DeepTarget {
+  title?: unknown
+  link?: unknown
+  [key: string]: unknown
+}
+
+export const scrapeGoogle = async (webview: WebviewLike, url: unknown, onCaptcha: (v: boolean) => void) => {
   let isCaptchaActive = true
   while (isCaptchaActive) {
-    isCaptchaActive = await webview.executeJavaScript(`
+    isCaptchaActive = (await webview.executeJavaScript(`
         (() => {
           return !!(document.getElementById('captcha-form') || 
                    document.querySelector('iframe[src*="recaptcha"]') ||
                    document.querySelector('#recaptcha') ||
                    document.querySelector('div#captcha'));
         })()
-      `)
+      `)) as boolean
 
     if (isCaptchaActive) {
       onCaptcha(true)
@@ -16,11 +33,11 @@ export const scrapeGoogle = async (webview, url, onCaptcha) => {
     }
   }
   onCaptcha(false)
-  let results = []
+  let results: SearchResult[] = []
   let attempts = 0
   
   while (attempts < 5) {
-    results = await webview.executeJavaScript(
+    results = (await webview.executeJavaScript(
       `(() => {
           function stripHtml(html){
             let tmp = document.createElement("DIV");
@@ -35,7 +52,7 @@ export const scrapeGoogle = async (webview, url, onCaptcha) => {
           
           if (aiSummary) {
             aiSummary = stripHtml(aiSummary);
-            items.push({ title: 'AI Google Summary', link: '${url}', snippet: aiSummary });
+            items.push({ title: 'AI Google Summary', link: '${String(url)}', snippet: aiSummary });
           }
 
           const elements = document.querySelectorAll('div.g, div.tF2Cxc, div.v7W49e, div.MjjYud');
@@ -52,8 +69,7 @@ export const scrapeGoogle = async (webview, url, onCaptcha) => {
             }
           });
           return items;
-        })()`
-    )
+        })()`)) as SearchResult[]
     
     if (results.length > 0) break
     attempts++
@@ -62,9 +78,9 @@ export const scrapeGoogle = async (webview, url, onCaptcha) => {
   return results
 }
 
-export const deepSearch = async (webview, url) => {
+export const deepSearch = async (webview: WebviewLike, url: DeepTarget) => {
   try {
-    const content = await webview.executeJavaScript(`
+    const content = (await webview.executeJavaScript(`
             (() => {
               const wadah = document.createElement('div');
               wadah.style.position = 'fixed';
@@ -84,7 +100,7 @@ export const deepSearch = async (webview, url) => {
               
               return hasil.replace(/\\n{3,}/g, '\\n\\n').replace(/\\s{2,}/g, ' ').trim().substring(0, 1500);
             })()
-          `)
+          `)) as string
     return {
       source: url.title,
       url: url.link,
