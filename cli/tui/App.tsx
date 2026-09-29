@@ -107,6 +107,8 @@ export function App(props: AppProps = {}) {
     if (key.ctrl && key.name === 'c') props.onExit?.()
     // ctrl+p = command palette (pola opencode). Entry wajib mengoper onCommands.
     if (key.ctrl && key.name === 'p') { key.preventDefault?.(); props.onCommands?.() }
+    // Port opencode dialog-message: ctrl+m = aksi pesan AI terakhir.
+    if (key.ctrl && key.name === 'm') { key.preventDefault?.(); props.onMsgActions?.() }
     // Stream D: ctrl+o = toggle mode plan/build. Cek konflik: 'o' polos tak
     // dipakai key handling mana pun (grep: hanya muncul di kata "model");
     // TAB ditolak (dipakai autocomplete-accept PromptRow:202, = opencode
@@ -305,10 +307,7 @@ export function App(props: AppProps = {}) {
             <Show when={spentLabel()}>
               <text fg={ABELINK_THEME.textMuted}>{spentLabel()}</text>
             </Show>
-            <text fg={ABELINK_THEME.text}>Model</text>
-            <text fg={ABELINK_THEME.textMuted}>{shortModel(model())}</text>
-            <Show when={connected().length > 0}>
-              <text fg={ABELINK_THEME.text}>MCP</text>
+            <Show when={connected().length > 0}>              <text fg={ABELINK_THEME.text}>MCP</text>
               <For each={connected()}>
                 {(c) => (
                   <text fg={ABELINK_THEME.textMuted}>⊙ {c}</text>

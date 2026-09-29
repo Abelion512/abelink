@@ -874,6 +874,24 @@ async function runSlash(state, cmd, deps) {
       pushMessage(state, 'info', renderUsage({ perSession, label: days > 1 ? `Penggunaan 7 hari (${root}):` : `Penggunaan hari ini (${root}):` }))
       return { kind: 'message', role: 'info' }
     }
+    // Port opencode sidebar-todo: daftar agent tasks berjalan (engine-client:
+    // Dexie via dynamic import; TUI tak pegang store sendiri).
+    case 'todo': {
+      try {
+        const { listAgentTasks } = await import('../../src/api/taskStore.js')
+        const rows = await listAgentTasks({ limit: 20 })
+        const open = (Array.isArray(rows) ? rows : []).filter((t) => t?.status !== 'completed' && t?.status !== 'cancelled')
+        if (!open.length) {
+          pushMessage(state, 'info', 'Todo kosong — tak ada task berjalan.')
+          return { kind: 'message', role: 'info' }
+        }
+        pushMessage(state, 'info', open.map((t) =>
+          `[${t.status === 'running' ? '•' : ' '}] ${t.title || t.id} (${t.status})`).join('\n'))
+      } catch (err) {
+        pushMessage(state, 'error', `Todo gagal: ${String(err?.message || err).slice(0, 120)}`)
+      }
+      return { kind: 'message', role: 'info' }
+    }
     default:
       if (cmd.name === 'usage' || cmd.name === 'stats' || cmd.name === 'cost') {
         return runSlash(state, { kind: 'usage', arg: cmd.arg }, deps)

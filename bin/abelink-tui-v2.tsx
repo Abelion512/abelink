@@ -4,6 +4,7 @@
 // State + routing di cli/tui/engine.mjs (submitLine); App.tsx presentational.
 // Piped stdin (E2E): tiap baris via submitLine dengan runTurn stub-able,
 // lalu exit — cermin perilaku v1 readline.
+import 'fake-indexeddb/auto'
 import { createCliRenderer } from '@opentui/core'
 import { createDefaultOpenTuiKeymap } from '@opentui/keymap/opentui'
 import { KeymapProvider } from '@opentui/keymap/solid'
@@ -306,6 +307,24 @@ async function main() {
     })
     bump()
   }
+  // Port opencode dialog-message: aksi pesan AI terakhir (revert/copy/fork).
+  const openMsgActions = async () => {
+    const last = [...state.messages].reverse().find((m) => m?.role === 'assistant' && String(m.text ?? '').trim())
+    if (!last) {
+      state.messages.push({ role: 'error', text: 'Belum ada pesan AI untuk aksi.' })
+      bump()
+      return
+    }
+    baseRows = [
+      { id: 'copy', label: 'Copy', section: 'salin teks pesan ke clipboard' },
+      { id: 'fork', label: 'Fork', section: 'sesi baru dari histori ini' },
+    ]
+    setPicker({
+      kind: 'msg-actions', title: 'aksi pesan', kindHint: '↑↓ pilih · Enter jalankan · Esc batal',
+      rows: baseRows, index: 0, query: '', loading: false,
+    })
+    bump()
+  }
   // `/sessions`: dialog sesi tersimpan (Enter = lanjut sesi).
   // Port dialog-session-list: kategori Pinned/Today/tanggal via
   // sessionDialogRows, ukuran large (dialog.setSize("large")), ● sesi aktif.
@@ -379,6 +398,7 @@ async function main() {
     }
     closePicker()
     if (kind === 'commands') { await handleSubmit(rowId); return }
+    if (kind === 'msg-actions') { await handleSubmit(`/${rowId}`); return }
     if (kind === 'sessions') { await handleSubmit(`/continue ${rowId}`); return }
     if (kind === 'effort') { await handleSubmit(`/effort ${rowId}`); return }
     await handleSubmit(`/model ${rowId}`)
@@ -463,9 +483,11 @@ async function main() {
       // Sidecar lazy (cermin mode pipe): slash/shell tak butuh engine —
       // jangan spawn proses untuk `/help` atau `/model zen`.
       const needEngine = parseShellLine(line) === null && parseSlashCommand(line).kind === 'prompt' && line.trim()
+      // /skills baca via sidecar RPC — spawn juga untuk kind ini.
+      const needSidecar = needEngine || /^\/(skills)\s*$/i.test(line.trim())
       const r = await submitLine(state, line, {
         ...deps,
-        sidecar: needEngine ? await getSidecar() : null,
+        sidecar: needSidecar ? await getSidecar() : null,
         onEvent: (e: TuiProgressEvent) => {
           if (e?.line) {
             // Paritas opencode: thought/tool render hanya bila toggle nyala
@@ -511,6 +533,7 @@ async function main() {
           onPickerCancel={closePicker}
           onPickerFilter={filterPicker}
           onCommands={openCommands}
+          onMsgActions={openMsgActions}
           // Stream D: meta row tampilkan MODE plan/build (opencode:
           // agent name Titlecase di meta row prompt/index.tsx:1450).
           agentName={() => (state.mode === 'plan' ? 'Plan' : 'Build')}

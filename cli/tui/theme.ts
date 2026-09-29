@@ -81,6 +81,7 @@ export const TUI_COMMANDS: TuiCommand[] = Object.freeze([
   { name: '/init', desc: 'Buat/perbarui AGENTS.md' },
   { name: '/help', desc: 'Tampilkan bantuan' },
   { name: '/status', desc: 'Ringkasan sesi berjalan' },
+  { name: '/todo', desc: 'Daftar agent tasks berjalan' },
   { name: '/exit', desc: 'Keluar' },
 ]) as TuiCommand[]
 
@@ -203,7 +204,7 @@ export const DIALOG_PANEL_WIDTH = 60
 export const DIALOG_Z_INDEX = 3000
 
 /** Kind picker yang render di dialog tengah (bukan picker bawah). */
-export const DIALOG_KINDS: readonly string[] = Object.freeze(['model', 'commands', 'sessions', 'effort', 'confirm'])
+export const DIALOG_KINDS: readonly string[] = Object.freeze(['model', 'commands', 'sessions', 'effort', 'confirm', 'msg-actions'])
 
 /** True bila kind picker dibuka sebagai dialog tengah. */
 export function isDialogKind(kind: string = ''): boolean {

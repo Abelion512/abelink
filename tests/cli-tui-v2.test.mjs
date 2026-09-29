@@ -104,9 +104,9 @@ describe('dialog tengah CenterDialog (slice 3)', () => {
     expect(DIALOG_PANEL_WIDTH).toBe(60)
     expect(DIALOG_Z_INDEX).toBe(3000)
   })
-  it('DIALOG_KINDS = model/commands/sessions/effort/confirm; isDialogKind selektif', () => {
-    expect([...DIALOG_KINDS].sort()).toEqual(['commands', 'confirm', 'effort', 'model', 'sessions'])
-    for (const k of ['model', 'commands', 'sessions', 'effort', 'confirm']) expect(isDialogKind(k)).toBe(true)
+  it('DIALOG_KINDS = model/commands/sessions/effort/confirm/msg-actions; isDialogKind selektif', () => {
+    expect([...DIALOG_KINDS].sort()).toEqual(['commands', 'confirm', 'effort', 'model', 'msg-actions', 'sessions'])
+    for (const k of ['model', 'commands', 'sessions', 'effort', 'confirm', 'msg-actions']) expect(isDialogKind(k)).toBe(true)
     expect(isDialogKind('other')).toBe(false)
     expect(isDialogKind('')).toBe(false)
   })

@@ -179,6 +179,8 @@ export interface AppProps {
   onPickerCancel?: () => void
   onPickerFilter?: (text: string) => void
   onCommands?: () => void
+  // Port opencode dialog-message: aksi pesan terakhir (ctrl+m).
+  onMsgActions?: () => void
   // Stream D: nama agen aktif (plan/build) + toggle mode via keybind.
   // accessor agar ikut re-render saat engine ubah mode (pola model tick).
   agentName?: string | (() => string)

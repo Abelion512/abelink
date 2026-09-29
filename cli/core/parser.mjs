@@ -52,6 +52,7 @@ export function parseSlashCommand(line = '') {
     case 'init': return { kind: 'init', arg: arg || null }
     case 'help': return { kind: 'help', arg: null }
     case 'status': return { kind: 'status', arg: null }
+    case 'todo': return { kind: 'todo', arg: null }
     case 'exit':
     case 'quit':
     case 'q': return { kind: 'exit', arg: null }

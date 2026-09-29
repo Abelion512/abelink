@@ -50,6 +50,7 @@ export const TUI_HELP = `Perintah slash (tak dikirim sebagai prompt):
   /init              Buat/perbarui AGENTS.md dari struktur workspace
   /help              Tampilkan bantuan ini
   /status            Ringkasan sesi berjalan
+  /todo              Daftar agent tasks berjalan
   /exit              Keluar (alias: /quit, /q; Ctrl-D juga bisa)
 File: @path/ke/file = lampirkan isi file ke prompt. !perintah = shell cepat (tak masuk histori).
 Catatan: /undo ditunda (tanpa primitif). Ctrl-C membatalkan turn saja, sesi tetap jalan.`
