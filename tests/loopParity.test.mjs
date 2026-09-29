@@ -12,10 +12,10 @@ import {
   evaluateEvidence,
   gateCompletion,
   VERIFICATION_STATE,
-} from '../src/api/ai/objectiveVerifier.js'
-import { createTrajectorySupervisor, MODIFY_REPEAT, ABANDON_REPEAT } from '../src/api/ai/trajectorySupervisor.js'
-import { resolvePlanStepBudget } from '../src/api/ai/planStepBudget.js'
-import { classifyObjectiveKind } from '../src/api/ai/objectiveVerifier.js'
+} from '../src/api/ai/objectiveVerifier.ts'
+import { createTrajectorySupervisor, MODIFY_REPEAT, ABANDON_REPEAT } from '../src/api/ai/trajectorySupervisor.ts'
+import { resolvePlanStepBudget } from '../src/api/ai/planStepBudget.ts'
+import { classifyObjectiveKind } from '../src/api/ai/objectiveVerifier.ts'
 
 const GUI_LOOP = 'src/hooks/agent/useAbelinkPlan.js'
 const HEADLESS_LOOP = 'src/api/ai/agentRunner.ts'

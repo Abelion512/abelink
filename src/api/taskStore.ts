@@ -280,7 +280,12 @@ export async function transitionAgentTask(taskId: unknown, status: unknown, erro
     }
 
     const allSteps = await db.agentTaskSteps.where('taskId').equals(taskId as string).sortBy('index')
-    const contract = buildHandoffContract({ ...task, status, error, steps: allSteps })
+    const contract = buildHandoffContract({
+      ...task,
+      status: status as string,
+      error: error as string | null,
+      steps: allSteps
+    })
 
     await db.agentTasks.update(taskId as Parameters<typeof db.agentTasks.update>[0], {
       status: status as string,

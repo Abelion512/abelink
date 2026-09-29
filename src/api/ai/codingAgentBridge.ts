@@ -1,4 +1,4 @@
-// codingAgentBridge.js
+// codingAgentBridge.ts
 // Universal CLI Coding Agent Dispatcher untuk Abelink (Linux Mint)
 // Menjembatani tugas coding berat ke CLI agent lokal yang sudah terpasang:
 // 1. Claude Code   2. Hermes Agent   3. Codex CLI   4. OpenCode
@@ -19,7 +19,15 @@
 // cakupan default.
 export const PREFERRED_CODING_AGENTS = ['opencode', 'hermes']
 
-export const AGENT_CANDIDATES = [
+export interface CodingAgentCandidate {
+  id: string
+  name: string
+  binaries: string[]
+  makeArgs: (args: { prompt: string }) => string[]
+  supportsSession: boolean
+}
+
+export const AGENT_CANDIDATES: CodingAgentCandidate[] = [
   {
     id: 'claude',
     name: 'Claude Code',
@@ -81,22 +89,30 @@ export const AGENT_CANDIDATES = [
  * @param {Function} [options.fileChecker] - Optional mock checker untuk unit test
  * @returns {Promise<Array<{id: string, name: string, binaryPath: string, supportsSession: boolean}>>}
  */
-export async function detectInstalledAgents(options = {}) {
-  const checkExists = options.fileChecker || (async (bin) => {
-    if (typeof window !== 'undefined' && window.api?.executeNativeTool) {
-      try {
-        const res = await window.api.executeNativeTool('run-bash', `which ${bin}`)
-        if (!res || res.error) return false
-        const text = typeof res === 'string' ? res : (res.output || res.stdout || '')
-        return text.trim().length > 0
-      } catch {
-        return false
+export async function detectInstalledAgents(
+  options: { fileChecker?: (bin: string) => Promise<boolean> | boolean } = {}
+) {
+  const checkExists =
+    options.fileChecker ||
+    (async (bin: string) => {
+      if (typeof window !== 'undefined' && window.api?.executeNativeTool) {
+        try {
+          const res = (await window.api.executeNativeTool('run-bash', `which ${bin}`, null)) as
+            | string
+            | { error?: unknown; output?: unknown; stdout?: unknown }
+            | null
+            | undefined
+          if (!res || (typeof res === 'object' && res.error)) return false
+          const text = typeof res === 'string' ? res : String(res.output || res.stdout || '')
+          return text.trim().length > 0
+        } catch {
+          return false
+        }
       }
-    }
-    // Renderer tidak boleh menyentuh Node API (fs/child_process) langsung —
-    // semua akses OS lewat window.api (Tauri IPC). Tanpa bridge = tidak ada agent.
-    return false
-  })
+      // Renderer tidak boleh menyentuh Node API (fs/child_process) langsung —
+      // semua akses OS lewat window.api (Tauri IPC). Tanpa bridge = tidak ada agent.
+      return false
+    })
 
   const available = []
   for (const candidate of AGENT_CANDIDATES) {
@@ -128,8 +144,21 @@ export async function detectInstalledAgents(options = {}) {
  * @param {string} [params.branch] - Nama branch sandbox (misal 'auto/fix-xxx')
  * @returns {{ command: string, agent: Object }}
  */
-export function buildCodingCommand({ agentId = 'opencode', prompt, workdir, branch }) {
-  const candidate = AGENT_CANDIDATES.find((a) => a.id === agentId) || AGENT_CANDIDATES.find((a) => a.id === PREFERRED_CODING_AGENTS[0])
+export function buildCodingCommand({
+  agentId = 'opencode',
+  prompt,
+  workdir,
+  branch
+}: {
+  agentId?: string
+  prompt: string
+  workdir?: string
+  branch?: string
+}) {
+  const candidate: CodingAgentCandidate =
+    AGENT_CANDIDATES.find((a) => a.id === agentId) ||
+    AGENT_CANDIDATES.find((a) => a.id === PREFERRED_CODING_AGENTS[0]) ||
+    AGENT_CANDIDATES[0]
   const bin = candidate.binaries[0]
   
   let branchSetup = ''

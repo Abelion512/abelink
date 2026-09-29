@@ -19,8 +19,8 @@ import {
   gateCompletion,
   buildReplanObservation,
   MAX_VERIFY_REPLANS
-} from '../src/api/ai/objectiveVerifier.js'
-import { createTrajectorySupervisor } from '../src/api/ai/trajectorySupervisor.js'
+} from '../src/api/ai/objectiveVerifier.ts'
+import { createTrajectorySupervisor } from '../src/api/ai/trajectorySupervisor.ts'
 
 export { ARCH_VALUES, resolveBenchArch, currentBenchArch }
 
@@ -51,7 +51,7 @@ let _effortModulePromise = null
 async function _loadEffortSystem() {
   if (_effortModule) return _effortModule
   if (_effortModulePromise) return _effortModulePromise
-  _effortModulePromise = import('../src/api/ai/effortSystem.js')
+  _effortModulePromise = import('../src/api/ai/effortSystem.ts')
     .then((mod) => {
       _effortModule = mod
       return mod

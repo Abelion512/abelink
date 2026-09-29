@@ -3,16 +3,34 @@ import { getCurrentTimeInfo } from './utils'
 import { getPersonaPrompt } from './persona'
 import { stripDataUrls } from './contextCompactor'
 
-const formatAwarenessContent = (content) => {
+interface AwarenessChatMsg {
+  role?: string
+  isProactive?: boolean
+  content?: unknown
+}
+
+interface ActivityBufferEntry {
+  time?: string
+  app?: string
+  title?: string
+}
+
+interface MemoryRefItem {
+  type?: string
+  memory?: string
+}
+
+const formatAwarenessContent = (content: unknown) => {
   if (typeof content === 'string') return stripDataUrls(content)
   if (content == null) return ''
 
   if (Array.isArray(content)) {
     return content
-      .map((part) => {
+      .map((part: unknown) => {
+        const p = part as { type?: string; text?: string } | null
         if (typeof part === 'string') return part
-        if (part?.type === 'text') return part.text || ''
-        if (part?.type === 'image_url') return '[Gambar]'
+        if (p?.type === 'text') return p.text || ''
+        if (p?.type === 'image_url') return '[Gambar]'
         return ''
       })
       .filter(Boolean)
@@ -23,16 +41,16 @@ const formatAwarenessContent = (content) => {
 }
 
 export const getAwarenessResponse = async (
-  buffer,
-  memoryRef,
-  config,
-  recentChat,
-  currentMusicTrack,
-  _signal
+  buffer: ActivityBufferEntry[] | null | undefined,
+  memoryRef: MemoryRefItem[] | null | undefined,
+  config: Array<Record<string, unknown> | undefined>,
+  recentChat: AwarenessChatMsg[] | null | undefined,
+  currentMusicTrack: { title?: string; artist?: string } | null | undefined,
+  _signal?: AbortSignal | null
 ) => {
   const conf = config[0] || {}
   const recentChatText = (recentChat || [])
-    .map((m) => {
+    .map((m: AwarenessChatMsg) => {
       const speaker = m.role === 'ai' ? 'Abelink' : 'User'
       const marker = m.isProactive && m.role === 'ai' ? ' [pesan inisiatif lama]' : ''
       return `- ${speaker}${marker}: ${formatAwarenessContent(m.content)}`
@@ -41,15 +59,15 @@ export const getAwarenessResponse = async (
 
   const prompt = `Kamu adalah Abelink, entitas AI otonom yang 'hidup' berdampingan dengan user di dalam sistem ini. Ini adalah waktu luangmu.
 
-${await getPersonaPrompt('owner', conf.personality, conf.ownerName)}
+${await getPersonaPrompt('owner', conf.personality as string | undefined, conf.ownerName as string | undefined)}
 
 # AKTIVITAS OS USER (REAL-TIME SAAT INI):
-${buffer && buffer.length > 0 ? buffer.map((b) => `- [${b.time}] ${b.app}${b.title ? ' - ' + b.title : ''}`).join('\n') : 'Tidak ada aktivitas tercatat (Pengguna hanya membuka aplikasi Abelink / desktop statis).'}
+${buffer && buffer.length > 0 ? buffer.map((b: ActivityBufferEntry) => `- [${b.time}] ${b.app}${b.title ? ' - ' + b.title : ''}`).join('\n') : 'Tidak ada aktivitas tercatat (Pengguna hanya membuka aplikasi Abelink / desktop statis).'}
 PENTING - ATURAN AKTIVITAS AKTUAL:
 Daftar # AKTIVITAS OS USER di atas adalah SATU-SATUNYA kebenaran mutlak aktivitas fisik PC pengguna SAAT INI (REAL-TIME).
 JANGAN TERKECUH oleh obrolan lama di riwayat chat! Jika di riwayat chat bawah kalian sempat membahas game (misal: Tekken), ngoding, atau aplikasi lain kemarin/jam lalu, tetapi aplikasi tersebut TIDAK TERDAFTAR di # AKTIVITAS OS USER di atas, berarti pengguna SUDAH TIDAK MELAKUKANNYA LAGI! DILARANG KERAS mengira pengguna masih bermain game atau melakukan aktivitas lama tersebut.
 
-${memoryRef && memoryRef.length > 0 ? `\n# MEMORY RELEVAN TENTANG USER:\n${memoryRef.map((m) => `- [${m.type.toUpperCase()}] ${m.memory}`).join('\n')}` : ''}
+${memoryRef && memoryRef.length > 0 ? `\n# MEMORY RELEVAN TENTANG USER:\n${memoryRef.map((m: MemoryRefItem) => `- [${String(m.type || '').toUpperCase()}] ${m.memory}`).join('\n')}` : ''}
 
 # RIWAYAT CHAT TERAKHIR (ARSIP, BUKAN PESAN BARU):
 ${recentChatText || 'Tidak ada riwayat chat terbaru.'}
@@ -138,7 +156,8 @@ Hiduplah dan berekspresilah sesukamu! JANGAN TULIS format markdown json.`
       })
     } catch (err) {
       clearTimeout(timer)
-      if (err.name === 'AbortError' || /abort/i.test(String(err.message))) {
+      const e = err as Error
+      if (e.name === 'AbortError' || /abort/i.test(String(e.message))) {
         console.warn('[Awareness AI] Check-in melewati siklus ini (timeout 60s).')
         return { should_act: false, message: null, autonomous_prompt: null, mood: 'normal' }
       }
@@ -147,7 +166,12 @@ Hiduplah dan berekspresilah sesukamu! JANGAN TULIS format markdown json.`
     clearTimeout(timer)
     if (aiResponse && aiResponse.content) {
       try {
-        const parsed = cleanAndParse(aiResponse.content)
+        const parsed = cleanAndParse(aiResponse.content) as {
+          should_act?: boolean
+          message?: string | null
+          autonomous_prompt?: string | null
+          mood?: string
+        }
         return {
           should_act: parsed.should_act,
           message: parsed.message,
@@ -160,7 +184,8 @@ Hiduplah dan berekspresilah sesukamu! JANGAN TULIS format markdown json.`
       }
     }
   } catch (error) {
-    if (error.name !== 'AbortError' && !error.message?.includes('AbortError')) {
+    const e = error as Error
+    if (e.name !== 'AbortError' && !e.message?.includes('AbortError')) {
       console.error('[Awareness AI] Error fetchAI:', error)
     }
   }

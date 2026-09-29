@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from 'vitest'
 import 'fake-indexeddb/auto'
 
 import { runAgentLoop } from '../src/api/ai/agentRunner.ts'
-import { resolvePlanStepBudget } from '../src/api/ai/planStepBudget.js'
+import { resolvePlanStepBudget } from '../src/api/ai/planStepBudget.ts'
 import { parseCliArgs } from '../bin/abelink.mjs'
 import { parseTuiArgs } from '../cli/core/parser.mjs'
 

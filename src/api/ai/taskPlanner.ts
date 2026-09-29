@@ -2,6 +2,20 @@ import { fetchAI, cleanAndParse } from './core'
 
 const DEFAULT_MAX_STEPS = 20
 
+interface PlannedStep {
+  id: string
+  title: string
+  objective: string
+  deliverable: string
+  acceptanceCriteria: string[]
+  artifactName: string
+}
+
+interface ClassificationLike {
+  estimatedSteps?: number
+  [key: string]: unknown
+}
+
 // Nama step dipakai ulang di task store, jadi dibuat stabil dan pendek.
 function slugify(value = '') {
   return String(value)
@@ -12,13 +26,13 @@ function slugify(value = '') {
 }
 
 // Artifact hanya boleh berupa nama file relatif satu level; traversal path ditolak.
-function sanitizeArtifactName(value, fallback) {
+function sanitizeArtifactName(value: unknown, fallback: string) {
   const raw = String(value || fallback || '').replace(/\\/g, '/').split('/').pop()
-  const safe = raw.replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^\.+/, '').slice(0, 100)
+  const safe = (raw ?? '').replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^\.+/, '').slice(0, 100)
   return safe || fallback
 }
 
-function inferChapterCount(text = '') {
+function inferChapterCount(text = ''): number | null {
   const lower = text.toLowerCase()
   const numberMatch = lower.match(/(\d+)\s*(bab|chapter|section|bagian)/)
   if (numberMatch) return Number(numberMatch[1])
@@ -40,7 +54,7 @@ function inferChapterCount(text = '') {
   return null
 }
 
-function fallbackSteps(userInput, classification = {}) {
+function fallbackSteps(userInput: string, classification: ClassificationLike = {}): PlannedStep[] {
   // Kalau planner model gagal, fallback tetap harus menghasilkan outline yang bisa dieksekusi.
   const chapterCount = inferChapterCount(userInput)
   if (chapterCount && chapterCount >= 2) {
@@ -58,7 +72,7 @@ function fallbackSteps(userInput, classification = {}) {
     }))
   }
 
-  const estimated = Math.min(Math.max(classification.estimatedSteps || 3, 3), DEFAULT_MAX_STEPS)
+  const estimated = Math.min(Math.max(classification.estimatedSteps ?? 3, 3), DEFAULT_MAX_STEPS)
   return Array.from({ length: estimated }, (_, index) => ({
     id: `step-${String(index + 1).padStart(2, '0')}`,
     title: `Step ${index + 1}`,
@@ -69,11 +83,31 @@ function fallbackSteps(userInput, classification = {}) {
   }))
 }
 
-function normalizePlan(plan, userInput, classification) {
+interface RawPlanLike {
+  title?: string
+  objective?: string
+  constraints?: Record<string, unknown>
+  contextSummary?: string
+  steps?: Array<{
+    id?: string
+    title?: string
+    objective?: string
+    deliverable?: string
+    acceptanceCriteria?: string[]
+    artifactName?: string
+  }>
+}
+
+function normalizePlan(
+  plan: RawPlanLike | null | undefined,
+  userInput: string,
+  classification: ClassificationLike
+) {
   // Normalisasi ini menjaga planner tetap aman walau output model kurang rapi.
   const fallback = fallbackSteps(userInput, classification)
-  const rawSteps = Array.isArray(plan?.steps) && plan.steps.length ? plan.steps : fallback
-  const steps = rawSteps.slice(0, DEFAULT_MAX_STEPS).map((step, index) => {
+  const rawSteps: Array<NonNullable<RawPlanLike['steps']>[number]> | PlannedStep[] =
+    Array.isArray(plan?.steps) && plan!.steps!.length ? plan!.steps! : fallback
+  const steps: PlannedStep[] = rawSteps.slice(0, DEFAULT_MAX_STEPS).map((step, index) => {
     const title = step.title || fallback[index]?.title || `Step ${index + 1}`
     const id = step.id || slugify(title) || `step-${String(index + 1).padStart(2, '0')}`
     return {
@@ -102,7 +136,11 @@ function normalizePlan(plan, userInput, classification) {
   }
 }
 
-export async function createDurableTaskPlan(userInput, classification = {}, signal = null) {
+export async function createDurableTaskPlan(
+  userInput: string,
+  classification: ClassificationLike = {},
+  signal: AbortSignal | null = null
+) {
   // Schema ini hanya dipakai untuk outline, bukan untuk eksekusi tool.
   const schema = {
     type: 'object',
@@ -155,7 +193,7 @@ export async function createDurableTaskPlan(userInput, classification = {}, sign
 
   try {
     const response = await fetchAI(messages, signal, false, schema)
-    const parsed = cleanAndParse(response.content)
+    const parsed = cleanAndParse(response?.content ?? '') as RawPlanLike | null
     return normalizePlan(parsed, userInput, classification)
   } catch (error) {
     // Fail closed ke outline deterministic supaya durable task tetap jalan.

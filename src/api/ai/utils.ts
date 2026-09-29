@@ -1,7 +1,14 @@
 import { getAllConfig } from '../db'
 
-export const getCurrentTimeInfo = (dateObj = new Date()) => {
-  const options = {
+declare global {
+  interface Window {
+    isAbelinkSpeaking?: boolean
+    abelinkTtsEndedAt?: number
+  }
+}
+
+export const getCurrentTimeInfo = (dateObj: Date = new Date()) => {
+  const options: Intl.DateTimeFormatOptions = {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
@@ -17,9 +24,9 @@ export const getCurrentTimeInfo = (dateObj = new Date()) => {
 
 
 
-let ttsAudioContext = null;
+let ttsAudioContext: AudioContext | null = null;
 
-export const cleanTtsText = (text) => {
+export const cleanTtsText = (text: unknown) => {
   if (!text || typeof text !== 'string') return ''
   return text
     .replace(/```[\s\S]*?```/g, '') // buang code block
@@ -34,7 +41,12 @@ export const cleanTtsText = (text) => {
     .trim()
 }
 
-export const playVoice = async (text, onStart, onEnd) => {
+export const playVoice = async (text: string, onStart?: () => void, onEnd?: () => void) => {
+  type TtsBridge = {
+    textToSpeech: (text: string, rate: unknown, pitch: unknown) => Promise<string | null>
+    showNotification?: (title: string, body: string) => void
+  }
+  const bridge = (typeof window !== 'undefined' ? (window as unknown as { api?: TtsBridge }).api : undefined)
   try {
     const config = await getAllConfig()
     const rate = config[0]?.ttsRate ?? 0
@@ -42,22 +54,26 @@ export const playVoice = async (text, onStart, onEnd) => {
 
     const cleanedText = cleanTtsText(text)
     if (!cleanedText) {
-      if (onEnd) onEnd()
+      onEnd?.()
       return
     }
 
     // 1. Minta data audio (base64) ke backend
-    const audioBase64 = await window.api.textToSpeech(cleanedText, rate, pitch)
+    const audioBase64 = await bridge?.textToSpeech(cleanedText, rate, pitch)
 
     if (audioBase64) {
       // 2. Bikin object Audio baru dari string base64 tadi
-      const audio = new Audio(audioBase64)
+      const audio = new Audio(String(audioBase64))
       audio.crossOrigin = "anonymous"
 
       // Setup Web Audio API for Intensity Extraction
       if (!ttsAudioContext) {
-        ttsAudioContext = new (window.AudioContext || window.webkitAudioContext)()
+        const Ctor =
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+        if (Ctor) ttsAudioContext = new Ctor()
       }
+      if (!ttsAudioContext) return
       if (ttsAudioContext.state === 'suspended') {
         await ttsAudioContext.resume()
       }
@@ -70,9 +86,9 @@ export const playVoice = async (text, onStart, onEnd) => {
 
       const bufferLength = analyser.fftSize
       const dataArray = new Float32Array(bufferLength)
-      let animationId = null
+      let animationId: number | null = null
 
-      const updateIntensity = () => {
+      const updateIntensity = (): void => {
         if (!window.isAbelinkSpeaking) return
         analyser.getFloatTimeDomainData(dataArray)
         let sum = 0
@@ -108,8 +124,8 @@ export const playVoice = async (text, onStart, onEnd) => {
     }
   } catch (error) {
     console.error('Gagal memutar suara:', error)
-    if (window.api && window.api.showNotification) {
-      window.api.showNotification('Error TTS', String(error.message || error))
+    if (bridge?.showNotification) {
+      bridge.showNotification('Error TTS', String((error as Error)?.message || error))
     }
     window.isAbelinkSpeaking = false
     window.dispatchEvent(new CustomEvent('abelink-intensity', { detail: 0 }))

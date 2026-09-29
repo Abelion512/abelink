@@ -87,8 +87,9 @@ export function estimateEffort(text = '') {
 }
 
 // AUTO resolver: estimasi awal melewati AUTO_SCALE, lalu ResolvedEffort.
-export function resolveEffortLevel(conf, taskText = '') {
-  const configured = conf?.effortLevel || 'medium'
+export function resolveEffortLevel(conf: unknown, taskText = '') {
+  const confObj = (conf ?? {}) as { effortLevel?: unknown }
+  const configured = (confObj.effortLevel as string) || 'medium'
   if (configured !== 'auto') {
     return { effort: configured, auto: false, transparent: `effort=${configured} (dipilih user)` }
   }
@@ -96,10 +97,17 @@ export function resolveEffortLevel(conf, taskText = '') {
   const est = estimateEffort(taskText)
   let suggested = est.effort
   if (suggested === 'low') suggested = 'medium'
-  if (!EffortLevel[suggested.toUpperCase()]) {
+  const levelTable = EffortLevel as unknown as Record<string, { value: string } | undefined>
+  if (!levelTable[String(suggested).toUpperCase()]) {
     suggested = 'medium'
   }
-  const resolved = resolve_effort(EffortLevel.AUTO, { classifierInitial: EffortLevel[suggested.toUpperCase()] })
+  const resolved = resolve_effort(EffortLevel.AUTO, {
+    classifierInitial: levelTable[String(suggested).toUpperCase()]
+  }) as {
+    effective_level: { value: string }
+    initial_level: { value: string }
+    resolution_reason: string
+  }
   return {
     effort: resolved.effective_level.value,
     auto: true,

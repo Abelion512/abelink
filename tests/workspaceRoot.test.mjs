@@ -5,7 +5,7 @@
 import 'fake-indexeddb/auto'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { runAgentTool } from '../src/hooks/agent/plan/agentTools.js'
-import { buildCodingCommand } from '../src/api/ai/codingAgentBridge.js'
+import { buildCodingCommand } from '../src/api/ai/codingAgentBridge.ts'
 
 describe('workspaceRoot plumbing (WS-1)', () => {
   let calls

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { PROGRESS_OUTCOME, evaluateProgress, isFailure, isMalfunction, normalizeProgressKey } from '../src/api/ai/progressEvaluator.js'
+import { PROGRESS_OUTCOME, evaluateProgress, isFailure, isMalfunction, normalizeProgressKey } from '../src/api/ai/progressEvaluator.ts'
 
 describe('progressEvaluator', () => {
   it('treats improved verification as progress', () => {

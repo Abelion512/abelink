@@ -1,4 +1,4 @@
-// progressEvaluator.js — deterministic progress signals for long-horizon agents.
+// progressEvaluator.ts — deterministic progress signals for long-horizon agents.
 //
 // This module does not judge semantic correctness with an LLM. It only compares
 // structured execution evidence already observed by the runtime. The result is
@@ -11,7 +11,7 @@ export const PROGRESS_OUTCOME = Object.freeze({
   REGRESSED: 'regressed'
 })
 
-const VERIFICATION_RANK = Object.freeze({
+const VERIFICATION_RANK: Readonly<Record<string, number>> = Object.freeze({
   failed: 0,
   not_run: 1,
   unavailable: 1,
@@ -62,6 +62,15 @@ export const observationFingerprint = (observation = '') => digest(observation)
 const verificationRank = (state = 'not_run') =>
   VERIFICATION_RANK[String(state || 'not_run')] ?? VERIFICATION_RANK.not_run
 
+export interface ProgressEvidence {
+  tool?: string
+  query?: string
+  success?: boolean | null
+  verificationState?: string | null
+  observation?: string | null
+  result?: string | null
+}
+
 /**
  * Compare the current execution against the immediately previous evidence.
  *
@@ -72,12 +81,15 @@ const verificationRank = (state = 'not_run') =>
  * - failed execution with no new evidence => regressed
  * - otherwise => neutral
  */
-export function evaluateProgress({ previous = null, current = null } = {}) {
-  const prev = previous || {}
-  const cur = current || {}
+export function evaluateProgress({
+  previous = null,
+  current = null
+}: { previous?: ProgressEvidence | null; current?: ProgressEvidence | null } = {}) {
+  const prev: ProgressEvidence = previous || {}
+  const cur: ProgressEvidence = current || {}
 
-  const prevVerification = verificationRank(prev.verificationState)
-  const currentVerification = verificationRank(cur.verificationState)
+  const prevVerification = verificationRank(prev.verificationState ?? 'not_run')
+  const currentVerification = verificationRank(cur.verificationState ?? 'not_run')
   const verificationImproved = currentVerification > prevVerification
 
   const currentKey = normalizeProgressKey(cur.tool, cur.query)

@@ -5,7 +5,7 @@ import {
   playbookClear,
   configKeyFor,
   PLAYBOOK_MAX_ENTRIES,
-} from '../src/api/ai/playbooks.js'
+} from '../src/api/ai/playbooks.ts'
 
 beforeEach(() => playbookClear())
 

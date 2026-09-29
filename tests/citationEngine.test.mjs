@@ -4,7 +4,7 @@ import {
   extractCitations,
   verifyVerbatimQuote,
   verifyAnswerGrounding
-} from '../src/api/ai/citationEngine.js'
+} from '../src/api/ai/citationEngine.ts'
 
 describe('citationEngine', () => {
   describe('EphemeralPassageStore', () => {

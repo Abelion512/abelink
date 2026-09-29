@@ -14,7 +14,7 @@ import {
   canAttemptEvidenceRecovery,
   MAX_VERIFY_REPLANS,
   VERIFICATION_STATE
-} from '../src/api/ai/objectiveVerifier.js'
+} from '../src/api/ai/objectiveVerifier.ts'
 
 describe('canAttemptEvidenceRecovery helper', () => {
   it('allows recovery when productive new evidence was gathered', () => {

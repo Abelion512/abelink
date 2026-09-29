@@ -2,8 +2,8 @@
 // Trace test: proves nextStrategy dynamically directs and alters the agent's next action
 // upon stagnation (stagnation -> directive -> system observation -> diverged action).
 import { describe, it, expect } from 'vitest'
-import { createTrajectorySupervisor, normalizeAttemptKey } from '../src/api/ai/trajectorySupervisor.js'
-import { getNextStrategy } from '../src/api/ai/strategyLib.js'
+import { createTrajectorySupervisor, normalizeAttemptKey } from '../src/api/ai/trajectorySupervisor.ts'
+import { getNextStrategy } from '../src/api/ai/strategyLib.ts'
 
 describe('strategy injection trace — proving nextStrategy changes subsequent actions', () => {
   /**

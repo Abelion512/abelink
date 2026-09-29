@@ -2,13 +2,19 @@ import { fetchAI, cleanAndParse, extractLenientField } from './core'
 import { resolveEffortLevel } from './effortEstimator'
 import { playbookLookup, playbookRecord, configKeyFor } from './playbooks'
 import { getAllConfig, getAllLearnedSkills, type ConfigRow } from '../db'
+import type {
+  MemoryItemLike,
+  ArchiveItemLike,
+  DocumentItemLike,
+  TurnPairLike
+} from './memoryRouter.ts'
 
 // ---- Kontrak tipe (W2-5, B-11: rename + anotasi minimal; prompt string DIKUNCI) ----
 interface UnifiedContext {
-  memories?: unknown[]
-  archives?: unknown[]
-  documents?: unknown[]
-  turnPairs?: unknown[]
+  memories?: MemoryItemLike[]
+  archives?: ArchiveItemLike[]
+  documents?: DocumentItemLike[]
+  turnPairs?: TurnPairLike[]
 }
 
 interface PlanningLoopMessage {
@@ -80,8 +86,7 @@ export function findSuspiciousName(systemPrompt: unknown): { name: string; snipp
 export const getNextAction = async (
   userInput: string | null,
   loopMessages: PlanningLoopMessage[],
-  signal: AbortSignal | null,
-  unifiedContext: UnifiedContext = { memories: [], archives: [], documents: [], turnPairs: [] },
+  signal: AbortSignal | null,      unifiedContext: UnifiedContext = { memories: [], archives: [], documents: [], turnPairs: [] },
   contextMsg = '',
   activeTopic = '',
   options: PlanningOptions = {}

@@ -9,7 +9,7 @@ import {
   recordMemoryFailure,
   resetMemoryFailureCount,
   isMemoryFailureCapped
-} from '../src/api/ai/memoryTool.js'
+} from '../src/api/ai/memoryTool.ts'
 
 describe('MEMORY_TOOL_SPEC', () => {
   it('punya shape kanonis', () => {

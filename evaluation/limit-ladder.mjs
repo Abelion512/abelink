@@ -16,7 +16,7 @@
 //
 // Modul ini SENGAJA tanpa I/O supaya bisa dites offline di CI.
 
-import { EffortLevel, EFFORT_VALUES, resolve_effort } from '../src/api/ai/effortSystem.js'
+import { EffortLevel, EFFORT_VALUES, resolve_effort } from '../src/api/ai/effortSystem.ts'
 
 // --------------------------------------------------------------- kontrak dunia
 export const CHAIN_DIR = 'chain'

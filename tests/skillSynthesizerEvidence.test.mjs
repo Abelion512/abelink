@@ -11,7 +11,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
 import { db } from '../src/api/db.ts'
-import { synthesizeSkillAndSave } from '../src/api/ai/skillSynthesizer.js'
+import { synthesizeSkillAndSave } from '../src/api/ai/skillSynthesizer.ts'
 
 // Mock fetchAI (synthesizer LLM call) so the grounding/promotion contract can be
 // tested without network. Mirrors the sessionCompactor test pattern.

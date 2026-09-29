@@ -27,7 +27,7 @@ import {
   ModelProviderAdapter,
   TokenBudgetProviderAdapter,
   SYSTEM_HARD_LIMITS,
-} from '../src/api/ai/effortSystem.js'
+} from '../src/api/ai/effortSystem.ts'
 
 describe('fixture 01 trivial', () => {
   it('low success, no workflow/critic/reflection/retry', async () => {

@@ -1,6 +1,6 @@
 // tests/planStepBudget.test.mjs
 import { describe, it, expect } from 'vitest'
-import { resolvePlanStepBudget, DEFAULT_PLAN_STEPS } from '../src/api/ai/planStepBudget.js'
+import { resolvePlanStepBudget, DEFAULT_PLAN_STEPS } from '../src/api/ai/planStepBudget.ts'
 
 describe('planStepBudget — effort-scaled plan budget', () => {
   it('defaults to 25 when no config or fallback occurs', () => {

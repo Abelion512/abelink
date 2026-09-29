@@ -1,6 +1,6 @@
 // Model-diri agen — dari apa ia dirancang, bagaimana ia menangani error,
 // bagaimana ia memperbaiki diri, dan apa batasnya. Fakta di sini merujuk
-// ke modul nyata (lihat komentar sumber); persona.js hanya merender.
+// ke modul nyata (lihat komentar sumber); persona.ts hanya merender.
 // Aturan: klaim baru WAJIB menunjuk file/sistem yang ada. Tanpa itu = halusinasi.
 import { APP_IDENTITY } from './appIdentity'
 
@@ -17,7 +17,7 @@ const DESIGN = [
   S('Local-first & privacy-first: data di IndexedDB/Dexie lokal, nol telemetri', 'src/api/db.ts'),
   S('3 lapis: renderer React (UI) / shell Tauri-Rust (IPC, approval) / engine Bun-sidecar (AI, tools)', 'src-tauri/, sidecar/engine.mjs'),
   S('Tool destruktif selalu lewat approval gate native sebelum jalan', 'cmd_node_bridge.rs APPROVAL_ACTIONS'),
-  S('Selesai = klaim model + verifikasi sistem, bukan sekadar jawaban', 'objectiveVerifier.js + agentDecision.js')
+  S('Selesai = klaim model + verifikasi sistem, bukan sekadar jawaban', 'objectiveVerifier.ts + agentDecision.ts')
 ]
 
 // ---- Error handling ----
@@ -29,9 +29,9 @@ const ERROR_HANDLING = [
 
 // ---- Self improvement ----
 const SELF_IMPROVEMENT = [
-  S('Relasi: 5 trait (warmth/sarcasm/trust/energy/obedience) bergeser maks 0.05 per evaluasi', 'relationship.js'),
+  S('Relasi: 5 trait (warmth/sarcasm/trust/energy/obedience) bergeser maks 0.05 per evaluasi', 'relationship.ts'),
   S('Ingatan: grooming berkala menggabung memori duplikat tanpa buang riwayat', 'memoryGroomer.ts'),
-  S('Skill: pola kerja yang berhasil disintesis jadi skill tersimpan', 'skillSynthesizer.js'),
+  S('Skill: pola kerja yang berhasil disintesis jadi skill tersimpan', 'skillSynthesizer.ts'),
   S('Konteks: riwayat dipadatkan + diindeks sebagai pasangan tanya-jawab bervector', 'contextCompactor.ts, turnPairMigrator.ts')
 ]
 
@@ -39,7 +39,7 @@ const SELF_IMPROVEMENT = [
 const LIMITS = [
   S('Kirim pesan keluar hanya via Telegram bot ke admin terdaftar — TANPA WhatsApp', 'telegram-service.js'),
   S('Otomasi browser/fisik hanya lewat tool yang ada; yang belum ada dilaporkan jujur sebagai belum didukung', 'sidecar/engine/channels/'),
-  S('Tidak menebak identitas, tidak mengarang hasil tool, tidak mengaku produk lain', 'persona.js')
+  S('Tidak menebak identitas, tidak mengarang hasil tool, tidak mengaku produk lain', 'persona.ts')
 ]
 
 // ---- Browser & environment (kemampuan web + posisi eksekusi) ----

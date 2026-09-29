@@ -1,4 +1,4 @@
-// headlessSecurity.js — Headless preflight security adapter.
+// headlessSecurity.ts — Headless preflight security adapter.
 //
 // NOT an authoritative replacement for Rust native security (cmd_node_bridge.rs,
 // hardline.rs, approval_policy.rs). In headless mode where no interactive
@@ -207,7 +207,10 @@ export function validateHeadlessShellCommand(command = '') {
 /**
  * Validate filesystem mutating tool path containment and sensitive targets.
  */
-export function validateHeadlessPath(filePath = '', workspaceRoot = null) {
+export function validateHeadlessPath(
+  filePath = '',
+  workspaceRoot: string | null | undefined = null
+) {
   const p = String(filePath || '').trim()
   if (!p) {
     return {
@@ -246,7 +249,7 @@ export function validateHeadlessPath(filePath = '', workspaceRoot = null) {
   //    TIDAK kena marker /abelink, /workspace, dst.
   //  - sensitive: secrets/kredensial/system (ssh, env, rc, /etc) — tetap
   //    substring agar pola seperti ~/.ssh dan config/.env.local tertangkap.
-  const segMatch = (hay, seg) => {
+  const segMatch = (hay: string, seg: string) => {
     const s = String(seg).replace(/^\/+|\/+$/g, '')
     if (!s) return false
     return hay === s || hay.startsWith(s + '/') || hay.includes('/' + s + '/') || hay.endsWith('/' + s)
@@ -295,7 +298,11 @@ export function validateHeadlessPath(filePath = '', workspaceRoot = null) {
 /**
  * Preflight evaluation of a tool call in headless environment.
  */
-export function evaluateHeadlessSecurity(tool, query, { workspaceRoot = null } = {}) {
+export function evaluateHeadlessSecurity(
+  tool: unknown,
+  query: unknown,
+  { workspaceRoot = null }: { workspaceRoot?: string | null } = {}
+) {
   const toolName = String(tool || '').trim()
 
   // 1. Interactive tools fail closed
@@ -322,7 +329,7 @@ export function evaluateHeadlessSecurity(tool, query, { workspaceRoot = null } =
 
   // 3. Shell execution whitelist inspection
   if (toolName === 'run-shell' || toolName === 'run-bash' || toolName === 'run-powershell') {
-    const shellCheck = validateHeadlessShellCommand(query)
+    const shellCheck = validateHeadlessShellCommand(String(query || ''))
     if (!shellCheck.allowed) {
       return {
         ...shellCheck,

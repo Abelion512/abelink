@@ -23,8 +23,8 @@ export const BUILTIN_PLUGIN_DEFAULTS = Object.freeze({
 
 // Ambil toggle dari config apapun yang punya key `builtinPlugins`
 // (object) — toleran terhadap config lama yang belum punya key ini.
-export const resolvePluginToggles = (conf) => {
-  const raw = conf?.builtinPlugins
+export const resolvePluginToggles = (conf?: Record<string, unknown> | null) => {
+  const raw = conf?.builtinPlugins as Record<string, unknown> | undefined
   if (!raw || typeof raw !== 'object') return { ...BUILTIN_PLUGIN_DEFAULTS }
   return {
     ponytail: raw.ponytail !== false,
@@ -82,7 +82,10 @@ const INTERNET_FIRST_RULES = `# INTERNET-FIRST — REFERENSI SEBELUM KLAIM (SELA
  *        (mis. sub-agent bisa menonaktifkan caveman untuk laporan teknis)
  * @returns {string} blok teks (bisa string kosong bila semua off)
  */
-export const getBuiltinPluginsPrompt = (conf, overrides = {}) => {
+export const getBuiltinPluginsPrompt = (
+  conf?: Record<string, unknown> | null,
+  overrides: { ponytail?: boolean; caveman?: boolean; internetFirst?: boolean } = {}
+) => {
   const t = resolvePluginToggles(conf)
   const usePonytail = overrides.ponytail ?? t.ponytail
   const useCaveman = overrides.caveman ?? t.caveman

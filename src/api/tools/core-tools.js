@@ -34,7 +34,7 @@ export const core_tools = {
 }
 
 // Agen coding yang didukung delegate_coding (keputusan owner dikunci ulang
-// ke opencode/hermes). Cermin codingAgentBridge.js (single source runtime).
+// ke opencode/hermes). Cermin codingAgentBridge.ts (single source runtime).
 export const PREFERRED_CODING_AGENTS = ['opencode', 'hermes']
 
 export {

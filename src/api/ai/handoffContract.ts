@@ -26,50 +26,82 @@ export const MANDATORY_HANDOFF_FIELDS = [
 
 export const HANDOFF_CONTRACT_VERSION = '1.0'
 
+interface HandoffStepLike {
+  id?: number | string
+  index?: number
+  title?: string
+  status?: string
+  objective?: string
+  deliverable?: string
+  outputSummary?: string
+  artifactPath?: string
+  contentHash?: string | null
+  verification?: { state?: string } | null
+  acceptanceCriteria?: string[]
+}
+
+interface HandoffTaskLike {
+  id?: number | string
+  objective?: string
+  title?: string
+  status?: string
+  error?: string | null
+  steps?: HandoffStepLike[]
+  currentStepIndex?: number
+  activeStepId?: number | string | null
+}
+
+interface HandoffOptions {
+  objective?: string
+  nextAction?: string
+  blockedReasons?: string[]
+  extraArtifacts?: Array<string | { path: string; contentHash?: string | null; summary?: string | null }>
+}
+
 /**
  * Validasi apakah suatu objek memenuhi kontrak Handoff JSON wajib.
- * @param {any} contract
- * @returns {{ valid: boolean, missing: string[], errors: string[] }}
+ * @param contract
  */
-export function validateHandoffContract(contract) {
+export function validateHandoffContract(contract: unknown) {
   if (!contract || typeof contract !== 'object') {
     return { valid: false, missing: [...MANDATORY_HANDOFF_FIELDS], errors: ['Contract must be a non-null object'] }
   }
 
-  const missing = []
-  const errors = []
+  const c = contract as Record<string, unknown>
+  const missing: string[] = []
+  const errors: string[] = []
 
   for (const field of MANDATORY_HANDOFF_FIELDS) {
-    if (!(field in contract)) {
+    if (!(field in c)) {
       missing.push(field)
     }
   }
 
-  if (typeof contract.objective !== 'string') {
+  if (typeof c.objective !== 'string') {
     errors.push('Field "objective" must be a string')
   }
 
-  if (!Array.isArray(contract.done)) {
+  if (!Array.isArray(c.done)) {
     errors.push('Field "done" must be an array of completed deliverables')
   }
 
-  if (!Array.isArray(contract.remaining)) {
+  if (!Array.isArray(c.remaining)) {
     errors.push('Field "remaining" must be an array of remaining steps')
   }
 
-  if (contract.blocked !== null && !Array.isArray(contract.blocked)) {
+  if (c.blocked !== null && !Array.isArray(c.blocked)) {
     errors.push('Field "blocked" must be null or an array of blocking reasons')
   }
 
-  if (!Array.isArray(contract.artifacts)) {
+  if (!Array.isArray(c.artifacts)) {
     errors.push('Field "artifacts" must be an array')
   }
 
-  if (typeof contract.verified !== 'boolean' && (typeof contract.verified !== 'object' || contract.verified === null)) {
+  if (typeof c.verified !== 'boolean' && (typeof c.verified !== 'object' || c.verified === null)) {
     errors.push('Field "verified" must be a boolean or an object')
   }
 
-  if (typeof contract.next_action !== 'string') {
+  if (typeof c.next_action !== 'string') {
     errors.push('Field "next_action" must be a string')
   }
 
@@ -86,15 +118,15 @@ export function validateHandoffContract(contract) {
  * @param {object} [options] Override opsi tambahan (nextAction, blockedReasons, extraArtifacts)
  * @returns {object} Valid Handoff Contract JSON
  */
-export function buildHandoffContract(taskWithSteps, options = {}) {
-  const task = taskWithSteps || {}
-  const steps = Array.isArray(task.steps) ? task.steps : []
+export function buildHandoffContract(taskWithSteps: HandoffTaskLike | null | undefined, options: HandoffOptions = {}) {
+  const task: HandoffTaskLike = taskWithSteps || {}
+  const steps: HandoffStepLike[] = Array.isArray(task.steps) ? task.steps : []
 
   const objective = String(options.objective || task.objective || task.title || 'Durable Task Execution').trim()
 
-  const done = []
-  const remaining = []
-  const artifacts = []
+  const done: string[] = []
+  const remaining: string[] = []
+  const artifacts: Array<{ path: string; contentHash?: string | null; summary?: string | null }> = []
   let allDoneVerified = true
 
   // Urutkan step berdasarkan index
@@ -137,7 +169,7 @@ export function buildHandoffContract(taskWithSteps, options = {}) {
   }
 
   // Blocked analysis
-  let blocked = null
+  let blocked: string[] | null = null
   if (options.blockedReasons && Array.isArray(options.blockedReasons) && options.blockedReasons.length > 0) {
     blocked = [...options.blockedReasons]
   } else if (task.status === 'failed') {
@@ -189,39 +221,50 @@ export function buildHandoffContract(taskWithSteps, options = {}) {
  * @param {object} contract
  * @returns {string}
  */
-export function formatHandoffContractPrompt(contract) {
+export function formatHandoffContractPrompt(contract: unknown) {
   if (!contract || typeof contract !== 'object') return ''
+  const ct = contract as {
+    taskId?: number | string | null
+    taskStatus?: string
+    objective?: string
+    done?: string[]
+    remaining?: string[]
+    blocked?: string[] | null
+    artifacts?: Array<string | { path: string; summary?: string | null }>
+    verified?: { isVerified?: boolean } | boolean
+    next_action?: string
+  }
 
   const lines = [
     '# RESUMED DURABLE TASK HANDOFF CONTRACT (KONTRAK TRANSISI SESI)',
-    `Task ID: ${contract.taskId || '-'} (Status: ${contract.taskStatus || '-'})`,
-    `Tujuan Utama (Objective): ${contract.objective || '-'}`,
+    `Task ID: ${ct.taskId || '-'} (Status: ${ct.taskStatus || '-'})`,
+    `Tujuan Utama (Objective): ${ct.objective || '-'}`,
     '',
     '## 1. SUDAH SELESAI (DONE):',
-    Array.isArray(contract.done) && contract.done.length > 0
-      ? contract.done.map((d) => `- ${d}`).join('\n')
+    Array.isArray(ct.done) && ct.done.length > 0
+      ? ct.done.map((d) => `- ${d}`).join('\n')
       : '- Belum ada langkah yang selesai.',
     '',
     '## 2. LANGKAH TERSISA (REMAINING):',
-    Array.isArray(contract.remaining) && contract.remaining.length > 0
-      ? contract.remaining.map((r) => `- ${r}`).join('\n')
+    Array.isArray(ct.remaining) && ct.remaining.length > 0
+      ? ct.remaining.map((r) => `- ${r}`).join('\n')
       : '- Tidak ada langkah tersisa.',
     '',
     '## 3. HAMBATAN / BLOCKED:',
-    Array.isArray(contract.blocked) && contract.blocked.length > 0
-      ? contract.blocked.map((b) => `! [BLOCKED] ${b}`).join('\n')
+    Array.isArray(ct.blocked) && ct.blocked.length > 0
+      ? ct.blocked.map((b) => `! [BLOCKED] ${b}`).join('\n')
       : '- Tidak ada hambatan aktif.',
     '',
     '## 4. ARTIFACTS YANG DIHASILKAN:',
-    Array.isArray(contract.artifacts) && contract.artifacts.length > 0
-      ? contract.artifacts.map((a) => typeof a === 'string' ? `- ${a}` : `- ${a.path}${a.summary ? `: ${a.summary}` : ''}`).join('\n')
+    Array.isArray(ct.artifacts) && ct.artifacts.length > 0
+      ? ct.artifacts.map((a) => typeof a === 'string' ? `- ${a}` : `- ${a.path}${a.summary ? `: ${a.summary}` : ''}`).join('\n')
       : '- Belum ada artefak berkas.',
     '',
     '## 5. STATUS VERIFIKASI (VERIFIED):',
-    `- Terverifikasi: ${contract.verified?.isVerified ? 'YA (Lolos bukti eksekusi)' : 'PARSIAL / BELUM PENUH'}`,
+    `- Terverifikasi: ${(typeof ct.verified === 'object' && ct.verified ? ct.verified.isVerified : ct.verified) ? 'YA (Lolos bukti eksekusi)' : 'PARSIAL / BELUM PENUH'}`,
     '',
     '## 6. LANGKAH KERJA BERIKUTNYA (NEXT ACTION):',
-    `>>> ${contract.next_action || 'Lanjutkan tugas.'}`,
+    `>>> ${ct.next_action || 'Lanjutkan tugas.'}`,
     'PETUNJUK: Kamu me-resume tugas bertahap. FOKUS LANGSUNG pada "NEXT ACTION" di atas tanpa mengulang apa yang sudah ada di daftar "DONE"!'
   ]
 

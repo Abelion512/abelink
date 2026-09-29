@@ -5,7 +5,7 @@ import {
   recordRepairAttempt,
   createSelfRepairMission,
   MAX_REPAIR_ATTEMPTS
-} from '../src/api/ai/selfHealingEngine.js'
+} from '../src/api/ai/selfHealingEngine.ts'
 
 describe('selfHealingEngine', () => {
   it('getErrorSignature menormalkan error stack', () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { AUTONOMY_DOMAINS, AGENTIC_PROTOCOL_VERSION, buildAutonomyContractSection } from '../src/api/ai/autonomyContract.js'
+import { AUTONOMY_DOMAINS, AGENTIC_PROTOCOL_VERSION, buildAutonomyContractSection } from '../src/api/ai/autonomyContract.ts'
 
 describe('autonomyContract', () => {
   it('supports cross-domain runtime guidance', () => {

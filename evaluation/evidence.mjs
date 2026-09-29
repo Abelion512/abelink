@@ -6,8 +6,8 @@
 // database. Records live in a run-level in-memory ledger only.
 //
 // This module REUSES existing runtime signals instead of re-deriving them:
-//   - src/api/ai/progressEvaluator.js owns progress/stagnation fingerprints.
-//   - src/api/ai/objectiveVerifier.js owns the verification-state vocabulary.
+//   - src/api/ai/progressEvaluator.ts owns progress/stagnation fingerprints.
+//   - src/api/ai/objectiveVerifier.ts owns the verification-state vocabulary.
 //
 // Anti-cheat invariants preserved here:
 //   - a model final answer is a claim, never evidence (records carry `claim:true`).
@@ -20,8 +20,8 @@ import {
   evaluateProgress,
   observationFingerprint,
   normalizeProgressKey,
-} from '../src/api/ai/progressEvaluator.js'
-import { VERIFICATION_STATE } from '../src/api/ai/objectiveVerifier.js'
+} from '../src/api/ai/progressEvaluator.ts'
+import { VERIFICATION_STATE } from '../src/api/ai/objectiveVerifier.ts'
 
 // Tool-level execution status. Never a task-success verdict.
 export const EVIDENCE_STATUS = Object.freeze({

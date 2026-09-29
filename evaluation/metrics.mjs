@@ -11,7 +11,7 @@
 //     never estimated with a formula.
 //   - Repeated-run count is explicit; one aggregate is never a release claim.
 
-import { isIndependentlyVerified, VERIFICATION_STATE } from '../src/api/ai/objectiveVerifier.js'
+import { isIndependentlyVerified, VERIFICATION_STATE } from '../src/api/ai/objectiveVerifier.ts'
 import { summarizeEvidence, EVIDENCE_STATUS } from './evidence.mjs'
 
 export const MEASUREMENT_SCHEMA_VERSION = 1
