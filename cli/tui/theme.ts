@@ -496,15 +496,8 @@ export function sessionContextUsage(tokensEst: number = 0, modelCtx: number | nu
   return { label, pct: `${Math.min(999, Math.round((t / ctx) * 100))}% used` }
 }
 
-// Status line kanan ala opencode routes/session/footer.tsx: kiri direktori,
-// kanan LSP count + MCP (connected/error) + hint /status. Tanpa data =
-// segmen di-skip (tanpa angka palsu).
-export interface StatusChipsInput {
-  lspCount?: number | null
-  mcpConnected?: number
-  mcpError?: boolean
-  hint?: string
-}
+// Status line kanan: working saat busy, else hint /status.
+// (statusChips LSP/MCP dihapus 2026-09-29: redundant, TUI tak punya backend.)
 
 /** Singkat path workspace ala opencode useDirectory: ganti $HOME jadi ~.
  *  Murni + testable. Cegah status line wrap 2 baris di terminal sempit. */
@@ -517,24 +510,10 @@ export function abbreviateHome(p: string = '', home: string = ''): string {
 
 /** Prioritas status kanan (merge-review Critical #1): prop working menang
  *  saat busy, selain itu chips. Murni + testable. */
-export function statusRightText(inp: { busy?: boolean; prop?: string | null; lspCount?: number | null; mcpError?: boolean } = {}): string {
+export function statusRightText(inp: { busy?: boolean; prop?: string | null } = {}): string {
   if (inp.busy && inp.prop) return String(inp.prop)
-  // Hint pendek ala opencode footer (/status) — '/help · ctrl+p' bikin
-  // status line wrap 2 baris di terminal 100 kolom (terukur PTY).
-  return statusChips({ lspCount: inp.lspCount ?? null, mcpError: inp.mcpError, hint: '/status' })
-}
-export function statusChips(inp: StatusChipsInput = {}): string {  const parts: string[] = []
-  // lspCount null/undefined = data tak tersedia -> segmen di-skip (tanpa
-  // angka palsu). Eksplisit 0 = faktual (TUI tanpa language server).
-  if (inp.lspCount !== null && inp.lspCount !== undefined) {
-    const lsp = Math.max(0, Math.floor(Number(inp.lspCount) || 0))
-    parts.push(`${lsp > 0 ? '•' : '○'} ${lsp} LSP`)
-  }
-  const mcp = Math.max(0, Math.floor(Number(inp.mcpConnected) || 0))
-  if (mcp > 0) parts.push(`${inp.mcpError ? '⊙!' : '⊙'} ${mcp} MCP`)
-  else if (inp.mcpError) parts.push('⊙! MCP error')
-  parts.push(inp.hint ?? '/status')
-  return parts.join(' · ')
+  // Tanpa LSP/MCP (redundant, TUI tak punya backend keduanya) — hint saja.
+  return '/status'
 }
 
 export interface VisibleWindow {

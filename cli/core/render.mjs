@@ -3,7 +3,7 @@
 
 export function renderThoughtLine(thought) {
   if (!thought) return null
-  return `[THOUGHT]: ${thought}`
+  return String(thought)
 }
 
 export function renderStepLine(stepRecord = {}) {

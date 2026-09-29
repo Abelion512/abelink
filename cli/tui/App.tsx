@@ -82,20 +82,8 @@ export function App(props: AppProps = {}) {
     props.tick?.()
     return readOpt(props.spent)
   }
-  const mcpErr = () => {
-    props.tick?.()
-    return props.mcpError === true
-  }
-  const lspN = () => {
-    props.tick?.()
-    const n = Number(props.lspCount)
-    return Number.isFinite(n) && n >= 0 ? Math.floor(n) : null
-  }
-  // Batch C (footer opencode: kiri direktori, kanan status): kanan =
-  // statusChips (theme.ts) — LSP + MCP error + hint. Tanpa data ->
-  // segmen di-skip (tanpa angka palsu). Prop statusRight (working Stream D)
-  // menang saat busy — merge-review Critical #1.
-  const statusRight = () => statusRightText({ busy: busy(), prop: props.statusRight, lspCount: lspN(), mcpError: mcpErr() })
+  // Status kanan: working saat busy, else hint /status.
+  const statusRight = () => statusRightText({ busy: busy(), prop: props.statusRight })
   // Picker model (opencode dialog-model): daftar + jendela baris agar
   // katalog 1200+ ID tetap muat dan pilihan selalu terlihat.
   const picker = () => props.picker?.() ?? null
@@ -174,31 +162,22 @@ export function App(props: AppProps = {}) {
         onPickerFilter={props.onPickerFilter}
         promptHistory={props.promptHistory}
         permissionMode={props.permissionMode}
+        onModeToggle={props.onModeToggle}
       />
-      {/* Cap nested, port opencode prompt/index.tsx:1488-1511: box left +
+      {/* Cap 1 baris, port opencode prompt/index.tsx:1488-1511: box left +
           inner bottom, horizontal ▀ bila bg opaque else spasi. */}
       <box
         style={{
           width: '100%',
           height: 1,
           flexShrink: 0,
-          border: ['left'],
-          borderColor: ABELINK_THEME.border,
-          customBorderChars: PROMPT_CAP_BORDER,
+          border: ['left', 'bottom'],
+          borderColor: ABELINK_THEME.backgroundElement,
+          customBorderChars: ABELINK_THEME.backgroundElement === 'transparent'
+            ? { ...PROMPT_CAP_BORDER, horizontal: ' ', vertical: ' ' }
+            : PROMPT_CAP_BORDER,
         }}
-      >
-        <box
-          style={{
-            width: '100%',
-            height: 1,
-            border: ['bottom'],
-            borderColor: ABELINK_THEME.backgroundElement,
-            customBorderChars: ABELINK_THEME.backgroundElement === 'transparent'
-              ? { ...PROMPT_CAP_BORDER, horizontal: ' ' }
-              : PROMPT_CAP_BORDER,
-          }}
-        />
-      </box>
+      />
     </box>
   )
 
@@ -313,11 +292,9 @@ export function App(props: AppProps = {}) {
             <text fg={ABELINK_THEME.text}><b>{title()}</b></text>
             <text fg={ABELINK_THEME.textMuted}>{sessionId()}</text>
           </box>
-          {/* Sidebar isi ala opencode sidebar.tsx + slot context/mcp:
-              judul + id sesi, Context (token estimasi nyata bila engine
-              expose, persen hanya bila ctx model dikenal — else '—'),
-              MCP (connected/error bila tersedia; TUI tanpa MCP server
-              menampilkan 'none'), LSP 0 (faktual: tanpa language server). */}
+          {/* Sidebar isi: judul + id sesi, Context (token estimasi nyata
+              bila engine expose, else '—'). Tanpa MCP/LSP — TUI tak punya
+              backend keduanya (redundant, hapus 2026-09-29). */}
           <box style={{ flexDirection: 'column', paddingTop: 2, gap: 1, flexGrow: 1 }}>
             <text fg={ABELINK_THEME.text}>Context</text>
             <text fg={ABELINK_THEME.textMuted}>{tokensLabel() ?? '—'}</text>
@@ -325,22 +302,8 @@ export function App(props: AppProps = {}) {
             <Show when={spentLabel()}>
               <text fg={ABELINK_THEME.textMuted}>{spentLabel()}</text>
             </Show>
-            <text fg={ABELINK_THEME.text}>MCP</text>
-            <Show when={connected().length > 0} fallback={<text fg={ABELINK_THEME.textMuted}>none connected</text>}>
-              <For each={connected()}>
-                {(c) => (
-                  <text fg={ABELINK_THEME.text}>
-                    <ColoredSpan fg={mcpErr() ? ABELINK_THEME.error : ABELINK_THEME.success}>{mcpErr() ? '⊙! ' : '⊙ '}</ColoredSpan>
-                    {c}
-                  </text>
-                )}
-              </For>
-            </Show>
-            <Show when={mcpErr() && connected().length === 0}>
-              <text fg={ABELINK_THEME.error}>⊙! MCP error</text>
-            </Show>
-            <text fg={ABELINK_THEME.text}>LSP</text>
-            <text fg={ABELINK_THEME.textMuted}>{lspN() === null ? '—' : `○ ${lspN()} LSP`}</text>
+            <text fg={ABELINK_THEME.text}>Model</text>
+            <text fg={ABELINK_THEME.textMuted}>{shortModel(model())}</text>
           </box>
           {/* Branding footer ala opencode: dot success + nama + versi. */}
           <box style={{ flexShrink: 0, paddingTop: 1 }}>

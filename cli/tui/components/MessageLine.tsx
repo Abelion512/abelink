@@ -20,7 +20,8 @@ export function MessageLine(props: MessageLineProps) {
   // Paritas opencode: thought/tool hanya render bila toggle nyala.
   if (role === 'thought' && props.showThinking === false) return (<></>)
   if (role === 'tool' && props.showDetails === false) return (<></>)
-  const base = () => messageColor(role)
+  // Thought disamarkan (muted) — isi tetap ada, tak berisik.
+  const base = () => (role === 'thought' ? ABELINK_THEME.textMuted : messageColor(role))
   const lines = () => renderMarkdownLines(String(props.text ?? ''))
   return (
     <box style={{ flexDirection: 'column' }}>

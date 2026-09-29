@@ -243,7 +243,7 @@ describe('needs_user returns to prompt', () => {
 
 describe('line renderers', () => {
   it('renders thought lines, null on empty', () => {
-    expect(renderThoughtLine('pikir')).toBe('[THOUGHT]: pikir')
+    expect(renderThoughtLine('pikir')).toBe('pikir')
     expect(renderThoughtLine('')).toBeNull()
   })
 

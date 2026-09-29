@@ -7,7 +7,7 @@ import { spawn } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { ABELINK_THEME, TUI_COMMANDS, AUTOCOMPLETE_MAX_ROWS, filterCompletions, shortModel, SIDEBAR_WIDTH, isWide, messageColor, messagePrefix, PROMPT_KEY_BINDINGS, autocompleteTrigger, applyCompletion, moveCompletionIndex, visibleWindow, DIALOG_PANEL_WIDTH, DIALOG_Z_INDEX, DIALOG_KINDS, isDialogKind, dialogVisibleRows, popupHeight, selectedForeground, dialogFooterText, HOME_PLACEHOLDERS, homePlaceholder, homePromptMaxWidth, HOME_TIPS, homeTip, renderMarkdownLines, renderMarkdownText, sessionContextUsage, statusChips, statusRightText } from '../cli/tui/theme.ts'
+import { ABELINK_THEME, TUI_COMMANDS, AUTOCOMPLETE_MAX_ROWS, filterCompletions, shortModel, SIDEBAR_WIDTH, isWide, messageColor, messagePrefix, PROMPT_KEY_BINDINGS, autocompleteTrigger, applyCompletion, moveCompletionIndex, visibleWindow, DIALOG_PANEL_WIDTH, DIALOG_Z_INDEX, DIALOG_KINDS, isDialogKind, dialogVisibleRows, popupHeight, selectedForeground, dialogFooterText, HOME_PLACEHOLDERS, homePlaceholder, homePromptMaxWidth, HOME_TIPS, homeTip, renderMarkdownLines, renderMarkdownText, sessionContextUsage, statusRightText } from '../cli/tui/theme.ts'
 import { parseSlashCommand } from '../bin/abelink-tui.mjs'
 import { createTuiState, submitLine, effortDialogRows, refreshSessionUsage, touchSessionUsage, switchToSession } from '../cli/tui/engine.mjs'
 import { lastTuiSession } from '../cli/core/index.mjs'
@@ -159,11 +159,11 @@ describe('engine submitLine (stub, tanpa network)', () => {
     ...over,
   })
 
-  it('prompt -> user + assistant + meta', async () => {
+  it('prompt -> user + assistant (tanpa baris meta completion)', async () => {
     const s = createTuiState()
     const r = await submitLine(s, 'halo engine', deps())
     expect(r.kind).toBe('message')
-    expect(s.messages.map((m) => m.role)).toEqual(['user', 'assistant', 'meta'])
+    expect(s.messages.map((m) => m.role)).toEqual(['user', 'assistant'])
     expect(s.messages[1].text).toBe('stub-reply')
   })
   it('/model gemini -> ganti state + info', async () => {
@@ -533,10 +533,8 @@ describe('batch C: context usage jujur (tanpa fabrikasi)', () => {
     expect(sessionContextUsage(5000, null).pct).toBeNull()
     expect(sessionContextUsage(0, 0).pct).toBeNull()
   })
-  it('statusChips: tanpa data -> segmen di-skip', () => {
-    expect(statusChips({})).toBe('/status')
-    expect(statusChips({ lspCount: 0 })).toContain('○ 0 LSP')
-    expect(statusChips({ mcpError: true })).toContain('MCP error')
+  it('status line kanan: /status saja (LSP/MCP dihapus, redundant)', () => {
+    expect(statusRightText({})).toBe('/status')
   })
   it('estimateLiveTokens: chars/2.5 dari history+messages', () => {
     expect(estimateLiveTokens({ history: [{ content: 'ab' }], messages: [{ text: 'cdef' }] })).toBe(2)

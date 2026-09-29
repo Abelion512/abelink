@@ -531,10 +531,6 @@ async function runPrompt(state, text, deps) {
   const mode = state.mode === 'plan' ? 'plan' : 'build'
   const result = await runTurn(state, buildTurnPrompt(mode, effectiveText), deps)
   if (result?.reply) pushMessage(state, 'assistant', result.reply)
-  pushMessage(
-    state, 'meta',
-    `${result?.outcome || '?'} (${result?.terminalReason || '?'}) | steps ${result?.stepCount ?? 0} | tools ${result?.toolCallsCount ?? 0}`,
-  )
   return { kind: 'message', role: 'assistant' }
 }
 

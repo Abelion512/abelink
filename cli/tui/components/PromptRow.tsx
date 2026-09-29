@@ -213,6 +213,7 @@ export function PromptRow(props: PromptRowProps) {
 
   // Tutup picker (pilih ATAU batal) -> buang teks filter dari textarea,
   // supaya sisa ketikan tidak ikut terkirim sebagai prompt berikutnya.
+  // Reclaim focus ala opencode (prompt reclaim setelah dialog tutup).
   let wasPickerOpen = false
   createEffect(() => {
     const open = pickerOpen()
@@ -221,6 +222,7 @@ export function PromptRow(props: PromptRowProps) {
       props.onInput?.('')
       setSelected(0)
       setDismissed(false)
+      try { (ta as unknown as { focus?: () => void } | null)?.focus?.() } catch {}
     }
     wasPickerOpen = open
   })
@@ -301,8 +303,12 @@ export function PromptRow(props: PromptRowProps) {
       const n = visibleFor(buf).length
       setSelected((s) => moveCompletionIndex(s, 1, n))
     } else if (e.name === 'tab') {
+      // Port opencode agent_cycle (tab): popup buka = accept; tutup =
+      // toggle plan/build. shift+tab = arah balik (agent_cycle_reverse).
+      if (popup) { e.preventDefault?.(); acceptSelected(buf); return }
       e.preventDefault?.()
-      acceptSelected(buf)
+      props.onModeToggle?.()
+      return
     } else if (e.name === 'escape') {
       // Esc tutup popup (dismissed) tanpa ubah teks; Enter berikutnya
       // submit apa adanya. Ketikan berikutnya buka lagi (reset di
@@ -412,7 +418,11 @@ export function PromptRow(props: PromptRowProps) {
             focusedBackgroundColor={ABELINK_THEME.backgroundElement}
             cursorColor={ABELINK_THEME.text}
             keyBindings={props.picker?.() ? [] : (props.keyBindings ?? PROMPT_KEY_BINDINGS)}
-            ref={(r: TextareaHandle) => { ta = r }}
+            ref={(r: TextareaHandle) => {
+              ta = r
+              // Autofocus ala opencode: langsung ketik tanpa klik dulu.
+              try { (r as unknown as { focus?: () => void }).focus?.() } catch {}
+            }}
             onContentChange={() => {
               setSelected(0)
               // Ketikan baru = niat baru: buka lagi popup yang tadi di-Esc,

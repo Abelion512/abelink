@@ -258,6 +258,8 @@ export interface HomeViewProps {
   // Stream D: accessor didukung agar label mode ikut re-render (pola
   // modelLabel: nilai dibaca di dalam render yang reaktif).
   agentName?: string | (() => string)
+  // Port opencode agent_cycle (tab): toggle plan/build saat popup tutup.
+  onModeToggle?: () => void
   // Port opencode permission.tsx + history.tsx: histori prompt (mutable dari
   // engine) + mode permission (auto/normal, string atau accessor reaktif).
   promptHistory?: { entries: string[]; index: number }
