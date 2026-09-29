@@ -11,6 +11,7 @@ import {
   parseEffortLevel,
   renderThoughtLine,
   renderStepLine,
+  collapseToolOutput,
   createTuiTurn,
   checkTurnAborted,
   parseShellLine,
@@ -53,6 +54,10 @@ export function createTuiState(overrides = {}) {
     // via modeAgentLabel; permissionMode = auto/normal (opencode
     // context/permission.tsx: /permissions toggle).
     mode: 'build',
+    // CATATAN NAMA (merge-review Warning #5): `permissionMode` TUI ini =
+    // auto|normal (opencode context/permission.tsx, toggle /permissions).
+    // JANGAN disamakan dengan `permissionMode` CLI bin/abelink.mjs =
+    // auto|manual|dont-ask (semantik approve-all berbeda). Domain terpisah.
     permissionMode: 'auto',
     workspace: process.cwd(),
     sessionId: `session-${Date.now()}`,
@@ -470,6 +475,8 @@ async function runPrompt(state, text, deps) {
   if (imgResolved.attached?.length) {
     const bins = imgResolved.attached.filter((a) => a.kind !== 'text')
     const svgs = imgResolved.attached.filter((a) => a.kind === 'text')
+    // `bins` dipakai 2x di bawah (pdfs + imgs) — bukan perantara mati
+    // (merge-review Suggestion #8: verifikasi, biarkan).
     const pdfs = bins.filter((a) => a.mime === 'application/pdf')
     const imgs = bins.filter((a) => a.mime !== 'application/pdf')
     const labels = imgResolved.attached.map((a) => a.ref).join(', ')
@@ -1008,6 +1015,12 @@ export async function defaultRunTurn(state, prompt, deps = {}) {
         try { noteWorking(state.working, stepRecord) } catch { /* status opsional */ }
         try { state.onPush?.() } catch { /* repaint opsional */ }
         if (state.showDetails === false && stepRecord?.kind === 'tool') return
+        // Detail tool panjang di-collapse (merge-review Warning #7): maks
+        // 12 baris / 800 char + flag overflow, bukan potong diam-diam.
+        if (stepRecord?.kind === 'tool' && typeof stepRecord.result === 'string') {
+          const c = collapseToolOutput(stepRecord.result, 12, 800)
+          stepRecord = { ...stepRecord, result: c.output + (c.overflow ? '\n[…output dipadatkan]' : '') }
+        }
         const line = renderStepLine(stepRecord)
         if (line && deps.onEvent) deps.onEvent({ type: 'step', line })
       },

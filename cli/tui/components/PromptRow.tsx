@@ -74,6 +74,19 @@ export function PromptRow(props: PromptRowProps) {
   const readTextSignal = () => props.value?.() ?? ''
   // Popup dihitung dari teks BUFFER (plainText), bukan signal — signal
   // tertinggal satu tick dari keypress (terukur PTY: SUBMIT fire sebelum IN).
+  // Frecency sesi (merge-review Warning #2): pemakaian @file dicatat
+  // in-memory (frequency + lastOpen), dibaca rankFileMatches tiap popup.
+  // Bukan persistensi lintas sesi — klaim port-A diselaraskan jujur.
+  const [fileUsageMap, setFileUsageMap] = createSignal<Record<string, { frequency: number; lastOpen: number }>>({})
+  const fileUsage = () => fileUsageMap()
+  const touchFileUse = (name: string) => {
+    const f = String(name ?? '').replace(/^@/, '')
+    if (!f) return
+    setFileUsageMap((m) => {
+      const prev = m[f] || { frequency: 0, lastOpen: 0 }
+      return { ...m, [f]: { frequency: prev.frequency + 1, lastOpen: Date.now() } }
+    })
+  }
   const completionsFor = (text: string): PromptCompletion[] => {
     const t = autocompleteTrigger(text)
     if (!t) return []
@@ -81,8 +94,9 @@ export function PromptRow(props: PromptRowProps) {
     const files = props.fileCompletions?.() ?? []
     const q = t.query
     // Port opencode autocomplete.tsx:502-524: ranking bobot + frecency
-    // (rankFileMatches) gantikan filter alfabetis.
-    return rankFileMatches(files, q).map((f) => ({ name: '@' + f, desc: 'file' }))
+    // (rankFileMatches) gantikan filter alfabetis. Usage = pemakaian @file
+    // sesi ini (touchFileUse di acceptSelected), bukan klaim persisten.
+    return rankFileMatches(files, q, fileUsage()).map((f) => ({ name: '@' + f, desc: 'file' }))
   }
   // Esc tutup popup tanpa ubah teks (ala opencode autocomplete.cancel):
   // flag ini yang menutup, bukan teks — ketikan berikutnya buka lagi.
@@ -154,6 +168,8 @@ export function PromptRow(props: PromptRowProps) {
     if (!list.length) return false
     const item = list[selected() % list.length]
     const next = applyCompletion(current, autocompleteTrigger(current), item.name)
+    // Frecency (merge-review Warning #2): catat @file pick in-memory sesi.
+    touchFileUse(item.name)
     setSelected(0)
     setDismissed(false)
     setTextareaText(next)
@@ -230,6 +246,9 @@ export function PromptRow(props: PromptRowProps) {
   }
 
   const onKeyDown = (e: TuiKeyEvent) => {
+    // ctrl+p = command palette, pemilik tunggal App useKeyboard (merge-review
+    // Warning #4). PromptRow TIDAK intercept ctrl+p agar perilaku konsisten
+    // apa pun isi histori (dulu: histori terisi = recall, kosong = palette).
     // Mode-stack: picker model menang atas autocomplete (opencode
     // dialog-model): Up/Down/Enter/Esc diarahkan ke picker.
     if (pickerOpen()) {
@@ -260,13 +279,14 @@ export function PromptRow(props: PromptRowProps) {
     }
     if (!popup) {
       if (e.name === 'escape') props.onEscape?.()
-      // Histori prompt (Up/Down) hanya saat popup tutup. Ctrl+p/n milik
-      // autocomplete bila popup buka (di bawah); saat tutup = recall juga.
-      if (e.name === 'up' || (e.name === 'p' && e.ctrl)) {
+      // Histori prompt: Up/Down MURNI saja (merge-review Warning #4).
+      // ctrl+p = command palette (App useKeyboard, pemilik tunggal);
+      // ctrl+n = reserved, jangan recall agar tak tabrakan keybind global.
+      if (e.name === 'up' && !e.ctrl && !e.meta) {
         if (recall(-1)) { e.preventDefault?.(); return }
         return
       }
-      if (e.name === 'down' || (e.name === 'n' && e.ctrl)) {
+      if (e.name === 'down' && !e.ctrl && !e.meta) {
         if (recall(1)) { e.preventDefault?.(); return }
         return
       }

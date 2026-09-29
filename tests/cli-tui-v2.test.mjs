@@ -7,7 +7,7 @@ import { spawn } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { ABELINK_THEME, TUI_COMMANDS, AUTOCOMPLETE_MAX_ROWS, filterCompletions, shortModel, SIDEBAR_WIDTH, isWide, messageColor, messagePrefix, PROMPT_KEY_BINDINGS, autocompleteTrigger, applyCompletion, moveCompletionIndex, visibleWindow, DIALOG_PANEL_WIDTH, DIALOG_Z_INDEX, DIALOG_KINDS, isDialogKind, dialogVisibleRows, popupHeight, selectedForeground, dialogFooterText, HOME_PLACEHOLDERS, homePlaceholder, homePromptMaxWidth, HOME_TIPS, homeTip, renderMarkdownLines, renderMarkdownText, sessionContextUsage, statusChips } from '../cli/tui/theme.ts'
+import { ABELINK_THEME, TUI_COMMANDS, AUTOCOMPLETE_MAX_ROWS, filterCompletions, shortModel, SIDEBAR_WIDTH, isWide, messageColor, messagePrefix, PROMPT_KEY_BINDINGS, autocompleteTrigger, applyCompletion, moveCompletionIndex, visibleWindow, DIALOG_PANEL_WIDTH, DIALOG_Z_INDEX, DIALOG_KINDS, isDialogKind, dialogVisibleRows, popupHeight, selectedForeground, dialogFooterText, HOME_PLACEHOLDERS, homePlaceholder, homePromptMaxWidth, HOME_TIPS, homeTip, renderMarkdownLines, renderMarkdownText, sessionContextUsage, statusChips, statusRightText } from '../cli/tui/theme.ts'
 import { parseSlashCommand } from '../bin/abelink-tui.mjs'
 import { createTuiState, submitLine, effortDialogRows, refreshSessionUsage, touchSessionUsage, switchToSession } from '../cli/tui/engine.mjs'
 import { lastTuiSession } from '../cli/core/index.mjs'
@@ -645,5 +645,14 @@ describe('rankFileMatches (port opencode frecency+r ranking)', () => {
     expect(rankFileMatches(files, 'app', {}, now)).toEqual(['docs/app.md', 'src/app.ts'])
     const usage = { 'src/zebra.ts': { frequency: 10, lastOpen: now } }
     expect(rankFileMatches(files, '', usage, now)[0]).toBe('src/zebra.ts')
+  })
+})
+
+describe('statusRightText (merge-review Critical #1)', () => {
+  it('prop working menang saat busy, chips selain itu', async () => {
+    const { statusRightText } = await import('../cli/tui/theme.ts')
+    expect(statusRightText({ busy: true, prop: 'working… step 2' })).toBe('working… step 2')
+    expect(statusRightText({ busy: false, prop: 'working…' })).toContain('/help')
+    expect(statusRightText({})).toBe('/help · ctrl+p')
   })
 })

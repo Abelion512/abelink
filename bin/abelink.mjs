@@ -200,6 +200,8 @@ export function parseCliArgs(argv) {
     continueLatest: false,
     // auto (default) | manual | dont-ask. manual = fail-closed klasik
     // (butuh --approve-all per aksi); dont-ask = deny untuk CI.
+    // CATATAN NAMA (merge-review Warning #5): BUKAN `permissionMode` TUI
+    // (cli/tui/engine.mjs = auto|normal, toggle /permissions). Domain beda.
     permissionMode: 'auto'
   }
 

@@ -165,6 +165,13 @@ async function main() {
           onEvent: (e: TuiProgressEvent) => { if (e?.line) console.log(e.line) },
         })
         if (r?.kind === 'exit') break
+        // Pipe `/new` sesi kotor = force (merge-review Warning #3): tanpa
+        // TTY tak ada dialog confirm; diam = sesi tak di-reset = bug senyap.
+        if (r?.kind === 'confirm' && (r as { action?: string }).action === 'new') {
+          state.sessionId = `session-${Date.now()}`
+          state.history = []
+          console.log(`Sesi baru: ${state.sessionId} (pipe --force implisit).`)
+        }
       }
       for (const m of state.messages) {
         if (m.role === 'user') console.log(`> ${m.text}`)

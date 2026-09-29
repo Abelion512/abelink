@@ -465,3 +465,11 @@ describe('port D: attach/paste/permission/history', () => {
     expect(seen).toContain('tanpa parser PDF')
   })
 })
+
+describe('renderStepLine format eksak (merge-review Warning #6)', () => {
+  it('[TOOL x]: OK — baris-pertama', async () => {
+    const { renderStepLine } = await import('../cli/core/index.mjs')
+    expect(renderStepLine({ kind: 'tool', tool: 'read-file', ok: true, result: 'baris1\nbaris2' })).toBe('[TOOL read-file]: OK — baris1')
+    expect(renderStepLine({ kind: 'tool', tool: 't', ok: false, result: 'err' })).toBe('[TOOL t]: FAIL — err')
+  })
+})

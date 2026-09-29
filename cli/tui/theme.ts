@@ -460,6 +460,9 @@ export function renderMarkdownLines(input: string = ''): MarkdownLine[] {
           }
         }
       }
+      // Pipe -> spasi: tabel markdown runtuh rapi di TUI sempit.
+      // BATAS (merge-review Suggestion #9): URL/prosa ber-pipe ikut kena
+      // (mis. `a|b`, `http://x?a|b`); code-span sudah di-stash aman.
       t = t.replace(/\|/g, ' ')
     }
     // Italic tunggal hanya `*` (bukan `_`): underscore intra-kata
@@ -503,8 +506,14 @@ export interface StatusChipsInput {
   hint?: string
 }
 
-export function statusChips(inp: StatusChipsInput = {}): string {
-  const parts: string[] = []
+/** Prioritas status kanan (merge-review Critical #1): prop working menang
+ *  saat busy, selain itu chips. Murni + testable. */
+export function statusRightText(inp: { busy?: boolean; prop?: string | null; lspCount?: number | null; mcpError?: boolean } = {}): string {
+  if (inp.busy && inp.prop) return String(inp.prop)
+  return statusChips({ lspCount: inp.lspCount ?? null, mcpError: inp.mcpError, hint: '/help · ctrl+p' })
+}
+
+export function statusChips(inp: StatusChipsInput = {}): string {  const parts: string[] = []
   // lspCount null/undefined = data tak tersedia -> segmen di-skip (tanpa
   // angka palsu). Eksplisit 0 = faktual (TUI tanpa language server).
   if (inp.lspCount !== null && inp.lspCount !== undefined) {

@@ -7,7 +7,7 @@
 // V2-1: echo lokal; engine wiring = slice berikut.
 import { createSignal, For, Show, onMount, onCleanup } from 'solid-js'
 import { useKeyboard, useTerminalDimensions } from '@opentui/solid'
-import { ABELINK_THEME, shortModel, SIDEBAR_WIDTH, isWide, isDialogKind, visibleWindow, homePlaceholder, statusChips } from './theme.ts'
+import { ABELINK_THEME, shortModel, SIDEBAR_WIDTH, isWide, isDialogKind, visibleWindow, homePlaceholder, statusRightText } from './theme.ts'
 import { MessageLine } from './components/MessageLine.tsx'
 import { PromptRow } from './components/PromptRow.tsx'
 import { HomeView } from './components/HomeView.tsx'
@@ -93,8 +93,9 @@ export function App(props: AppProps = {}) {
   }
   // Batch C (footer opencode: kiri direktori, kanan status): kanan =
   // statusChips (theme.ts) — LSP + MCP error + hint. Tanpa data ->
-  // segmen di-skip (tanpa angka palsu).
-  const statusRight = () => statusChips({ lspCount: lspN(), mcpError: mcpErr(), hint: '/help · ctrl+p' })
+  // segmen di-skip (tanpa angka palsu). Prop statusRight (working Stream D)
+  // menang saat busy — merge-review Critical #1.
+  const statusRight = () => statusRightText({ busy: busy(), prop: props.statusRight, lspCount: lspN(), mcpError: mcpErr() })
   // Picker model (opencode dialog-model): daftar + jendela baris agar
   // katalog 1200+ ID tetap muat dan pilihan selalu terlihat.
   const picker = () => props.picker?.() ?? null

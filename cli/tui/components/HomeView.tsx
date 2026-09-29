@@ -23,9 +23,9 @@ export function HomeView(props: HomeViewProps) {
           <text fg={ABELINK_THEME.textMuted}>{props.title ?? 'Abelink'} v{props.version ?? ''}</text>
         </box>
         {/* Tip rotasi ala opencode Tips ("● Tip ...", highlight = text). */}
-        <box style={{ flexDirection: 'row', width: '100%', paddingTop: 1 }}>
-          <text fg={ABELINK_THEME.warning}>● Tip </text>
-          <text fg={ABELINK_THEME.textMuted}>{homeTip(props.tipIndex ?? 0)}</text>
+        <box style={{ flexDirection: 'row', width: '100%', paddingTop: 1, gap: 1 }}>
+          <text fg={ABELINK_THEME.warning}>● Tip</text>
+          <text fg={ABELINK_THEME.textMuted}>{' ' + homeTip(props.tipIndex ?? 0)}</text>
         </box>
         <box style={{ flexDirection: 'column', alignItems: 'center', paddingTop: 1 }}>
           <Show
