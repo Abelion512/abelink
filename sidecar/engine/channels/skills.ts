@@ -32,25 +32,66 @@ type TreeEntry =
   | { name: string; path: string; type: 'folder'; children: TreeEntry[] }
   | { name: string; path: string; type: 'file' }
 
+/**
+ * Search roots skill — SINGLE SOURCE OF TRUTH (P1 regression fix).
+ *
+ * Prioritas deterministik (paling awal = paling tinggi):
+ * 1. brandDir()/skills              — skill lokal Abelink (read-write)
+ * 2. $ABELINK_SKILLS_EXTRA          — override eksternal via env (restore W3)
+ * 3. ~/.agents/skills               — pola Hermes/agents
+ * 4. ~/.claude/skills               — pola Claude Code
+ * 5. <cwd>/.opencode/skills         — pola opencode di workspace (restore W3)
+ *
+ * Root yang tidak ada/duplikat dibuang; nama skill di-dedup oleh pemanggil
+ * (listSkillsMeta / resolveSkillPath) sesuai urutan di atas. Pembacaan tetap
+ * read-only untuk root non-lokal: discovery tidak pernah menulis/eksekusi kode.
+ */
 export const getSkillSearchRoots = (): string[] => {
   const local = path.join(brandDir(), 'skills')
   try {
     fs.mkdirSync(local, { recursive: true })
   } catch {}
-  return [
+  const home = os.homedir() || ''
+  const candidates = [
     local,
-    path.join(os.homedir(), '.agents', 'skills'),
-    path.join(os.homedir(), '.claude', 'skills')
+    process.env.ABELINK_SKILLS_EXTRA || '',
+    home ? path.join(home, '.agents', 'skills') : '',
+    home ? path.join(home, '.claude', 'skills') : '',
+    path.join(process.cwd(), '.opencode', 'skills')
   ]
+  // Dedup path (urutan dipertahankan) + buang empty.
+  const seen = new Set<string>()
+  const roots: string[] = []
+  for (const c of candidates) {
+    if (!c) continue
+    const abs = path.resolve(c)
+    if (seen.has(abs)) continue
+    seen.add(abs)
+    roots.push(abs)
+  }
+  return roots
+}
+
+/**
+ * Guard jalur: realpath target harus tetap di dalam base.
+ * Dipakai pemindaian root eksternal agar symlink keluar root ditolak
+ * (read-only discovery, tanpa traversal).
+ */
+export const isSafeSkillDir = (dir: string, base: string): boolean => {
+  try {
+    const real = fs.realpathSync(dir)
+    const realBase = fs.realpathSync(base)
+    return real === realBase || real.startsWith(realBase + path.sep)
+  } catch {
+    return false
+  }
 }
 
 export const SKILLS_DIR = path.join(brandDir(), 'skills')
 
 /**
- * Cari folder atau file skill di seluruh search roots berdasarkan urutan prioritas:
- * 1. ~/.local/share/abelink/skills
- * 2. ~/.agents/skills
- * 3. ~/.claude/skills
+ * Cari folder atau file skill di seluruh search roots berdasarkan urutan prioritas
+ * getSkillSearchRoots() (lokal -> ABELINK_SKILLS_EXTRA -> agents -> claude -> opencode).
  */
 export async function resolveSkillPath(name: string): Promise<SkillResolution | null> {
   if (!isValidSkillName(name)) rejectInvalidSkillName()
@@ -96,7 +137,8 @@ async function readDescription(folderPath: string): Promise<string> {
 
 // Nama skill wajib sederhana tanpa slash dan tanpa titik di depan agar tidak
 // bisa dipakai untuk path traversal keluar dari folder skills.
-const isValidSkillName = (name: unknown): name is string =>
+// Exported: kontrak sanitasi diuji langsung (tests/skillSearchRoots.test.mjs).
+export const isValidSkillName = (name: unknown): name is string =>
   typeof name === 'string' && /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(name)
 
 // Handler skills terdaftar lewat on() yang membungkus hasil dengan ok(),
@@ -513,6 +555,9 @@ export const listSkillsMeta = async (): Promise<Array<SkillMeta | { name: string
         if (!isValidSkillName(e.name.replace(/\.md$/, ''))) continue
 
         const full = path.join(root, e.name)
+        // Symlink escape guard: entri yang keluar dari root (atau root-nya
+        // sendiri tak resolve) diabaikan — read-only, fail-closed.
+        if (!isSafeSkillDir(full, root)) continue
         if (e.isDirectory()) {
           const skillMd = path.join(full, 'SKILL.md')
           if (fs.existsSync(skillMd) && !found.has(e.name)) {

@@ -394,7 +394,13 @@ export async function runAgentLoop({
           hasExecutedTools: executedToolsList.length > 0,
           missionActive: true,
           objectiveKind,
-          conversational: objectiveKind === 'conversational'
+          conversational: objectiveKind === 'conversational',
+          // PLAN MODE WIRING (P1): flag tools-disabled HARUS masuk ctx
+          // classifier agar turn plan-mode terminal sebagai FINAL
+          // ('tools-disabled'), bukan masuk stagnation ladder. Tanpa ini,
+          // plan mode hanya advisory prompt dan model bisa dipaksa replan
+          // tanpa-action berulang (no-action streak) sia-sia.
+          disableTools: options.disableTools === true
         })
         const intent = classification.intent
 
@@ -479,6 +485,23 @@ export async function runAgentLoop({
         if (intent === INTENT.SELF_TERMINATE) {
           sessionOutcome = 'self_terminated'
           lastTerminalReason = classification.reason || 'self-terminate-reported'
+          isDone = true
+          break
+        }
+
+        // PLAN MODE (P1 wiring): classifier FINAL dengan reason
+        // 'tools-disabled' berarti sesi non-tool (greeting /plan). Terminal
+        // LANGSUNG tanpa verification gate — tidak ada tool yang dieksekusi,
+        // jadi evidence gate tidak punya apa-apa untuk dibuktikan dan tak boleh
+        // memaksa replan buta. Jawaban model lapor apa adanya.
+        if (
+          intent === INTENT.FINAL &&
+          options.disableTools === true &&
+          classification.reason === 'tools-disabled'
+        ) {
+          noActionStreak = 0
+          sessionOutcome = 'completed'
+          lastTerminalReason = 'tools-disabled'
           isDone = true
           break
         }
