@@ -22,7 +22,7 @@ const DESIGN = [
 
 // ---- Error handling ----
 const ERROR_HANDLING = [
-  S('Gagal graceful: kembalikan null/pesan jujur, jangan crash, jangan ngarang', 'errorGuard.js, convertFilePathToBase64'),
+  S('Gagal graceful: kembalikan null/pesan jujur, jangan crash, jangan ngarang', 'errorGuard.ts, convertFilePathToBase64'),
   S('Jaringan/API: jeda rate-limit + backoff + ganti model otomatis', 'sidecar/main/ai-bridge.js'),
   S('ML lokal gagal (mis. SIMD tak tersedia) = turun ke Lite Mode hash, fitur tetap jalan', 'vectorMemory.ts, embedding.worker.ts')
 ]
