@@ -7,7 +7,7 @@
 // V2-1: echo lokal; engine wiring = slice berikut.
 import { createSignal, For, Show, onMount, onCleanup } from 'solid-js'
 import { useKeyboard, useTerminalDimensions } from '@opentui/solid'
-import { ABELINK_THEME, shortModel, SIDEBAR_WIDTH, isWide, isDialogKind, visibleWindow, homePlaceholder, statusRightText } from './theme.ts'
+import { ABELINK_THEME, shortModel, SIDEBAR_WIDTH, isWide, isDialogKind, visibleWindow, homePlaceholder, statusRightText, abbreviateHome } from './theme.ts'
 import { MessageLine } from './components/MessageLine.tsx'
 import { PromptRow } from './components/PromptRow.tsx'
 import { HomeView } from './components/HomeView.tsx'
@@ -222,7 +222,7 @@ export function App(props: AppProps = {}) {
           gap: 1,
         }}
       >
-        <scrollbox style={{ flexGrow: 1, minHeight: 0 }}>
+        <scrollbox style={{ flexGrow: 1, minHeight: 0 }} scrollbarOptions={{ visible: false }}>
           {/* Layar awal tengah (slice 4, pola opencode routes/home.tsx):
               kolom tengah HomeView saat messages kosong; non-kosong = daftar
               pesan seperti semula. Prompt pertama langsung jalan via submit. */}
@@ -285,9 +285,10 @@ export function App(props: AppProps = {}) {
           </box>
         )}
         {promptArea()}
-        {/* Status line pola footer opencode (kiri direktori, kanan status). */}
+        {/* Status line pola footer opencode (kiri direktori singkat ~,
+            kanan status). abbreviateHome cegah wrap 2 baris di 100 kolom. */}
         <box style={{ flexDirection: 'row', justifyContent: 'space-between', flexShrink: 0 }}>
-          <text fg={ABELINK_THEME.textMuted}>{props.workspace ?? ''}</text>
+          <text fg={ABELINK_THEME.textMuted}>{abbreviateHome(props.workspace ?? '', typeof process !== 'undefined' ? process.env.HOME ?? '' : '')}</text>
           <box style={{ flexDirection: 'row', gap: 2 }}>
             <text fg={ABELINK_THEME.textMuted}>{statusRight()}</text>
           </box>

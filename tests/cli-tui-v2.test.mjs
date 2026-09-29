@@ -652,7 +652,17 @@ describe('statusRightText (merge-review Critical #1)', () => {
   it('prop working menang saat busy, chips selain itu', async () => {
     const { statusRightText } = await import('../cli/tui/theme.ts')
     expect(statusRightText({ busy: true, prop: 'working… step 2' })).toBe('working… step 2')
-    expect(statusRightText({ busy: false, prop: 'working…' })).toContain('/help')
-    expect(statusRightText({})).toBe('/help · ctrl+p')
+    expect(statusRightText({ busy: false, prop: 'working…' })).toBe('/status')
+    expect(statusRightText({})).toBe('/status')
+  })
+})
+
+describe('abbreviateHome (status line 1 baris)', () => {
+  it('ganti $HOME jadi ~, non-prefix utuh', async () => {
+    const { abbreviateHome } = await import('../cli/tui/theme.ts')
+    expect(abbreviateHome('/home/u/proj', '/home/u')).toBe('~/proj')
+    expect(abbreviateHome('/home/u', '/home/u')).toBe('~')
+    expect(abbreviateHome('/tmp/x', '/home/u')).toBe('/tmp/x')
+    expect(abbreviateHome('', '')).toBe('')
   })
 })

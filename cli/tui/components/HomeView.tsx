@@ -9,7 +9,7 @@
 // bukan hardcode lokal) + session-destination (lanjut sesi terakhir bila ada,
 // pola routes/home/session-destination.tsx).
 import { Show } from 'solid-js'
-import { ABELINK_THEME, homePromptMaxWidth, homeTip } from '../theme.ts'
+import { ABELINK_THEME, homePromptMaxWidth, homeTip, abbreviateHome } from '../theme.ts'
 import { Logo } from './Logo.tsx'
 import type { HomeViewProps } from '../types.ts'
 
@@ -37,7 +37,7 @@ export function HomeView(props: HomeViewProps) {
           <text fg={ABELINK_THEME.textMuted}>/models ganti model · /help daftar perintah · Shift+Enter baris baru</text>
         </box>
         <box style={{ flexDirection: 'column', alignItems: 'center', paddingTop: 1 }}>
-          <text fg={ABELINK_THEME.textMuted}>{props.workspace ?? ''}</text>
+          <text fg={ABELINK_THEME.textMuted}>{abbreviateHome(props.workspace ?? '', typeof process !== 'undefined' ? process.env.HOME ?? '' : '')}</text>
         </box>
       </box>
     </box>

@@ -430,19 +430,17 @@ export function PromptRow(props: PromptRowProps) {
             onSubmit={() => resolveEnter(readText())}
           />
           {/* Meta row, port opencode prompt/index.tsx:1442-1478: agen
-              Titlecase + `auto` (HANYA bila permission auto) · model +
-              provider (HANYA bila permission normal — pola opencode:
-              meta model disembunyikan saat auto). Tanpa fade/variant. */}
+              Titlecase + `auto` (bila permission auto) · model + provider
+              SELALU (opencode tampilkan model di mode normal apa pun
+              permission-nya). Tanpa fade/variant. */}
           <box style={{ flexDirection: 'row', flexShrink: 0, paddingTop: 1, gap: 1, justifyContent: 'space-between' }}>
             <box style={{ flexDirection: 'row', gap: 1 }}>
               <text fg={ABELINK_THEME.accent}>{agent()}</text>
               <Show when={permMode() === 'auto'}>
                 <text fg={ABELINK_THEME.textMuted}>auto</text>
               </Show>
-              <Show when={permMode() !== 'auto'}>
-                <text fg={ABELINK_THEME.textMuted}>·</text>
-                <text fg={ABELINK_THEME.text}>{meta()}</text>
-              </Show>
+              <text fg={ABELINK_THEME.textMuted}>·</text>
+              <text fg={ABELINK_THEME.text}>{meta()}</text>
             </box>
             <Show when={props.right}>
               <box style={{ flexDirection: 'row', gap: 1, alignItems: 'center' }}>

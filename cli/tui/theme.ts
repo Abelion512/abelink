@@ -506,13 +506,23 @@ export interface StatusChipsInput {
   hint?: string
 }
 
+/** Singkat path workspace ala opencode useDirectory: ganti $HOME jadi ~.
+ *  Murni + testable. Cegah status line wrap 2 baris di terminal sempit. */
+export function abbreviateHome(p: string = '', home: string = ''): string {
+  const s = String(p ?? '')
+  const h = String(home ?? '').replace(/\/+$/, '')
+  if (!h || s === h) return h && s === h ? '~' : s
+  return s.startsWith(h + '/') ? '~' + s.slice(h.length) : s
+}
+
 /** Prioritas status kanan (merge-review Critical #1): prop working menang
  *  saat busy, selain itu chips. Murni + testable. */
 export function statusRightText(inp: { busy?: boolean; prop?: string | null; lspCount?: number | null; mcpError?: boolean } = {}): string {
   if (inp.busy && inp.prop) return String(inp.prop)
-  return statusChips({ lspCount: inp.lspCount ?? null, mcpError: inp.mcpError, hint: '/help · ctrl+p' })
+  // Hint pendek ala opencode footer (/status) — '/help · ctrl+p' bikin
+  // status line wrap 2 baris di terminal 100 kolom (terukur PTY).
+  return statusChips({ lspCount: inp.lspCount ?? null, mcpError: inp.mcpError, hint: '/status' })
 }
-
 export function statusChips(inp: StatusChipsInput = {}): string {  const parts: string[] = []
   // lspCount null/undefined = data tak tersedia -> segmen di-skip (tanpa
   // angka palsu). Eksplisit 0 = faktual (TUI tanpa language server).
