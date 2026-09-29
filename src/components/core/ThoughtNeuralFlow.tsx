@@ -10,7 +10,7 @@ const ThoughtNeuralFlow = ({ processes }) => {
     if (!activePlan && list.length > 0) {
       const runningProc = list.find(p => p.status !== 'done');
       if (runningProc) {
-        let taskName = runningProc.type === 'web-search' ? 'Mencari Data...' :
+        const taskName = runningProc.type === 'web-search' ? 'Mencari Data...' :
                        runningProc.type === 'plugin-execution' ? 'Eksekusi Plugin...' :
                        'Memproses...';
         activePlan = {

@@ -1,4 +1,4 @@
-import { tx } from '../../api/locale'
+import { t } from '../../api/locale'
 
 export default function DataControlsSection({
   activeSection,
@@ -6,6 +6,12 @@ export default function DataControlsSection({
   onExportChat,
   onImportLegacy,
   language = 'en'
+}: {
+  activeSection: string
+  onClearAllChat: () => Promise<void>
+  onExportChat: () => Promise<void>
+  onImportLegacy: () => Promise<void>
+  language?: string
 }) {
   return (
     <section
@@ -14,14 +20,14 @@ export default function DataControlsSection({
     >
       <div>
         <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
-          {tx(language, 'data.title')}
+          {t(language, 'data.title')}
         </h2>
       </div>
 
       <div className="space-y-2">
-        <p className="text-sm font-semibold">{tx(language, 'data.subtitle')}</p>
+        <p className="text-sm font-semibold">{t(language, 'data.subtitle')}</p>
         <p className="text-xs opacity-60">
-          {tx(language, 'data.desc')}
+          {t(language, 'data.desc')}
         </p>
         <div className="flex flex-wrap gap-2 pt-1">
           <button
@@ -29,21 +35,21 @@ export default function DataControlsSection({
             className="btn btn-outline btn-sm btn-error rounded-xl"
             onClick={onClearAllChat}
           >
-            {tx(language, 'data.clearAll')}
+            {t(language, 'data.clearAll')}
           </button>
           <button
             type="button"
             className="btn btn-outline btn-sm btn-info rounded-xl"
             onClick={onExportChat}
           >
-            {tx(language, 'data.exportJson')}
+            {t(language, 'data.exportJson')}
           </button>
           <button
             type="button"
             className="btn btn-outline btn-sm rounded-xl"
             onClick={onImportLegacy}
           >
-            {tx(language, 'data.importLegacy')}
+            {t(language, 'data.importLegacy')}
           </button>
         </div>
       </div>

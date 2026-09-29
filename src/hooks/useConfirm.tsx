@@ -41,7 +41,7 @@ export const useConfirm = () => {
   })
   const promiseRef = useRef<((result: ConfirmResult) => void) | null>(null)
 
-  const confirm = useCallback((config: ConfirmConfig) => {
+  const confirm = useCallback((config: ConfirmConfig): Promise<ConfirmResult> => {
     return new Promise((resolve) => {
       promiseRef.current = resolve
       setModalConfig({

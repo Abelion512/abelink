@@ -1211,7 +1211,7 @@ try {
   await loudness.setVolume(vol)
   return '✅ Berhasil, volume telah diubah ke ' + vol + '%'
 } catch (e) {
-  return '❌ Gagal mengubah volume: ' + e.message
+  return '❌ Gagal mengubah volume: ' + (e instanceof Error ? e.message : String(e))
 }`}</code>
                 </pre>
               </div>

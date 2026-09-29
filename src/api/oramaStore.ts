@@ -143,8 +143,13 @@ export async function resetSearchIndices() {
 
 // Kecocokan model baris vs mode pencarian aktif; tanpa tag = legasi MiniLM,
 // 'none' (fulltext saja) selalu kompatibel karena tidak punya vektor.
+// Keluarga MiniLM ('minilm', 'minilm-q8') kompatibel lintas tier: q8 adalah
+// model yang SAMA terkuantisasi — ruang vektor identik, hanya presisi turun.
+// 'hash' TIDAK PERNAH kompatibel (bukan ruang semantik).
 function rowModelCompatible(rowModel: unknown, currentModel: unknown): boolean {
   if (!rowModel || rowModel === 'none') return true
+  const minilmFamily = new Set(['minilm', 'minilm-q8'])
+  if (minilmFamily.has(rowModel as string) && minilmFamily.has(currentModel as string)) return true
   return rowModel === currentModel
 }
 

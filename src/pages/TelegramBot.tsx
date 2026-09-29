@@ -82,7 +82,7 @@ const TelegramBot = () => {
       startBot(token)
     } catch (e) {
       console.error('[TelegramBot] Gagal simpan pengaturan Telegram:', e)
-      alert('Gagal menyimpan pengaturan: ' + e.message)
+      alert('Gagal menyimpan pengaturan: ' + (e instanceof Error ? e.message : String(e)))
     }
   }
 

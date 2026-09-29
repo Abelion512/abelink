@@ -19,7 +19,7 @@ const ProcessPanel = ({ processes, onDismiss }) => {
       if (cancelled) return
       setRenderedProcesses(prev => {
         // Update existing or abelink as exiting
-        let next = prev.map(rp => {
+        const next = prev.map(rp => {
           const updated = processes.find(p => p.id === rp.id);
           if (updated) return { ...updated, isExiting: false };
           if (!rp.isExiting) return { ...rp, isExiting: true };

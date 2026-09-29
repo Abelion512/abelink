@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, type ChangeEvent } from 'react'
 import {
   Plug,
   Boxes,
@@ -27,7 +27,10 @@ import {
 } from 'lucide-react'
 import { useConfirm } from '../../hooks/useConfirm'
 import { getCachedSkills } from '../../api/skillsCache'
-import { tx, localeTag } from '../../api/locale'
+import { t, localeTag } from '../../api/locale'
+import type { ConfigRow } from '../../api/db'
+
+
 
 const PLANNED_MCP_CONNECTORS = [
   {
@@ -65,11 +68,70 @@ const BUILTIN_SKILLS = [
   }
 ]
 
-const BUILTIN_SKILL_KEYS = {
+const BUILTIN_SKILL_KEYS: Record<string, string[]> = {
   'systematic-engineering': ['cap.skillSystematic', 'cap.skillSystematicDesc'],
   'execution-discipline': ['cap.skillExecution', 'cap.skillExecutionDesc'],
   'durable-planner': ['cap.skillPlanner', 'cap.skillPlannerDesc'],
   'root-cause-debugger': ['cap.skillDebugger', 'cap.skillDebuggerDesc']
+}
+
+interface CapabilitiesHubProps {
+  config: ConfigRow
+  setConfig: (updater: (prev: ConfigRow) => ConfigRow) => void
+  handleAwarenessEnabledChange: (e: ChangeEvent<HTMLInputElement>) => void
+  handleCompactionEnabledChange: (e: ChangeEvent<HTMLInputElement>) => void
+  handleBuiltinPluginChange: (key: string) => (e: ChangeEvent<HTMLInputElement>) => void
+  handleRtkCompressChange: (e: ChangeEvent<HTMLInputElement>) => void
+  isDevMode?: boolean
+  language?: string
+}
+
+interface Connector {
+  id: string
+  name?: string
+  description?: string
+  url?: string
+  scopes?: string[]
+  transport?: string
+  custom?: boolean
+  [key: string]: unknown
+}
+
+type AuditEntry = {
+  connectorId?: string
+  connector?: string
+  op?: string
+  status?: string
+  ts?: number | string
+  timestamp?: number | string
+  [key: string]: unknown
+}
+
+interface PluginAction {
+  name: string
+  description?: string
+  triggerHint?: string
+  code: string
+  [key: string]: unknown
+}
+
+interface PluginRow {
+  name: string
+  description?: string
+  actions?: PluginAction[]
+  isEnabled?: boolean
+  [key: string]: unknown
+}
+
+interface ExtInstallState {
+  dir?: string
+  error?: string
+}
+
+interface ApprovalPolicyRow {
+  family: string
+  policy: string
+  [key: string]: unknown
 }
 
 export default function CapabilitiesHub({
@@ -81,16 +143,16 @@ export default function CapabilitiesHub({
   handleRtkCompressChange,
   isDevMode = false,
   language = 'en'
-}) {
+}: CapabilitiesHubProps) {
   const { confirm, ModalComponent } = useConfirm()
-  const [activeTab, setActiveTab] = useState('connectors')
+  const [activeTab, setActiveTab] = useState<'connectors' | 'plugins' | 'skills' | 'security'>('connectors')
 
   // ── Browser Extension State & Modal ───────────────────────────────────────
-  const [extInstall, setExtInstall] = useState(null)
+  const [extInstall, setExtInstall] = useState<ExtInstallState | null>(null)
   const [extGuideOpen, setExtGuideOpen] = useState(false)
   const [copiedPath, setCopiedPath] = useState(false)
   // Watchdog Fase C3: pill status + reconnect manual (bounded di sidecar).
-  const [browserConnected, setBrowserConnected] = useState(null)
+  const [browserConnected, setBrowserConnected] = useState<boolean | null>(null)
   const [browserReconnecting, setBrowserReconnecting] = useState(false)
   const [browserNote, setBrowserNote] = useState('')
 
@@ -100,8 +162,10 @@ export default function CapabilitiesHub({
         setBrowserConnected(null)
         return
       }
-      const st = await window.api.runNodeFunction('browser:status')
-      const live = Array.isArray(st?.sessions) && st.sessions.some((s) => s.connected)
+      const st = (await window.api.runNodeFunction('browser:status')) as {
+        sessions?: Array<{ connected?: boolean }>
+      } | null
+      const live = Array.isArray(st?.sessions) && !!st.sessions.some((s) => s.connected)
       setBrowserConnected(!!live)
     } catch {
       setBrowserConnected(null)
@@ -113,23 +177,27 @@ export default function CapabilitiesHub({
     setBrowserReconnecting(true)
     setBrowserNote('')
     try {
-      const r = await window.api?.runNodeFunction('browser:reconnect')
+      const r = (await window.api?.runNodeFunction('browser:reconnect')) as {
+        ok?: boolean
+        reused?: boolean
+        reason?: string
+      } | null | undefined
       if (r?.ok) {
         setBrowserConnected(true)
-        setBrowserNote(r.reused ? tx(language, 'cap.extReused') : tx(language, 'cap.extReconnected'))
+        setBrowserNote(r.reused ? t(language, 'cap.extReused') : t(language, 'cap.extReconnected'))
       } else {
         setBrowserConnected(false)
         setBrowserNote(
           r?.reason === 'launch-budget-exhausted'
-            ? tx(language, 'cap.launchBudget')
+            ? t(language, 'cap.launchBudget')
             : r?.reason === 'auto-launch-off'
-              ? tx(language, 'cap.autoLaunchOff')
-              : tx(language, 'cap.reconnectFailed')(r?.reason)
+              ? t(language, 'cap.autoLaunchOff')
+              : t(language, 'cap.reconnectFailed', r?.reason)
         )
       }
     } catch (e) {
       setBrowserConnected(false)
-      setBrowserNote(tx(language, 'cap.reconnectError')(e?.message || String(e)))
+      setBrowserNote(t(language, 'cap.reconnectError', (e instanceof Error ? e.message : String(e)) || String(e)))
     } finally {
       setBrowserReconnecting(false)
     }
@@ -138,14 +206,14 @@ export default function CapabilitiesHub({
   const handleInitExtension = async () => {
     try {
       if (!window.api?.ensureExtensionFiles) {
-        setExtInstall({ error: tx(language, 'cap.runtimeUnsupported') })
+        setExtInstall({ error: t(language, 'cap.runtimeUnsupported') })
         return
       }
-      const dir = await window.api.ensureExtensionFiles()
+      const dir = (await window.api.ensureExtensionFiles()) as string
       setExtInstall({ dir })
       setExtGuideOpen(true)
     } catch (e) {
-      setExtInstall({ error: e?.message || String(e) })
+      setExtInstall({ error: (e instanceof Error ? e.message : String(e)) || String(e) })
     }
   }
 
@@ -169,20 +237,23 @@ export default function CapabilitiesHub({
 
   const handleGoogleConnect = async () => {
     if (!googleClientId.trim() || !googleClientSecret.trim()) {
-      alert(tx(language, 'cap.googleRequired'))
+      alert(t(language, 'cap.googleRequired'))
       return
     }
     setGoogleLoading(true)
     try {
-      const res = await window.api?.googleConnect?.(googleClientId.trim(), googleClientSecret.trim())
+      const res = (await window.api?.googleConnect?.(googleClientId.trim(), googleClientSecret.trim())) as {
+        success?: boolean
+        error?: string
+      } | null | undefined
       if (res?.success) {
         setGoogleConnected(true)
         setGoogleModalOpen(false)
       } else {
-        alert(tx(language, 'cap.googleAuthFailed')(res?.error))
+        alert(t(language, 'cap.googleAuthFailed', res?.error))
       }
     } catch (e) {
-      alert(tx(language, 'cap.googleConnectFailed')(e.message || e))
+      alert(t(language, 'cap.googleConnectFailed', (e instanceof Error ? e.message : String(e)) || e))
     } finally {
       setGoogleLoading(false)
     }
@@ -190,9 +261,9 @@ export default function CapabilitiesHub({
 
   const handleGoogleDisconnect = async () => {
     const res = await confirm({
-      title: tx(language, 'cap.googleDisconnectTitle'),
-      message: tx(language, 'cap.googleDisconnectMsg'),
-      confirmText: tx(language, 'cap.disconnect'),
+      title: t(language, 'cap.googleDisconnectTitle'),
+      message: t(language, 'cap.googleDisconnectMsg'),
+      confirmText: t(language, 'cap.disconnect'),
       isError: true
     })
     if (!res.isConfirmed) return
@@ -201,17 +272,17 @@ export default function CapabilitiesHub({
       await window.api?.googleDisconnect?.()
       setGoogleConnected(false)
     } catch (e) {
-      alert(tx(language, 'cap.googleDisconnectFailed')(e.message || e))
+      alert(t(language, 'cap.googleDisconnectFailed', (e instanceof Error ? e.message : String(e)) || e))
     }
   }
 
   // ── MCP Connectors State & Modal ──────────────────────────────────────────
-  const [connectors, setConnectors] = useState([])
-  const [connections, setConnections] = useState({})
-  const [auditLogs, setAuditLogs] = useState([])
+  const [connectors, setConnectors] = useState<Connector[]>([])
+  const [connections, setConnections] = useState<Record<string, unknown>>({})
+  const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([])
   const [mcpLoading, setMcpLoading] = useState(true)
   const [mcpSearch, setMcpSearch] = useState('')
-  const [busyConnectorKey, setBusyConnectorKey] = useState(null)
+  const [busyConnectorKey, setBusyConnectorKey] = useState<string | null>(null)
   const [showAuditDrawer, setShowAuditDrawer] = useState(false)
   const [addMcpModalOpen, setAddMcpModalOpen] = useState(false)
   const [newMcpForm, setNewMcpForm] = useState({ id: '', name: '', url: '', description: '', headers: '' })
@@ -221,23 +292,23 @@ export default function CapabilitiesHub({
   const loadMcpData = useCallback(async () => {
     setMcpLoading(true)
     try {
-      let cat = null
-      let aud = []
-      let conns = {}
+      let cat: Connector[] | { connectors?: Connector[] } | null = null
+      let aud: AuditEntry[] | { entries?: AuditEntry[] } = []
+      let conns: Record<string, unknown> = {}
       if (window.api?.listCapabilities) {
         // capabilities:list mengembalikan ARRAY connector (bukan {connectors}).
-        cat = await window.api.listCapabilities().catch(() => null)
+        cat = (await window.api.listCapabilities().catch(() => null)) as Connector[] | null
       }
       if (window.api?.listCapabilityConnections) {
-        conns = await window.api.listCapabilityConnections().catch(() => ({}))
+        conns = (await window.api.listCapabilityConnections().catch(() => ({}))) as Record<string, unknown>
       }
       if (window.api?.readCapabilityAudit) {
-        aud = await window.api.readCapabilityAudit(AUDIT_PAGE, 0).catch(() => [])
+        aud = (await window.api.readCapabilityAudit(AUDIT_PAGE, 0).catch(() => [])) as AuditEntry[]
       }
 
-      let customMcp = []
+      let customMcp: Connector[] = []
       try {
-        customMcp = JSON.parse(localStorage.getItem('abelink:custom_mcp') || '[]')
+        customMcp = JSON.parse(localStorage.getItem('abelink:custom_mcp') || '[]') as Connector[]
       } catch (_) {}
 
       // Daftarkan custom MCP ke sidecar (proses terpisah) agar authorize/
@@ -246,8 +317,8 @@ export default function CapabilitiesHub({
         await window.api.registerCustomConnectors(customMcp).catch(() => [])
       }
 
-      const builtin = Array.isArray(cat) ? cat : cat?.connectors || []
-      const combined = [
+      const builtin = Array.isArray(cat) ? cat : (cat as { connectors?: Connector[] } | null)?.connectors || []
+      const combined: Connector[] = [
         ...PLANNED_MCP_CONNECTORS,
         ...builtin,
         ...customMcp.map((c) => ({ ...c, transport: 'mcp', custom: true }))
@@ -257,7 +328,7 @@ export default function CapabilitiesHub({
 
       setConnectors(unique)
       setConnections(conns || {})
-      setAuditLogs(Array.isArray(aud) ? aud : aud?.entries || [])
+      setAuditLogs(Array.isArray(aud) ? aud : (aud as { entries?: AuditEntry[] })?.entries || [])
     } catch (e) {
       console.error('[CapabilitiesHub] Data MCP error:', e)
     } finally {
@@ -269,11 +340,11 @@ export default function CapabilitiesHub({
   const refreshCapabilityState = useCallback(async () => {
     try {
       const [conns, aud] = await Promise.all([
-        window.api?.listCapabilityConnections?.().catch(() => ({})),
-        window.api?.readCapabilityAudit?.(AUDIT_PAGE, 0).catch(() => [])
+        window.api?.listCapabilityConnections?.().catch(() => ({})) as Promise<Record<string, unknown>>,
+        window.api?.readCapabilityAudit?.(AUDIT_PAGE, 0).catch(() => []) as Promise<AuditEntry[]>
       ])
       if (conns) setConnections(conns)
-      setAuditLogs(Array.isArray(aud) ? aud : aud?.entries || [])
+      setAuditLogs(Array.isArray(aud) ? aud : (aud as { entries?: AuditEntry[] })?.entries || [])
     } catch (e) {
       console.error('[CapabilitiesHub] Refresh connections error:', e)
     }
@@ -281,7 +352,10 @@ export default function CapabilitiesHub({
 
   const handleLoadMoreAudit = async () => {
     try {
-      const more = await window.api?.readCapabilityAudit?.(AUDIT_PAGE, auditLogs.length).catch(() => [])
+      const more = (await window.api?.readCapabilityAudit?.(AUDIT_PAGE, auditLogs.length).catch(() => [])) as
+        | AuditEntry[]
+        | { entries?: AuditEntry[] }
+        | undefined
       const list = Array.isArray(more) ? more : more?.entries || []
       if (list.length > 0) setAuditLogs((prev) => [...prev, ...list])
     } catch (e) {
@@ -289,23 +363,23 @@ export default function CapabilitiesHub({
     }
   }
 
-  const handleAuthorizeConnector = async (connectorId, scopes) => {
+  const handleAuthorizeConnector = async (connectorId: string, scopes: string[]) => {
     setBusyConnectorKey(`${connectorId}:auth`)
     try {
       await window.api?.authorizeCapability?.(connectorId, scopes)
       await refreshCapabilityState()
     } catch (e) {
-      alert(tx(language, 'cap.mcpAuthFailed')(e.message || e))
+      alert(t(language, 'cap.mcpAuthFailed', (e instanceof Error ? e.message : String(e)) || e))
     } finally {
       setBusyConnectorKey(null)
     }
   }
 
-  const handleRevokeConnector = async (connectorId) => {
+  const handleRevokeConnector = async (connectorId: string) => {
     const res = await confirm({
-      title: tx(language, 'cap.mcpRevokeTitle'),
-      message: tx(language, 'cap.mcpRevokeMsg')(connectorId),
-      confirmText: tx(language, 'cap.revoke'),
+      title: t(language, 'cap.mcpRevokeTitle'),
+      message: t(language, 'cap.mcpRevokeMsg', connectorId),
+      confirmText: t(language, 'cap.revoke'),
       isError: true
     })
     if (!res.isConfirmed) return
@@ -315,7 +389,7 @@ export default function CapabilitiesHub({
       await window.api?.revokeCapability?.(connectorId)
       await refreshCapabilityState()
     } catch (e) {
-      alert(tx(language, 'cap.mcpRevokeFailed')(e.message || e))
+      alert(t(language, 'cap.mcpRevokeFailed', (e instanceof Error ? e.message : String(e)) || e))
     } finally {
       setBusyConnectorKey(null)
     }
@@ -323,11 +397,11 @@ export default function CapabilitiesHub({
 
   const handleSaveNewMcp = () => {
     if (!newMcpForm.id.trim() || !newMcpForm.url.trim()) {
-      alert(tx(language, 'cap.mcpIdUrlRequired'))
+      alert(t(language, 'cap.mcpIdUrlRequired'))
       return
     }
     try {
-      let parsedHeaders = {}
+      let parsedHeaders: Record<string, unknown> = {}
       if (newMcpForm.headers.trim()) {
         try {
           const parsed = JSON.parse(newMcpForm.headers)
@@ -336,11 +410,11 @@ export default function CapabilitiesHub({
           }
           parsedHeaders = parsed
         } catch (_) {
-          alert(tx(language, 'cap.mcpHeaderFormat'))
+          alert(t(language, 'cap.mcpHeaderFormat'))
           return
         }
       }
-      const current = JSON.parse(localStorage.getItem('abelink:custom_mcp') || '[]')
+      const current = JSON.parse(localStorage.getItem('abelink:custom_mcp') || '[]') as Connector[] as Connector[]
       const updated = [
         ...current.filter((c) => c.id !== newMcpForm.id.trim()),
         {
@@ -356,23 +430,23 @@ export default function CapabilitiesHub({
       setNewMcpForm({ id: '', name: '', url: '', description: '', headers: '' })
       loadMcpData()
     } catch (e) {
-      alert(tx(language, 'cap.mcpSaveFailed')(e.message || e))
+      alert(t(language, 'cap.mcpSaveFailed', (e instanceof Error ? e.message : String(e)) || e))
     }
   }
 
   // ── Plugins State & Modal ─────────────────────────────────────────────────
-  const [plugins, setPlugins] = useState([])
+  const [plugins, setPlugins] = useState<PluginRow[]>([])
   const [pluginsLoading, setPluginsLoading] = useState(true)
   const [gitPluginUrl, setGitPluginUrl] = useState('')
   const [gitPluginLoading, setGitPluginLoading] = useState(false)
-  const [editingPlugin, setEditingPlugin] = useState(null)
-  const [pluginForm, setPluginForm] = useState({
+  const [editingPlugin, setEditingPlugin] = useState<{ mode: 'new' | 'edit'; originalName?: string } | null>(null)
+  const [pluginForm, setPluginForm] = useState<{ name: string; description: string; actions: PluginAction[]; isEdit: boolean }>({
     name: '',
     description: '',
     actions: [{ name: 'run', description: '', triggerHint: '', code: 'return "ok";' }],
     isEdit: false
   })
-  const [pluginSyntaxErrors, setPluginSyntaxErrors] = useState([])
+  const [pluginSyntaxErrors, setPluginSyntaxErrors] = useState<(string | null)[]>([])
 
   const loadPlugins = useCallback(async () => {
     if (!window.api?.getPlugins) {
@@ -382,7 +456,7 @@ export default function CapabilitiesHub({
     setPluginsLoading(true)
     try {
       const data = await window.api.getPlugins()
-      setPlugins(Array.isArray(data) ? data : [])
+      setPlugins(Array.isArray(data) ? (data as PluginRow[]) : [])
     } catch (e) {
       console.error('[CapabilitiesHub] Failed to load plugins:', e)
     } finally {
@@ -394,7 +468,7 @@ export default function CapabilitiesHub({
     if (!editingPlugin) return
     // Validasi sync dibungkus async agar lolos set-state-in-effect.
     void (async () => {
-      const errors = []
+      const errors: (string | null)[] = []
       pluginForm.actions.forEach((act, idx) => {
         if (act.code) {
           try {
@@ -404,7 +478,7 @@ export default function CapabilitiesHub({
             new AsyncFunction('query', act.code)
             errors[idx] = null
           } catch (err) {
-            errors[idx] = err.message
+            errors[idx] = (err instanceof Error ? err.message : String(err))
           }
         } else {
           errors[idx] = null
@@ -417,24 +491,27 @@ export default function CapabilitiesHub({
   const handleInstallGitPlugin = async () => {
     const url = gitPluginUrl.trim()
     if (!url) {
-      alert(tx(language, 'cap.gitUrlRequired'))
+      alert(t(language, 'cap.gitUrlRequired'))
       return
     }
     setGitPluginLoading(true)
     try {
       if (window.api?.installPluginFromGit) {
-        const res = await window.api.installPluginFromGit(url)
+        const res = (await window.api.installPluginFromGit(url)) as {
+          success?: boolean
+          error?: string
+        } | null
         if (res?.success) {
           setGitPluginUrl('')
           await loadPlugins()
         } else {
-          alert(tx(language, 'cap.pluginInstallFailed')(res?.error || tx(language, 'cap.pluginRepoError')))
+          alert(t(language, 'cap.pluginInstallFailed', res?.error || t(language, 'cap.pluginRepoError')))
         }
       } else {
-        alert(tx(language, 'cap.gitInstallUnsupported'))
+        alert(t(language, 'cap.gitInstallUnsupported'))
       }
     } catch (e) {
-      alert(tx(language, 'cap.pluginDownloadFailed')(e.message || e))
+      alert(t(language, 'cap.pluginDownloadFailed', (e instanceof Error ? e.message : String(e)) || e))
     } finally {
       setGitPluginLoading(false)
     }
@@ -457,7 +534,7 @@ export default function CapabilitiesHub({
     setEditingPlugin({ mode: 'new' })
   }
 
-  const handleOpenEditPluginModal = (plugin) => {
+  const handleOpenEditPluginModal = (plugin: PluginRow) => {
     setPluginForm({
       name: plugin.name,
       description: plugin.description || '',
@@ -472,11 +549,11 @@ export default function CapabilitiesHub({
 
   const handleSavePlugin = async () => {
     if (!pluginForm.name.trim()) {
-      alert(tx(language, 'cap.pluginNameRequired'))
+      alert(t(language, 'cap.pluginNameRequired'))
       return
     }
     if (pluginSyntaxErrors.some(Boolean)) {
-      alert(tx(language, 'cap.pluginSyntaxFix'))
+      alert(t(language, 'cap.pluginSyntaxFix'))
       return
     }
 
@@ -490,15 +567,15 @@ export default function CapabilitiesHub({
       setEditingPlugin(null)
       await loadPlugins()
     } catch (e) {
-      alert(tx(language, 'cap.pluginSaveFailed')(e.message || e))
+      alert(t(language, 'cap.pluginSaveFailed', (e instanceof Error ? e.message : String(e)) || e))
     }
   }
 
-  const handleDeletePlugin = async (name) => {
+  const handleDeletePlugin = async (name: string) => {
     const res = await confirm({
-      title: tx(language, 'cap.pluginDeleteTitle'),
-      message: tx(language, 'cap.pluginDeleteMsg')(name),
-      confirmText: tx(language, 'cap.pluginDeleteYes'),
+      title: t(language, 'cap.pluginDeleteTitle'),
+      message: t(language, 'cap.pluginDeleteMsg', name),
+      confirmText: t(language, 'cap.pluginDeleteYes'),
       isError: true
     })
     if (!res.isConfirmed) return
@@ -507,23 +584,23 @@ export default function CapabilitiesHub({
       await window.api?.deletePlugin?.(name)
       await loadPlugins()
     } catch (e) {
-      alert(tx(language, 'cap.pluginDeleteFailed')(e.message || e))
+      alert(t(language, 'cap.pluginDeleteFailed', (e instanceof Error ? e.message : String(e)) || e))
     }
   }
 
-  const handleTogglePlugin = async (name, currentStatus) => {
+  const handleTogglePlugin = async (name: string, currentStatus: boolean) => {
     try {
       await window.api?.togglePlugin?.(name, !currentStatus)
       await loadPlugins()
     } catch (e) {
-      alert(tx(language, 'cap.pluginToggleFailed')(e.message || e))
+      alert(t(language, 'cap.pluginToggleFailed', (e instanceof Error ? e.message : String(e)) || e))
     }
   }
 
   // ── Skills State & Modal ──────────────────────────────────────────────────
-  const [skills, setSkills] = useState([])
+  const [skills, setSkills] = useState<Array<{ name: string; description?: string }>>([])
   const [skillsLoading, setSkillsLoading] = useState(true)
-  const [editingSkill, setEditingSkill] = useState(null)
+  const [editingSkill, setEditingSkill] = useState<{ isNew: boolean; originalName?: string } | null>(null)
   const [skillFormName, setSkillFormName] = useState('')
   const [skillFormContent, setSkillFormContent] = useState('')
 
@@ -542,38 +619,39 @@ export default function CapabilitiesHub({
   const handleOpenNewSkill = () => {
     const defaultTemplate = `---
 name: new-skill
-description: ${tx(language, 'cap.skillTemplateDesc')}
+description: ${t(language, 'cap.skillTemplateDesc')}
 ---
 
-${tx(language, 'cap.skillTemplateTitle')}
+${t(language, 'cap.skillTemplateTitle')}
 
-${tx(language, 'cap.skillTemplateBody')}
-1. ${tx(language, 'cap.skillTemplateStep1')}
-2. ${tx(language, 'cap.skillTemplateStep2')}
+${t(language, 'cap.skillTemplateBody')}
+1. ${t(language, 'cap.skillTemplateStep1')}
+2. ${t(language, 'cap.skillTemplateStep2')}
 
-## ${tx(language, 'cap.skillTemplateRules')}
-- ${tx(language, 'cap.skillTemplateRule1')}
+## ${t(language, 'cap.skillTemplateRules')}
+- ${t(language, 'cap.skillTemplateRule1')}
 `
     setSkillFormName('')
     setSkillFormContent(defaultTemplate)
     setEditingSkill({ isNew: true })
   }
 
-  const handleOpenEditSkill = async (skillName) => {
+  const handleOpenEditSkill = async (skillName: string) => {
     try {
-      const content = (await window.api?.getSkill?.(skillName)) || ''
+      const raw = (await window.api?.readSkill?.(skillName)) || ''
+      const content = typeof raw === 'string' ? raw : String((raw as { content?: unknown })?.content ?? '')
       setSkillFormName(skillName)
       setSkillFormContent(content)
       setEditingSkill({ isNew: false, originalName: skillName })
     } catch (e) {
-      alert(tx(language, 'cap.skillReadFailed')(e.message || e))
+      alert(t(language, 'cap.skillReadFailed', (e instanceof Error ? e.message : String(e)) || e))
     }
   }
 
   const handleSaveSkill = async () => {
     const rawName = skillFormName.trim().replace(/\s+/g, '-').toLowerCase()
     if (!rawName) {
-      alert(tx(language, 'cap.skillNameRequired'))
+      alert(t(language, 'cap.skillNameRequired'))
       return
     }
     try {
@@ -581,15 +659,15 @@ ${tx(language, 'cap.skillTemplateBody')}
       setEditingSkill(null)
       await loadSkills()
     } catch (e) {
-      alert(tx(language, 'cap.skillSaveFailed')(e.message || e))
+      alert(t(language, 'cap.skillSaveFailed', (e instanceof Error ? e.message : String(e)) || e))
     }
   }
 
-  const handleDeleteSkill = async (skillName) => {
+  const handleDeleteSkill = async (skillName: string) => {
     const res = await confirm({
-      title: tx(language, 'cap.skillDeleteTitle'),
-      message: tx(language, 'cap.skillDeleteMsg')(skillName),
-      confirmText: tx(language, 'cap.skillDeleteYes'),
+      title: t(language, 'cap.skillDeleteTitle'),
+      message: t(language, 'cap.skillDeleteMsg', skillName),
+      confirmText: t(language, 'cap.skillDeleteYes'),
       isError: true
     })
     if (!res.isConfirmed) return
@@ -598,37 +676,38 @@ ${tx(language, 'cap.skillTemplateBody')}
       await window.api?.deleteSkill?.(skillName)
       await loadSkills()
     } catch (e) {
-      alert(tx(language, 'cap.skillDeleteFailed')(e.message || e))
+      alert(t(language, 'cap.skillDeleteFailed', (e instanceof Error ? e.message : String(e)) || e))
     }
   }
 
   const handleInstallSkillPackage = async () => {
     try {
-      const filePaths = await window.api?.showOpenDialog?.()
-      if (filePaths && filePaths.length > 0) {
+      const dlg = await window.api?.showOpenDialog?.()
+      const filePaths = dlg?.filePaths ?? []
+      if (filePaths.length > 0) {
         for (const p of filePaths) {
           await window.api?.installSkill?.(p)
         }
         await loadSkills()
       }
     } catch (e) {
-      alert(tx(language, 'cap.skillInstallFailed')(e.message || e))
+      alert(t(language, 'cap.skillInstallFailed', (e instanceof Error ? e.message : String(e)) || e))
     }
   }
 
   // ── Approval Policies State ───────────────────────────────────────────────
-  const [approvalPolicies, setApprovalPolicies] = useState([])
+  const [approvalPolicies, setApprovalPolicies] = useState<ApprovalPolicyRow[]>([])
   const [policiesLoading, setPoliciesLoading] = useState(true)
 
   const loadApprovalPolicies = useCallback(async () => {
-    if (!window.api?.approvalPolicyList) {
+    if (!window.api?.approvalPolicyGet) {
       setPoliciesLoading(false)
       return
     }
     setPoliciesLoading(true)
     try {
-      const list = await window.api.approvalPolicyList()
-      setApprovalPolicies(Array.isArray(list) ? list : [])
+      const list = await window.api.approvalPolicyGet()
+      setApprovalPolicies(Array.isArray(list) ? (list as ApprovalPolicyRow[]) : [])
     } catch (e) {
       console.error('[CapabilitiesHub] Failed to load policies:', e)
     } finally {
@@ -682,7 +761,7 @@ ${tx(language, 'cap.skillTemplateBody')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-all ${activeTab === 'connectors' ? 'bg-primary/20 text-primary border border-primary/30 shadow-sm' : 'text-white/60 hover:text-white hover:bg-white/[0.04]'}`}
         >
           <Plug size={12} />
-          <span>{tx(language, 'cap.tabConnectors')}</span>
+          <span>{t(language, 'cap.tabConnectors')}</span>
           <span className="badge badge-xs badge-neutral opacity-80">
             {connectors.length + (googleConnected ? 3 : 0) + 1}
           </span>
@@ -694,7 +773,7 @@ ${tx(language, 'cap.skillTemplateBody')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-all ${activeTab === 'plugins' ? 'bg-primary/20 text-primary border border-primary/30 shadow-sm' : 'text-white/60 hover:text-white hover:bg-white/[0.04]'}`}
         >
           <Boxes size={12} />
-          <span>{tx(language, 'cap.tabPlugins')}</span>
+          <span>{t(language, 'cap.tabPlugins')}</span>
           {plugins.length > 0 && (
             <span className="badge badge-xs badge-neutral opacity-80">{plugins.length}</span>
           )}
@@ -706,7 +785,7 @@ ${tx(language, 'cap.skillTemplateBody')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-all ${activeTab === 'skills' ? 'bg-primary/20 text-primary border border-primary/30 shadow-sm' : 'text-white/60 hover:text-white hover:bg-white/[0.04]'}`}
         >
           <Brain size={12} />
-          <span>{tx(language, 'cap.tabSkills')}</span>
+          <span>{t(language, 'cap.tabSkills')}</span>
           <span className="badge badge-xs badge-neutral opacity-80">
             {BUILTIN_SKILLS.length + skills.length}
           </span>
@@ -718,7 +797,7 @@ ${tx(language, 'cap.skillTemplateBody')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-all ${activeTab === 'security' ? 'bg-primary/20 text-primary border border-primary/30 shadow-sm' : 'text-white/60 hover:text-white hover:bg-white/[0.04]'}`}
         >
           <Shield size={12} />
-          <span>{tx(language, 'cap.security')}</span>
+          <span>{t(language, 'cap.security')}</span>
         </button>
       </div>
 
@@ -729,17 +808,17 @@ ${tx(language, 'cap.skillTemplateBody')}
           <div className="rounded-2xl border border-white/5 bg-base-200/40 backdrop-blur-md p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-white/90">{tx(language, 'cap.browseUse')}</span>
+                <span className="text-sm font-semibold text-white/90">{t(language, 'cap.browseUse')}</span>
                 {browserConnected === true ? (
                   <span className="badge badge-xs badge-success gap-1 text-[10px]">
-                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> {tx(language, 'cap.connected')}
+                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> {t(language, 'cap.connected')}
                   </span>
                 ) : browserConnected === false ? (
-                  <span className="badge badge-xs badge-ghost border-white/10 opacity-70 text-[10px]">{tx(language, 'cap.disconnected')}</span>
+                  <span className="badge badge-xs badge-ghost border-white/10 opacity-70 text-[10px]">{t(language, 'cap.disconnected')}</span>
                 ) : null}
               </div>
               <p className="text-xs text-white/50">
-                {tx(language, 'cap.controlChrome')}
+                {t(language, 'cap.controlChrome')}
               </p>
               {browserNote ? (
                 <p className="text-[11px] text-white/50">{browserNote}</p>
@@ -758,7 +837,7 @@ ${tx(language, 'cap.skillTemplateBody')}
                       })
                     }
                   />
-                  <span>{tx(language, 'cap.autoCloseTabs')}</span>
+                  <span>{t(language, 'cap.autoCloseTabs')}</span>
                 </label>
               </div>
               <div className="flex items-center gap-2 pt-1">
@@ -771,7 +850,7 @@ ${tx(language, 'cap.skillTemplateBody')}
                       setConfig((prev) => ({ ...prev, browserAutoLaunch: e.target.checked }))
                     }
                   />
-                  <span>{tx(language, 'cap.autoLaunchBrowser')}</span>
+                  <span>{t(language, 'cap.autoLaunchBrowser')}</span>
                 </label>
               </div>
             </div>
@@ -782,27 +861,29 @@ ${tx(language, 'cap.skillTemplateBody')}
                 onClick={handleBrowserReconnect}
                 disabled={browserReconnecting}
                 className="btn btn-xs btn-primary rounded-xl gap-1"
-                title={tx(language, 'cap.reconnectTitle')}
+                title={t(language, 'cap.reconnectTitle')}
               >
                 <RefreshCw size={10} className={browserReconnecting ? 'animate-spin' : ''} />
-                <span>{browserReconnecting ? tx(language, 'cap.reconnecting') : tx(language, 'cap.reconnect')}</span>
+                <span>{browserReconnecting ? t(language, 'cap.reconnecting') : t(language, 'cap.reconnect')}</span>
               </button>
               <button
                 type="button"
                 onClick={handleInitExtension}
                 className="btn btn-xs btn-outline border-white/10 hover:border-primary/50 text-white/80 rounded-xl"
               >
-                {tx(language, 'cap.installGuide')}
+                {t(language, 'cap.installGuide')}
               </button>
               {extInstall?.dir && (
                 <button
                   type="button"
-                  onClick={() => window.api?.openFolder?.(extInstall.dir)}
+                  onClick={() => {
+                    if (extInstall?.dir) void window.api?.openFolder?.(extInstall.dir)
+                  }}
                   className="btn btn-xs btn-ghost border border-white/10 text-white/70 rounded-xl gap-1.5"
-                  title={tx(language, 'cap.openExtFolderTitle')}
+                  title={t(language, 'cap.openExtFolderTitle')}
                 >
                   <FolderOpen size={11} />
-                  <span>{tx(language, 'cap.openFolder')}</span>
+                  <span>{t(language, 'cap.openFolder')}</span>
                 </button>
               )}
             </div>
@@ -813,17 +894,17 @@ ${tx(language, 'cap.skillTemplateBody')}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="space-y-0.5">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-white/90">{tx(language, 'cap.googleWorkspace')}</span>
+                  <span className="text-sm font-semibold text-white/90">{t(language, 'cap.googleWorkspace')}</span>
                   {googleConnected ? (
                     <span className="badge badge-xs badge-info gap-1 text-[10px]">
-                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> {tx(language, 'cap.connected')}
+                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> {t(language, 'cap.connected')}
                     </span>
                   ) : (
-                    <span className="badge badge-xs badge-ghost border-white/10 opacity-70 text-[10px]">{tx(language, 'cap.offline')}</span>
+                    <span className="badge badge-xs badge-ghost border-white/10 opacity-70 text-[10px]">{t(language, 'cap.offline')}</span>
                     )}
                   </div>
                 <p className="text-xs text-white/50">
-                  {tx(language, 'cap.googleSyncDesc')}
+                  {t(language, 'cap.googleSyncDesc')}
                 </p>
               </div>
 
@@ -835,7 +916,7 @@ ${tx(language, 'cap.skillTemplateBody')}
                     className="btn btn-xs btn-outline border-error/40 text-error hover:bg-error/10 rounded-xl gap-1"
                   >
                     <Unlock size={10} />
-                    <span>{tx(language, 'cap.disconnect')}</span>
+                    <span>{t(language, 'cap.disconnect')}</span>
                   </button>
                 ) : (
                   <button
@@ -844,7 +925,7 @@ ${tx(language, 'cap.skillTemplateBody')}
                     className="btn btn-xs btn-primary rounded-xl gap-1"
                   >
                     <Lock size={10} />
-                    <span>{tx(language, 'cap.connect')}</span>
+                    <span>{t(language, 'cap.connect')}</span>
                   </button>
                 )}
               </div>
@@ -881,7 +962,7 @@ ${tx(language, 'cap.skillTemplateBody')}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="space-y-0.5">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-white/90">{tx(language, 'cap.mcpConnectors')}</span>
+                  <span className="text-sm font-semibold text-white/90">{t(language, 'cap.mcpConnectors')}</span>
                   <span className="badge badge-xs badge-neutral opacity-80">{filteredConnectors.length}</span>
                 </div>
               </div>
@@ -890,7 +971,7 @@ ${tx(language, 'cap.skillTemplateBody')}
                 <div className="relative">
                   <input
                     type="text"
-                    placeholder={tx(language, 'cap.searchConnectors')}
+                    placeholder={t(language, 'cap.searchConnectors')}
                     value={mcpSearch}
                     onChange={(e) => setMcpSearch(e.target.value)}
                     className="input input-xs input-bordered rounded-xl pl-7 pr-3 bg-base-100/60 border-white/10 text-xs w-40 focus:w-48 transition-all"
@@ -903,14 +984,14 @@ ${tx(language, 'cap.skillTemplateBody')}
                   className="btn btn-xs btn-primary rounded-xl gap-1"
                 >
                   <Plus size={9} />
-                  <span>{tx(language, 'cap.addMcp')}</span>
+                  <span>{t(language, 'cap.addMcp')}</span>
                 </button>
                 <button
                   type="button"
                   onClick={loadMcpData}
                   disabled={mcpLoading}
                   className="btn btn-xs btn-ghost border border-white/10 hover:bg-white/5 rounded-xl"
-                  title={tx(language, 'cap.refreshTitle')}
+                  title={t(language, 'cap.refreshTitle')}
                 >
                   <RefreshCw size={10} className={mcpLoading ? 'animate-spin text-primary' : ''} />
                 </button>
@@ -920,11 +1001,11 @@ ${tx(language, 'cap.skillTemplateBody')}
             {mcpLoading ? (
               <div className="p-6 text-center text-white/40 text-xs flex flex-col items-center gap-2">
                 <span className="loading loading-spinner loading-sm text-primary"></span>
-                {tx(language, 'cap.loadingMcp')}
+                {t(language, 'cap.loadingMcp')}
               </div>
             ) : filteredConnectors.length === 0 ? (
               <div className="p-6 text-center rounded-xl bg-base-100/30 border border-dashed border-white/10 text-xs text-white/50">
-                {tx(language, 'cap.noMcpMatch')}
+                {t(language, 'cap.noMcpMatch')}
               </div>
             ) : (
               <div className="grid gap-2">
@@ -941,16 +1022,16 @@ ${tx(language, 'cap.skillTemplateBody')}
                           <span className="text-xs font-semibold text-white/90">{c.name || c.id}</span>
                           <span className="font-mono text-[10px] text-white/40">{c.id}</span>
                           {c.custom && (
-                            <span className="badge badge-xs badge-info text-[9px]" title={tx(language, 'cap.mcpCustomNote')}>MCP</span>
+                            <span className="badge badge-xs badge-info text-[9px]" title={t(language, 'cap.mcpCustomNote')}>MCP</span>
                           )}
                           {isConnected ? (
-                            <span className="badge badge-xs badge-info text-[9px]">{tx(language, 'cap.connected')}</span>
+                            <span className="badge badge-xs badge-info text-[9px]">{t(language, 'cap.connected')}</span>
                           ) : (
-                            <span className="badge badge-xs badge-ghost border-white/10 text-[9px] opacity-60">{tx(language, 'cap.offline')}</span>
+                            <span className="badge badge-xs badge-ghost border-white/10 text-[9px] opacity-60">{t(language, 'cap.offline')}</span>
                           )}
                         </div>
                         <p className="text-[11px] text-white/50 truncate max-w-xl">
-                          {(c.id === 'context7' ? tx(language, 'cap.context7Desc') : c.description) || c.url || tx(language, 'cap.noDesc')}
+                          {(c.id === 'context7' ? t(language, 'cap.context7Desc') : c.description) || c.url || t(language, 'cap.noDesc')}
                         </p>
                       </div>
 
@@ -962,7 +1043,7 @@ ${tx(language, 'cap.skillTemplateBody')}
                             onClick={() => handleRevokeConnector(c.id)}
                             className="btn btn-xs btn-outline border-error/40 text-error hover:bg-error/10 rounded-xl"
                           >
-                            {tx(language, 'cap.revoke')}
+                            {t(language, 'cap.revoke')}
                           </button>
                         ) : (
                           <button
@@ -971,7 +1052,7 @@ ${tx(language, 'cap.skillTemplateBody')}
                             onClick={() => handleAuthorizeConnector(c.id, c.scopes || [])}
                             className="btn btn-xs btn-ghost border border-white/10 hover:border-primary/40 text-white/80 rounded-xl"
                           >
-                            {tx(language, 'cap.authorize')}
+                            {t(language, 'cap.authorize')}
                           </button>
                         )}
                       </div>
@@ -990,7 +1071,7 @@ ${tx(language, 'cap.skillTemplateBody')}
               >
                 <span className="flex items-center gap-2">
                   <History size={11} className="text-info" />
-                  <span>{tx(language, 'cap.auditHistory')}</span>
+                  <span>{t(language, 'cap.auditHistory')}</span>
                   <span className="badge badge-xs badge-neutral text-[9px]">{auditLogs.length}</span>
                 </span>
                 {showAuditDrawer ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
@@ -999,7 +1080,7 @@ ${tx(language, 'cap.skillTemplateBody')}
               {showAuditDrawer && (
                 <div className="mt-3 space-y-1.5 max-h-40 overflow-y-auto custom-scrollbar pr-1">
                   {auditLogs.length === 0 ? (
-                    <p className="text-[11px] text-white/40 italic py-1">{tx(language, 'cap.noAudit')}</p>
+                    <p className="text-[11px] text-white/40 italic py-1">{t(language, 'cap.noAudit')}</p>
                   ) : (
                     <>
                       {auditLogs.map((log, idx) => (
@@ -1025,7 +1106,7 @@ ${tx(language, 'cap.skillTemplateBody')}
                         onClick={handleLoadMoreAudit}
                         className="w-full py-1 text-[11px] text-white/50 hover:text-white/80 transition-colors"
                       >
-                        {tx(language, 'cap.loadMore')}
+                        {t(language, 'cap.loadMore')}
                       </button>
                     </>
                   )}
@@ -1042,16 +1123,16 @@ ${tx(language, 'cap.skillTemplateBody')}
           {/* Built-in Automations (Compact Grid) */}
           <div className="rounded-2xl border border-white/5 bg-base-200/40 backdrop-blur-md p-5 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-white/90">{tx(language, 'cap.builtinAutomations')}</span>
-              <span className="badge badge-xs badge-neutral opacity-80">{tx(language, 'cap.activeCount')(4)}</span>
+              <span className="text-sm font-semibold text-white/90">{t(language, 'cap.builtinAutomations')}</span>
+              <span className="badge badge-xs badge-neutral opacity-80">{t(language, 'cap.activeCount', 4)}</span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-1">
               {/* Awareness */}
               <div className="p-3 rounded-xl bg-base-100/40 border border-white/5 flex items-center justify-between gap-3">
                 <div className="min-w-0 space-y-0.5">
-                  <div className="text-xs font-semibold text-white/90">{tx(language, 'cap.awareness')}</div>
-                  <p className="text-[11px] text-white/50 truncate">{tx(language, 'cap.awarenessDesc')}</p>
+                  <div className="text-xs font-semibold text-white/90">{t(language, 'cap.awareness')}</div>
+                  <p className="text-[11px] text-white/50 truncate">{t(language, 'cap.awarenessDesc')}</p>
                 </div>
                 <input
                   type="checkbox"
@@ -1064,8 +1145,8 @@ ${tx(language, 'cap.skillTemplateBody')}
               {/* Session Compaction */}
               <div className="p-3 rounded-xl bg-base-100/40 border border-white/5 flex items-center justify-between gap-3">
                 <div className="min-w-0 space-y-0.5">
-                  <div className="text-xs font-semibold text-white/90">{tx(language, 'cap.compaction')}</div>
-                  <p className="text-[11px] text-white/50 truncate">{tx(language, 'cap.compactionDesc')}</p>
+                  <div className="text-xs font-semibold text-white/90">{t(language, 'cap.compaction')}</div>
+                  <p className="text-[11px] text-white/50 truncate">{t(language, 'cap.compactionDesc')}</p>
                 </div>
                 <input
                   type="checkbox"
@@ -1078,8 +1159,8 @@ ${tx(language, 'cap.skillTemplateBody')}
               {/* Caveman */}
               <div className="p-3 rounded-xl bg-base-100/40 border border-white/5 flex items-center justify-between gap-3">
                 <div className="min-w-0 space-y-0.5">
-                  <div className="text-xs font-semibold text-white/90">{tx(language, 'cap.caveman')}</div>
-                  <p className="text-[11px] text-white/50 truncate">{tx(language, 'cap.cavemanDesc')}</p>
+                  <div className="text-xs font-semibold text-white/90">{t(language, 'cap.caveman')}</div>
+                  <p className="text-[11px] text-white/50 truncate">{t(language, 'cap.cavemanDesc')}</p>
                 </div>
                 <input
                   type="checkbox"
@@ -1092,8 +1173,8 @@ ${tx(language, 'cap.skillTemplateBody')}
               {/* Ponytail */}
               <div className="p-3 rounded-xl bg-base-100/40 border border-white/5 flex items-center justify-between gap-3">
                 <div className="min-w-0 space-y-0.5">
-                  <div className="text-xs font-semibold text-white/90">{tx(language, 'cap.ponytail')}</div>
-                  <p className="text-[11px] text-white/50 truncate">{tx(language, 'cap.ponytailDesc')}</p>
+                  <div className="text-xs font-semibold text-white/90">{t(language, 'cap.ponytail')}</div>
+                  <p className="text-[11px] text-white/50 truncate">{t(language, 'cap.ponytailDesc')}</p>
                 </div>
                 <input
                   type="checkbox"
@@ -1106,8 +1187,8 @@ ${tx(language, 'cap.skillTemplateBody')}
               {/* Internet-First (D1) */}
               <div className="p-3 rounded-xl bg-base-100/40 border border-white/5 flex items-center justify-between gap-3">
                 <div className="min-w-0 space-y-0.5">
-                  <div className="text-xs font-semibold text-white/90">{tx(language, 'cap.internetFirst')}</div>
-                  <p className="text-[11px] text-white/50 truncate">{tx(language, 'cap.internetFirstDesc')}</p>
+                  <div className="text-xs font-semibold text-white/90">{t(language, 'cap.internetFirst')}</div>
+                  <p className="text-[11px] text-white/50 truncate">{t(language, 'cap.internetFirstDesc')}</p>
                 </div>
                 <input
                   type="checkbox"
@@ -1120,8 +1201,8 @@ ${tx(language, 'cap.skillTemplateBody')}
               {/* Rtk */}
               <div className="p-3 rounded-xl bg-base-100/40 border border-white/5 flex items-center justify-between gap-3">
                 <div className="min-w-0 space-y-0.5">
-                  <div className="text-xs font-semibold text-white/90">{tx(language, 'cap.rtk')}</div>
-                  <p className="text-[11px] text-white/50 truncate">{tx(language, 'cap.rtkDesc')}</p>
+                  <div className="text-xs font-semibold text-white/90">{t(language, 'cap.rtk')}</div>
+                  <p className="text-[11px] text-white/50 truncate">{t(language, 'cap.rtkDesc')}</p>
                 </div>
                 <input
                   type="checkbox"
@@ -1138,11 +1219,11 @@ ${tx(language, 'cap.skillTemplateBody')}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="space-y-0.5">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-white/90">{tx(language, 'cap.customPlugins')}</span>
+                  <span className="text-sm font-semibold text-white/90">{t(language, 'cap.customPlugins')}</span>
                   <span className="badge badge-xs badge-neutral opacity-80">{plugins.length}</span>
                 </div>
                 <p className="text-xs text-white/50">
-                  {tx(language, 'cap.customPluginsDesc')}
+                  {t(language, 'cap.customPluginsDesc')}
                 </p>
               </div>
 
@@ -1153,7 +1234,7 @@ ${tx(language, 'cap.skillTemplateBody')}
                   className="btn btn-xs btn-ghost border border-white/10 text-white/70 rounded-xl gap-1.5"
                 >
                   <FolderOpen size={11} />
-                  <span>{tx(language, 'cap.openFolder')}</span>
+                  <span>{t(language, 'cap.openFolder')}</span>
                 </button>
                 {isDevMode && (
                   <button
@@ -1162,7 +1243,7 @@ ${tx(language, 'cap.skillTemplateBody')}
                     className="btn btn-xs btn-primary rounded-xl gap-1"
                   >
                     <Code size={10} />
-                    <span>{tx(language, 'cap.writeCode')}</span>
+                    <span>{t(language, 'cap.writeCode')}</span>
                   </button>
                 )}
               </div>
@@ -1172,7 +1253,7 @@ ${tx(language, 'cap.skillTemplateBody')}
             <div className="flex items-center gap-2">
               <input
                 type="text"
-                placeholder={tx(language, 'cap.gitPlaceholder')}
+                placeholder={t(language, 'cap.gitPlaceholder')}
                 value={gitPluginUrl}
                 onChange={(e) => setGitPluginUrl(e.target.value)}
                 className="input input-xs input-bordered rounded-xl bg-base-100/60 border-white/10 font-mono text-xs flex-1"
@@ -1183,18 +1264,18 @@ ${tx(language, 'cap.skillTemplateBody')}
                 disabled={gitPluginLoading || !gitPluginUrl.trim()}
                 className="btn btn-xs btn-primary rounded-xl shrink-0"
               >
-                {gitPluginLoading ? tx(language, 'cap.downloading') : tx(language, 'cap.installBtn')}
+                {gitPluginLoading ? t(language, 'cap.downloading') : t(language, 'cap.installBtn')}
               </button>
             </div>
 
             {pluginsLoading ? (
               <div className="p-6 text-center text-white/40 text-xs flex flex-col items-center gap-2">
                 <span className="loading loading-spinner loading-sm text-primary"></span>
-                {tx(language, 'cap.loadingPlugins')}
+                {t(language, 'cap.loadingPlugins')}
               </div>
             ) : plugins.length === 0 ? (
               <div className="p-6 text-center rounded-xl bg-base-100/30 border border-dashed border-white/10 text-xs text-white/50">
-                {tx(language, 'cap.noPlugins')}
+                {t(language, 'cap.noPlugins')}
               </div>
             ) : (
               <div className="grid gap-2">
@@ -1208,13 +1289,13 @@ ${tx(language, 'cap.skillTemplateBody')}
                       <div className="min-w-0 flex-1 space-y-0.5">
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-semibold text-white/90">{p.name}</span>
-                          <span className="badge badge-xs badge-neutral text-[9px]">{tx(language, 'cap.actionsCount')(p.actions?.length || 0)}</span>
+                          <span className="badge badge-xs badge-neutral text-[9px]">{t(language, 'cap.actionsCount', p.actions?.length || 0)}</span>
                           <span className={`badge badge-xs text-[9px] ${isEnabled ? 'badge-info' : 'badge-ghost opacity-50'}`}>
-                            {isEnabled ? tx(language, 'cap.enabled') : tx(language, 'cap.disabled')}
+                            {isEnabled ? t(language, 'cap.enabled') : t(language, 'cap.disabled')}
                           </span>
                         </div>
                         <p className="text-[11px] text-white/50 truncate">
-                          {p.description || tx(language, 'cap.noDesc')}
+                          {p.description || t(language, 'cap.noDesc')}
                         </p>
                       </div>
 
@@ -1224,14 +1305,14 @@ ${tx(language, 'cap.skillTemplateBody')}
                           onClick={() => handleTogglePlugin(p.name, isEnabled)}
                           className="btn btn-xs btn-ghost border border-white/10 text-white/70 rounded-xl text-[11px]"
                         >
-                          {isEnabled ? tx(language, 'cap.disable') : tx(language, 'cap.enable')}
+                          {isEnabled ? t(language, 'cap.disable') : t(language, 'cap.enable')}
                         </button>
                         {isDevMode && (
                           <button
                             type="button"
                             onClick={() => handleOpenEditPluginModal(p)}
                             className="btn btn-xs btn-ghost border border-white/10 text-white/70 rounded-xl"
-                            title={tx(language, 'cap.editPluginTitle')}
+                            title={t(language, 'cap.editPluginTitle')}
                           >
                             <Pencil size={11} />
                           </button>
@@ -1240,7 +1321,7 @@ ${tx(language, 'cap.skillTemplateBody')}
                           type="button"
                           onClick={() => handleDeletePlugin(p.name)}
                           className="btn btn-xs btn-ghost border border-white/10 text-error hover:bg-error/10 rounded-xl"
-                          title={tx(language, 'cap.deletePluginTitle')}
+                          title={t(language, 'cap.deletePluginTitle')}
                         >
                           <Trash2 size={11} />
                         </button>
@@ -1260,8 +1341,8 @@ ${tx(language, 'cap.skillTemplateBody')}
           {/* Built-in Skills */}
           <div className="rounded-2xl border border-white/5 bg-base-200/40 backdrop-blur-md p-5 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-white/90">{tx(language, 'cap.builtinSuperpowers')}</span>
-              <span className="badge badge-xs badge-neutral opacity-80">{tx(language, 'cap.patternsCount')(4)}</span>
+              <span className="text-sm font-semibold text-white/90">{t(language, 'cap.builtinSuperpowers')}</span>
+              <span className="badge badge-xs badge-neutral opacity-80">{t(language, 'cap.patternsCount', 4)}</span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-1">
@@ -1269,8 +1350,8 @@ ${tx(language, 'cap.skillTemplateBody')}
                 const SkillIcon = skill.icon
                 const isSkillActive = config?.builtinSkills?.[skill.id] !== false
                 const skillKeys = BUILTIN_SKILL_KEYS[skill.id] || []
-                const skillName = skillKeys[0] ? tx(language, skillKeys[0]) : skill.name
-                const skillDesc = skillKeys[1] ? tx(language, skillKeys[1]) : skill.desc
+                const skillName = skillKeys[0] ? t(language, skillKeys[0]) : skill.name
+                const skillDesc = skillKeys[1] ? t(language, skillKeys[1]) : skill.desc
                 return (
                   <div
                     key={skill.id}
@@ -1309,11 +1390,11 @@ ${tx(language, 'cap.skillTemplateBody')}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="space-y-0.5">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-white/90">{tx(language, 'cap.customSkills')}</span>
+                  <span className="text-sm font-semibold text-white/90">{t(language, 'cap.customSkills')}</span>
                   <span className="badge badge-xs badge-neutral opacity-80">{skills.length}</span>
                 </div>
                 <p className="text-xs text-white/50">
-                  {tx(language, 'cap.customSkillsDesc')}
+                  {t(language, 'cap.customSkillsDesc')}
                 </p>
               </div>
 
@@ -1324,15 +1405,15 @@ ${tx(language, 'cap.skillTemplateBody')}
                   className="btn btn-xs btn-ghost border border-white/10 text-white/70 rounded-xl gap-1.5"
                 >
                   <FolderOpen size={11} />
-                  <span>{tx(language, 'cap.openFolder')}</span>
+                  <span>{t(language, 'cap.openFolder')}</span>
                 </button>
                 <button
                   type="button"
                   onClick={handleInstallSkillPackage}
                   className="btn btn-xs btn-ghost border border-white/10 text-white/70 rounded-xl"
-                  title={tx(language, 'cap.importArchiveTitle')}
+                  title={t(language, 'cap.importArchiveTitle')}
                 >
-                  <span>{tx(language, 'cap.importArchive')}</span>
+                  <span>{t(language, 'cap.importArchive')}</span>
                 </button>
                 <button
                   type="button"
@@ -1340,7 +1421,7 @@ ${tx(language, 'cap.skillTemplateBody')}
                   className="btn btn-xs btn-primary rounded-xl gap-1"
                 >
                   <Plus size={9} />
-                  <span>{tx(language, 'cap.newSkill')}</span>
+                  <span>{t(language, 'cap.newSkill')}</span>
                 </button>
               </div>
             </div>
@@ -1348,11 +1429,11 @@ ${tx(language, 'cap.skillTemplateBody')}
             {skillsLoading ? (
               <div className="p-6 text-center text-white/40 text-xs flex flex-col items-center gap-2">
                 <span className="loading loading-spinner loading-sm text-primary"></span>
-                {tx(language, 'cap.loadingSkills')}
+                {t(language, 'cap.loadingSkills')}
               </div>
             ) : skills.length === 0 ? (
               <div className="p-6 text-center rounded-xl bg-base-100/30 border border-dashed border-white/10 text-xs text-white/50">
-                {tx(language, 'cap.noSkills')}
+                {t(language, 'cap.noSkills')}
               </div>
             ) : (
               <div className="grid gap-2">
@@ -1367,7 +1448,7 @@ ${tx(language, 'cap.skillTemplateBody')}
                         <span className="badge badge-xs badge-ghost border-white/10 font-mono text-[9px]">XDG</span>
                       </div>
                       <p className="text-[11px] text-white/50 truncate">
-                        {s.description || tx(language, 'cap.noDesc')}
+                        {s.description || t(language, 'cap.noDesc')}
                       </p>
                     </div>
 
@@ -1376,7 +1457,7 @@ ${tx(language, 'cap.skillTemplateBody')}
                         type="button"
                         onClick={() => handleOpenEditSkill(s.name)}
                         className="btn btn-xs btn-ghost border border-white/10 text-white/70 rounded-xl"
-                        title={tx(language, 'cap.editSkillTitle')}
+                        title={t(language, 'cap.editSkillTitle')}
                       >
                         <Pencil size={11} />
                       </button>
@@ -1384,7 +1465,7 @@ ${tx(language, 'cap.skillTemplateBody')}
                         type="button"
                         onClick={() => handleDeleteSkill(s.name)}
                         className="btn btn-xs btn-ghost border border-white/10 text-error hover:bg-error/10 rounded-xl"
-                        title={tx(language, 'cap.deleteSkillTitle')}
+                        title={t(language, 'cap.deleteSkillTitle')}
                       >
                         <Trash2 size={11} />
                       </button>
@@ -1404,31 +1485,31 @@ ${tx(language, 'cap.skillTemplateBody')}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="p-4 rounded-2xl bg-base-200/40 border border-white/5 space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-info">{tx(language, 'cap.tier1')}</span>
-                <span className="badge badge-xs badge-info text-[9px]">{tx(language, 'cap.auto')}</span>
+                <span className="text-xs font-semibold text-info">{t(language, 'cap.tier1')}</span>
+                <span className="badge badge-xs badge-info text-[9px]">{t(language, 'cap.auto')}</span>
               </div>
               <p className="text-[11px] text-white/50 leading-relaxed">
-                {tx(language, 'cap.tier1Desc')}
+                {t(language, 'cap.tier1Desc')}
               </p>
             </div>
 
             <div className="p-4 rounded-2xl bg-base-200/40 border border-white/5 space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-info">{tx(language, 'cap.tier2')}</span>
-                <span className="badge badge-xs badge-info text-[9px]">{tx(language, 'cap.perSession')}</span>
+                <span className="text-xs font-semibold text-info">{t(language, 'cap.tier2')}</span>
+                <span className="badge badge-xs badge-info text-[9px]">{t(language, 'cap.perSession')}</span>
               </div>
               <p className="text-[11px] text-white/50 leading-relaxed">
-                {tx(language, 'cap.tier2Desc')}
+                {t(language, 'cap.tier2Desc')}
               </p>
             </div>
 
             <div className="p-4 rounded-2xl bg-base-200/40 border border-white/5 space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-error">{tx(language, 'cap.tier3')}</span>
-                <span className="badge badge-xs badge-error text-[9px]">{tx(language, 'cap.nativeRfd')}</span>
+                <span className="text-xs font-semibold text-error">{t(language, 'cap.tier3')}</span>
+                <span className="badge badge-xs badge-error text-[9px]">{t(language, 'cap.nativeRfd')}</span>
               </div>
               <p className="text-[11px] text-white/50 leading-relaxed">
-                {tx(language, 'cap.tier3Desc')}
+                {t(language, 'cap.tier3Desc')}
               </p>
             </div>
           </div>
@@ -1437,9 +1518,9 @@ ${tx(language, 'cap.skillTemplateBody')}
           <div className="rounded-2xl border border-white/5 bg-base-200/40 backdrop-blur-md p-5 space-y-3">
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <span className="text-sm font-semibold text-white/90">{tx(language, 'cap.granularPolicies')}</span>
+                <span className="text-sm font-semibold text-white/90">{t(language, 'cap.granularPolicies')}</span>
                 <p className="text-xs text-white/50">
-                  {tx(language, 'cap.granularDesc')}
+                  {t(language, 'cap.granularDesc')}
                 </p>
               </div>
 
@@ -1453,12 +1534,12 @@ ${tx(language, 'cap.skillTemplateBody')}
                   } catch {}
                 }}
               >
-                {tx(language, 'cap.resetSession')}
+                {t(language, 'cap.resetSession')}
               </button>
             </div>
 
             {policiesLoading ? (
-              <div className="p-6 text-center text-white/40 text-xs">{tx(language, 'cap.loadingPolicies')}</div>
+              <div className="p-6 text-center text-white/40 text-xs">{t(language, 'cap.loadingPolicies')}</div>
             ) : (
               <div className="grid gap-2 pt-1">
                 {approvalPolicies.map((p) => (
@@ -1480,9 +1561,9 @@ ${tx(language, 'cap.skillTemplateBody')}
                         } catch {}
                       }}
                     >
-                      <option value="ask">{tx(language, 'cap.askEach')}</option>
-                      <option value="session">{tx(language, 'cap.oncePerSession')}</option>
-                      <option value="always">{tx(language, 'cap.alwaysAllow')}</option>
+                      <option value="ask">{t(language, 'cap.askEach')}</option>
+                      <option value="session">{t(language, 'cap.oncePerSession')}</option>
+                      <option value="always">{t(language, 'cap.alwaysAllow')}</option>
                     </select>
                   </div>
                 ))}
@@ -1499,7 +1580,7 @@ ${tx(language, 'cap.skillTemplateBody')}
             <div className="flex items-center justify-between border-b border-white/5 pb-3">
               <h3 className="text-sm font-bold text-white/90 flex items-center gap-2">
                 <Plug className="text-primary" size={13} />
-                {tx(language, 'cap.extGuideTitle')}
+                {t(language, 'cap.extGuideTitle')}
               </h3>
               <button
                 type="button"
@@ -1512,21 +1593,21 @@ ${tx(language, 'cap.skillTemplateBody')}
 
             <div className="space-y-3 text-xs text-white/70">
               <div className="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1.5">
-                <span className="text-[11px] text-white/40 block">{tx(language, 'cap.extFolderLabel')}</span>
+                <span className="text-[11px] text-white/40 block">{t(language, 'cap.extFolderLabel')}</span>
                 <div className="flex items-center justify-between gap-2">
                   <code className="font-mono text-[10px] text-primary truncate">
-                    {extInstall?.dir || tx(language, 'cap.extFolderChecking')}
+                    {extInstall?.dir || t(language, 'cap.extFolderChecking')}
                   </code>
                   {extInstall?.dir && (
                     <button
                       type="button"
                       onClick={() => {
-                        navigator.clipboard?.writeText(extInstall.dir)
+                        if (extInstall?.dir) void navigator.clipboard?.writeText(extInstall.dir)
                         setCopiedPath(true)
                         setTimeout(() => setCopiedPath(false), 2000)
                       }}
                       className="btn btn-xs btn-ghost border border-white/10 rounded-lg shrink-0"
-                      title={tx(language, 'cap.copyPathTitle')}
+                      title={t(language, 'cap.copyPathTitle')}
                     >
                       {copiedPath ? <CheckCircle2 size={10} className="text-info" /> : <Copy size={10} />}
                     </button>
@@ -1534,11 +1615,11 @@ ${tx(language, 'cap.skillTemplateBody')}
                 </div>
               </div>
 
-              <p className="font-medium text-white/90">{tx(language, 'cap.extStepsTitle')}</p>
+              <p className="font-medium text-white/90">{t(language, 'cap.extStepsTitle')}</p>
               <ol className="list-decimal list-inside space-y-1 pl-1 text-white/70">
-                <li>{tx(language, 'cap.extStep1a')} <code className="font-mono text-primary px-1 py-0.5 rounded bg-black/40">chrome://extensions</code> {tx(language, 'cap.extStep1b')}</li>
-                <li>{tx(language, 'cap.extStep2a')} <b>Developer mode</b> {tx(language, 'cap.extStep2b')}</li>
-                <li>{tx(language, 'cap.extStep3a')} <b>Load unpacked</b> {tx(language, 'cap.extStep3b')}</li>
+                <li>{t(language, 'cap.extStep1a')} <code className="font-mono text-primary px-1 py-0.5 rounded bg-black/40">chrome://extensions</code> {t(language, 'cap.extStep1b')}</li>
+                <li>{t(language, 'cap.extStep2a')} <b>Developer mode</b> {t(language, 'cap.extStep2b')}</li>
+                <li>{t(language, 'cap.extStep3a')} <b>Load unpacked</b> {t(language, 'cap.extStep3b')}</li>
               </ol>
             </div>
 
@@ -1546,11 +1627,13 @@ ${tx(language, 'cap.skillTemplateBody')}
               {extInstall?.dir && (
                 <button
                   type="button"
-                  onClick={() => window.api?.openFolder?.(extInstall.dir)}
+                  onClick={() => {
+                    if (extInstall?.dir) void window.api?.openFolder?.(extInstall.dir)
+                  }}
                   className="btn btn-sm btn-ghost rounded-xl gap-1.5"
                 >
                   <FolderOpen size={11} />
-                  <span>{tx(language, 'cap.openInFileManager')}</span>
+                  <span>{t(language, 'cap.openInFileManager')}</span>
                 </button>
               )}
               <button
@@ -1558,7 +1641,7 @@ ${tx(language, 'cap.skillTemplateBody')}
                 onClick={() => setExtGuideOpen(false)}
                 className="btn btn-sm btn-primary rounded-xl"
               >
-                {tx(language, 'cap.done')}
+                {t(language, 'cap.done')}
               </button>
             </div>
           </div>
@@ -1572,7 +1655,7 @@ ${tx(language, 'cap.skillTemplateBody')}
             <div className="flex items-center justify-between border-b border-white/5 pb-3">
               <h3 className="text-sm font-bold text-white/90 flex items-center gap-2">
                 <Plug className="text-primary" size={13} />
-                {tx(language, 'cap.addCustomMcp')}
+                {t(language, 'cap.addCustomMcp')}
               </h3>
               <button
                 type="button"
@@ -1585,10 +1668,10 @@ ${tx(language, 'cap.skillTemplateBody')}
 
             <div className="space-y-3 text-xs">
               <div className="space-y-1">
-                <label className="font-semibold text-white/70">{tx(language, 'cap.mcpIdLabel')}</label>
+                <label className="font-semibold text-white/70">{t(language, 'cap.mcpIdLabel')}</label>
                 <input
                   type="text"
-                  placeholder={tx(language, 'cap.mcpIdPh')}
+                  placeholder={t(language, 'cap.mcpIdPh')}
                   value={newMcpForm.id}
                   onChange={(e) => setNewMcpForm({ ...newMcpForm, id: e.target.value })}
                   className="input input-sm input-bordered w-full rounded-xl bg-base-200 border-white/10 font-mono text-xs"
@@ -1596,10 +1679,10 @@ ${tx(language, 'cap.skillTemplateBody')}
               </div>
 
               <div className="space-y-1">
-                <label className="font-semibold text-white/70">{tx(language, 'cap.mcpNameLabel')}</label>
+                <label className="font-semibold text-white/70">{t(language, 'cap.mcpNameLabel')}</label>
                 <input
                   type="text"
-                  placeholder={tx(language, 'cap.mcpNamePh')}
+                  placeholder={t(language, 'cap.mcpNamePh')}
                   value={newMcpForm.name}
                   onChange={(e) => setNewMcpForm({ ...newMcpForm, name: e.target.value })}
                   className="input input-sm input-bordered w-full rounded-xl bg-base-200 border-white/10 text-xs"
@@ -1607,10 +1690,10 @@ ${tx(language, 'cap.skillTemplateBody')}
               </div>
 
               <div className="space-y-1">
-                <label className="font-semibold text-white/70">{tx(language, 'cap.mcpUrlLabel')}</label>
+                <label className="font-semibold text-white/70">{t(language, 'cap.mcpUrlLabel')}</label>
                 <input
                   type="text"
-                  placeholder={tx(language, 'cap.mcpUrlPh')}
+                  placeholder={t(language, 'cap.mcpUrlPh')}
                   value={newMcpForm.url}
                   onChange={(e) => setNewMcpForm({ ...newMcpForm, url: e.target.value })}
                   className="input input-sm input-bordered w-full rounded-xl bg-base-200 border-white/10 font-mono text-xs"
@@ -1618,10 +1701,10 @@ ${tx(language, 'cap.skillTemplateBody')}
               </div>
 
               <div className="space-y-1">
-                <label className="font-semibold text-white/70">{tx(language, 'cap.mcpDescLabel')}</label>
+                <label className="font-semibold text-white/70">{t(language, 'cap.mcpDescLabel')}</label>
                 <input
                   type="text"
-                  placeholder={tx(language, 'cap.mcpDescPh')}
+                  placeholder={t(language, 'cap.mcpDescPh')}
                   value={newMcpForm.description}
                   onChange={(e) => setNewMcpForm({ ...newMcpForm, description: e.target.value })}
                   className="input input-sm input-bordered w-full rounded-xl bg-base-200 border-white/10 text-xs"
@@ -1629,15 +1712,15 @@ ${tx(language, 'cap.skillTemplateBody')}
               </div>
 
               <div className="space-y-1">
-                <label className="font-semibold text-white/70">{tx(language, 'cap.mcpHeadersLabel')}</label>
+                <label className="font-semibold text-white/70">{t(language, 'cap.mcpHeadersLabel')}</label>
                 <input
                   type="text"
-                  placeholder={tx(language, 'cap.mcpHeadersPh')}
+                  placeholder={t(language, 'cap.mcpHeadersPh')}
                   value={newMcpForm.headers}
                   onChange={(e) => setNewMcpForm({ ...newMcpForm, headers: e.target.value })}
                   className="input input-sm input-bordered w-full rounded-xl bg-base-200 border-white/10 font-mono text-xs"
                 />
-                <p className="text-[10px] text-white/40">{tx(language, 'cap.mcpHeadersNote')}</p>
+                <p className="text-[10px] text-white/40">{t(language, 'cap.mcpHeadersNote')}</p>
               </div>
             </div>
 
@@ -1647,14 +1730,14 @@ ${tx(language, 'cap.skillTemplateBody')}
                 onClick={() => setAddMcpModalOpen(false)}
                 className="btn btn-sm btn-ghost rounded-xl"
               >
-                {tx(language, 'cap.cancel')}
+                {t(language, 'cap.cancel')}
               </button>
               <button
                 type="button"
                 onClick={handleSaveNewMcp}
                 className="btn btn-sm btn-primary rounded-xl"
               >
-                {tx(language, 'cap.saveConnector')}
+                {t(language, 'cap.saveConnector')}
               </button>
             </div>
           </div>
@@ -1668,7 +1751,7 @@ ${tx(language, 'cap.skillTemplateBody')}
             <div className="flex items-center justify-between border-b border-white/5 pb-3">
               <h3 className="text-sm font-bold text-white/90 flex items-center gap-2">
                 <Lock className="text-primary" size={13} />
-                {tx(language, 'cap.connectGoogleTitle')}
+                {t(language, 'cap.connectGoogleTitle')}
               </h3>
               <button
                 type="button"
@@ -1681,7 +1764,7 @@ ${tx(language, 'cap.skillTemplateBody')}
 
             <div className="space-y-3 text-xs">
               <p className="text-white/60 leading-relaxed">
-                {tx(language, 'cap.googleOAuthDesc')}
+                {t(language, 'cap.googleOAuthDesc')}
               </p>
               <div className="space-y-1">
                 <label className="font-semibold text-white/70">Client ID</label>
@@ -1711,7 +1794,7 @@ ${tx(language, 'cap.skillTemplateBody')}
                 onClick={() => setGoogleModalOpen(false)}
                 className="btn btn-sm btn-ghost rounded-xl"
               >
-                {tx(language, 'cap.cancel')}
+                {t(language, 'cap.cancel')}
               </button>
               <button
                 type="button"
@@ -1719,7 +1802,7 @@ ${tx(language, 'cap.skillTemplateBody')}
                 onClick={handleGoogleConnect}
                 className="btn btn-sm btn-primary rounded-xl"
               >
-                {googleLoading ? tx(language, 'cap.connecting') : tx(language, 'cap.authorizeAccount')}
+                {googleLoading ? t(language, 'cap.connecting') : t(language, 'cap.authorizeAccount')}
               </button>
             </div>
           </div>
@@ -1734,7 +1817,7 @@ ${tx(language, 'cap.skillTemplateBody')}
               <div className="flex items-center gap-2">
                 <Boxes className="text-primary" size={16} />
                 <h3 className="text-base font-bold text-white/90">
-                  {editingPlugin.mode === 'new' ? tx(language, 'cap.newPlugin') : tx(language, 'cap.editPlugin')(pluginForm.name)}
+                  {editingPlugin.mode === 'new' ? t(language, 'cap.newPlugin') : t(language, 'cap.editPlugin', pluginForm.name)}
                 </h3>
               </div>
               <button
@@ -1749,21 +1832,21 @@ ${tx(language, 'cap.skillTemplateBody')}
             <div className="flex-1 overflow-y-auto custom-scrollbar space-y-4 pr-1">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-white/70">{tx(language, 'cap.pluginName')}</label>
+                  <label className="text-xs font-semibold text-white/70">{t(language, 'cap.pluginName')}</label>
                   <input
                     type="text"
                     disabled={editingPlugin.mode === 'edit'}
-                    placeholder={tx(language, 'cap.pluginNamePh')}
+                    placeholder={t(language, 'cap.pluginNamePh')}
                     value={pluginForm.name}
                     onChange={(e) => setPluginForm({ ...pluginForm, name: e.target.value })}
                     className="input input-sm input-bordered w-full rounded-xl bg-base-200 border-white/10 text-xs"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-white/70">{tx(language, 'cap.pluginDesc')}</label>
+                  <label className="text-xs font-semibold text-white/70">{t(language, 'cap.pluginDesc')}</label>
                   <input
                     type="text"
-                    placeholder={tx(language, 'cap.pluginDescPh')}
+                    placeholder={t(language, 'cap.pluginDescPh')}
                     value={pluginForm.description}
                     onChange={(e) => setPluginForm({ ...pluginForm, description: e.target.value })}
                     className="input input-sm input-bordered w-full rounded-xl bg-base-200 border-white/10 text-xs"
@@ -1773,7 +1856,7 @@ ${tx(language, 'cap.skillTemplateBody')}
 
               <div className="space-y-3 pt-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-white/70 uppercase tracking-wider">{tx(language, 'cap.actionsAndCode')}</span>
+                  <span className="text-xs font-semibold text-white/70 uppercase tracking-wider">{t(language, 'cap.actionsAndCode')}</span>
                   <button
                     type="button"
                     onClick={() =>
@@ -1787,7 +1870,7 @@ ${tx(language, 'cap.skillTemplateBody')}
                     }
                     className="btn btn-xs btn-ghost border border-white/10 rounded-xl gap-1"
                   >
-                    <Plus size={9} /> {tx(language, 'cap.addAction')}
+                    <Plus size={9} /> {t(language, 'cap.addAction')}
                   </button>
                 </div>
 
@@ -1796,7 +1879,7 @@ ${tx(language, 'cap.skillTemplateBody')}
                     <div className="flex items-center gap-2">
                       <input
                         type="text"
-                        placeholder={tx(language, 'cap.actionNamePh')}
+                        placeholder={t(language, 'cap.actionNamePh')}
                         value={act.name}
                         onChange={(e) => {
                           const updated = [...pluginForm.actions]
@@ -1807,7 +1890,7 @@ ${tx(language, 'cap.skillTemplateBody')}
                       />
                       <input
                         type="text"
-                        placeholder={tx(language, 'cap.triggerHintPh')}
+                        placeholder={t(language, 'cap.triggerHintPh')}
                         value={act.triggerHint}
                         onChange={(e) => {
                           const updated = [...pluginForm.actions]
@@ -1834,7 +1917,7 @@ ${tx(language, 'cap.skillTemplateBody')}
                       <textarea
                         rows={6}
                         spellCheck={false}
-                        placeholder={tx(language, 'cap.actionCodePh')}
+                        placeholder={t(language, 'cap.actionCodePh')}
                         value={act.code}
                         onChange={(e) => {
                           const updated = [...pluginForm.actions]
@@ -1848,7 +1931,7 @@ ${tx(language, 'cap.skillTemplateBody')}
                     {pluginSyntaxErrors[index] && (
                       <p className="text-xs text-error font-mono flex items-center gap-1.5">
                         <AlertTriangle size={11} />
-                        {tx(language, 'cap.syntaxError')(pluginSyntaxErrors[index])}
+                        {t(language, 'cap.syntaxError', pluginSyntaxErrors[index])}
                       </p>
                     )}
                   </div>
@@ -1862,14 +1945,14 @@ ${tx(language, 'cap.skillTemplateBody')}
                 onClick={() => setEditingPlugin(null)}
                 className="btn btn-sm btn-ghost rounded-xl"
               >
-                {tx(language, 'cap.cancel')}
+                {t(language, 'cap.cancel')}
               </button>
               <button
                 type="button"
                 onClick={handleSavePlugin}
                 className="btn btn-sm btn-primary rounded-xl"
               >
-                {tx(language, 'cap.savePlugin')}
+                {t(language, 'cap.savePlugin')}
               </button>
             </div>
           </div>
@@ -1884,7 +1967,7 @@ ${tx(language, 'cap.skillTemplateBody')}
               <div className="flex items-center gap-2">
                 <Brain className="text-primary" size={16} />
                 <h3 className="text-base font-bold text-white/90">
-                  {editingSkill.isNew ? tx(language, 'cap.newSkillTitle') : tx(language, 'cap.editSkill')(skillFormName)}
+                  {editingSkill.isNew ? t(language, 'cap.newSkillTitle') : t(language, 'cap.editSkill', skillFormName)}
                 </h3>
               </div>
               <button
@@ -1898,11 +1981,11 @@ ${tx(language, 'cap.skillTemplateBody')}
 
             <div className="flex-1 overflow-y-auto custom-scrollbar space-y-4 pr-1">
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-white/70">{tx(language, 'cap.skillNameLabel')}</label>
+                <label className="text-xs font-semibold text-white/70">{t(language, 'cap.skillNameLabel')}</label>
                 <input
                   type="text"
                   disabled={!editingSkill.isNew}
-                  placeholder={tx(language, 'cap.skillNamePh')}
+                  placeholder={t(language, 'cap.skillNamePh')}
                   value={skillFormName}
                   onChange={(e) => setSkillFormName(e.target.value)}
                   className="input input-sm input-bordered w-full rounded-xl bg-base-200 border-white/10 font-mono text-xs"
@@ -1910,7 +1993,7 @@ ${tx(language, 'cap.skillTemplateBody')}
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-white/70">{tx(language, 'cap.skillFileLabel')}</label>
+                <label className="text-xs font-semibold text-white/70">{t(language, 'cap.skillFileLabel')}</label>
                 <div className="rounded-xl overflow-hidden border border-white/10">
                   <textarea
                     rows={14}
@@ -1930,14 +2013,14 @@ ${tx(language, 'cap.skillTemplateBody')}
                 onClick={() => setEditingSkill(null)}
                 className="btn btn-sm btn-ghost rounded-xl"
               >
-                {tx(language, 'cap.cancel')}
+                {t(language, 'cap.cancel')}
               </button>
               <button
                 type="button"
                 onClick={handleSaveSkill}
                 className="btn btn-sm btn-primary rounded-xl"
               >
-                {tx(language, 'cap.saveSkill')}
+                {t(language, 'cap.saveSkill')}
               </button>
             </div>
           </div>

@@ -56,6 +56,7 @@ export interface ConfigRow {
   tgBotToken?: string
   tgAdminIds?: string
   awarenessEnabled?: boolean
+  micDeviceId?: string
   cameraDeviceId?: string
   cameraEnabled?: boolean
   geminiWebModel?: string
@@ -74,6 +75,22 @@ export interface ConfigRow {
   sttStrategy?: string
   sttLanguage?: string
   sttConnections?: SttConnection[]
+  // W4 (renderer UI): field config yang dibaca komponen settings — semuanya
+  // opsional; sebelumnya hanya tersedia lewat index signature `unknown`.
+  language?: string
+  effortLevel?: string
+  sessionCompactionEnabled?: boolean
+  ownerName?: string
+  occupation?: string
+  builtinPlugins?: Record<string, boolean>
+  builtinSkills?: Record<string, boolean>
+  browserAutoCloseTabs?: boolean
+  browserAutoLaunch?: boolean
+  rtkCompress?: boolean
+  ttsProvider?: string
+  customTtsEndpoint?: string
+  customTtsModel?: string
+  customTtsApiKey?: string
   [key: string]: unknown
 }
 /** Baris store chatArchive. */

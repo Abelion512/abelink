@@ -53,7 +53,10 @@ describe('G1: tryAutoResume pulih dari token basi via native host', () => {
   it('gagal helper / token sama tetap menyerah pada attempt ini (jadwal ulang tetap jalan)', () => {
     // Setelah blok 401 tidak ada loop() liar di luar guard 200 — penyerah
     // ditandai dengan jatuh ke scheduleAutoResume di akhir fungsi.
-    expect(fn).toMatch(/scheduleAutoResume\(5000\)/)
+    // Backoff eksponensial (2026-09-29): tanpa argumen = delay dari
+    // resumeDelayMs() (5s -> 10s -> 20s -> 30s cap), bukan flat 5000.
+    expect(fn).toMatch(/scheduleAutoResume\(\)/)
+    expect(fn).not.toMatch(/scheduleAutoResume\(5000\)/)
     // Helper dipanggil maksimal sekali di cabang 401 (tanpa retry loop):
     const branch = fn.match(/if \(hs\.status === 401\)[\s\S]*?\n    \} catch \{/)[0]
     expect(branch.match(/getTokenViaNativeHost/g)).toHaveLength(1)

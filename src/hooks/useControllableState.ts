@@ -8,7 +8,7 @@ export function useControllableState<T>({
   prop?: T
   defaultProp?: T
   onChange?: (value: T) => void
-}) {
+}): [T | undefined, (next: T | ((prev: T | undefined) => T)) => void] {
   const controlled = prop !== undefined
   const [internal, setInternal] = useState<T | undefined>(defaultProp)
   const value = controlled ? prop : internal

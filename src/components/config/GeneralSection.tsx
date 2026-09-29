@@ -1,5 +1,6 @@
 import { ElasticSlider } from '../core/ElasticSlider'
-import { tx } from '../../api/locale'
+import { t } from '../../api/locale'
+import type { ConfigRow } from '../../api/db'
 
 export default function GeneralSection({
   config,
@@ -7,29 +8,35 @@ export default function GeneralSection({
   fullMode,
   setFullMode,
   activeSection
+}: {
+  config: ConfigRow
+  setConfig: (updater: (prev: ConfigRow) => ConfigRow) => void
+  fullMode: boolean
+  setFullMode: (v: boolean) => void
+  activeSection: string
 }) {
   return (
     <section
       id="cfg-general"
       className={`space-y-5 scroll-mt-4 ${activeSection !== 'cfg-general' ? 'hidden' : ''}`}
     >
-      <h2 className="text-base font-bold uppercase tracking-wider opacity-70">{tx(config, 'general.title')}</h2>
+      <h2 className="text-base font-bold uppercase tracking-wider opacity-70">{t(config, 'general.title')}</h2>
 
       <div className="space-y-1.5">
-        <p className="text-sm font-semibold">{tx(config, 'general.language')}</p>
+        <p className="text-sm font-semibold">{t(config, 'general.language')}</p>
         <select
           className="select select-bordered w-full rounded-xl bg-base-100/60 border-white/10 text-xs"
           value={config.language || 'en'}
           onChange={(e) => setConfig((prev) => ({ ...prev, language: e.target.value }))}
         >
-          <option value="en">{tx(config, 'general.langEn')}</option>
-          <option value="zh">{tx(config, 'general.langZh')}</option>
+          <option value="en">{t(config, 'general.langEn')}</option>
+          <option value="zh">{t(config, 'general.langZh')}</option>
         </select>
       </div>
 
       {/* Mode performa */}
       <div className="space-y-1.5">
-        <p className="text-sm font-semibold">{tx(config, 'general.perfMode')}</p>
+        <p className="text-sm font-semibold">{t(config, 'general.perfMode')}</p>
         <label className="flex items-center gap-2 text-sm cursor-pointer">
           <input
             type="checkbox"
@@ -44,14 +51,14 @@ export default function GeneralSection({
               } catch (_) {}
             }}
           />
-          <span className="text-xs text-white/70">{tx(config, 'general.perfModeHint')}</span>
+          <span className="text-xs text-white/70">{t(config, 'general.perfModeHint')}</span>
         </label>
       </div>
 
       {/* Preferensi jendela: transparansi */}
       <div className="space-y-2 p-3 rounded-xl bg-base-200/50 border border-white/5">
         <ElasticSlider
-          label={tx(config, 'general.windowOpacity')}
+          label={t(config, 'general.windowOpacity')}
           value={config.windowOpacity ?? 0.85}
           onValueChange={(val) => {
             document.documentElement.style.setProperty('--win-alpha', String(val))

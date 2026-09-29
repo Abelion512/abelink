@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, type ChangeEvent } from 'react'
 import { DEFAULT_STT_MODEL } from '../../api/sttGuard'
-import { tx } from '../../api/locale'
+import { t } from '../../api/locale'
+import type { ConfigRow, SttConnection } from '../../api/db'
 import {
   Zap,
   ArrowUp,
@@ -25,14 +26,25 @@ export default function SttRouterConfig({
   testingConnId,
   connTestResults,
   onTestConnection
+}: {
+  config: ConfigRow
+  setConfig: (updater: (prev: ConfigRow) => ConfigRow) => void
+  hardwareSupport?: { cores: number; isLiteMode: boolean; isLowEnd: boolean; recommendation: string; reason: string } | null
+  whisperLoading?: boolean
+  whisperLoaded?: boolean
+  whisperProgress?: number | string | null
+  onDownloadWhisper: () => Promise<void>
+  testingConnId?: string | null
+  connTestResults?: Record<string, { ok: boolean; latency?: number; msg: string }>
+  onTestConnection: (conn: { id: string; endpoint?: string; apiKey?: string; model?: string }) => Promise<void>
 }) {
-  const [expandedIds, setExpandedIds] = useState(() => {
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => {
     // Expand item pertama secara default jika ada
     const firstId = config.sttConnections?.[0]?.id
     return new Set(firstId ? [firstId] : [])
   })
 
-  const toggleExpand = (id) => {
+  const toggleExpand = (id: string) => {
     setExpandedIds((prev) => {
       const next = new Set(prev)
       if (next.has(id)) {
@@ -48,7 +60,7 @@ export default function SttRouterConfig({
     const newId = `conn-${Date.now()}`
     const newConn = {
       id: newId,
-      name: tx(config, 'stt.newProvider')((config.sttConnections || []).length + 1),
+      name: t(config, 'stt.newProvider', (config.sttConnections || []).length + 1),
       endpoint: 'http://127.0.0.1:20128/v1/audio/transcriptions',
       apiKey: '',
       model: DEFAULT_STT_MODEL,
@@ -62,7 +74,7 @@ export default function SttRouterConfig({
     setExpandedIds((prev) => new Set([...prev, newId]))
   }
 
-  const handleUpdate = (id, field, value) => {
+  const handleUpdate = (id: string, field: keyof SttConnection, value: string | boolean) => {
     setConfig((prev) => ({
       ...prev,
       sttConnections: (prev.sttConnections || []).map((c) =>
@@ -71,7 +83,7 @@ export default function SttRouterConfig({
     }))
   }
 
-  const handleRemove = (id) => {
+  const handleRemove = (id: string) => {
     setConfig((prev) => ({
       ...prev,
       sttConnections: (prev.sttConnections || []).filter((c) => c.id !== id)
@@ -83,7 +95,7 @@ export default function SttRouterConfig({
     })
   }
 
-  const handleMove = (idx, delta) => {
+  const handleMove = (idx: number, delta: number) => {
     setConfig((prev) => {
       const list = [...(prev.sttConnections || [])]
       const targetIdx = idx + delta
@@ -97,7 +109,6 @@ export default function SttRouterConfig({
 
   const isWhisperMode = config.sttProvider === 'whisper'
   const connections = config.sttConnections || []
-  const t = (k) => tx(config, k)
 
   return (
     <section
@@ -107,7 +118,7 @@ export default function SttRouterConfig({
       {/* Header & Mode Switcher */}
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1 border-b border-white/5">
         <div>
-          <h3 className="text-sm font-semibold text-white/90">{t('stt.title')}</h3>
+          <h3 className="text-sm font-semibold text-white/90">{t(config, 'stt.title')}</h3>
         </div>
 
         <nav className="inline-flex p-1 bg-base-300/60 rounded-xl border border-white/5 self-start sm:self-auto">
@@ -151,7 +162,7 @@ export default function SttRouterConfig({
             <CheckCircle2 className="text-xs shrink-0" />
           )}
           <span className="font-medium">
-            {t('stt.hwHint')(hardwareSupport.cores)}
+            {t(config, 'stt.hwHint', hardwareSupport.cores)}
           </span>
         </aside>
       )}
@@ -161,7 +172,7 @@ export default function SttRouterConfig({
         <fieldset className="space-y-3 pt-1">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-white/70">{t('stt.model')}</label>
+              <label className="text-xs font-semibold text-white/70">{t(config, 'stt.model')}</label>
               <select
                 className="select select-bordered select-sm w-full font-mono text-xs rounded-xl bg-base-100/60 border-white/10"
                 value={config.localWhisperModel || 'whisper-small'}
@@ -169,8 +180,8 @@ export default function SttRouterConfig({
                   setConfig((prev) => ({ ...prev, localWhisperModel: e.target.value }))
                 }
               >
-                <option value="whisper-tiny">{t('stt.modelTiny')}</option>
-                <option value="whisper-small">{t('stt.modelSmall')}</option>
+                <option value="whisper-tiny">{t(config, 'stt.modelTiny')}</option>
+                <option value="whisper-small">{t(config, 'stt.modelSmall')}</option>
               </select>
             </div>
 
@@ -184,16 +195,16 @@ export default function SttRouterConfig({
                 {whisperLoading ? (
                   <>
                     <MobiusLoader size={14} />
-                    <span>{t('stt.loadingModel')}</span>
+                    <span>{t(config, 'stt.loadingModel')}</span>
                   </>
                 ) : whisperLoaded ? (
                   <>
                     <CheckCircle2 />
-                    <span>{t('stt.modelReady')}</span>
+                    <span>{t(config, 'stt.modelReady')}</span>
                   </>
                 ) : (
                   <>
-                    <span>{t('stt.install')}</span>
+                    <span>{t(config, 'stt.install')}</span>
                   </>
                 )}
               </button>
@@ -213,7 +224,7 @@ export default function SttRouterConfig({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-white/60">{t('stt.router')}</span>
+                <span className="text-xs font-semibold text-white/60">{t(config, 'stt.router')}</span>
                 <select
                   className="select select-bordered select-sm text-xs font-medium rounded-xl bg-base-100/60 border-white/10"
                   value={config.sttStrategy || 'fallback'}
@@ -227,7 +238,7 @@ export default function SttRouterConfig({
               </div>
 
               <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-white/60">{t('stt.language')}</span>
+                <span className="text-xs font-semibold text-white/60">{t(config, 'stt.language')}</span>
                 <select
                   className="select select-bordered select-sm text-xs font-medium rounded-xl bg-base-100/60 border-white/10"
                   value={config.sttLanguage || 'id'}
@@ -248,7 +259,7 @@ export default function SttRouterConfig({
               className="btn btn-sm btn-outline btn-primary rounded-xl gap-1.5 text-xs font-medium"
             >
               <Plus size={11} />
-              <span>{t('stt.addProvider')}</span>
+              <span>{t(config, 'stt.addProvider')}</span>
             </button>
           </div>
 
@@ -256,13 +267,13 @@ export default function SttRouterConfig({
           <div className="space-y-2 max-h-[420px] overflow-y-auto custom-scrollbar pr-1">
             {connections.length === 0 ? (
               <div className="p-6 text-center border border-dashed border-white/10 rounded-xl text-xs text-white/60">
-                {t('stt.emptyHint')}
+                {t(config, 'stt.emptyHint')}
               </div>
             ) : (
               connections.map((conn, idx) => {
                 const isExpanded = expandedIds.has(conn.id)
                 const isTesting = testingConnId === conn.id
-                const testResult = connTestResults[conn.id]
+                const testResult = connTestResults?.[conn.id]
 
                 return (
                   <article
@@ -293,7 +304,7 @@ export default function SttRouterConfig({
                             onChange={(e) =>
                               handleUpdate(conn.id, 'enabled', e.target.checked)
                             }
-                            title={conn.enabled ? t('stt.active') : t('stt.inactive')}
+                            title={conn.enabled ? t(config, 'stt.active') : t(config, 'stt.inactive')}
                           />
                         </div>
 
@@ -303,7 +314,7 @@ export default function SttRouterConfig({
                           value={conn.name || ''}
                           onClick={(e) => e.stopPropagation()}
                           onChange={(e) => handleUpdate(conn.id, 'name', e.target.value)}
-                          placeholder={t('stt.providerNamePh')}
+                          placeholder={t(config, 'stt.providerNamePh')}
                           className="input input-xs input-ghost text-xs font-semibold text-white/90 p-0 focus:px-1.5 focus:bg-base-300/80 rounded max-w-[150px] shrink-0"
                         />
 
@@ -312,7 +323,7 @@ export default function SttRouterConfig({
                           className="hidden md:inline font-mono text-[11px] text-white/60 truncate max-w-[220px]"
                           title={conn.endpoint}
                         >
-                          {conn.endpoint?.replace(/^https?:\/\//, '') || t('stt.noEndpoint')}
+                          {conn.endpoint?.replace(/^https?:\/\//, '') || t(config, 'stt.noEndpoint')}
                         </span>
 
                         {/* Latency / Test Status Pill */}
@@ -325,7 +336,7 @@ export default function SttRouterConfig({
                             }`}
                             title={testResult.msg}
                           >
-                            {testResult.ok ? `${testResult.latency}ms` : t('stt.failed')}
+                            {testResult.ok ? `${testResult.latency}ms` : t(config, 'stt.failed')}
                           </span>
                         )}
                       </div>
@@ -338,7 +349,7 @@ export default function SttRouterConfig({
                           disabled={isTesting}
                           onClick={() => onTestConnection(conn)}
                           className="btn btn-ghost btn-xs btn-circle text-info hover:bg-info/10"
-                          title={t('stt.testConn')}
+                          title={t(config, 'stt.testConn')}
                         >
                           {isTesting ? (
                             <MobiusLoader size={12} />
@@ -353,7 +364,7 @@ export default function SttRouterConfig({
                           disabled={idx === 0}
                           onClick={() => handleMove(idx, -1)}
                           className="btn btn-ghost btn-xs btn-square text-white/60 hover:text-white disabled:opacity-20"
-                          title={t('stt.priUp')}
+                          title={t(config, 'stt.priUp')}
                         >
                           <ArrowUp size={11} />
                         </button>
@@ -364,7 +375,7 @@ export default function SttRouterConfig({
                           disabled={idx === connections.length - 1}
                           onClick={() => handleMove(idx, 1)}
                           className="btn btn-ghost btn-xs btn-square text-white/60 hover:text-white disabled:opacity-20"
-                          title={t('stt.priDown')}
+                          title={t(config, 'stt.priDown')}
                         >
                           <ArrowDown size={11} />
                         </button>
@@ -375,7 +386,7 @@ export default function SttRouterConfig({
                             type="button"
                             onClick={() => handleRemove(conn.id)}
                             className="btn btn-ghost btn-xs btn-square text-error/70 hover:text-error hover:bg-error/10"
-                            title={t('stt.delProv')}
+                            title={t(config, 'stt.delProv')}
                           >
                             <Trash2 size={11} />
                           </button>
@@ -386,7 +397,7 @@ export default function SttRouterConfig({
                           type="button"
                           onClick={() => toggleExpand(conn.id)}
                           className="btn btn-ghost btn-xs btn-square text-white/60 hover:text-white ml-0.5"
-                          title={isExpanded ? t('stt.collapse') : t('stt.expand')}
+                          title={isExpanded ? t(config, 'stt.collapse') : t(config, 'stt.expand')}
                         >
                           {isExpanded ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
                         </button>
@@ -398,7 +409,7 @@ export default function SttRouterConfig({
                       <div className="p-4 pt-2 border-t border-white/5 bg-base-200/30 space-y-3">
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                           <div className="sm:col-span-2 space-y-1">
-                            <label className="text-xs font-semibold text-white/70">{t('stt.endpointUrl')}</label>
+                            <label className="text-xs font-semibold text-white/70">{t(config, 'stt.endpointUrl')}</label>
                             <input
                               type="text"
                               value={conn.endpoint || ''}
@@ -409,7 +420,7 @@ export default function SttRouterConfig({
                           </div>
 
                           <div className="space-y-1">
-                            <label className="text-xs font-semibold text-white/70">{t('stt.modelLabel')}</label>
+                            <label className="text-xs font-semibold text-white/70">{t(config, 'stt.modelLabel')}</label>
                             <input
                               type="text"
                               value={conn.model || ''}
@@ -421,12 +432,12 @@ export default function SttRouterConfig({
                         </div>
 
                         <div className="space-y-1">
-                          <label className="text-xs font-semibold text-white/70">{t('stt.apiKey')}</label>
+                          <label className="text-xs font-semibold text-white/70">{t(config, 'stt.apiKey')}</label>
                           <input
                             type="password"
                             value={conn.apiKey || ''}
                             onChange={(e) => handleUpdate(conn.id, 'apiKey', e.target.value)}
-                            placeholder={t('stt.apiKeyPh')}
+                            placeholder={t(config, 'stt.apiKeyPh')}
                             className="input input-sm input-bordered w-full font-mono text-xs rounded-xl bg-base-100/60 border-white/10"
                           />
                         </div>

@@ -24,13 +24,19 @@ async function refresh() {
   if ($('port') && !$('port').value && res?.port) $('port').value = res.port
   // Kontrak popup-status.mjs: pill hijau HANYA bila running===true.
   // pairing flavor:port + lastError selalu ditampilkan bila ada.
-  const st = popupStatus({ running: res?.running, lastError: res?.lastError, pairing: res?.pairing })
+  // notice (transien, mis. "Menyambung ulang otomatis...") dirender kuning,
+  // bukan merah — merah hanya untuk lastError nyata.
+  const st = popupStatus({ running: res?.running, lastError: res?.lastError, notice: res?.notice, pairing: res?.pairing })
   const target = `127.0.0.1:${res?.port || '?'}`
   const pin = res?.pairing ? ` [${res.pairing.flavor} :${res.pairing.port} terpin]` : ' [belum pilih flavor]'
   setPill(st.kind, st.pill)
   if (st.pill === 'tersambung') {
     el.className = 'ok'
     el.textContent = `Session: ${res.session} @ ${target}${pin}. Menunggu perintah...`
+    if (reconnectBtn) reconnectBtn.hidden = true
+  } else if (st.kind === 'warn' && res?.notice && !res?.lastError) {
+    el.className = ''
+    el.textContent = `Target: ${target}${pin}\n${res.notice}`
     if (reconnectBtn) reconnectBtn.hidden = true
   } else if (st.pill === 'terputus') {
     el.className = 'err'

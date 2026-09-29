@@ -363,7 +363,7 @@ export const api = {
     call('tts-speak', text, rate, pitch),
   // Alias objek untuk tombol Uji Suara (VoiceVideoSection): backend mengembalikan
   // data-URL string; dibungkus { audioBase64 } agar konsisten satu facade.
-  speakTTS: async ({ text, rate, pitch }: { text?: unknown; rate?: unknown; pitch?: unknown } = {}) => {
+  speakTTS: async ({ text, rate, pitch, returnAudio }: { text?: unknown; rate?: unknown; pitch?: unknown; returnAudio?: boolean } = {}) => {
     const dataUrl = await call('tts-speak', text, rate, pitch)
     if (!dataUrl) return null
     // Prefix MIME apa pun (mp3/mpeg/wav + parameter) dilucuti generik +

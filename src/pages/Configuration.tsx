@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
-import {
-  getAllConfig,
+import { useState, useEffect, useRef, useCallback, type ChangeEvent } from 'react'
+import type { ConfigRow } from '../api/db'
+import { getAllConfig,
   saveConfiguration,
   db
 } from '../api/db'
@@ -19,7 +19,7 @@ import DeveloperSection from '../components/config/DeveloperSection'
 import { getHardwareSttSupport, transcribeToEndpoint } from '../api/sttRouter'
 import { loadWhisper } from '../api/localWhisper'
 import { DEFAULT_STT_MODEL } from '../api/sttGuard'
-import { tx, localeTag } from '../api/locale'
+import { t, localeTag } from '../api/locale'
 
 let mediaInfoLogged = false
 
@@ -27,8 +27,12 @@ const Configuration = ({
   isFirstSetup = false,
   onSetupComplete: _onSetupComplete = null,
   initialLegacyImport = false
+}: {
+  isFirstSetup?: boolean
+  onSetupComplete?: unknown
+  initialLegacyImport?: boolean
 }) => {
-  const [config, setConfig] = useState({
+  const [config, setConfig] = useState<ConfigRow>({
     personality: 'Santai layaknya seorang teman dan suka bercanda.',
     model: 'google/gemma-3-4b',
     effortLevel: 'auto',
@@ -57,8 +61,8 @@ const Configuration = ({
     sttFallbackModel: 'whisper-large-v3-turbo'
   })
 
-  const [audioDevices, setAudioDevices] = useState([])
-  const [videoDevices, setVideoDevices] = useState([])
+  const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([])
+  const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([])
   const [fullMode, setFullMode] = useState(() => {
     try {
       return localStorage.getItem('abelink:fullmode') === '1'
@@ -72,13 +76,13 @@ const Configuration = ({
   const chatSetConfig = useChat()?.setConfig
 
   const [activeSection, setActiveSection] = useState('cfg-general')
-  const [saveStatus, setSaveStatus] = useState(null)
+  const [saveStatus, setSaveStatus] = useState<{ state: 'pending' | 'saving' | 'saved' | 'error'; at?: Date } | null>(null)
   const savedSnapshotRef = useRef('')
   const hydratedRef = useRef(false)
-  const autosaveTimerRef = useRef(null)
+  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Snapshot initial state untuk hydration mount-time (efek [] membaca ini,
   // bukan `config`, agar exhaustive-deps terpenuhi tanpa loop).
-  const initialConfigRef = useRef(null)
+  const initialConfigRef = useRef<ConfigRow | null>(null)
   if (initialConfigRef.current === null) initialConfigRef.current = config
   const devicesLoadedRef = useRef(false)
   const legacyImportFiredRef = useRef(false)
@@ -86,12 +90,12 @@ const Configuration = ({
     () => localStorage.getItem('devHarnessLogging') === '1'
   )
 
-  const [hardwareSupport, setHardwareSupport] = useState(null)
+  const [hardwareSupport, setHardwareSupport] = useState<Awaited<ReturnType<typeof getHardwareSttSupport>> | null>(null)
   const [whisperLoading, setWhisperLoading] = useState(false)
   const [whisperLoaded, setWhisperLoaded] = useState(false)
-  const [whisperProgress, setWhisperProgress] = useState(null)
-  const [testingConnId, setTestingConnId] = useState(null)
-  const [connTestResults, setConnTestResults] = useState({})
+  const [whisperProgress, setWhisperProgress] = useState<string | null>(null)
+  const [testingConnId, setTestingConnId] = useState<string | null>(null)
+  const [connTestResults, setConnTestResults] = useState<Record<string, { ok: boolean; latency?: number; msg: string }>>({})
 
   useEffect(() => {
     getHardwareSttSupport().then(setHardwareSupport)
@@ -99,30 +103,31 @@ const Configuration = ({
 
   const handleDownloadWhisper = async () => {
     setWhisperLoading(true)
-    setWhisperProgress(tx(config, 'cfg.whisperDownloading'))
+    setWhisperProgress(t(config, 'cfg.whisperDownloading'))
     try {
-      await loadWhisper((progress) => {
+      await loadWhisper((rawProgress) => {
+        const progress = rawProgress as { status?: string; total?: number; loaded?: number; file?: string }
         if (progress?.status === 'progress' && progress?.total) {
-          const pct = Math.round((progress.loaded / progress.total) * 100)
-          setWhisperProgress(tx(config, 'cfg.downloadingPct')(progress.file || 'model', pct))
+          const pct = Math.round(((progress.loaded ?? 0) / progress.total) * 100)
+          setWhisperProgress(t(config, 'cfg.downloadingPct', progress.file || 'model', pct))
         } else if (progress?.status === 'done') {
-          setWhisperProgress(tx(config, 'cfg.whisperLoadedMem'))
+          setWhisperProgress(t(config, 'cfg.whisperLoadedMem'))
         }
       }, config.localWhisperModel || 'whisper-small')
       setWhisperLoaded(true)
-      setWhisperProgress(tx(config, 'cfg.whisperReady'))
+      setWhisperProgress(t(config, 'cfg.whisperReady'))
     } catch (err) {
-      setWhisperProgress(tx(config, 'cfg.whisperLoadFailed')(err.message))
+      setWhisperProgress(t(config, 'cfg.whisperLoadFailed', (err instanceof Error ? err.message : String(err))))
     } finally {
       setWhisperLoading(false)
     }
   }
 
-  const handleTestConnection = async (conn) => {
+  const handleTestConnection = async (conn: { id: string; endpoint?: string; apiKey?: string; model?: string }) => {
     if (!conn.endpoint || !conn.endpoint.trim()) {
       setConnTestResults((prev) => ({
         ...prev,
-        [conn.id]: { ok: false, msg: tx(config, 'cfg.connNoEndpoint') }
+        [conn.id]: { ok: false, msg: t(config, 'cfg.connNoEndpoint') }
       }))
       return
     }
@@ -147,13 +152,13 @@ const Configuration = ({
         [conn.id]: {
           ok: true,
           latency,
-          msg: tx(config, 'cfg.connActive')(latency, text)
+          msg: t(config, 'cfg.connActive', latency, text)
         }
       }))
     } catch (err) {
       setConnTestResults((prev) => ({
         ...prev,
-        [conn.id]: { ok: false, msg: err.message }
+        [conn.id]: { ok: false, msg: err instanceof Error ? err.message : String(err) }
       }))
     } finally {
       setTestingConnId(null)
@@ -218,7 +223,7 @@ const Configuration = ({
           awarenessEnabled: data[0].awarenessEnabled ?? true,
           sessionCompactionEnabled: data[0].sessionCompactionEnabled ?? true
         }
-        setConfig(merged)
+        setConfig(merged as ConfigRow)
         savedSnapshotRef.current = JSON.stringify(merged)
       }
       hydratedRef.current = true
@@ -242,14 +247,14 @@ const Configuration = ({
     const snap = JSON.stringify(config)
     if (snap === savedSnapshotRef.current) return
     setSaveStatus({ state: 'pending' })
-    clearTimeout(autosaveTimerRef.current)
+    if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current)
     autosaveTimerRef.current = setTimeout(async () => {
       try {
         setSaveStatus({ state: 'saving' })
         const eff = config
         await saveConfiguration(eff)
         savedSnapshotRef.current = JSON.stringify(eff)
-        if (chatSetConfig) chatSetConfig([eff])
+        if (chatSetConfig) (chatSetConfig as (rows: ConfigRow[]) => void)([eff])
         setSaveStatus({ state: 'saved', at: new Date() })
       } catch (e) {
         console.error('[Config] Autosave gagal:', e)
@@ -263,27 +268,27 @@ const Configuration = ({
   // legacyImportFiredRef sehingga perubahan identitas aman (tanpa re-fire).
   const handleImportLegacy = useCallback(async () => {
     try {
-      const pick = await window.api?.legacyImportPickAndRead?.()
+      const pick = (await window.api?.legacyImportPickAndRead?.()) as { content?: string } | null | undefined
       if (!pick?.content) return
       const parsed = JSON.parse(pick.content)
       const { importInto } = await import('dexie-export-import')
       await importInto(db, parsed, { overwriteValues: true })
       await confirm({
-        title: tx(config, 'cfg.importOkTitle'),
-        message: tx(config, 'cfg.importOkMsg'),
+        title: t(config, 'cfg.importOkTitle'),
+        message: t(config, 'cfg.importOkMsg'),
         hideCancel: true,
-        confirmText: tx(config, 'cfg.reload')
+        confirmText: t(config, 'cfg.reload')
       })
       window.location.reload()
     } catch (err) {
       if (String(err).includes('__canceled__')) return
       console.error('[Config] Import legacy gagal:', err)
       await confirm({
-        title: tx(config, 'cfg.importFailTitle'),
-        message: String(err?.message || err),
+        title: t(config, 'cfg.importFailTitle'),
+        message: String((err instanceof Error ? err.message : String(err)) || err),
         isError: true,
         hideCancel: true,
-        confirmText: tx(config, 'cfg.close')
+        confirmText: t(config, 'cfg.close')
       })
     }
   }, [config, confirm])
@@ -293,10 +298,10 @@ const Configuration = ({
     const prompt = getLastSystemPrompt()
     if (!prompt) {
       await confirm({
-        title: tx(config, 'cfg.dumpTitle'),
-        message: tx(config, 'cfg.dumpEmpty'),
+        title: t(config, 'cfg.dumpTitle'),
+        message: t(config, 'cfg.dumpEmpty'),
         hideCancel: true,
-        confirmText: tx(config, 'cfg.close')
+        confirmText: t(config, 'cfg.close')
       })
       return
     }
@@ -311,13 +316,13 @@ const Configuration = ({
       !!ownerName &&
       new RegExp(`\\b(${ownerName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})\\b`, 'i').test(prompt)
     await confirm({
-      title: tx(config, 'cfg.dumpTitle'),
+      title: t(config, 'cfg.dumpTitle'),
       message:
-        tx(config, 'cfg.dumpLen')(prompt.length, copied) +
-        (leak ? tx(config, 'cfg.dumpLeakWarn')(config.ownerName) : ''),
+        t(config, 'cfg.dumpLen', prompt.length, copied) +
+        (leak ? t(config, 'cfg.dumpLeakWarn', config.ownerName) : ''),
       isError: leak,
       hideCancel: true,
-      confirmText: tx(config, 'cfg.close')
+      confirmText: t(config, 'cfg.close')
     })
   }
 
@@ -343,10 +348,10 @@ const Configuration = ({
 
   const handleClearAllChat = async () => {
     const result = await confirm({
-      title: tx(config, 'cfg.clearChatTitle'),
-      message: tx(config, 'cfg.clearChatMsg'),
+      title: t(config, 'cfg.clearChatTitle'),
+      message: t(config, 'cfg.clearChatMsg'),
       isError: true,
-      confirmText: tx(config, 'cfg.clearChatYes')
+      confirmText: t(config, 'cfg.clearChatYes')
     })
 
     if (result.isConfirmed) {
@@ -374,18 +379,18 @@ const Configuration = ({
     URL.revokeObjectURL(url)
   }
 
-  const handleAwarenessEnabledChange = (e) =>
+  const handleAwarenessEnabledChange = (e: ChangeEvent<HTMLInputElement>) =>
     setConfig((prev) => ({ ...prev, awarenessEnabled: e.target.checked }))
-  const handleCompactionEnabledChange = (e) =>
+  const handleCompactionEnabledChange = (e: ChangeEvent<HTMLInputElement>) =>
     setConfig((prev) => ({ ...prev, sessionCompactionEnabled: e.target.checked }))
-  const handleBuiltinPluginChange = (key) => (e) =>
+  const handleBuiltinPluginChange = (key: string) => (e: ChangeEvent<HTMLInputElement>) =>
     setConfig((prev) => ({
       ...prev,
       builtinPlugins: { ...(prev.builtinPlugins || {}), [key]: e.target.checked }
     }))
-  const handleRtkCompressChange = (e) =>
+  const handleRtkCompressChange = (e: ChangeEvent<HTMLInputElement>) =>
     setConfig((prev) => ({ ...prev, rtkCompress: e.target.checked }))
-  const handlePersonalityChange = (e) =>
+  const handlePersonalityChange = (e: ChangeEvent<HTMLInputElement>) =>
     setConfig((prev) => ({ ...prev, personality: e.target.value }))
 
   return (
@@ -421,12 +426,12 @@ const Configuration = ({
                     }`}
                   >
                     {saveStatus.state === 'pending'
-                      ? tx(config, 'cfg.savedWaiting')
+                      ? t(config, 'cfg.savedWaiting')
                       : saveStatus.state === 'saving'
-                        ? tx(config, 'cfg.savedSaving')
+                        ? t(config, 'cfg.savedSaving')
                         : saveStatus.state === 'error'
-                          ? tx(config, 'cfg.savedError')
-                          : tx(config, 'cfg.savedAt')(saveStatus.at.toLocaleTimeString(localeTag(config), { hour: '2-digit', minute: '2-digit' }))}
+                          ? t(config, 'cfg.savedError')
+                          : t(config, 'cfg.savedAt', saveStatus.at?.toLocaleTimeString(localeTag(config), { hour: '2-digit', minute: '2-digit' }) ?? '')}
                   </span>
                 )}
               </div>
@@ -491,7 +496,7 @@ const Configuration = ({
             >
               <div>
                 <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
-                  {tx(config, 'cfg.capabilitiesTitle')}
+                  {t(config, 'cfg.capabilitiesTitle')}
                 </h2>
               </div>
 

@@ -3,10 +3,11 @@ import { Bot, Terminal, Plug } from 'lucide-react'
 import { detectProviderFromUrl } from '../../api/ai/providerDetect.js'
 import { listPresets, resolveEndpointUrl } from '../../api/ai/providerRegistry.js'
 import { MobiusLoader } from '../core/MobiusLoader'
-import { tx } from '../../api/locale'
+import { t } from '../../api/locale'
+import type { ConfigRow } from '../../api/db'
 
-export const isCustomEndpointPlausible = (raw, protocol) => {
-  const ep = (raw || '').trim().replace(/\/+$/, '')
+export const isCustomEndpointPlausible = (raw: unknown, protocol: unknown) => {
+  const ep = String(raw || '').trim().replace(/\/+$/, '')
   if (!/^https?:\/\//i.test(ep)) return false
   if (/\/(chat\/completions|v1)$/.test(ep)) return true
   return /anthropic/i.test(ep) || protocol === 'anthropic'
@@ -18,22 +19,27 @@ export const isCustomEndpointPlausible = (raw, protocol) => {
 // cache instan, Deteksi Ulang hanya untuk refresh.
 const LM_STUDIO_ENDPOINT = 'http://localhost:1234/v1'
 
-const modelsCacheKey = (endpoint) =>
-  `abelink_models_${(endpoint || '').trim().toLowerCase().replace(/\/+$/, '')}`
+const modelsCacheKey = (endpoint: unknown) =>
+  `abelink_models_${String(endpoint || '').trim().toLowerCase().replace(/\/+$/, '')}`
 
-export const readModelsCache = (endpoint) => {
+interface ModelsCache {
+  at: number
+  models: string[]
+}
+
+export const readModelsCache = (endpoint: unknown): ModelsCache | null => {
   try {
     const raw = localStorage.getItem(modelsCacheKey(endpoint))
     if (!raw) return null
-    const rec = JSON.parse(raw)
+    const rec = JSON.parse(raw) as Partial<ModelsCache> | null
     if (!rec || !Array.isArray(rec.models)) return null
-    return rec
+    return { at: rec.at ?? 0, models: rec.models.filter((m): m is string => typeof m === 'string') }
   } catch {
     return null
   }
 }
 
-export const writeModelsCache = (endpoint, models) => {
+export const writeModelsCache = (endpoint: unknown, models: string[]) => {
   try {
     localStorage.setItem(modelsCacheKey(endpoint), JSON.stringify({ at: Date.now(), models }))
   } catch {
@@ -44,39 +50,43 @@ export const writeModelsCache = (endpoint, models) => {
 // Riwayat model custom yang pernah SUKSES dipakai per endpoint (MRU, max 10).
 // Ditulis inline oleh core.js setelah fetchAI sukses (tanpa import komponen).
 // Model tak terlist /v1/models (mis. oc/...) tetap bisa dipakai ulang dari sini.
-export const recentModelsKey = (endpoint) =>
-  `abelink_recent_models_${(endpoint || '').trim().toLowerCase().replace(/\/+$/, '')}`
+export const recentModelsKey = (endpoint: unknown) =>
+  `abelink_recent_models_${String(endpoint || '').trim().toLowerCase().replace(/\/+$/, '')}`
 
-export const readRecentModels = (endpoint) => {
+export const readRecentModels = (endpoint: unknown): string[] => {
   try {
     const raw = localStorage.getItem(recentModelsKey(endpoint))
     const arr = JSON.parse(raw || '[]')
-    return Array.isArray(arr) ? arr.filter((m) => typeof m === 'string' && m) : []
+    return Array.isArray(arr) ? arr.filter((m): m is string => typeof m === 'string' && !!m) : []
   } catch {
     return []
   }
 }
 
-export const formatCacheAge = (at, langOrConfig = 'en') => {
+export const formatCacheAge = (at: number | null | undefined, langOrConfig: string = 'en') => {
   const mins = Math.max(0, Math.round((Date.now() - (at || 0)) / 60000))
-  if (mins < 1) return tx(langOrConfig, 'model.cacheNow')
-  if (mins < 60) return tx(langOrConfig, 'model.cacheMinAgo')(mins)
+  if (mins < 1) return t(langOrConfig, 'model.cacheNow')
+  if (mins < 60) return t(langOrConfig, 'model.cacheMinAgo', mins)
   const hours = Math.round(mins / 60)
-  if (hours < 48) return tx(langOrConfig, 'model.cacheHourAgo')(hours)
-  return tx(langOrConfig, 'model.cacheDayAgo')(Math.round(hours / 24))
+  if (hours < 48) return t(langOrConfig, 'model.cacheHourAgo', hours)
+  return t(langOrConfig, 'model.cacheDayAgo', Math.round(hours / 24))
 }
 
 export default function ModelSection({
   config,
   setConfig,
   activeSection
+}: {
+  config: ConfigRow
+  setConfig: (updater: (prev: ConfigRow) => ConfigRow) => void
+  activeSection: string
 }) {
   const [showCustomKey, setShowCustomKey] = useState(false)
-  const [customModels, setCustomModels] = useState([])
-  const [customModelsAt, setCustomModelsAt] = useState(null)
+  const [customModels, setCustomModels] = useState<string[]>([])
+  const [customModelsAt, setCustomModelsAt] = useState<number | null>(null)
   const [detectingModels, setDetectingModels] = useState(false)
   const [modelDetectError, setModelDetectError] = useState('')
-  const [lmStudioModels, setLmStudioModels] = useState(() => readModelsCache(LM_STUDIO_ENDPOINT)?.models ?? [])
+  const [lmStudioModels, setLmStudioModels] = useState<string[]>(() => readModelsCache(LM_STUDIO_ENDPOINT)?.models ?? [])
   const [lmModelsAt, setLmModelsAt] = useState(() => readModelsCache(LM_STUDIO_ENDPOINT)?.at ?? null)
   const [lmDetectAttempted, setLmDetectAttempted] = useState(false)
   const [lmDetecting, setLmDetecting] = useState(false)
@@ -96,10 +106,10 @@ export default function ModelSection({
         writeModelsCache(LM_STUDIO_ENDPOINT, list)
         return true
       }
-      setLmDetectError(tx(config, 'model.lmNoModels'))
+      setLmDetectError(t(config, 'model.lmNoModels'))
       return false
     } catch (err) {
-      setLmDetectError(tx(config, 'model.lmUnreachable')(err?.message || err))
+      setLmDetectError(t(config, 'model.lmUnreachable', (err instanceof Error ? err.message : String(err)) || err))
       return false
     } finally {
       setLmDetecting(false)
@@ -127,22 +137,22 @@ export default function ModelSection({
     setModelDetectError('')
     try {
       const list = await window.api.detectCustomModels(
-        config.customEndpoint,
-        config.customApiKey,
+        String(config.customEndpoint ?? ''),
+        String(config.customApiKey ?? ''),
         config.customApiProtocol || 'auto'
       )
       if (Array.isArray(list) && list.length > 0) {
         setCustomModels(list)
         setCustomModelsAt(Date.now())
-        writeModelsCache(config.customEndpoint, list)
+        writeModelsCache(String(config.customEndpoint ?? ''), list)
         if (!config.customModel && list.length > 0) {
           setConfig((prev) => ({ ...prev, customModel: list[0] }))
         }
       } else {
-        setModelDetectError(tx(config, 'model.endpointNoModels'))
+        setModelDetectError(t(config, 'model.endpointNoModels'))
       }
     } catch (err) {
-      setModelDetectError(tx(config, 'model.detectFailed')(err?.message || err))
+      setModelDetectError(t(config, 'model.detectFailed', (err instanceof Error ? err.message : String(err)) || err))
     } finally {
       setDetectingModels(false)
     }
@@ -165,12 +175,12 @@ export default function ModelSection({
       className={`space-y-6 scroll-mt-4 ${activeSection !== 'cfg-model' ? 'hidden' : ''}`}
     >
       <div>
-        <h2 className="text-base font-bold uppercase tracking-wider opacity-70">{tx(config, 'model.title')}</h2>
+        <h2 className="text-base font-bold uppercase tracking-wider opacity-70">{t(config, 'model.title')}</h2>
       </div>
 
       {/* Provider Selector */}
       <div id="tour-ai-provider" className="space-y-2">
-        <label className="text-xs font-semibold uppercase tracking-wider text-white/60">{tx(config, 'model.provider')}</label>
+        <label className="text-xs font-semibold uppercase tracking-wider text-white/60">{t(config, 'model.provider')}</label>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[
             { id: 'gemini-web', name: 'Gemini Web', icon: Bot },
@@ -204,9 +214,9 @@ export default function ModelSection({
       {config.aiProvider === 'gemini-web' || !config.aiProvider ? (
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <label className="text-sm font-semibold">{tx(config, 'model.model')}</label>
+            <label className="text-sm font-semibold">{t(config, 'model.model')}</label>
             <p className="text-xs text-white/60 rounded-xl bg-base-100/60 border border-white/10 px-3 py-2.5">
-              {tx(config, 'model.geminiNote')}
+              {t(config, 'model.geminiNote')}
             </p>
           </div>
         </div>
@@ -215,10 +225,10 @@ export default function ModelSection({
           {/* Preset gateway (data-driven dari providerRegistry): satu klik
               mengisi endpoint; kosong = Custom murni. */}
           <div className="space-y-1.5">
-            <label className="text-sm font-semibold">{tx(config, 'model.preset')}</label>
+            <label className="text-sm font-semibold">{t(config, 'model.preset')}</label>
             <select
               className="select select-bordered w-full rounded-xl bg-base-100/60 border-white/10 text-xs font-medium"
-              value={config.presetId || ''}
+              value={String(config.presetId ?? '')}
               onChange={(e) => {
                 const id = e.target.value || null
                 setConfig((prev) => ({
@@ -231,7 +241,7 @@ export default function ModelSection({
                 }))
               }}
             >
-              <option value="">{tx(config, 'model.presetNone')}</option>
+              <option value="">{t(config, 'model.presetNone')}</option>
               {listPresets().map((p) => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
@@ -239,7 +249,7 @@ export default function ModelSection({
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-semibold">{tx(config, 'model.endpoint')}</label>
+            <label className="text-sm font-semibold">{t(config, 'model.endpoint')}</label>
             <input
               type="text"
               placeholder="https://api.openai.com/v1"
@@ -269,11 +279,11 @@ export default function ModelSection({
                 detected.protocol !== 'auto' &&
                 (config.customApiProtocol || 'auto') !== 'auto' &&
                 (config.customApiProtocol || 'auto') !== detected.protocol
-                  ? tx(config, 'model.protoHint')(detected.protocol === 'anthropic' ? 'Anthropic' : 'OpenAI')
+                  ? t(config, 'model.protoHint', detected.protocol === 'anthropic' ? 'Anthropic' : 'OpenAI')
                   : ''
               return (
                 <p className="text-xs text-white/60">
-                  {tx(config, 'model.detectedPrefix')} {detected.name}
+                  {t(config, 'model.detectedPrefix')} {detected.name}
                   {protoHint}
                 </p>
               )
@@ -281,7 +291,7 @@ export default function ModelSection({
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-semibold">{tx(config, 'model.protocol')}</label>
+            <label className="text-sm font-semibold">{t(config, 'model.protocol')}</label>
             <select
               className="select select-bordered w-full rounded-xl bg-base-100/60 border-white/10 text-xs font-medium"
               value={config.customApiProtocol || 'auto'}
@@ -289,26 +299,26 @@ export default function ModelSection({
                 setConfig((prev) => ({ ...prev, customApiProtocol: e.target.value }))
               }
             >
-              <option value="auto">{tx(config, 'model.protoAuto')}</option>
-              <option value="openai">{tx(config, 'model.protoOpenai')}</option>
-              <option value="anthropic">{tx(config, 'model.protoAnthropic')}</option>
+              <option value="auto">{t(config, 'model.protoAuto')}</option>
+              <option value="openai">{t(config, 'model.protoOpenai')}</option>
+              <option value="anthropic">{t(config, 'model.protoAnthropic')}</option>
             </select>
           </div>
 
           <div className="space-y-1.5">
             <div className="flex justify-between items-center">
-              <label className="text-sm font-semibold">{tx(config, 'model.modelId')}</label>
+              <label className="text-sm font-semibold">{t(config, 'model.modelId')}</label>
               <button
                 type="button"
                 className="btn btn-xs btn-outline rounded-lg"
                 disabled={detectingModels || !config.customEndpoint}
                 onClick={handleDetectModels}
-                title={tx(config, 'model.detectTitle')}
+                title={t(config, 'model.detectTitle')}
               >
                 {detectingModels ? (
                   <MobiusLoader size={14} />
                 ) : (
-                  tx(config, 'model.detectModels')
+                  t(config, 'model.detectModels')
                 )}
               </button>
             </div>
@@ -318,8 +328,8 @@ export default function ModelSection({
             {customModels.length > 0 && (
               <>
                 <p className="text-xs text-info">
-                  {tx(config, 'model.detectedFromEndpoint')(customModels.length)}
-                  {customModelsAt ? tx(config, 'model.savedAgo')(formatCacheAge(customModelsAt, config)) : ''}
+                  {t(config, 'model.detectedFromEndpoint', customModels.length)}
+                  {customModelsAt ? t(config, 'model.savedAgo', formatCacheAge(customModelsAt, config.language || 'en')) : ''}
                 </p>
                 <select
                   className="select select-bordered w-full rounded-xl bg-base-100/60 border-white/10 text-xs font-medium"
@@ -328,7 +338,7 @@ export default function ModelSection({
                     if (e.target.value) setConfig((prev) => ({ ...prev, customModel: e.target.value }))
                   }}
                 >
-                  <option value="">{tx(config, 'model.pickDetected')}</option>
+                  <option value="">{t(config, 'model.pickDetected')}</option>
                   {customModels.map((m) => (
                     <option key={m} value={m}>
                       {m}
@@ -342,8 +352,8 @@ export default function ModelSection({
               list="custom-model-options"
               placeholder={
                 customModels.length > 0
-                  ? tx(config, 'model.modelIdPhSome')(customModels.length)
-                  : tx(config, 'model.modelIdPhNone')
+                  ? t(config, 'model.modelIdPhSome', customModels.length)
+                  : t(config, 'model.modelIdPhNone')
               }
               className="input input-bordered w-full rounded-xl bg-base-100/60 border-white/10 text-xs"
               value={config.customModel || ''}
@@ -360,7 +370,7 @@ export default function ModelSection({
                   {recent.length > 0 && (
                     <>
                       <p className="text-xs text-info">
-                        {tx(config, 'model.reusedAtEndpoint')(recent.length)}
+                        {t(config, 'model.reusedAtEndpoint', recent.length)}
                       </p>
                       <select
                         className="select select-bordered w-full rounded-xl bg-base-100/60 border-white/10 text-xs font-medium"
@@ -369,7 +379,7 @@ export default function ModelSection({
                           if (e.target.value) setConfig((prev) => ({ ...prev, customModel: e.target.value }))
                         }}
                       >
-                        <option value="">{tx(config, 'model.pickHistory')}</option>
+                        <option value="">{t(config, 'model.pickHistory')}</option>
                         {recent.map((m) => (
                           <option key={m} value={m}>
                             {m}
@@ -388,7 +398,7 @@ export default function ModelSection({
                   </datalist>
                   {(customModels.length > 0 || recent.length > 0) && cur && !known && (
                     <p className="text-xs text-warning mt-1">
-                      {tx(config, 'model.unknownModelWarn')}
+                      {t(config, 'model.unknownModelWarn')}
                     </p>
                   )}
                 </>
@@ -397,11 +407,11 @@ export default function ModelSection({
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-semibold">{tx(config, 'model.apiKey')}</label>
+            <label className="text-sm font-semibold">{t(config, 'model.apiKey')}</label>
             <div className="relative w-full">
               <input
                 type={showCustomKey ? 'text' : 'password'}
-                placeholder={tx(config, 'model.apiKeyPh')}
+                placeholder={t(config, 'model.apiKeyPh')}
                 className="input input-bordered w-full pr-10 rounded-xl bg-base-100/60 border-white/10 text-xs"
                 value={config.customApiKey || ''}
                 onChange={(e) => setConfig((prev) => ({ ...prev, customApiKey: e.target.value }))}
@@ -410,7 +420,7 @@ export default function ModelSection({
                 type="button"
                 className="absolute right-3 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100 cursor-pointer"
                 onClick={() => setShowCustomKey(!showCustomKey)}
-                title={showCustomKey ? tx(config, 'model.hideKey') : tx(config, 'model.showKey')}
+                title={showCustomKey ? t(config, 'model.hideKey') : t(config, 'model.showKey')}
               >
                 {showCustomKey ? (
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -432,24 +442,24 @@ export default function ModelSection({
       ) : (
         <div className="space-y-1.5">
           <div className="flex justify-between items-center">
-            <label className="text-sm font-semibold">{tx(config, 'model.model')}</label>
+            <label className="text-sm font-semibold">{t(config, 'model.model')}</label>
             <button
               type="button"
               className="btn btn-xs btn-outline rounded-lg"
               disabled={lmDetecting}
               onClick={() => detectLmStudio().catch(() => {})}
-              title={tx(config, 'model.redetectTitle')}
+              title={t(config, 'model.redetectTitle')}
             >
               {lmDetecting ? (
                 <MobiusLoader size={14} />
               ) : (
-                tx(config, 'model.redetect')
+                t(config, 'model.redetect')
               )}
             </button>
           </div>
           {lmModelsAt && lmStudioModels.length > 0 && (
             <p className="text-xs text-white/60">
-              {tx(config, 'model.storedLocal')(formatCacheAge(lmModelsAt, config))}
+              {t(config, 'model.storedLocal', formatCacheAge(lmModelsAt, config.language || 'en'))}
             </p>
           )}
           {lmDetectError && (
@@ -458,7 +468,7 @@ export default function ModelSection({
           {lmStudioModels.length > 0 && (
             <>
               <p className="text-xs text-info">
-                {tx(config, 'model.localDetected')(lmStudioModels.length)}
+                {t(config, 'model.localDetected', lmStudioModels.length)}
               </p>
               <select
                 className="select select-bordered w-full rounded-xl bg-base-100/60 border-white/10 text-xs font-medium"
@@ -467,7 +477,7 @@ export default function ModelSection({
                   if (e.target.value) setConfig((prev) => ({ ...prev, model: e.target.value }))
                 }}
               >
-                <option value="">{tx(config, 'model.pickDetected')}</option>
+                <option value="">{t(config, 'model.pickDetected')}</option>
                 {lmStudioModels.map((m) => (
                   <option key={m} value={m}>
                     {m}
@@ -479,7 +489,7 @@ export default function ModelSection({
           <input
             type="text"
             list="lmstudio-model-options"
-            placeholder={tx(config, 'model.lmPlaceholder')}
+            placeholder={t(config, 'model.lmPlaceholder')}
             className="input input-bordered w-full rounded-xl bg-base-100/60 border-white/10 text-xs"
             value={config.model || ''}
             onChange={(e) => setConfig((prev) => ({ ...prev, model: e.target.value }))}
@@ -490,7 +500,7 @@ export default function ModelSection({
             return (
               <>
                 <p className="text-xs text-info">
-                  {tx(config, 'model.reusedAtEndpoint')(recent.length)}
+                  {t(config, 'model.reusedAtEndpoint', recent.length)}
                 </p>
                 <select
                   className="select select-bordered w-full rounded-xl bg-base-100/60 border-white/10 text-xs font-medium"
@@ -499,7 +509,7 @@ export default function ModelSection({
                     if (e.target.value) setConfig((prev) => ({ ...prev, model: e.target.value }))
                   }}
                 >
-                  <option value="">{tx(config, 'model.pickHistory')}</option>
+                  <option value="">{t(config, 'model.pickHistory')}</option>
                   {recent.map((m) => (
                     <option key={m} value={m}>
                       {m}
@@ -524,19 +534,19 @@ export default function ModelSection({
 
       {/* Effort Ladder: Default auto */}
       <div className="space-y-1.5">
-        <label className="text-sm font-semibold">{tx(config, 'model.effort')}</label>
+        <label className="text-sm font-semibold">{t(config, 'model.effort')}</label>
         <select
           className="select select-bordered w-full rounded-xl bg-base-100/60 border-white/10 text-xs font-medium"
           value={config.effortLevel || 'auto'}
           onChange={(e) => setConfig((prev) => ({ ...prev, effortLevel: e.target.value }))}
         >
-          <option value="auto">{tx(config, 'model.effortAuto')}</option>
-          <option value="low">{tx(config, 'model.effortLow')}</option>
-          <option value="medium">{tx(config, 'model.effortMedium')}</option>
-          <option value="high">{tx(config, 'model.effortHigh')}</option>
-          <option value="xhigh">{tx(config, 'model.effortXhigh')}</option>
-          <option value="max">{tx(config, 'model.effortMax')}</option>
-          <option value="ultra">{tx(config, 'model.effortUltra')}</option>
+          <option value="auto">{t(config, 'model.effortAuto')}</option>
+          <option value="low">{t(config, 'model.effortLow')}</option>
+          <option value="medium">{t(config, 'model.effortMedium')}</option>
+          <option value="high">{t(config, 'model.effortHigh')}</option>
+          <option value="xhigh">{t(config, 'model.effortXhigh')}</option>
+          <option value="max">{t(config, 'model.effortMax')}</option>
+          <option value="ultra">{t(config, 'model.effortUltra')}</option>
         </select>
       </div>
     </section>

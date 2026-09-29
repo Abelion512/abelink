@@ -121,7 +121,7 @@ const Knowledge = () => {
       console.error(error)
       await confirm({
         title: 'Gagal Ingest',
-        message: error.message,
+        message: (error instanceof Error ? error.message : String(error)),
         isError: true,
         hideCancel: true,
         confirmText: 'Tutup'

@@ -1,9 +1,10 @@
-import { useState } from 'react'
-import { tx } from '../../api/locale'
+import { useState, type ChangeEvent, type KeyboardEvent } from 'react'
+import { t } from '../../api/locale'
+import type { ConfigRow } from '../../api/db'
 
-export const normalizeShortcut = (val) => {
+export const normalizeShortcut = (val: unknown) => {
   if (!val) return 'CommandOrControl+Alt+M'
-  return val
+  return String(val)
     .replace(/\bctrl\b/gi, 'CommandOrControl')
     .replace(/\bcontrol\b/gi, 'CommandOrControl')
     .replace(/\bcmd\b/gi, 'CommandOrControl')
@@ -14,11 +15,14 @@ export default function ShortcutsSection({
   config,
   setConfig,
   activeSection
+}: {
+  config: ConfigRow
+  setConfig: (updater: (prev: ConfigRow) => ConfigRow) => void
+  activeSection: string
 }) {
   const [isRecordingShortcut, setIsRecordingShortcut] = useState(false)
-  const t = (k) => tx(config, k)
 
-  const handleShortcutRecorderKeyDown = (e) => {
+  const handleShortcutRecorderKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     e.preventDefault()
     e.stopPropagation()
 
@@ -49,14 +53,14 @@ export default function ShortcutsSection({
     >
       <div>
         <h2 className="text-base font-bold uppercase tracking-wider opacity-70">
-          {t('shortcut.title')}
+          {t(config, 'shortcut.title')}
         </h2>
       </div>
 
       <div className="space-y-1.5">
         <div className="flex justify-between items-end">
-          <label className="text-sm font-semibold">{t('shortcut.quickKey')}</label>
-          <span className="text-[10px] font-mono opacity-50">{t('shortcut.crossApp')}</span>
+          <label className="text-sm font-semibold">{t(config, 'shortcut.quickKey')}</label>
+          <span className="text-[10px] font-mono opacity-50">{t(config, 'shortcut.crossApp')}</span>
         </div>
 
         <div className="relative w-full">
@@ -68,8 +72,8 @@ export default function ShortcutsSection({
             onKeyDown={handleShortcutRecorderKeyDown}
             value={
               isRecordingShortcut
-                ? t('shortcut.pressCombo')
-                : (config.shortcutKey || 'CommandOrControl+Alt+M').replace(
+                ? t(config, 'shortcut.pressCombo')
+                : String(config.shortcutKey || 'CommandOrControl+Alt+M').replace(
                     /CommandOrControl|Control/g,
                     'Ctrl'
                   )
@@ -83,7 +87,7 @@ export default function ShortcutsSection({
         </div>
 
         <div className="flex flex-wrap gap-1.5 mt-2">
-          <span className="text-xs opacity-60 w-full mb-1">{t('shortcut.presets')}</span>
+          <span className="text-xs opacity-60 w-full mb-1">{t(config, 'shortcut.presets')}</span>
           {[
             'CommandOrControl+Alt+M',
             'CommandOrControl+Shift+Space',
@@ -110,7 +114,7 @@ export default function ShortcutsSection({
           ))}
         </div>
         <span className="text-[11px] opacity-60 block mt-1">
-          {t('shortcut.help')}
+          {t(config, 'shortcut.help')}
         </span>
       </div>
     </section>

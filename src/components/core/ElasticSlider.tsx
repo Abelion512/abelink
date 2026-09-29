@@ -1,12 +1,25 @@
-import { useRef, useState, useCallback } from 'react'
+import { useRef, useState, useCallback, type ReactNode } from 'react'
 import { useControllableState } from '../../hooks/useControllableState'
 
-const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v))
+const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
 
-function stepDecimals(step) {
+function stepDecimals(step: number) {
   const s = String(step)
   const i = s.indexOf('.')
   return i === -1 ? 0 : s.length - i - 1
+}
+
+interface ElasticSliderProps {
+  label?: ReactNode
+  value?: number
+  defaultValue?: number
+  onValueChange?: (v: number) => void
+  min?: number
+  max?: number
+  step?: number
+  formatValue?: (v: number) => string
+  className?: string
+  'aria-label'?: string
 }
 
 export function ElasticSlider({
@@ -20,8 +33,8 @@ export function ElasticSlider({
   formatValue,
   className = '',
   'aria-label': ariaLabel
-}) {
-  const [val, setVal] = useControllableState({
+}: ElasticSliderProps) {
+  const [val, setVal] = useControllableState<number>({
     prop: value,
     defaultProp: defaultValue ?? min,
     onChange: onValueChange
@@ -29,13 +42,13 @@ export function ElasticSlider({
   const safeVal = val ?? min
   // ponytail: matchMedia sekali (tanpa motion dep); elastic knob jadi CSS transition.
   const reduceMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-  const trackRef = useRef(null)
+  const trackRef = useRef<HTMLDivElement | null>(null)
   const [dragging, setDragging] = useState(false)
   const [stretch, setStretch] = useState(0)
 
   const decimals = stepDecimals(step)
   const quantize = useCallback(
-    (v) => Number((Math.round(v / step) * step).toFixed(decimals)),
+    (v: number) => Number((Math.round(v / step) * step).toFixed(decimals)),
     [step, decimals]
   )
   const range = max - min
@@ -43,7 +56,7 @@ export function ElasticSlider({
   const text = formatValue ? formatValue(safeVal) : String(safeVal)
 
   const snapDecile = useCallback(
-    (v) => {
+    (v: number) => {
       for (let i = 0; i <= 10; i++) {
         const d = quantize(min + (range * i) / 10)
         if (Math.abs(v - d) <= range * 0.025) return d
@@ -54,7 +67,7 @@ export function ElasticSlider({
   )
 
   const valueFromClientX = useCallback(
-    (clientX) => {
+    (clientX: number) => {
       const rect = trackRef.current?.getBoundingClientRect()
       if (!rect || rect.width === 0) return null
       const ratio = (clientX - rect.left) / rect.width
@@ -67,7 +80,7 @@ export function ElasticSlider({
   )
 
   const onPointerDown = useCallback(
-    (e) => {
+    (e: React.PointerEvent<HTMLDivElement>) => {
       if (e.button !== undefined && e.button !== 0) return
       e.currentTarget.setPointerCapture?.(e.pointerId)
       setDragging(true)
@@ -81,7 +94,7 @@ export function ElasticSlider({
   )
 
   const onPointerMove = useCallback(
-    (e) => {
+    (e: React.PointerEvent<HTMLDivElement>) => {
       if (!dragging) return
       const r = valueFromClientX(e.clientX)
       if (r) {
@@ -100,7 +113,7 @@ export function ElasticSlider({
   }, [dragging, setVal, snapDecile, min])
 
   const onKeyDown = useCallback(
-    (e) => {
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
       const fast = e.shiftKey ? 10 : 1
       let next = null
       if (e.key === 'ArrowRight' || e.key === 'ArrowUp') next = safeVal + step * fast

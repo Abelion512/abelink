@@ -1,3 +1,4 @@
+import type { KeyboardEvent } from 'react'
 import {
   Cog,
   Puzzle,
@@ -8,7 +9,7 @@ import {
   UserCog,
   Volume2
 } from 'lucide-react'
-import { tx } from '../../api/locale'
+import { t } from '../../api/locale'
 
 // IA: General → Personalization → Model → Voice & Video →
 // Capabilities → Shortcuts → Data Controls / Developer.
@@ -39,7 +40,7 @@ const IT_KEYWORDS = [
   'it'
 ]
 
-export const isItDomain = (occ) => {
+export const isItDomain = (occ: unknown) => {
   if (!occ || typeof occ !== 'string') return false
   const lower = occ.toLowerCase().trim()
   return IT_KEYWORDS.some((kw) => lower.includes(kw))
@@ -52,6 +53,13 @@ export default function ConfigSidebar({
   occupation = '',
   isDevMode = false,
   language = 'en'
+}: {
+  isFirstSetup?: boolean
+  activeSection: string
+  onNavigate: (id: string) => void
+  occupation?: string
+  isDevMode?: boolean
+  language?: string
 }) {
   const showDev = isDevMode || isItDomain(occupation)
   const filteredLogged = showDev
@@ -64,7 +72,7 @@ export default function ConfigSidebar({
     allSections.findIndex((s) => s.id === activeSection)
   )
 
-  const handleKeyDown = (e) => {
+  const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'ArrowDown' || e.key === 'j') {
       e.preventDefault()
       onNavigate(allSections[Math.min(activeIdx + 1, allSections.length - 1)].id)
@@ -80,10 +88,10 @@ export default function ConfigSidebar({
       tabIndex={0}
       className="flex flex-col w-[230px] min-w-[230px] h-full bg-base-300/60 backdrop-blur-2xl border-r border-white/5 overflow-y-auto custom-scrollbar focus:outline-none p-3"
       role="tablist"
-      aria-label={tx(language, 'sidebar.settingsTitle')}
+      aria-label={t(language, 'sidebar.settingsTitle')}
     >
       <div className="pl-14 py-3 mb-2">
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-white/60">{tx(language, 'sidebar.settingsTitle')}</p>
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-white/60">{t(language, 'sidebar.settingsTitle')}</p>
       </div>
       <div className="flex-1 space-y-1">
         {allSections.map((sec) => {

@@ -139,9 +139,9 @@ export const CameraPreview = ({
           }
         }
       } catch (err) {
-        console.error('[CameraPreview] Camera access error:', err.name, err.message)
+        console.error('[CameraPreview] Camera access error:', err.name, (err instanceof Error ? err.message : String(err)))
         if (isMounted) {
-          setError(err.message)
+          setError(err instanceof Error ? err.message : String(err))
           stopStream()
           // Delay onClose slightly so error is visible
           setTimeout(() => {
