@@ -162,7 +162,6 @@ export function App(props: AppProps = {}) {
         onPickerFilter={props.onPickerFilter}
         promptHistory={props.promptHistory}
         permissionMode={props.permissionMode}
-        onModeToggle={props.onModeToggle}
       />
       {/* Cap 1 baris, port opencode prompt/index.tsx:1488-1511: box left +
           inner bottom, horizontal ▀ bila bg opaque else spasi. */}

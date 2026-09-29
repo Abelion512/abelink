@@ -303,11 +303,11 @@ export function PromptRow(props: PromptRowProps) {
       const n = visibleFor(buf).length
       setSelected((s) => moveCompletionIndex(s, 1, n))
     } else if (e.name === 'tab') {
-      // Port opencode agent_cycle (tab): popup buka = accept; tutup =
-      // toggle plan/build. shift+tab = arah balik (agent_cycle_reverse).
-      if (popup) { e.preventDefault?.(); acceptSelected(buf); return }
+      // Tab = accept popup (popup tutup = Tab ditelan keymap global OpenTUI
+      // sebelum sampai sini; mode toggle via ctrl+o atau /plan).
+      if (!popup) return
       e.preventDefault?.()
-      props.onModeToggle?.()
+      acceptSelected(buf)
       return
     } else if (e.name === 'escape') {
       // Esc tutup popup (dismissed) tanpa ubah teks; Enter berikutnya
