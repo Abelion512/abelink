@@ -104,7 +104,6 @@ export interface TuiKeyEvent {
   name?: string
   shift?: boolean
   ctrl?: boolean
-  meta?: boolean
   preventDefault?: () => void
 }
 

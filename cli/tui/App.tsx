@@ -115,6 +115,11 @@ export function App(props: AppProps = {}) {
     // prompt.autocomplete.select tab). Batasan: jangan ubah key textarea
     // selain tambah keybind ini — dipatuhi (hanya useKeyboard App-level).
     if (key.ctrl && key.name === 'o') { key.preventDefault?.(); props.onModeToggle?.() }
+    // Port opencode agent_cycle (tab) / reverse (shift+tab): toggle mode
+    // saat popup TUTUP (toggle dua arah, shift tak bedakan arah).
+    // Popup buka = Tab milik accept (PromptRow tangani duluan via onKeyDown
+    // textarea + preventDefault).
+    if (key.name === 'tab' && !key.ctrl && props.picker?.() == null) { key.preventDefault?.(); props.onModeToggle?.() }
   })
 
   const submit = (text: string) => {

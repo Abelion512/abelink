@@ -24,7 +24,7 @@ export function MessageLine(props: MessageLineProps) {
   const base = () => (role === 'thought' ? ABELINK_THEME.textMuted : messageColor(role))
   const lines = () => renderMarkdownLines(String(props.text ?? ''))
   return (
-    <box style={{ flexDirection: 'column' }}>
+    <box style={{ flexDirection: 'column', paddingBottom: 1 }}>
       <For each={lines()}>
         {(l) => (
           <text fg={l.code ? ABELINK_THEME.secondary : base()}>{l.text || ' '}</text>

@@ -43,9 +43,7 @@ export function CenterDialog(props: CenterDialogProps) {
     // Port dialog-select grouping: header hanya untuk seksi bersama (>1).
     return annotateSections(all.slice(start, end)).map((r, i) => ({ ...r, index: start + i }))
   }
-  // Footer dua sisi ala dialog-select footerHints/actions: kiri = hint utama
-  // (rowCount/stale/error), kanan = footerHints opsional (mis. switch sesi).
-  const hintsRight = () => (Array.isArray(props.footerHints) ? props.footerHints.filter(Boolean) : [])
+  // Footer satu sisi: hint utama (rowCount/stale/error).
 
   return (
     <Show when={props.open}>
@@ -123,7 +121,7 @@ export function CenterDialog(props: CenterDialogProps) {
               </box>
             )}
           </For>
-          <box style={{ flexDirection: 'row', justifyContent: 'space-between', flexShrink: 0 }}>
+          <box style={{ flexDirection: 'row', flexShrink: 0 }}>
             <text fg={ABELINK_THEME.muted}>
               {dialogFooterText({
                 loading: props.loading,
@@ -134,11 +132,6 @@ export function CenterDialog(props: CenterDialogProps) {
                 error: props.error ?? undefined,
               })}
             </text>
-            <Show when={hintsRight().length > 0}>
-              <text fg={ABELINK_THEME.muted}>
-                {hintsRight().join(' · ')}
-              </text>
-            </Show>
           </box>
         </box>
       </box>

@@ -196,19 +196,23 @@ export function PromptRow(props: PromptRowProps) {
     props.onSubmit?.(t)
   }
 
-  // Enter polos: kalau teks SUDAH persis sama dengan baris yang di-highlight,
-  // "pilih" itu no-op (teks tak berubah) dan popup tetap buka -> Enter mati
-  // selamanya. Terukur PTY 2026-09-26: `/model` + Enter tak pernah jalan.
-  // Jadi exact-match = jalankan; selain itu = pilih completions.
+  // Enter polos: perintah lengkap yang diketik persis (mis. `/effort`)
+  // LANGSUNG jalankan — jangan accept highlight yang bisa menunjuk item
+  // lain (bug: `/effort`+Enter membuka dialog sessions karena selected
+  // menunjuk baris lain). Pilih-via-Enter hanya untuk prefix tak lengkap.
   const resolveEnter = (buf: string) => {
     const list = visibleFor(buf)
     if (!list.length) {
       submitNow(buf)
       return
     }
+    const trimmed = String(buf ?? '').trim()
+    if (list.some((c) => String(c.name) === trimmed)) {
+      submitNow(buf)
+      return
+    }
     const item = list[selected() % list.length]
-    const exact = item && String(item.name) === String(buf ?? '').trim()
-    if (exact || acceptSelected(buf) === false) submitNow(buf)
+    if (acceptSelected(buf) === false) submitNow(buf)
   }
 
   // Tutup picker (pilih ATAU batal) -> buang teks filter dari textarea,
@@ -261,7 +265,7 @@ export function PromptRow(props: PromptRowProps) {
       if (e.name === 'right') { e.preventDefault?.(); props.onPickerMove?.(1); return }
       if (e.name === 'tab') { e.preventDefault?.(); props.onPickerMove?.(e.shift ? -1 : 1); return }
       if (e.name === 'escape') { e.preventDefault?.(); props.onPickerCancel?.(); return }
-      if ((e.name === 'return' || e.name === 'linefeed') && !e.shift && !e.ctrl && !e.meta) {
+      if ((e.name === 'return' || e.name === 'linefeed') && !e.shift && !e.ctrl) {
         e.preventDefault?.()
         props.onPickerSelect?.()
         return
@@ -273,7 +277,7 @@ export function PromptRow(props: PromptRowProps) {
     if (e.name === 'return' || e.name === 'linefeed') {
       // Enter polos: popup buka -> pilih/jalankan; tutup -> submit. Modifier
       // (shift/ctrl/meta) -> newline via binding, jangan sentuh.
-      if (!e.shift && !e.ctrl && !e.meta) {
+      if (!e.shift && !e.ctrl) {
         e.preventDefault?.()
         resolveEnter(buf)
         return
@@ -284,11 +288,11 @@ export function PromptRow(props: PromptRowProps) {
       // Histori prompt: Up/Down MURNI saja (merge-review Warning #4).
       // ctrl+p = command palette (App useKeyboard, pemilik tunggal);
       // ctrl+n = reserved, jangan recall agar tak tabrakan keybind global.
-      if (e.name === 'up' && !e.ctrl && !e.meta) {
+      if (e.name === 'up' && !e.ctrl) {
         if (recall(-1)) { e.preventDefault?.(); return }
         return
       }
-      if (e.name === 'down' && !e.ctrl && !e.meta) {
+      if (e.name === 'down' && !e.ctrl) {
         if (recall(1)) { e.preventDefault?.(); return }
         return
       }
@@ -303,8 +307,7 @@ export function PromptRow(props: PromptRowProps) {
       const n = visibleFor(buf).length
       setSelected((s) => moveCompletionIndex(s, 1, n))
     } else if (e.name === 'tab') {
-      // Tab = accept popup (popup tutup = Tab ditelan keymap global OpenTUI
-      // sebelum sampai sini; mode toggle via ctrl+o atau /plan).
+      // Tab = accept popup (popup tutup ditangani App-level toggle mode).
       if (!popup) return
       e.preventDefault?.()
       acceptSelected(buf)

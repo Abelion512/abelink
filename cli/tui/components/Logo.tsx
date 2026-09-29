@@ -6,16 +6,16 @@ import { For } from 'solid-js'
 import { ABELINK_THEME } from '../theme.ts'
 
 const LOGO_LEFT = Object.freeze([
-  '                   ',
-  '█▀▀█ █▀▀█ █▀▀█ █▀▀▄',
-  '█__█ █__█ █^^^ █__█',
-  '▀▀▀▀ █▀▀▀ ▀▀▀▀ ▀~~▀',
+  '                       ',
+  '█▀▀█ █▀▀█ █▀▀█ █   █▀▀▄',
+  '█__█ █__█ █▀▀▀ █   █__█',
+  '▀▀▀▀ █▀▀▀ ▀▀▀▀ ▀▀▀ ▀  ▀',
 ])
 const LOGO_RIGHT = Object.freeze([
-  '             ▄     ',
-  '█▀▀▀ █▀▀█ █▀▀█ █▀▀█',
-  '█___ █__█ █__█ █^^^',
-  '▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀',
+  '         ▄           ',
+  '█▀▀█ █▀█ █▀█ █▀▀ █__█',
+  '█__█ █ █ █ █ █▀  █__█',
+  '▀▀▀▀ ▀ ▀ ▀ ▀ ▀   ▀▀▀▀',
 ])
 
 function renderChar(ch: string, fg: string, shadow: string, bold: boolean) {

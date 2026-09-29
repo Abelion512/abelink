@@ -36,9 +36,6 @@ export function HomeView(props: HomeViewProps) {
           </Show>
           <text fg={ABELINK_THEME.textMuted}>/models ganti model · /help daftar perintah · Shift+Enter baris baru</text>
         </box>
-        <box style={{ flexDirection: 'column', alignItems: 'center', paddingTop: 1 }}>
-          <text fg={ABELINK_THEME.textMuted}>{abbreviateHome(props.workspace ?? '', typeof process !== 'undefined' ? process.env.HOME ?? '' : '')}</text>
-        </box>
       </box>
     </box>
   )
