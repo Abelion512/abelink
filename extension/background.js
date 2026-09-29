@@ -230,7 +230,8 @@ async function loop() {
             ? 'Token basi — helper tak memberi token baru. Restart Abelink / picu browser:* sekali, lalu Connect.'
             : `Helper: ${fresh.detail || 'tidak ada'}. Mencoba auto-reconnect berkala...`
         await chrome.storage.session.set({ lastError: `Token ditolak (401). ${hint}` })
-        scheduleAutoResume(5000)
+        resumeFailCount += 1
+        scheduleAutoResume()
         break
       }
       const { command } = await res.json()
@@ -1762,6 +1763,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       sendResponse({ ok: true, ports, activePort: cfg.port, pairing: await getPairing() })
     } else if (msg?.type === 'status') {
       const cfg = await getCfg()
+      const kept = await chrome.storage.session.get(['lastError', 'notice'])
       sendResponse({
         ok: true,
         running,
@@ -1769,7 +1771,11 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         session: cfg.session,
         port: cfg.port,
         pairing: await getPairing(),
-        lastError: (await chrome.storage.session.get('lastError')).lastError
+        lastError: kept.lastError,
+        // notice = status transien non-error (reconnect terjadwal): popup
+        // merendernya KUNING, bukan merah. Terpisah dari lastError agar
+        // "Menyambung ulang otomatis..." tak pernah dibaca sebagai putus.
+        notice: kept.notice ?? null
       })
     }
   })()
@@ -1777,35 +1783,64 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 })
 
 let resumeTimeout = null
+// Backoff eksponensial auto-resume: 5s -> 10s -> 20s -> 30s (cap).
+// Tanpa ini setiap 401/putus men-jadwal ulang 5s flat selamanya — error
+// yang sama ditulis ulang tiap siklus dan popup merah berkedip nonstop.
+// Counter direset tiap resume SUKSES (running=true) di tryAutoResume.
+let resumeFailCount = 0
+const RESUME_BASE_MS = 5000
+const RESUME_MAX_MS = 30000
+function resumeDelayMs() {
+  return Math.min(RESUME_MAX_MS, RESUME_BASE_MS * 2 ** Math.min(resumeFailCount, 3))
+}
 
 // Resume via chrome.alarms (bukan setTimeout): alarm membangunkan service
 // worker yang tersuspend, setTimeout tidak. One-shot per jadwal.
-function scheduleAutoResume(delayMs = 5000) {
+function scheduleAutoResume(delayMs = null) {
   if (running) return
+  const wait = delayMs ?? resumeDelayMs()
   try {
     if (typeof chrome !== 'undefined' && chrome.alarms) {
-      chrome.alarms.create('abelink-bridge-resume', { when: Date.now() + Math.max(1000, delayMs) })
+      chrome.alarms.create('abelink-bridge-resume', { when: Date.now() + Math.max(1000, wait) })
+      setResumeNotice()
       return
     }
   } catch {
     /* fallback setTimeout di bawah */
   }
   // Status jujur selama jeda reconnect: popup tidak hijau palsu, tidak merah
-  // panik — user tahu loop akan kembali sendiri tanpa klik.
+  // panik — user tahu loop akan kembali sendiri tanpa klik. Ditulis ke
+  // `notice` (kuning), BUKAN `lastError` (merah), agar "menyambung ulang"
+  // tak pernah dibaca sebagai "terputus".
+  setResumeNotice()
+  if (resumeTimeout) clearTimeout(resumeTimeout)
+  resumeTimeout = setTimeout(() => {
+    tryAutoResume()
+  }, wait)
+}
+
+// Notice reconnect terjadwal: hanya bila tak ada error nyata, agar pesan
+// transien tak menimpa diagnosis ("Token ditolak", "Pilih flavor", ...).
+function setResumeNotice() {
   try {
     chrome.storage.session
-      .get(['lastError', 'wantConnected'])
+      .get(['lastError', 'notice', 'wantConnected'])
       .then((kept) => {
-        if (kept?.wantConnected && !kept?.lastError) {
-          chrome.storage.session.set({ lastError: 'Menyambung ulang otomatis...' }).catch(() => {})
+        if (kept?.wantConnected && !kept?.lastError && !kept?.notice) {
+          chrome.storage.session.set({ notice: 'Menyambung ulang otomatis...' }).catch(() => {})
         }
       })
       .catch(() => {})
   } catch {}
-  if (resumeTimeout) clearTimeout(resumeTimeout)
-  resumeTimeout = setTimeout(() => {
-    tryAutoResume()
-  }, delayMs)
+}
+
+// Notice dibersihkan tiap resume attempt selesai (sukses -> running=true;
+// gagal -> lastError nyata ditulis atau jadwal berikutnya). Tanpa ini notice
+// basi menempel selamanya setelah loop pulih.
+function clearResumeNotice() {
+  try {
+    chrome.storage.session.set({ notice: null }).catch(() => {})
+  } catch {}
 }
 
 async function tryAutoResume() {
@@ -1831,10 +1866,13 @@ async function tryAutoResume() {
   const pairing = await getPairing()
   if (!pairing) {
     // Tetap jadwalkan ulang + set lastError jujur agar popup tidak hijau palsu.
+    // Tanpa-pairing bukan kegagalan jaringan: pakai backoff penuh (30s) agar
+    // tidak membangunkan worker tiap 5s untuk kondisi yang butuh aksi user.
     try {
       await chrome.storage.session.set({ lastError: 'Pilih flavor sekali di popup (Prod/Dev)' })
     } catch {}
-    scheduleAutoResume(30000)
+    resumeFailCount = 3
+    scheduleAutoResume()
     return
   }
   let cfg = await getCfg()
@@ -1880,7 +1918,9 @@ async function tryAutoResume() {
           await setPortToken(cfg.port, cfg.token)
         }
         running = true
+        resumeFailCount = 0
         await chrome.storage.session.set({ lastError: null })
+        clearResumeNotice()
         console.log(`[Abelink] auto-resume service worker aktif (session: ${cfg.session}, port: ${cfg.port}).`)
         loop()
         return
@@ -1907,7 +1947,9 @@ async function tryAutoResume() {
                 await setPortToken(cfg.port, cfg.token)
               }
               running = true
+              resumeFailCount = 0
               await chrome.storage.session.set({ lastError: null })
+              clearResumeNotice()
               console.log(
                 `[Abelink] auto-resume pulih via helper (token basi ditukar, session: ${cfg.session}, port: ${cfg.port}).`
               )
@@ -1924,8 +1966,10 @@ async function tryAutoResume() {
     }
   }
 
-  // Jika belum tersambung, jadwalkan percobaan ulang berkala selama browser aktif
-  scheduleAutoResume(5000)
+  // Jika belum tersambung, naikkan counter backoff lalu jadwalkan ulang
+  // (5s -> 10s -> 20s -> 30s cap) selama browser aktif.
+  resumeFailCount += 1
+  scheduleAutoResume()
 }
 
 if (typeof chrome !== 'undefined' && chrome.alarms) {

@@ -54,6 +54,12 @@ const progressListeners = new Set<ProgressCb>()
 // Lite Mode state (hash embedding fallback, tanpa load model)
 let isLiteMode = false
 
+// Tier vektor aktif: 'fp32' (penuh) | 'q8' (terkuantisasi, ~4x lebih kecil,
+// tetap semantik) — dilaporkan worker via init_done(dtype). Korpus menandai
+// provenansi tiap baris agar q8 tak tercampur hash ('hash' tetap dilarang
+// tersimpan; keluarga minilm kompatibel lintas tier di oramaStore).
+let activeDtype: 'fp32' | 'q8' = 'fp32'
+
 let liteAutoNotified = false
 const isTauriEnvironment =
   typeof window !== 'undefined' &&
@@ -115,7 +121,7 @@ function getWorker() {
     try {
       worker = new Worker(new URL('./embedding.worker.ts', import.meta.url), { type: 'module' })
       worker.onmessage = (event: MessageEvent) => {
-        const { id, type, success, vector, results, error, data } = (event.data || {}) as WorkerMessage
+        const { id, type, success, vector, results, error, data, dtype } = (event.data || {}) as WorkerMessage
 
         if (type === 'progress') {
           progressListeners.forEach((cb) => {
@@ -124,6 +130,12 @@ function getWorker() {
             } catch (_) {}
           })
           return
+        }
+
+        // Tier aktif dari worker (init_done membawa dtype 'fp32'|'q8'):
+        // menandai provenansi korpus sebelum resolver init mengembalikan w.
+        if (type === 'init_done' && success === true && (dtype === 'q8' || dtype === 'fp32')) {
+          activeDtype = dtype
         }
 
         if (id !== undefined && pendingPromises.has(id)) {
@@ -294,9 +306,11 @@ export const generateVector = async (text: unknown): Promise<number[] | null> =>
   }
 }
 
-// Model vektor aktif saat ini ('hash' saat Lite Mode, 'minilm' saat normal).
-// Dipakai oramaStore/db untuk menandai provenansi vektor tiap baris.
-export const getVectorModel = () => (isLiteMode ? 'hash' : 'minilm')
+// Model vektor aktif saat ini: 'hash' saat Lite Mode, 'minilm' (fp32 penuh)
+// atau 'minilm-q8' (terkuantisasi, tetap semantik) saat normal.
+// Dipakai oramaStore/db untuk menandai provenansi vektor tiap baris;
+// keluarga minilm kompatibel lintas tier (lihat rowModelCompatible).
+export const getVectorModel = () => (isLiteMode ? 'hash' : activeDtype === 'q8' ? 'minilm-q8' : 'minilm')
 
 // Vektor yang layak disimpan ke Dexie/Orama: NULL saat Lite Mode agar hash embedding
 // tidak pernah mengotori korpus pencarian (kerusakan permanen). Untuk similarity
