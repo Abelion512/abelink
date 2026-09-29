@@ -731,7 +731,7 @@ export const useAbelinkPlan = ({
           // Executor belum termuat — tidak ada sub-agent yang bisa dibunuh.
         }
       }
-      // ---- Objective Verification Layer (objectiveVerifier.js) --------------
+      // ---- Objective Verification Layer (objectiveVerifier.ts) --------------
       // MODEL_CLAIM (agentDecision) vs VERIFICATION (this layer). A completion
       // claim only terminates when world-state evidence backs it, unless the
       // objective is conversational. Bounded replan on unproven claims.
@@ -760,7 +760,7 @@ export const useAbelinkPlan = ({
       }
       let lastVerification = VERIFICATION_STATE.NOT_RUN
       let pendingVerifyObservation = null
-      // ---- Trajectory Supervisor Fase 1 (trajectorySupervisor.js) --------
+      // ---- Trajectory Supervisor Fase 1 (trajectorySupervisor.ts) --------
       // Trajectory-level policy across attempts: records each tool execution
       // and stages a short strategy hint when the same approach repeats
       // without progress. Exempt for conversational / non-tool sessions
@@ -911,7 +911,7 @@ export const useAbelinkPlan = ({
           // PERBARUI jendela (+48, dibatasi hard ceiling), bukan forced-failed.
           // Mati jujur hanya bila stagnan (breaker buka / supervisor
           // ABANDON-ESCALATE / tak ada sinyal kemajuan). shouldRenewBudget murni
-          // di planStepBudget.js (unit-testable); di sini hanya orkestrasi.
+          // di planStepBudget.ts (unit-testable); di sini hanya orkestrasi.
           const { shouldRenewBudget, renewBudgetWindow } = await import('../../api/ai/planStepBudget').catch(() => ({}))
           let renew = false
           if (typeof shouldRenewBudget === 'function') {
@@ -1293,7 +1293,7 @@ export const useAbelinkPlan = ({
           (decision.action.tool || Array.isArray(decision.action))
         )
 
-        // --- Objective-aware termination (agentDecision.js) ------------------
+        // --- Objective-aware termination (agentDecision.ts) ------------------
         // `answer` is NOT a termination signal. A mission may only end through
         // an explicit completion claim (is_done + task_status done/simple), a
         // reported block, or a genuine request for a user decision. Anything
@@ -1389,7 +1389,7 @@ export const useAbelinkPlan = ({
             // INTENT.FINAL: completion claim. A previously recorded failure
             // (step budget / no-progress) is never overwritten by a stray claim.
             noActionStreak = 0
-            // VERIFICATION GATE (objectiveVerifier.js): a completion claim is
+            // VERIFICATION GATE (objectiveVerifier.ts): a completion claim is
             // NOT accepted on its own. World-state evidence from
             // executedToolsList must back it, unless the objective is
             // conversational / has no observable criteria. Unproven claims
@@ -1839,7 +1839,7 @@ export const useAbelinkPlan = ({
 
           // === DEDICATED SELF-IMPROVING SKILL SYNTHESIZER ===
           if (decision.should_learn === true && executedToolsList.length > 0) {
-            import('../../api/ai/skillSynthesizer.js')
+            import('../../api/ai/skillSynthesizer.ts')
               .then(({ synthesizeSkillAndSave }) => {
                 synthesizeSkillAndSave({
                   userPrompt: userInput || lastUserPromptRef.current || '',

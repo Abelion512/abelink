@@ -14,7 +14,7 @@ import {
   LADDER_STAGES,
   resolveStagnationRung,
   getNextStrategy
-} from '../src/api/ai/strategyLib.js'
+} from '../src/api/ai/strategyLib.ts'
 
 describe('Adaptive Stagnation Ladder S0..S8 Contract', () => {
   it('exposes all 9 stages S0..S8 in order', () => {
@@ -42,7 +42,7 @@ describe('Adaptive Stagnation Ladder S0..S8 Contract', () => {
   })
 
   it('proves semantic progress distinctions via evaluateProgress', async () => {
-    const { evaluateProgress, PROGRESS_OUTCOME } = await import('../src/api/ai/progressEvaluator.js')
+    const { evaluateProgress, PROGRESS_OUTCOME } = await import('../src/api/ai/progressEvaluator.ts')
 
     // 1. Stagnant: same tool, same query, same output
     const stagnant = evaluateProgress({

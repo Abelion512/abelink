@@ -14,9 +14,9 @@
 | P-01 | `src/api/ragPipeline.ts` | API `generateStorableVector` (bukan `generateVector`) untuk Lite Mode | Bila Lite Mode perlu vektor hash berbeda |
 | P-02 | `src/api/db.ts` | Threshold near-duplicate sengaja tinggi | Bila user melaporkan memori mirip tak terdeteksi |
 | P-03 | `src/api/ai/planning.ts` | Ambang prompt 40 char / digest 120 char | Bila jawaban pendek ikut lolos audit |
-| P-04 | `src/api/ai/playbooks.js` | FIFO eviction 50 entri (bukan LRU) | Bila ada data hit-rate yang bilang LRU lebih baik |
+| P-04 | `src/api/ai/playbooks.ts` | FIFO eviction 50 entri (bukan LRU) | Bila ada data hit-rate yang bilang LRU lebih baik |
 | P-05 | `src/api/ai/core.ts` | Satu skema kunci recent-cache untuk custom+lm-studio | Bila dua provider butuh skema kunci berbeda |
-| P-06 | `src/api/ai/agentDecision.js` | Shared predicate, ceiling 1 challenge | Bila model terus gagal challenge → tambah retry terukur |
+| P-06 | `src/api/ai/agentDecision.ts` | Shared predicate, ceiling 1 challenge | Bila model terus gagal challenge → tambah retry terukur |
 | P-07 | `sidecar/main/services/gemini-web.js` | Rantai kata kunci tunggal (tanpa map per versi) | Bila versi model baru gagal resolve |
 | P-08 | `sidecar/main/browser/native-host.mjs` | Python literals wajib double-quote (batasan -c) | Bila migrasi dari `python -c` |
 | P-09 | `bin/abelink.mjs` + `bin/abelink-tui.mjs` | auto-mkdir workspace (cermin TUI) | Bila tool mulai validasi workspace sendiri |

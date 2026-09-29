@@ -9,7 +9,12 @@
 export const PLAYBOOK_MAX_ENTRIES = 50
 const STORAGE_KEY = 'abelink_playbooks_v1'
 
-const store = new Map()
+interface PlaybookEntry {
+  answer: string
+  taskStatus?: string
+}
+
+const store = new Map<string, PlaybookEntry>()
 let hydrated = false
 
 function storage() {
@@ -43,31 +48,38 @@ function persist() {
 // Stable identity for "same config": provider + model + endpoint only.
 // Temperature/top-p and co. are deliberately excluded — replay cares about
 // which model answered, not sampling knobs.
-export function configKeyFor(conf = {}) {
+export function configKeyFor(conf: Record<string, unknown> = {}) {
   return [conf.aiProvider, conf.model, conf.customModel, conf.customEndpoint]
     .map((v) => String(v ?? ''))
     .join('|')
 }
 
-function keyFor(prompt, configKey) {
+function keyFor(prompt: unknown, configKey: unknown) {
   return `${String(configKey ?? '')}::${String(prompt ?? '')}`
 }
 
-export function playbookLookup({ prompt, configKey }) {
+export function playbookLookup({ prompt, configKey }: { prompt?: unknown; configKey?: unknown }) {
   if (!prompt || typeof prompt !== 'string') return null
   hydrate()
   return store.get(keyFor(prompt, configKey)) ?? null
 }
 
-export function playbookRecord({ prompt, configKey, answer, taskStatus }) {
+export function playbookRecord({
+  prompt,
+  configKey,
+  answer,
+  taskStatus
+}: { prompt?: unknown; configKey?: unknown; answer?: unknown; taskStatus?: unknown }) {
   if (!prompt || typeof prompt !== 'string') return false
   if (!answer || typeof answer !== 'string') return false
   hydrate()
   const k = keyFor(prompt, configKey)
   if (store.has(k)) store.delete(k) // refresh recency on re-record
-  store.set(k, { answer, taskStatus: taskStatus ?? 'done' })
+  store.set(k, { answer, taskStatus: typeof taskStatus === 'string' ? taskStatus : 'done' })
   while (store.size > PLAYBOOK_MAX_ENTRIES) {
-    store.delete(store.keys().next().value) // FIFO: evict oldest
+    const oldest = store.keys().next().value
+    if (oldest === undefined) break
+    store.delete(oldest) // FIFO: evict oldest
   }
   persist()
   return true

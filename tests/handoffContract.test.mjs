@@ -4,7 +4,7 @@ import {
   validateHandoffContract,
   buildHandoffContract,
   formatHandoffContractPrompt
-} from '../src/api/ai/handoffContract.js'
+} from '../src/api/ai/handoffContract.ts'
 
 describe('validateHandoffContract (Contract Invariants)', () => {
   it('7 field wajib terdefinisi pada MANDATORY_HANDOFF_FIELDS', () => {

@@ -4,11 +4,11 @@
 // - Zero UI or React dependencies (no hooks, no DOM, no audio/speech).
 // - Directly reuses existing authoritative modules:
 //     * planning.js (getNextAction — prompt assembly, persona, JSON schema)
-//     * objectiveVerifier.js (evaluateEvidence, gateCompletion, buildReplanObservation)
-//     * trajectorySupervisor.js (createTrajectorySupervisor, stagnation ladder)
-//     * progressEvaluator.js (evaluateProgress, deterministic state comparison)
-//     * agentDecision.js (classifyMainDecision, shouldChallengeBlocked)
-//     * planStepBudget.js (resolvePlanStepBudget, budget resolution & escalation)
+//     * objectiveVerifier.ts (evaluateEvidence, gateCompletion, buildReplanObservation)
+//     * trajectorySupervisor.ts (createTrajectorySupervisor, stagnation ladder)
+//     * progressEvaluator.ts (evaluateProgress, deterministic state comparison)
+//     * agentDecision.ts (classifyMainDecision, shouldChallengeBlocked)
+//     * planStepBudget.ts (resolvePlanStepBudget, budget resolution & escalation)
 //     * benchArch.js (currentBenchArch)
 // - Tool execution and environment concerns are owned by the passed `environment` adapter:
 //     { fetchAI, executeTool, onStep, onThought }
@@ -22,22 +22,22 @@ import {
   MAX_VERIFY_REPLANS,
   canAttemptEvidenceRecovery,
   VERIFICATION_STATE
-} from './objectiveVerifier.js'
-import { createTrajectorySupervisor } from './trajectorySupervisor.js'
-import { evaluateProgress, PROGRESS_OUTCOME } from './progressEvaluator.js'
-import { resolveStagnationRung } from './strategyLib.js'
+} from './objectiveVerifier.ts'
+import { createTrajectorySupervisor } from './trajectorySupervisor.ts'
+import { evaluateProgress, PROGRESS_OUTCOME } from './progressEvaluator.ts'
+import { resolveStagnationRung } from './strategyLib.ts'
 import {
   classifyMainDecision,
   INTENT,
   isExplicitSelfTerminate,
   shouldChallengeBlocked,
   BLOCKED_CHALLENGE_TEXT
-} from './agentDecision.js'
+} from './agentDecision.ts'
 import {
   resolvePlanStepBudget,
   shouldRenewBudget,
   renewBudgetWindow
-} from './planStepBudget.js'
+} from './planStepBudget.ts'
 import { currentBenchArch } from './benchArch'
 
 export const MAX_NO_PROGRESS_STREAK = 3
@@ -174,15 +174,14 @@ export async function runAgentLoop({
   // Budget steps
   let maxPlanSteps =
     typeof options.maxTurns === 'number' && Number.isFinite(options.maxTurns) && options.maxTurns > 0
-      ? Math.max(1, Math.floor(options.maxTurns))
-    : resolvePlanStepBudget({
+      ? Math.max(1, Math.floor(options.maxTurns))      : resolvePlanStepBudget({
         config: {
           aiProvider: options.provider,
           model: options.model,
           effortLevel: options.effort
         },
         userInput: prompt,
-        options
+        options: {}
       })
 
   const effectiveObjectiveText = options.originalPrompt || prompt
@@ -256,7 +255,7 @@ export async function runAgentLoop({
         })
       }
 
-      let decision = null
+      let decision: AgentDecision | null = null
 
       // If budget reached, evaluate potential productivity extension or terminate
       if (stepCount >= maxPlanSteps) {
@@ -598,7 +597,7 @@ export async function runAgentLoop({
           if (signal?.aborted) break
 
           const toolName = act.tool
-          const toolQuery = act.query || ''
+          const toolQuery = typeof act.query === 'string' ? act.query : String(act.query ?? '')
 
           let toolResult: ToolExecutionLike
           try {

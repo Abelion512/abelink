@@ -7,7 +7,7 @@ import {
   sweepTrialSkills,
   buildTrialSkillNudge,
   exportSkillToDisk
-} from '../src/api/ai/skillMiniEval.js'
+} from '../src/api/ai/skillMiniEval.ts'
 
 describe('runSkillMiniEval (Mini Evaluation Engine)', () => {
   it('skill dengan SOP lengkap dan aman lulus evaluasi', () => {

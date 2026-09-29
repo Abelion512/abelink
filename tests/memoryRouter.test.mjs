@@ -10,7 +10,7 @@ import {
   composeAllMemorySections,
   routeTurnMemoryContext,
   normalizeMemoryDecision
-} from '../src/api/ai/memoryRouter.js'
+} from '../src/api/ai/memoryRouter.ts'
 
 describe('memoryRouter - Prompt Section Builders', () => {
   it('buildWorkspacePromptSection menghasilkan markdown bersih atau kosong', () => {

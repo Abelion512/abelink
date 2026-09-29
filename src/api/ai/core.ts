@@ -102,15 +102,23 @@ export const fetchAI = async (
   const effortKey = String(effortDecision.effort || '').toUpperCase()
   if (effortDecision.effort && (EffortLevel as Record<string, { value: string }>)[effortKey]) {
     const canonical = resolve_effort((EffortLevel as Record<string, { value: string }>)[effortKey])
+    const policy = canonical.policy as {
+      level: { value: string }
+      reasoning_score: number
+      planning_score: number
+      verification_score: number
+      reflection_score: number
+      workflow_score: number
+    }
     conf.__effortMetadata = {
       requested: effortDecision.effort,
-      canonical: canonical.policy.level.value,
+      canonical: policy.level.value,
       policyLikes: {
-        reasoning_score: canonical.policy.reasoning_score,
-        planning_score: canonical.policy.planning_score,
-        verification_score: canonical.policy.verification_score,
-        reflection_score: canonical.policy.reflection_score,
-        workflow_score: canonical.policy.workflow_score,
+        reasoning_score: policy.reasoning_score,
+        planning_score: policy.planning_score,
+        verification_score: policy.verification_score,
+        reflection_score: policy.reflection_score,
+        workflow_score: policy.workflow_score,
       },
     }
   }

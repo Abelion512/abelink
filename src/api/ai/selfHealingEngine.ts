@@ -1,21 +1,22 @@
-// selfHealingEngine.js
+// selfHealingEngine.ts
 // Autonomous Runtime Error Interceptor & Self-Repair Dispatcher
 // Mengizinkan Abelink menangkap error runtime sendiri dan memanggil CLI agent untuk memperbaikinya.
 
-import { buildCodingCommand } from './codingAgentBridge.js'
+import { buildCodingCommand } from './codingAgentBridge.ts'
 
 // In-memory circuit breaker registry: signature -> { count, lastAttempt }
-const repairHistory = new Map()
+const repairHistory = new Map<string, { count: number; lastAttempt: number }>()
 export const MAX_REPAIR_ATTEMPTS = 2
 export const REPAIR_COOLDOWN_MS = 3600000 // 1 jam
 
 /**
  * Membuat signature error unik dari pesan dan stack trace.
  */
-export function getErrorSignature(error) {
+export function getErrorSignature(error: unknown) {
   if (!error) return 'unknown_error'
-  const msg = error.message || String(error)
-  const firstStack = (error.stack || '')
+  const err = error as { message?: string; stack?: string }
+  const msg = err.message || String(error)
+  const firstStack = (err.stack || '')
     .split('\n')
     .slice(0, 3)
     .join(' ')
@@ -26,7 +27,7 @@ export function getErrorSignature(error) {
 /**
  * Memeriksa apakah error signature diizinkan untuk dipicu perbaikan (circuit breaker).
  */
-export function isRepairAllowed(signature, now = Date.now()) {
+export function isRepairAllowed(signature: string, now = Date.now()) {
   const record = repairHistory.get(signature)
   if (!record) return true
 
@@ -41,7 +42,7 @@ export function isRepairAllowed(signature, now = Date.now()) {
 /**
  * Mencatat percobaan perbaikan untuk circuit breaker.
  */
-export function recordRepairAttempt(signature, now = Date.now()) {
+export function recordRepairAttempt(signature: string, now = Date.now()) {
   const record = repairHistory.get(signature) || { count: 0, lastAttempt: now }
   repairHistory.set(signature, {
     count: record.count + 1,
@@ -57,7 +58,15 @@ export function recordRepairAttempt(signature, now = Date.now()) {
  * bukan sekadar klaim teks "test hijau". Verifier (objectiveVerifier,
  * kriteria test-evidence) menolak klaim tanpa artefak.
  */
-export function createSelfRepairMission({ error, contextInfo = {}, agentId = 'claude' }) {
+export function createSelfRepairMission({
+  error,
+  contextInfo = {},
+  agentId = 'claude'
+}: {
+  error: unknown
+  contextInfo?: Record<string, unknown>
+  agentId?: string
+}) {
   const signature = getErrorSignature(error)
   if (!isRepairAllowed(signature)) {
     return {
@@ -71,8 +80,8 @@ export function createSelfRepairMission({ error, contextInfo = {}, agentId = 'cl
   const branch = `auto/fix-runtime-${timestamp}`
 
   const prompt = `Abelink mengalami runtime error pada sistem:
-Pesan: ${error.message || String(error)}
-Stack: ${error.stack || 'tidak tersedia'}
+Pesan: ${(error as { message?: string }).message || String(error)}
+Stack: ${(error as { stack?: string }).stack || 'tidak tersedia'}
 Konteks: ${JSON.stringify(contextInfo)}
 
 Tugas kamu:

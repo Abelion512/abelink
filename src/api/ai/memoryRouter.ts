@@ -1,14 +1,58 @@
-// src/api/ai/memoryRouter.js
+// src/api/ai/memoryRouter.ts
 // Subsystem Memory Router eksplisit (Hermes & Anthropic Context Engineering pattern).
 // Mengorkestrasi pemilihan memori, arsip, turn-pairs, dokumen RAG, dan workspace context
 // per-turn secara terpadu, modular, dan teruji.
 
 import { getCurrentTimeInfo } from './utils.js'
 
+/** Loose shape of workspace RAG context produced by workspaceRag. */
+export interface WorkspaceContextLike {
+  workingMemoryText?: string | null
+  codeRagText?: string | null
+  sessionFactsText?: string | null
+}
+
+/** Loose shape of a user memory row. */
+export interface MemoryItemLike {
+  id?: number | string | null
+  type?: string | null
+  memory?: string | null
+}
+
+/** Loose shape of an archived session summary row. */
+export interface ArchiveItemLike {
+  summary?: string | null
+  timestamp?: string | number | null
+}
+
+/** Loose shape of a vectorized turn pair. */
+export interface TurnPairLike {
+  userText?: string | null
+  aiText?: string | null
+  sessionTitle?: string | null
+  timestamp?: string | number | null
+}
+
+/** Loose shape of a RAG document chunk. */
+export interface DocumentItemLike {
+  docName?: string | null
+  title?: string | null
+  content?: string | null
+  text?: string | null
+}
+
+/** Unified memory context handed to the planner prompt composer. */
+export interface UnifiedContextLike {
+  memories?: MemoryItemLike[]
+  archives?: ArchiveItemLike[]
+  documents?: DocumentItemLike[]
+  turnPairs?: TurnPairLike[]
+}
+
 /**
  * Format section workspace RAG (.abelink/ working memory + code RAG + session facts).
  */
-export function buildWorkspacePromptSection(workspaceContext = {}) {
+export function buildWorkspacePromptSection(workspaceContext: WorkspaceContextLike | null = {}) {
   if (!workspaceContext || typeof workspaceContext !== 'object') return ''
   const { workingMemoryText, codeRagText, sessionFactsText } = workspaceContext
   const sections = []
@@ -30,7 +74,7 @@ export function buildWorkspacePromptSection(workspaceContext = {}) {
 /**
  * Format section daftar memory user aktif saat ini.
  */
-export function buildUserMemorySection(memories = []) {
+export function buildUserMemorySection(memories: MemoryItemLike[] = []) {
   if (!Array.isArray(memories) || memories.length === 0) return ''
   const lines = memories
     .filter((m) => m && m.memory)
@@ -80,7 +124,7 @@ export function buildMemoryUsageSection(hasContent = false) {
 /**
  * Format arsip obrolan lama (ringkasan sesi terdahulu).
  */
-export function buildArchivesSection(archives = []) {
+export function buildArchivesSection(archives: ArchiveItemLike[] = []) {
   if (!Array.isArray(archives) || archives.length === 0) return ''
   const lines = archives
     .filter((a) => a && a.summary)
@@ -95,7 +139,7 @@ export function buildArchivesSection(archives = []) {
 /**
  * Format turn pairs relevan (pasangan tanya-jawab historis vektor).
  */
-export function buildTurnPairsSection(turnPairs = []) {
+export function buildTurnPairsSection(turnPairs: TurnPairLike[] = []) {
   if (!Array.isArray(turnPairs) || turnPairs.length === 0) return ''
   const blocks = turnPairs
     .filter((t) => t && (t.userText || t.aiText))
@@ -110,7 +154,7 @@ export function buildTurnPairsSection(turnPairs = []) {
 /**
  * Format dokumen referensi RAG knowledge base.
  */
-export function buildDocumentsSection(documents = []) {
+export function buildDocumentsSection(documents: DocumentItemLike[] = []) {
   if (!Array.isArray(documents) || documents.length === 0) return ''
   const blocks = documents
     .filter((d) => d && (d.text || d.content))
@@ -122,7 +166,7 @@ export function buildDocumentsSection(documents = []) {
 /**
  * Menggabungkan seluruh komponen memori ke dalam satu string siap-pakai untuk system prompt planner.
  */
-export function composeAllMemorySections(unifiedContext = {}) {
+export function composeAllMemorySections(unifiedContext: UnifiedContextLike | null = {}) {
   const { memories = [], archives = [], documents = [], turnPairs = [] } = unifiedContext || {}
   const parts = []
 
@@ -159,20 +203,30 @@ export async function routeTurnMemoryContext({
   signal = null,
   getUnifiedContextFn = null,
   getWorkspaceContextFn = null
+}: {
+  userInput?: string
+  searchQuery?: string
+  allMemory?: unknown
+  workspaceRoot?: string | null
+  signal?: AbortSignal | null
+  getUnifiedContextFn?: ((query: string, memory: unknown) => Promise<UnifiedContextLike>) | null
+  getWorkspaceContextFn?: ((root: string, input: string) => Promise<WorkspaceContextLike>) | null
 } = {}) {
   const query = searchQuery || userInput || ''
 
   // 1. Ambil Unified Context (memories, archives, documents, turnPairs)
-  let unifiedContext = { memories: [], archives: [], documents: [], turnPairs: [] }
+  let unifiedContext: UnifiedContextLike = { memories: [], archives: [], documents: [], turnPairs: [] }
   try {
-    const fetchContext = getUnifiedContextFn || (async (q, m) => {
-      const { getUnifiedContext } = await import('../vectorMemory.ts')
-      return getUnifiedContext(q, m)
-    })
+    const fetchContext =
+      getUnifiedContextFn ||
+      (async (q: string, m: unknown): Promise<UnifiedContextLike> => {
+        const { getUnifiedContext } = await import('../vectorMemory.ts')
+        return (await getUnifiedContext(q, m)) as unknown as UnifiedContextLike
+      })
 
     const contextPromise = fetchContext(query, allMemory)
     if (signal) {
-      const abortPromise = new Promise((_, reject) => {
+      const abortPromise = new Promise<never>((_, reject) => {
         const onAbort = () => reject(new Error('AbortError'))
         if (signal.aborted) return onAbort()
         signal.addEventListener('abort', onAbort, { once: true })
@@ -182,7 +236,7 @@ export async function routeTurnMemoryContext({
       unifiedContext = await contextPromise
     }
   } catch (err) {
-    if (err?.message !== 'AbortError') {
+    if ((err as Error)?.message !== 'AbortError') {
       console.warn('[MemoryRouter] Gagal mengambil unified memory context:', err)
     }
   }
@@ -191,10 +245,12 @@ export async function routeTurnMemoryContext({
   let workspaceContext = null
   if (workspaceRoot) {
     try {
-      const fetchWorkspace = getWorkspaceContextFn || (async (root, input) => {
-        const { getWorkspaceContext } = await import('../workspaceRag.ts')
-        return getWorkspaceContext(root, input)
-      })
+      const fetchWorkspace =
+        getWorkspaceContextFn ||
+        (async (root: string, input: string): Promise<WorkspaceContextLike> => {
+          const { getWorkspaceContext } = await import('../workspaceRag.ts')
+          return getWorkspaceContext(root, input)
+        })
       workspaceContext = await fetchWorkspace(workspaceRoot, userInput)
     } catch (err) {
       console.warn('[MemoryRouter] Gagal mengambil workspace context:', err)
@@ -210,17 +266,26 @@ export async function routeTurnMemoryContext({
 /**
  * Validasi dan normalisasi keputusan memory dari model sebelum persistensi.
  */
-export function normalizeMemoryDecision(decisionMemory, existingMemories = []) {
+export function normalizeMemoryDecision(
+  decisionMemory: unknown,
+  existingMemories: MemoryItemLike[] = []
+) {
   if (!decisionMemory || typeof decisionMemory !== 'object') {
     return { valid: false, reason: 'Keputusan memory kosong atau bukan objek' }
   }
 
-  const { action, type, memory, summary, id } = decisionMemory
+  const { action, type, memory, summary, id } = decisionMemory as {
+    action?: unknown
+    type?: unknown
+    memory?: unknown
+    summary?: unknown
+    id?: unknown
+  }
   const validActions = ['insert', 'update', 'delete']
   const validTypes = ['profile', 'preference', 'notes', 'learn']
 
-  if (!validActions.includes(action)) {
-    return { valid: false, reason: `Action memory tidak valid: ${action}` }
+  if (typeof action !== 'string' || !validActions.includes(action)) {
+    return { valid: false, reason: `Action memory tidak valid: ${String(action)}` }
   }
 
   if (action === 'delete') {
@@ -234,8 +299,8 @@ export function normalizeMemoryDecision(decisionMemory, existingMemories = []) {
     }
   }
 
-  if (!validTypes.includes(type)) {
-    return { valid: false, reason: `Type memory tidak valid: ${type}` }
+  if (typeof type !== 'string' || !validTypes.includes(type)) {
+    return { valid: false, reason: `Type memory tidak valid: ${String(type)}` }
   }
 
   if (!memory || typeof memory !== 'string' || !memory.trim()) {
@@ -253,7 +318,7 @@ export function normalizeMemoryDecision(decisionMemory, existingMemories = []) {
         id: Number(id),
         type,
         memory: memory.trim(),
-        summary: (summary || memory.slice(0, 40)).trim()
+        summary: (typeof summary === 'string' && summary ? summary : memory.slice(0, 40)).trim()
       }
     }
   }
@@ -273,7 +338,7 @@ export function normalizeMemoryDecision(decisionMemory, existingMemories = []) {
     normalized: {
       type,
       memory: memory.trim(),
-      summary: (summary || memory.slice(0, 40)).trim()
+      summary: (typeof summary === 'string' && summary ? summary : memory.slice(0, 40)).trim()
     }
   }
 }

@@ -7,7 +7,7 @@
 import { logSubAgentSpawn as trajectoryLogSub } from '../../../api/trajectory'
 import { getLearnedSkill, bumpLearnedSkillUse } from '../../../api/db.js'
 import { NATIVE_SKILLS } from '../../../components/core/native-skills.js'
-import { isTruncatedOutput } from '../../../api/ai/agentDecision.js'
+import { isTruncatedOutput } from '../../../api/ai/agentDecision.ts'
 import { waitWithTimeout } from './waitHelper.js'
 
 // Kelengkapan satu agen sub-agent untuk gerbang wait_subagents (RI-11/12/13):
@@ -398,7 +398,7 @@ export const runAgentTool = async (tool, query, ctx) => {
     // Satu sumber: daftar agen yang didukung bridge (keputusan owner dikunci
     // ulang ke opencode/hermes, bukan konstanta lokal yang bisa basi).
     const { detectInstalledAgents, buildCodingCommand, PREFERRED_CODING_AGENTS } = await import(
-      '../../../api/ai/codingAgentBridge.js'
+      '../../../api/ai/codingAgentBridge.ts'
     )
     const parts = (query || '').split('||')
     const requestedAgent = parts[0]?.trim() || 'auto'

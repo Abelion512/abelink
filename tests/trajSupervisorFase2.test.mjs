@@ -1,6 +1,6 @@
 // tests/trajSupervisorFase2.test.mjs — Fase 2 additive outputs (Fase 1 pins live in trajectorySupervisor.test.mjs).
 import { describe, it, expect } from 'vitest'
-import { DIRECTIVE, createTrajectorySupervisor } from '../src/api/ai/trajectorySupervisor.js'
+import { DIRECTIVE, createTrajectorySupervisor } from '../src/api/ai/trajectorySupervisor.ts'
 
 const base = { verificationState: 'not_run', stepsLeft: 20, verifyGateActive: false }
 

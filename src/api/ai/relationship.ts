@@ -77,12 +77,15 @@ Output: {"warmth":0.6,"sarcasm_level":0.7,"trust":0.65,"energy":0.55,"obedience"
   "new_relational_memory": "string atau null"
 }`
 
-const TRAIT_KEYS = ['warmth', 'sarcasm_level', 'trust', 'energy', 'obedience']
-const MAX_DRIFT = 0.05
-const FLOOR = { warmth: 0.15, trust: 0.15 }
+export type TraitKey = 'warmth' | 'sarcasm_level' | 'trust' | 'energy' | 'obedience'
+export type TraitSet = Record<TraitKey, number>
 
-function clampDrift(oldTraits, newTraits) {
-  const clamped = {}
+const TRAIT_KEYS: TraitKey[] = ['warmth', 'sarcasm_level', 'trust', 'energy', 'obedience']
+const MAX_DRIFT = 0.05
+const FLOOR: Partial<Record<TraitKey, number>> = { warmth: 0.15, trust: 0.15 }
+
+function clampDrift(oldTraits: Partial<TraitSet>, newTraits: Partial<TraitSet>): TraitSet {
+  const clamped = {} as TraitSet
   for (const key of TRAIT_KEYS) {
     const oldVal = oldTraits[key] ?? 0.5
     let newVal = newTraits[key] ?? oldVal
@@ -94,8 +97,9 @@ function clampDrift(oldTraits, newTraits) {
     }
 
     // Floor enforcement
-    if (FLOOR[key] !== undefined) {
-      newVal = Math.max(newVal, FLOOR[key])
+    const floorVal = FLOOR[key]
+    if (floorVal !== undefined) {
+      newVal = Math.max(newVal, floorVal)
     }
 
     // Bound 0-1
@@ -104,7 +108,11 @@ function clampDrift(oldTraits, newTraits) {
   return clamped
 }
 
-export async function evaluateTraitDrift(oldTraits, chatSummary, userId = 'owner') {
+export async function evaluateTraitDrift(
+  oldTraits: Partial<TraitSet>,
+  chatSummary: string,
+  userId = 'owner'
+) {
   const prompt = `${TRAIT_DRIFT_SYSTEM_PROMPT}
 
 # INPUT EVALUASI
@@ -144,7 +152,10 @@ Berdasarkan ringkasan di atas, evaluasi apakah trait perlu bergeser. Output JSON
     const response = await fetchAI(messages, null, true, traitSchema)
 
     if (response?.content) {
-      const parsed = cleanAndParse(response.content)
+      const parsed = cleanAndParse(response.content) as Partial<TraitSet> & {
+        reasoning?: string
+        new_relational_memory?: string | null
+      }
       const clamped = clampDrift(oldTraits, parsed)
 
       return {

@@ -1,13 +1,23 @@
 import { fetchAI, cleanAndParse } from './core'
 import { saveLearnedSkill } from '../db'
-import { buildTrajectoryLearningPack, formatTrajectoryLearningPack } from './trajectoryLearning.js'
-import { isIndependentlyVerified } from './objectiveVerifier.js'
+import { buildTrajectoryLearningPack, formatTrajectoryLearningPack } from './trajectoryLearning.ts'
+import { isIndependentlyVerified } from './objectiveVerifier.ts'
 
 /**
  * Dedicated Skill Synthesizer (Abelink Meta-Learning Engine)
  * Dieksekusi secara khusus ketika Abelink menyetel `should_learn: true` pada giliran terakhir.
  * Menghasilkan objek skill murni { name, description, content } dan menyimpannya ke Dexie.
  */
+interface SynthesizeSkillInput {
+  userPrompt?: string
+  executedTools?: unknown[]
+  finalAnswer?: string
+  thought?: string
+  verificationState?: string
+  outcome?: string
+  objectiveKind?: string
+}
+
 export async function synthesizeSkillAndSave({
   userPrompt = '',
   executedTools = [],
@@ -16,7 +26,7 @@ export async function synthesizeSkillAndSave({
   verificationState = 'not_run',
   outcome = 'unknown',
   objectiveKind = 'general'
-}) {
+}: SynthesizeSkillInput = {}) {
   try {
     if (!executedTools || executedTools.length === 0) {
       console.log('[Meta-Learner] Skip: Tidak ada tool yang dieksekusi.')
@@ -25,7 +35,7 @@ export async function synthesizeSkillAndSave({
 
     const learningPack = buildTrajectoryLearningPack({
       objective: userPrompt,
-      executedTools,
+      executedTools: executedTools as never,
       finalAnswer,
       verificationState,
       outcome
@@ -75,7 +85,11 @@ Tugasmu adalah menyaring alur kerja teknis yang baru saja BERHASIL diselesaikan 
       required: ['name', 'description', 'content']
     })
 
-    const parsed = cleanAndParse(response)
+    const parsed = cleanAndParse(response) as {
+      name?: string
+      description?: string
+      content?: string
+    } | null
     if (!parsed || !parsed.name || !parsed.content) {
       console.warn('[Meta-Learner] Format respons synthesizer tidak valid:', response)
       return null
@@ -101,7 +115,7 @@ Tugasmu adalah menyaring alur kerja teknis yang baru saja BERHASIL diselesaikan 
     if (savedSkill) {
       console.log(`[Meta-Learner] ✨ Keahlian baru berhasil dipelajari & disimpan ke Dexie: /${savedSkill.name}`)
       try {
-        const { evaluateAndGraduateSkill } = await import('./skillMiniEval.js')
+        const { evaluateAndGraduateSkill } = await import('./skillMiniEval.ts')
         await evaluateAndGraduateSkill(savedSkill.id)
       } catch (e) {
         console.warn('[Meta-Learner] Gagal mengevaluasi mini-eval skill baru:', e)

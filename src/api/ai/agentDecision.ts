@@ -1,4 +1,4 @@
-// agentDecision.js — shared, deterministic termination semantics for ABELINK loops.
+// agentDecision.ts — shared, deterministic termination semantics for ABELINK loops.
 //
 // Problem this module solves: both the main ReAct loop (useAbelinkPlan) and the
 // sub-agent executor treated `answer` (text without an action) as an implicit
@@ -86,7 +86,15 @@ export function isTruncatedOutput(text = '') {
 // MAX (constant below) only with trajectory evidence of repeat give-ups.
 export const MAX_BLOCKED_CHALLENGES = 1
 
-export function shouldChallengeBlocked({ toolsExecuted = 0, challengesUsed = 0, conversational = false } = {}) {
+export function shouldChallengeBlocked({
+  toolsExecuted = 0,
+  challengesUsed = 0,
+  conversational = false
+}: {
+  toolsExecuted?: number
+  challengesUsed?: number
+  conversational?: boolean
+} = {}) {
   return !conversational && toolsExecuted === 0 && challengesUsed < MAX_BLOCKED_CHALLENGES
 }
 
@@ -95,20 +103,49 @@ export const BLOCKED_CHALLENGE_TEXT =
   'Analisis hambatan di "thought", pilih strategi alternatif (tool atau argumen berbeda), lalu isi "action" untuk melanjutkan. ' +
   'Ulangi klaim blocked HANYA bila hambatannya konkret di luar jangkauan tool (izin ditolak, kredensial hilang, user harus bertindak fisik) — tulis bukti spesifiknya.'
 
+/** Raw model decision protocol: { thought, action, answer, is_done, task_status, objective }. */
+export interface RawDecision {
+  thought?: string
+  action?: unknown
+  answer?: string
+  is_done?: boolean
+  task_status?: string
+  objective?: string
+  // Sub-agent protocol extension: optional completion/status markers.
+  completion?: string
+  status?: string
+  [key: string]: unknown
+}
+
+export interface MainDecisionContext {
+  disableTools?: boolean
+  hasExecutedTools?: boolean
+  missionActive?: boolean
+  conversational?: boolean
+  objectiveKind?: string
+}
+
+export interface SubagentAnswerContext {
+  hasExecutedTools?: boolean
+  lastObservation?: string
+  autoRecoverUsed?: number
+  maxAutoRecover?: number
+}
+
 // Explicit protocol-level self-stop: completion/status marker. The ONLY signal
 // allowed to beat an emitted action (emergency brake direction: stop > act).
-export function isExplicitSelfTerminate(decision = {}) {
+export function isExplicitSelfTerminate(decision: RawDecision = {}) {
   if (explicitState(decision) === 'self_terminated') return true
   const t = String(decision.task_status || '').toLowerCase()
   return ['self_terminate', 'self-terminate', 'self_terminated', 'abort_mission', 'abort-mission'].includes(t)
 }
 
-const hasActionShape = (decision = {}) =>
-  !!(decision.action && (decision.action.tool || Array.isArray(decision.action)))
+const hasActionShape = (decision: RawDecision = {}) =>
+  !!(decision.action && ((decision.action as { tool?: unknown }).tool || Array.isArray(decision.action)))
 
-const taskStatus = (decision = {}) => String(decision.task_status || '').toLowerCase()
+const taskStatus = (decision: RawDecision = {}) => String(decision.task_status || '').toLowerCase()
 
-const explicitState = (decision = {}) => {
+const explicitState = (decision: RawDecision = {}) => {
   // Sub-agent protocol extension: optional `completion` field (model-visible),
   // main-loop may also emit it; both are optional so old outputs still parse.
   const c = String(decision.completion || decision.status || '').toLowerCase()
@@ -133,7 +170,7 @@ const explicitState = (decision = {}) => {
  *
  * Returns { intent, terminal, reason } where intent is one of INTENT.*.
  */
-export function classifyMainDecision(decision = {}, ctx = {}) {
+export function classifyMainDecision(decision: RawDecision = {}, ctx: MainDecisionContext = {}) {
   const {
     disableTools = false,
     hasExecutedTools = false,
@@ -239,7 +276,7 @@ export function classifyMainDecision(decision = {}, ctx = {}) {
  * 'continue' means the executor should keep the loop going (optionally with a
  * corrective observation), never a terminal pause.
  */
-export function classifySubagentAnswer(decision = {}, ctx = {}) {
+export function classifySubagentAnswer(decision: RawDecision = {}, ctx: SubagentAnswerContext = {}) {
   const {
     hasExecutedTools = false,
     lastObservation = '',

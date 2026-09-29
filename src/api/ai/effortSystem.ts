@@ -29,8 +29,8 @@ export const EffortPolicy = Object.freeze({
    * Build a canonical policy for a given effort level.
    * Throws on unsupported level or non-conforming numeric values.
    */
-  forLevel(level) {
-    const p = CANONICAL[level.value]
+  forLevel(level: { value: string }) {
+    const p = (CANONICAL as Record<string, unknown>)[level.value]
     if (!p) throw new Error(`No canonical policy for effort level: ${level.value}`)
     return p
   },
@@ -41,6 +41,14 @@ export const EffortPolicy = Object.freeze({
  * the immutable policy.
  */
 export class BudgetState {
+  _steps: number
+  _toolCalls: number
+  _retries: number
+  _reflections: number
+  _verifications: number
+  _executionStepsPeak: number = 0
+  _parallelWorkersPeak: number = 0
+  _lastError: unknown = null
   constructor() {
     this._steps = 0
     this._toolCalls = 0
@@ -53,6 +61,10 @@ export class BudgetState {
     this._workflowDepth = 0
     this._parallelWorkersPeak = 0
   }
+  _critics: number
+  _workflowNodes: number
+  _subtasks: number
+  _workflowDepth: number
 
   get execution_steps_used() { return this._steps }
   get tool_calls_used() { return this._toolCalls }
@@ -70,7 +82,7 @@ export class BudgetState {
     return this
   }
 
-  trackParallelWorkers(activeCount) {
+  trackParallelWorkers(activeCount: number) {
     if (activeCount > this._parallelWorkersPeak) {
       this._parallelWorkersPeak = activeCount
     }
@@ -82,7 +94,26 @@ export class BudgetState {
  * Read-only budget snapshot (spec §5). Remaining values must never be negative.
  */
 export class BudgetSnapshot {
-  constructor(state, policy) {
+  _execution_steps_used: number
+  _execution_steps_remaining: number
+  _tool_calls_used: number
+  _tool_calls_remaining: number
+  _retries_used: number
+  _retries_remaining: number
+  _reflections_used: number
+  _reflections_remaining: number
+  _verifications_used: number
+  _verifications_remaining: number
+  _critics_used: number
+  _critics_remaining: number
+  _workflow_nodes_used: number
+  _workflow_nodes_remaining: number
+  _subtasks_used: number
+  _subtasks_remaining: number
+  _workflow_depth_used: number
+  _workflow_depth_remaining: number
+  [key: string]: unknown
+  constructor(state: BudgetState, policy: Record<string, number>) {
     this._execution_steps_used = state.execution_steps_used
     this._execution_steps_remaining = Math.max(0, policy.execution_step_budget - state.execution_steps_used)
 
@@ -140,7 +171,11 @@ export class BudgetSnapshot {
  * Resolution result types (spec §6).
  */
 export class EscalationEvent {
-  constructor(fromLevel, toLevel, reason, step) {
+  from_level: unknown
+  to_level: unknown
+  reason: unknown
+  step: unknown
+  constructor(fromLevel: unknown, toLevel: unknown, reason: unknown, step: unknown) {
     this.from_level = fromLevel
     this.to_level = toLevel
     this.reason = reason
@@ -149,7 +184,8 @@ export class EscalationEvent {
 }
 
 export class ResolvedEffort {
-  constructor(requested_level, initial_level, effective_level, policy, resolution_reason, escalations = []) {
+  [key: string]: unknown
+  constructor(requested_level: unknown, initial_level: unknown, effective_level: unknown, policy: unknown, resolution_reason: unknown, escalations: unknown[] = []) {
     this.requested_level = requested_level
     this.initial_level = initial_level
     this.effective_level = effective_level
@@ -346,12 +382,12 @@ const CANONICAL = {
  * AUTO is handled specially: it must resolve to a fixed level and never be passed to a
  * provider as if it were a native reasoning level.
  */
-export function resolve_effort(requested_level, options = {}) {
+export function resolve_effort(requested_level: { value: string }, options: Record<string, unknown> = {}) {
   if (!requested_level || typeof requested_level.value !== 'string') {
     throw new Error('resolve_effort: requested_level must be an EffortLevel-like object with a string value')
   }
   if (requested_level.value === EffortLevel.AUTO.value) {
-    const initial = options.classifierInitial || EffortLevel.MEDIUM
+    const initial = (options.classifierInitial as { value: string }) || EffortLevel.MEDIUM
     return resolve_auto(requested_level, initial, options)
   }
   const policy = EffortPolicy.forLevel(requested_level)
@@ -365,7 +401,7 @@ export function resolve_effort(requested_level, options = {}) {
   )
 }
 
-function resolve_auto(requested_level, initial_level, options = {}) {
+function resolve_auto(requested_level: { value: string }, initial_level: { value: string } | null, options: Record<string, unknown> = {}) {
   const initial = initial_level || EffortLevel.MEDIUM
   const escalations = []
   const AUTO_SEQUENCE = [
@@ -376,7 +412,7 @@ function resolve_auto(requested_level, initial_level, options = {}) {
     EffortLevel.MAX,
     EffortLevel.ULTRA,
   ]
-  const indexOf = (level) => AUTO_SEQUENCE.findIndex((l) => l.value === level.value)
+  const indexOf = (level: { value: string }) => AUTO_SEQUENCE.findIndex((l) => l.value === level.value)
 
   let effective_level = initial
   let reason = options.autoEscalationTrigger ? `auto escalation: ${options.autoEscalationTrigger}` : 'auto default initial level'
@@ -423,8 +459,13 @@ export const AUTO_MAX = resolve_effort(EffortLevel.AUTO, { classifierInitial: Ef
  * The canonical policy is never mutated; applyLimits returns a new object representing
  * the effective bound = min(canonical, runtime, provider, system).
  */
-export function applyLimits(policy, runtimeLimits = {}, providerLimits = {}, systemLimits = {}) {
-  const effective = {}
+export function applyLimits(
+  policy: Record<string, unknown>,
+  runtimeLimits: Record<string, unknown> = {},
+  providerLimits: Record<string, unknown> = {},
+  systemLimits: Record<string, unknown> = {}
+): Record<string, unknown> {
+  const effective: Record<string, unknown> = {}
 
   // Copy canonical policy fields first, then clamp by min of applicable layers.
   for (const key of Object.keys(policy)) {
@@ -436,10 +477,10 @@ export function applyLimits(policy, runtimeLimits = {}, providerLimits = {}, sys
     const runtime = runtimeLimits[key]
     const provider = providerLimits[key]
     const system = systemLimits[key]
-    const bounds = [canonical]
-    if (runtime !== undefined) bounds.push(runtime)
-    if (provider !== undefined) bounds.push(provider)
-    if (system !== undefined) bounds.push(system)
+    const bounds = [canonical as number]
+    if (runtime !== undefined) bounds.push(runtime as number)
+    if (provider !== undefined) bounds.push(provider as number)
+    if (system !== undefined) bounds.push(system as number)
     effective[key] = Math.min(...bounds)
   }
 
@@ -452,48 +493,48 @@ export function applyLimits(policy, runtimeLimits = {}, providerLimits = {}, sys
  * These mutate BudgetState and MUST NOT touch the policy. Each operation increments
  * the relevant counters exactly as defined in the spec.
  */
-export function consumeModelCall(state) {
+export function consumeModelCall(state: BudgetState) {
   state._steps += 1
   return state
 }
 
-export function consumeToolCall(state) {
+export function consumeToolCall(state: BudgetState) {
   state._steps += 1
   state._toolCalls += 1
   return state
 }
 
-export function consumeRetry(state) {
+export function consumeRetry(state: BudgetState) {
   state._retries += 1
   state._steps += 1
   return state
 }
 
-export function consumeReflection(state) {
+export function consumeReflection(state: BudgetState) {
   state._reflections += 1
   state._steps += 1
   return state
 }
 
-export function consumeVerification(state) {
+export function consumeVerification(state: BudgetState) {
   state._verifications += 1
   state._steps += 1
   return state
 }
 
-export function consumeCritic(state) {
+export function consumeCritic(state: BudgetState) {
   state._critics += 1
   state._steps += 1
   return state
 }
 
-export function consumeWorkflowNode(state) {
+export function consumeWorkflowNode(state: BudgetState) {
   state._workflowNodes += 1
   state._steps += 1
   return state
 }
 
-export function consumeSubtask(state) {
+export function consumeSubtask(state: BudgetState) {
   state._subtasks += 1
   return state
 }
@@ -537,12 +578,19 @@ export const BENCH_SCHEMA_VERSION = 3 // v3: +arch axis +worldState (Fase 2 benc
  * via token budgets, prompt-level planning, execution-loop depth, and/or verification/retry
  * behavior. The canonical policy stays untouched.
  */
+export interface EffortPolicyShape {
+  level: { value: string }
+  reasoning_mode: string
+  planning_mode: string
+  [key: string]: unknown
+}
+
 export class ModelProviderAdapter {
   /**
    * Apply the canonical effort policy to a provider request without mutating the policy.
    * Subclasses override for provider-specific parameter injection.
    */
-  applyEffort(request, effortPolicy) {
+  applyEffort(request: Record<string, unknown>, effortPolicy: EffortPolicyShape) {
     // Default implementation: provider-agnostic envelope carrying the canonical policy
     // plus observability metadata. Provider limits belong to the request/metadata, not the
     // canonical policy.
@@ -564,12 +612,14 @@ export class ModelProviderAdapter {
  * still be given a tighter effective request via applyLimits.
  */
 export class TokenBudgetProviderAdapter extends ModelProviderAdapter {
-  constructor(tokenBudgetByLevel = {}) {
+  tokenBudgetByLevel: Record<string, number>
+
+  constructor(tokenBudgetByLevel: Record<string, number> = {}) {
     super()
     this.tokenBudgetByLevel = tokenBudgetByLevel
   }
 
-  applyEffort(request, effortPolicy) {
+  applyEffort(request: Record<string, unknown>, effortPolicy: EffortPolicyShape) {
     const budget = this.tokenBudgetByLevel[effortPolicy.level.value] ?? 4096
     return {
       ...super.applyEffort(request, effortPolicy),
@@ -593,7 +643,10 @@ export class TokenBudgetProviderAdapter extends ModelProviderAdapter {
  * Pure accounting: no side effects, no policy coupling.
  */
 export class StepBudget {
-  constructor(budget) {
+  _budget: number
+  _used: number
+
+  constructor(budget: number) {
     this._budget = budget
     this._used = 0
   }

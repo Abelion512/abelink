@@ -1,6 +1,6 @@
 // Regression tests: Objective Completion & Verification Layer.
-// Target: src/api/ai/objectiveVerifier.js — pure VERIFICATION state machine
-// separating MODEL_CLAIM (agentDecision.js) from SYSTEM VERIFICATION.
+// Target: src/api/ai/objectiveVerifier.ts — pure VERIFICATION state machine
+// separating MODEL_CLAIM (agentDecision.ts) from SYSTEM VERIFICATION.
 //
 // Contract pinned here:
 //   - A completion claim ("is_done": true) is NOT proof of completion.
@@ -22,7 +22,7 @@ import {
   buildReplanObservation,
   isIndependentlyVerified,
   escalateKindFromEvidence
-} from '../src/api/ai/objectiveVerifier.js'
+} from '../src/api/ai/objectiveVerifier.ts'
 
 const exec = (tool, result) => ({ tool, fullResult: result || 'success' })
 

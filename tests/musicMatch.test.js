@@ -1,10 +1,10 @@
 // Tests: deterministic pre-check sebelum LLM rank (hemat 1 call).
-// Target: trustworthyTopHit di src/api/ai/tools.js.
+// Target: trustworthyTopHit di src/api/ai/tools.ts.
 // Kontrak konservatif: skip LLM HANYA bila top-1 cocok kuat + tidak ada
 // permintaan varian versi; sisanya null (jalur LLM seperti biasa).
 
 import { describe, it, expect } from 'vitest'
-import { trustworthyTopHit } from '../src/api/ai/tools.js'
+import { trustworthyTopHit } from '../src/api/ai/tools.ts'
 
 const list = [
   { id: 'a1', title: 'Love You With All My Heart', artist: 'Crush', duration: '3:45' },

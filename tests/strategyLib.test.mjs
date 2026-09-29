@@ -1,6 +1,6 @@
 // tests/strategyLib.test.mjs — thin ladder.
 import { describe, it, expect } from 'vitest'
-import { getNextStrategy } from '../src/api/ai/strategyLib.js'
+import { getNextStrategy } from '../src/api/ai/strategyLib.ts'
 
 describe('getNextStrategy ladder', () => {
   it('repeat same approach => MODIFY, still stuck => EXPLORE (or RETRIEVE when an anchor exists)', () => {

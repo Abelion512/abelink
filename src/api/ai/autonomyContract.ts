@@ -1,4 +1,4 @@
-// autonomyContract.js — compact model-facing protocol for general agentic work.
+// autonomyContract.ts — compact model-facing protocol for general agentic work.
 //
 // This is context engineering, not a replacement for reasoning. It defines the
 // stable runtime protocol the model must follow while domain-specific tools,
@@ -64,7 +64,7 @@ export function buildAutonomyContractSection({ domain = 'general', stepsLeft = n
     '',
     ...FAILURE_MEMORY_RULES.map((rule, i) => 'F' + (i + 1) + '. ' + rule),
     '',
-    DOMAIN_RULES[safeDomain],
+    (DOMAIN_RULES as Record<string, string>)[safeDomain],
     budget,
     '',
     'SELF-LEARNING BOUNDARY: trajectory data may teach the agent only through grounded evidence. Never turn an unverified failure, guess, or model-only claim into a reusable fact.',

@@ -1,8 +1,19 @@
 import { fetchAI, cleanAndParse } from './core'
 
-export const getYoutubeSummary = async (url, data, signal) => {
+export interface MusicItemLike {
+  id?: string | number
+  title?: string
+  artist?: string
+  duration?: string | number
+}
+
+export const getYoutubeSummary = async (
+  url: string,
+  data: { judul?: string; author?: string },
+  signal: AbortSignal | null
+) => {
   try {
-    const transcript = await window.api.getYoutubeTranscript(url)
+    const transcript = String((await window.api.getYoutubeTranscript(url)) || '')
     if (!transcript) return 'Gagal mengambil transkrip video.'
 
     const MAX_CHARS = 4000
@@ -33,11 +44,11 @@ author: ${data.author}
 ${transcript}
 `
       const response = await fetchAI([{ role: 'user', content: prompts }], signal, true)
-      return response.content
+      return response?.content ?? ''
     }
 
     // --- SISTEM CHUNKING UNTUK VIDEO PANJANG ---
-    const chunks = []
+    const chunks: string[] = []
     let currentChunk = ''
     const lines = transcript.split('\n')
 
@@ -87,7 +98,7 @@ author: ${data.author || 'Tidak diketahui'}
 ${chunks[i]}
 `
       const response = await fetchAI([{ role: 'user', content: chunkPrompt }], signal, true)
-      finalSummary += `${response.content}\n\n`
+      finalSummary += `${response?.content ?? ''}\n\n`
 
       // Cooldown 12 detik jika bukan chunk terakhir (Menghindari TPM limit Groq)
       if (i < chunks.length - 1) {
@@ -133,7 +144,7 @@ const queryTokens = (s = '') =>
     .split(' ')
     .filter((t) => t && t.length > 1 && !QUERY_NOISE.has(t))
 
-export function trustworthyTopHit(userInput, musicList) {
+export function trustworthyTopHit(userInput: string, musicList: MusicItemLike[]) {
   try {
     const list = Array.isArray(musicList) ? musicList : []
     if (list.length === 0) return null
@@ -163,7 +174,11 @@ export function trustworthyTopHit(userInput, musicList) {
   }
 }
 
-export const getBestMusicMatch = async (userInput, musicList, signal) => {
+export const getBestMusicMatch = async (
+  userInput: string,
+  musicList: MusicItemLike[],
+  signal: AbortSignal | null
+) => {
   try {
     const systemPrompt = `
 Kamu adalah asisten kurator musik. Tugasmu adalah memilih SATU lagu yang paling sesuai dengan niat pengguna dari daftar hasil pencarian YouTube Music.
@@ -203,7 +218,7 @@ ${JSON.stringify(
     }
 
     const response = await fetchAI(messages, signal, true, schema)
-    const data = cleanAndParse(response.content)
+    const data = cleanAndParse(response?.content ?? '')
     return data
   } catch (error) {
     console.error('Error in getBestMusicMatch:', error)

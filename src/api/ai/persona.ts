@@ -2,7 +2,7 @@ import { getRelationship } from '../db'
 import { getSelfIdentityBlock } from '../appIdentity'
 import { getSelfModelBlock } from '../selfModel'
 
-export const describeLevel = (val) => {
+export const describeLevel = (val: number) => {
   if (val >= 0.8) return 'sangat tinggi'
   if (val >= 0.65) return 'cukup tinggi'
   if (val >= 0.45) return 'netral'
@@ -10,14 +10,14 @@ export const describeLevel = (val) => {
   return 'sangat rendah'
 }
 
-export const getTraitContext = (traits) => {
-  const safeTraits = traits || {
+export const getTraitContext = (traits: Record<string, unknown> | null | undefined) => {
+  const safeTraits = (traits || {
     warmth: 0.5,
     sarcasm_level: 0.5,
     trust: 0.5,
     energy: 0.5,
     obedience: 0.5
-  }
+  }) as Record<string, number>
   
   return `
 # RELATIONAL GROWTH (Sifat Hubunganmu Saat Ini)
@@ -32,7 +32,11 @@ Sesuaikan gaya bicaramu secara natural berdasarkan trait di atas. JANGAN sebutka
 - Jika Obedience rendah: Jadilah mandiri, suka membantah, beropini, malas diperintah, atau minta alasan/pamrih.`
 }
 
-export const getPersonaPrompt = async (userId = 'owner', configPersonality, ownerName = '') => {
+export const getPersonaPrompt = async (
+  userId = 'owner',
+  configPersonality?: string | null,
+  ownerName = ''
+) => {
   const traits = await getRelationship(userId)
   const traitContext = getTraitContext(traits)
 

@@ -1,5 +1,5 @@
 // Regression tests: Trajectory Supervisor Fase 1 (main loop).
-// Target: src/api/ai/trajectorySupervisor.js — pure trajectory-level policy
+// Target: src/api/ai/trajectorySupervisor.ts — pure trajectory-level policy
 // sitting above agentDecision (per-turn claim) and objectiveVerifier
 // (completion proof). It watches attempt history across turns and proposes
 // a strategy directive when the same approach repeats without progress.
@@ -21,7 +21,7 @@ import {
   MAX_HINT_CHARS,
   createTrajectorySupervisor,
   normalizeAttemptKey
-} from '../src/api/ai/trajectorySupervisor.js'
+} from '../src/api/ai/trajectorySupervisor.ts'
 
 const base = { verificationState: 'not_run', stepsLeft: 20, verifyGateActive: false }
 

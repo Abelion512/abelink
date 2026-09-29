@@ -1,5 +1,5 @@
 // Regression tests: objective-aware termination semantics (PR #22 audit).
-// Target: src/api/ai/agentDecision.js — pure classification shared by the main
+// Target: src/api/ai/agentDecision.ts — pure classification shared by the main
 // ReAct loop (useAbelinkPlan) and the sub-agent executor.
 //
 // These tests pin the NON-NEGOTIABLE agentic contract:
@@ -18,7 +18,7 @@ import {
   shouldChallengeBlocked,
   BLOCKED_CHALLENGE_TEXT,
   MAX_BLOCKED_CHALLENGES
-} from '../src/api/ai/agentDecision.js'
+} from '../src/api/ai/agentDecision.ts'
 
 const action = { tool: 'run-shell', arguments: { query: 'ls' } }
 

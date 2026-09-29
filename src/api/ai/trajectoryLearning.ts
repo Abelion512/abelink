@@ -1,4 +1,4 @@
-// trajectoryLearning.js — deterministic evidence pack for self-learning.
+// trajectoryLearning.ts — deterministic evidence pack for self-learning.
 // It reduces raw execution traces before the model-based skill synthesizer sees them.
 // Failed actions are diagnostic context, never reusable proof.
 
@@ -8,14 +8,26 @@ const MAX_TEXT_CHARS = 800
 const FAILURE_RE = /^\s*\[(?:ERROR|DITOLAK|DIBATALKAN|SEARCH-ERROR|CIRCUIT-OPEN|SPIRAL-STOP|REPEAT-CACHE|NO-RESULTS)\]/i
 const FAILURE_STATUS = new Set(['failed', 'blocked', 'not-executed', 'cancelled', 'aborted'])
 
-const textOf = (step = {}) => String(
+interface TrajectoryStepLike {
+  tool?: string
+  task?: string
+  query?: string
+  status?: string
+  is_error?: boolean
+  fullResult?: string
+  resultString?: string
+  result?: string
+  observation?: string
+}
+
+const textOf = (step: TrajectoryStepLike | null | undefined = {}) => String(
   step?.fullResult ?? step?.resultString ?? step?.result ?? step?.observation ?? ''
 ).trim()
 
 const compact = (value = '', limit = MAX_TEXT_CHARS) =>
   String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, limit)
 
-const successful = (step = {}) => {
+const successful = (step: TrajectoryStepLike | null | undefined = {}) => {
   if (FAILURE_STATUS.has(String(step?.status || '').toLowerCase()) || step?.is_error === true) return false
   return !FAILURE_RE.test(textOf(step))
 }
@@ -26,8 +38,14 @@ export function buildTrajectoryLearningPack({
   finalAnswer = '',
   verificationState = 'not_run',
   outcome = 'unknown'
+}: {
+  objective?: string
+  executedTools?: TrajectoryStepLike[]
+  finalAnswer?: string
+  verificationState?: string
+  outcome?: string
 } = {}) {
-  const source = Array.isArray(executedTools) ? executedTools : []
+  const source: TrajectoryStepLike[] = Array.isArray(executedTools) ? executedTools : []
   const successSteps = source.filter(successful).slice(-MAX_SUCCESS_STEPS).map((step, index) => ({
     index: index + 1,
     tool: compact(step?.tool || step?.task || 'unknown', 120),
@@ -55,8 +73,18 @@ export function buildTrajectoryLearningPack({
   }
 }
 
-export function formatTrajectoryLearningPack(pack = {}) {
-  const p = pack || {}
+interface TrajectoryLearningPackLike {
+  successfulSteps?: { index: number; tool: string; query: string; observation: string; status?: string }[]
+  recentFailures?: { index: number; tool: string; query: string; observation: string }[]
+  verificationState?: string
+  outcome?: string
+  objective?: string
+  finalAnswer?: string
+  learningRule?: string
+}
+
+export function formatTrajectoryLearningPack(pack: TrajectoryLearningPackLike | null | undefined = {}) {
+  const p: TrajectoryLearningPackLike = pack || {}
   const successes = Array.isArray(p.successfulSteps) ? p.successfulSteps : []
   const failures = Array.isArray(p.recentFailures) ? p.recentFailures : []
   return [

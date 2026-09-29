@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { StepBudget } from '../src/api/ai/effortSystem.js'
-import { wrapUpNotice } from '../src/api/ai/budgetNotice.js'
+import { StepBudget } from '../src/api/ai/effortSystem.ts'
+import { wrapUpNotice } from '../src/api/ai/budgetNotice.ts'
 
 describe('StepBudget', () => {
   it('consume/refund math', () => {

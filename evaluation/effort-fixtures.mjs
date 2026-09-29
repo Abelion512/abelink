@@ -23,7 +23,7 @@ import {
   consumeWorkflowNode,
   consumeSubtask,
   SYSTEM_HARD_LIMITS,
-} from '../src/api/ai/effortSystem.js'
+} from '../src/api/ai/effortSystem.ts'
 
 export class BudgetExhausted extends Error {
   constructor(resource) {

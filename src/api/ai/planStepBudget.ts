@@ -1,12 +1,12 @@
-// src/api/ai/planStepBudget.js
+// src/api/ai/planStepBudget.ts
 // Resolves step budget dynamically from effortSystem policies.
 // Allows long-horizon complex tasks to scale up to ~50-64 steps (or higher for max/ultra),
 // replacing the hardcoded MAX_PLAN_STEPS=25 limit.
 
-import { resolveEffortLevel } from './effortEstimator.js'
-import { EffortLevel, resolve_effort } from './effortSystem.js'
-import { isFailure } from './progressEvaluator.js'
-import { DIRECTIVE } from './trajectorySupervisor.js'
+import { resolveEffortLevel } from './effortEstimator.ts'
+import { EffortLevel, resolve_effort } from './effortSystem.ts'
+import { isFailure } from './progressEvaluator.ts'
+import { DIRECTIVE } from './trajectorySupervisor.ts'
 
 export const DEFAULT_PLAN_STEPS = 25
 
@@ -15,15 +15,19 @@ export const BUDGET_RENEW_STEPS = 48
 
 const RENEW_BLOCK_DIRECTIVES = new Set([DIRECTIVE.ABANDON, DIRECTIVE.ESCALATE])
 
-const toolResultText = (t) => {
+const toolResultText = (t: unknown) => {
   if (!t || typeof t !== 'object') return ''
-  const r = t.fullResult ?? t.resultString ?? t.result ?? ''
+  const r = (t as { fullResult?: unknown; resultString?: unknown; result?: unknown }).fullResult
+    ?? (t as { resultString?: unknown }).resultString
+    ?? (t as { result?: unknown }).result
+    ?? ''
   return typeof r === 'string' ? r : JSON.stringify(r ?? '')
 }
 
-const toolSucceeded = (t) => {
-  if (t?.status === 'not-executed') return false
-  if (typeof t?.success === 'boolean') return t.success
+const toolSucceeded = (t: unknown) => {
+  const o = t as { status?: unknown; success?: unknown } | null
+  if (o?.status === 'not-executed') return false
+  if (typeof o?.success === 'boolean') return o.success
   const text = toolResultText(t)
   if (!text) return false
   return !isFailure(text)
@@ -73,25 +77,37 @@ export function renewBudgetWindow(currentSteps = 0, hardCeiling = 512) {
  * @param {Object} [params.options] - Execution options (may specify effortLevel or maxSteps)
  * @returns {number} Integer step budget >= 1
  */
-export function resolvePlanStepBudget({ config = {}, userInput = '', options = {} } = {}) {
-  if (Number.isFinite(options?.maxSteps) && options.maxSteps > 0) {
-    return Math.floor(options.maxSteps)
+export function resolvePlanStepBudget({
+  config = {},
+  userInput = '',
+  options = {}
+}: {
+  config?: Record<string, unknown>
+  userInput?: string
+  options?: { maxSteps?: unknown; maxPlanSteps?: unknown; effortLevel?: unknown }
+} = {}) {
+  const opts = options || {}
+  const maxSteps = Number(opts.maxSteps)
+  if (Number.isFinite(maxSteps) && maxSteps > 0) {
+    return Math.floor(maxSteps)
   }
-  if (Number.isFinite(options?.maxPlanSteps) && options.maxPlanSteps > 0) {
-    return Math.floor(options.maxPlanSteps)
+  const maxPlanSteps = Number(opts.maxPlanSteps)
+  if (Number.isFinite(maxPlanSteps) && maxPlanSteps > 0) {
+    return Math.floor(maxPlanSteps)
   }
 
   try {
-    const effConf = options?.effortLevel
-      ? { ...config, effortLevel: options.effortLevel }
+    const effConf = opts.effortLevel
+      ? { ...config, effortLevel: opts.effortLevel }
       : config
 
-    const decision = resolveEffortLevel(effConf, userInput)
+    const decision = resolveEffortLevel(effConf, userInput) as { effort?: string } | null
     const levelKey = String(decision?.effort || '').toUpperCase()
 
-    if (EffortLevel[levelKey]) {
-      const resolved = resolve_effort(EffortLevel[levelKey])
-      const budget = resolved?.policy?.execution_step_budget
+    const levelEntry = (EffortLevel as Record<string, { value: string } | undefined>)[levelKey]
+    if (levelEntry) {
+      const resolved = resolve_effort(levelEntry) as { policy?: Record<string, unknown> } | null
+      const budget = Number(resolved?.policy?.execution_step_budget)
       if (Number.isFinite(budget) && budget > 0) {
         return budget
       }

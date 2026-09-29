@@ -74,7 +74,7 @@ async function main() {
   }
 
   const { runAgentLoop } = await import('../src/api/ai/agentRunner.js')
-  const { evaluateHeadlessSecurity } = await import('../src/api/ai/headlessSecurity.js')
+  const { evaluateHeadlessSecurity } = await import('../src/api/ai/headlessSecurity.ts')
   const { NATIVE_TOOLS } = await import('../sidecar/main/node-tools.js')
   const headless = await import('../src/api/ai/headlessCli.js').catch(() => ({}))
   const {
@@ -324,7 +324,7 @@ async function main() {
   // Eksekutor !shell (ala opencode): tanpa model turn, tanpa histori.
   // Batas jujur: read-only aman + tolak pola berbahaya; BUKAN sandbox.
   async function runShellLine(command) {
-    const { validateHeadlessShellCommand } = await import('../src/api/ai/headlessSecurity.js').catch(() => ({}))
+    const { validateHeadlessShellCommand } = await import('../src/api/ai/headlessSecurity.ts').catch(() => ({}))
     if (typeof validateHeadlessShellCommand === 'function') {
       const check = validateHeadlessShellCommand(command)
       if (!check.allowed) {

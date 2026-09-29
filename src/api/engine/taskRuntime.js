@@ -198,7 +198,7 @@ export async function getTaskHandoffContract(taskId, options = {}) {
   }
   const task = await s.getAgentTaskWithSteps(taskId)
   if (!task) throw new Error('Task tidak ditemukan: ' + taskId)
-  const { buildHandoffContract } = await import('../ai/handoffContract.js')
+  const { buildHandoffContract } = await import('../ai/handoffContract.ts')
   return buildHandoffContract(task, options)
 }
 
@@ -207,5 +207,5 @@ export {
   validateHandoffContract,
   formatHandoffContractPrompt,
   MANDATORY_HANDOFF_FIELDS
-} from '../ai/handoffContract.js'
+} from '../ai/handoffContract.ts'
 

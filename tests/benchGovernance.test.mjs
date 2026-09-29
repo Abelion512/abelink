@@ -21,8 +21,8 @@ import {
   gateCompletion,
   buildReplanObservation,
   MAX_VERIFY_REPLANS
-} from '../src/api/ai/objectiveVerifier.js'
-import { createTrajectorySupervisor, DIRECTIVE } from '../src/api/ai/trajectorySupervisor.js'
+} from '../src/api/ai/objectiveVerifier.ts'
+import { createTrajectorySupervisor, DIRECTIVE } from '../src/api/ai/trajectorySupervisor.ts'
 
 // Mirror of the loop's claim-handling rule in runAbelinkAgent:
 // basic → gate + bounded replan; vanilla → trust the claim (control arm).

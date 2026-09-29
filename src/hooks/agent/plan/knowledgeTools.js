@@ -2,7 +2,7 @@
 // memory vector search, Capability Manager connectors, trading wallet lokal.
 // Modul ini murni: hanya window.api + dynamic import, tanpa state hook.
 import { executeMemorySearch } from '../../../api/vectorMemory'
-import { executeMemoryTool } from '../../../api/ai/memoryTool.js'
+import { executeMemoryTool } from '../../../api/ai/memoryTool.ts'
 
 /**
  * @returns {string|undefined} resultString bila tool milik domain ini.

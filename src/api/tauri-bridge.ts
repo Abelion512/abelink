@@ -359,7 +359,7 @@ export const api = {
   getYoutubeTranscript: (url: string) => call('get-youtube-transcript', url),
   searchYoutube: (q: string) => call('youtube-search', q),
   searchMusic: (q: string) => call('search-music', q),
-  textToSpeech: (text: unknown, rate: unknown, pitch: unknown) =>
+  textToSpeech: (text: string, rate: unknown, pitch: unknown) =>
     call('tts-speak', text, rate, pitch),
   // Alias objek untuk tombol Uji Suara (VoiceVideoSection): backend mengembalikan
   // data-URL string; dibungkus { audioBase64 } agar konsisten satu facade.

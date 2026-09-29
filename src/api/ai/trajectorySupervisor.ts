@@ -1,7 +1,7 @@
-// trajectorySupervisor.js — Trajectory Supervisor Fase 1 (main loop).
+// trajectorySupervisor.ts — Trajectory Supervisor Fase 1 (main loop).
 //
-// agentDecision.js classifies the MODEL CLAIM per turn.
-// objectiveVerifier.js owns SYSTEM VERIFICATION of completion claims.
+// agentDecision.ts classifies the MODEL CLAIM per turn.
+// objectiveVerifier.ts owns SYSTEM VERIFICATION of completion claims.
 // This module owns TRAJECTORY POLICY across attempts: it watches the
 // per-task attempt history, detects stagnation (same strategy repeating
 // without progress), and proposes a strategy directive injected as a short
@@ -25,7 +25,7 @@
 //   - Success on an already-succeeded key is neutral, not progress. Progress
 //     = a NEW successful key, or verification state moving toward verified.
 //   - The supervisor never throws: any internal error degrades to CONTINUE.
-//   - nextStrategy (thin ladder from strategyLib.js: modify -> explore ->
+//   - nextStrategy (thin ladder from strategyLib.ts: modify -> explore ->
 //     retrieve/inspect -> stop) rides along on every return as a trace tag.
 //     It is derived from Fase 1 state only (trailing repeat depth,
 //     verification-blocked-on-proof-tool, prior success exists).
@@ -40,8 +40,8 @@ export const DIRECTIVE = {
 
 // Thin adaptive layer over the closed taxonomy: a 4-rung ladder
 // (modify -> explore -> retrieve/inspect -> stop). Pure module, no cycle.
-import { getNextStrategy } from './strategyLib.js'
-import { evaluateProgress, PROGRESS_OUTCOME } from './progressEvaluator.js'
+import { getNextStrategy } from './strategyLib.ts'
+import { evaluateProgress, PROGRESS_OUTCOME } from './progressEvaluator.ts'
 
 // Locked thresholds (named exports so tests pin them, not magic numbers).
 export const MODIFY_REPEAT = 3
@@ -59,7 +59,7 @@ export const SEMANTIC_MIN_ATTEMPTS = 6
 const FAIL_STATES = new Set(['failed'])
 const PROVEN_STATES = new Set(['partially_verified', 'verified'])
 
-const rankOf = (state) => {
+const rankOf = (state: string) => {
   switch (state) {
     case 'verified':
       return 3
@@ -108,7 +108,14 @@ const nudgeFor = (key = '') => {
   return hit ? hit.tip : 'baca langsung targetnya, ubah kata kunci, atau cek asumsi yang berbeda'
 }
 
-function buildHint(directive, key, repeat, retrievedKey = null, nextStrategy = null, restoreHint = null) {
+function buildHint(
+  directive: string,
+  key: string,
+  repeat: number,
+  retrievedKey: string | null = null,
+  nextStrategy: string | null = null,
+  restoreHint: string | null = null
+) {
   const label = shortKey(key)
   const stratTag = nextStrategy ? `[STRATEGI: ${nextStrategy}] ` : ''
   if (directive === DIRECTIVE.ABANDON) {
@@ -134,11 +141,35 @@ function buildHint(directive, key, repeat, retrievedKey = null, nextStrategy = n
   ).slice(0, MAX_HINT_CHARS)
 }
 
+export interface SupervisorUpdateInput {
+  tool?: string
+  query?: string
+  success?: boolean
+  verificationState?: string | null
+  stepsLeft?: number | null
+  verifyGateActive?: boolean
+  observation?: string
+  result?: string
+  strategy?: unknown
+  score?: unknown
+  stagnation?: unknown
+  bestKey?: unknown
+}
+
+interface ProgressEvidenceLike {
+  tool: string
+  query: string
+  success: boolean
+  verificationState: string | null
+  observation: string
+  result: string
+}
+
 export function createTrajectorySupervisor() {
-  let attempts = [] // [{ key, success }] — sliding window, capped at MAX_ATTEMPTS
-  let succeededKeys = new Set()
-  let successfulStrategies = [] // keys that succeeded, in order (for retrieve)
-  let failedStrategies = new Set() // abandoned keys — never hinted twice
+  let attempts: { key: string; success: boolean }[] = [] // sliding window, capped at MAX_ATTEMPTS
+  let succeededKeys = new Set<string>()
+  let successfulStrategies: string[] = [] // keys that succeeded, in order (for retrieve)
+  let failedStrategies = new Set<string>() // abandoned keys — never hinted twice
   let hintsUsed = 0
   let cooldownLeft = 0
   let successCount = 0
@@ -146,7 +177,7 @@ export function createTrajectorySupervisor() {
   let lastVerificationRank = 1
   let semanticHintGiven = false
   let lastNewKeyAt = -1 // attempts index of the latest NEW succeeded key
-  let previousProgressEvidence = null
+  let previousProgressEvidence: ProgressEvidenceLike | null = null
   let semanticStagnationCount = 0
 
   const trailingRepeat = () => {
@@ -162,7 +193,7 @@ export function createTrajectorySupervisor() {
 // staleRun() compares it against the current total attempt count.
 let totalAttempts = 0
 
-const record = ({ tool, query, success, verificationState }) => {
+const record = ({ tool, query, success, verificationState }: { tool?: string; query?: string; success?: boolean; verificationState?: string | null }) => {
     const key = normalizeAttemptKey(tool, query)
     attempts.push({ key, success: success === true })
     if (attempts.length > MAX_ATTEMPTS) attempts = attempts.slice(-MAX_ATTEMPTS)
@@ -189,7 +220,7 @@ const record = ({ tool, query, success, verificationState }) => {
   const staleRun = () => lastNewKeyAt < 0 ? attempts.length : totalAttempts - lastNewKeyAt
 
   return {
-    update(input = {}) {
+    update(input: SupervisorUpdateInput = {}) {
       let fallbackNext = 'MODIFY'
       try {
         const {
@@ -207,7 +238,7 @@ const record = ({ tool, query, success, verificationState }) => {
           bestKey: incomingBest = null
         } = input || {}
 
-        const currentProgressEvidence = {
+        const currentProgressEvidence: ProgressEvidenceLike = {
           tool,
           query,
           success,
@@ -253,7 +284,7 @@ const record = ({ tool, query, success, verificationState }) => {
           successfulStrategies.length > 0
             ? successfulStrategies[successfulStrategies.length - 1]
             : null
-        const restoreHint = (directive) =>
+        const restoreHint = (directive: string) =>
           directive === DIRECTIVE.ABANDON && lastPriorSuccess ? shortKey(lastPriorSuccess) : null
 
         // Verification improved toward proven states: strategy works, stay out.
@@ -293,7 +324,7 @@ const record = ({ tool, query, success, verificationState }) => {
         }
 
         // Abandon: same key at/above the circuit-scale threshold, once per key.
-        if (repeat >= ABANDON_REPEAT && !failedStrategies.has(key)) {
+        if (repeat >= ABANDON_REPEAT && key !== null && !failedStrategies.has(key)) {
           failedStrategies.add(key)
           hintsUsed++
           cooldownLeft = HINT_COOLDOWN_TURNS
@@ -306,7 +337,7 @@ const record = ({ tool, query, success, verificationState }) => {
         }
 
         // Modify / retrieve: same key stuck at the no-progress scale.
-        if (repeat >= MODIFY_REPEAT && !failedStrategies.has(key)) {
+        if (repeat >= MODIFY_REPEAT && key !== null && !failedStrategies.has(key)) {
           const retrievedKey = successfulStrategies.find((k) => k !== key) || null
           const directive = retrievedKey ? DIRECTIVE.RETRIEVE : DIRECTIVE.MODIFY
           failedStrategies.add(key) // one directive per key per task (hysteresis)

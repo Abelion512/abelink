@@ -6,7 +6,7 @@
 // `avo` was REMOVED 2026-09-12. It used to select the Fase 2 layer
 // (trajLineage.js + scoring.js: scored lineage and strategy ranking fed back).
 // That layer was deleted after review because the 6-taxonomy ontology plus
-// lineage scoring had no measured gain over the 4-rung ladder in strategyLib.js.
+// lineage scoring had no measured gain over the 4-rung ladder in strategyLib.ts.
 // The removal is fail-fast on purpose: `--arch avo` now exits 2 with the list of
 // valid values (evaluation/run.mjs) instead of silently degrading to `basic`.
 // Report files that still carry `"arch": "avo"` stay readable as history;

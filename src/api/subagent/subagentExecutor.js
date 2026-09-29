@@ -16,7 +16,7 @@ import { getAllConfig } from '../db'
 import { core_tools } from '../tools/core-tools'
 import { GROUP_TOOLS_DEFINITION, loadGroupToolsText } from '../tools/group-tools'
 import { executeMemorySearch } from '../vectorMemory.ts'
-import { executeMemoryTool } from '../ai/memoryTool.js'
+import { executeMemoryTool } from '../ai/memoryTool.ts'
 import { LEAD_AGENT_TAG, CREATOR_TAG } from '../../utils/messageTags'
 
 // Registry AbortController aktif per sub-agent
@@ -124,7 +124,7 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
   let currentTurn = subagent.turnCount || 0
   let latestSubagentReply = ''
   let noProgress = 0
-  // ---- Objective-aware run state (agentDecision.js) -----------------------
+  // ---- Objective-aware run state (agentDecision.ts) -----------------------
   // `answer` is NOT silently terminal for a sub-agent. Track what happened in
   // THIS run so a report after a recoverable tool error (or a question the
   // sub-agent could answer itself) keeps the mission going instead of pausing.
@@ -132,14 +132,14 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
   let lastObservation = ''
   let autoRecoverUsed = 0
   // Verification gate: bounded replans demanded from completion claims that
-  // lack world-state proof (objectiveVerifier.js).
+  // lack world-state proof (objectiveVerifier.ts).
   let verifyReplansUsed = 0
   // Blocked-challenge: one corrective round for untested `blocked` claims
   // (zero tools executed), symmetric to the verify-gate above.
   let blockedChallengeUsed = 0
   // Internal terminal classification of the pause: final | blocked | needs_input
   let terminalType = 'final'
-  // ---- Thin trajectory supervisor (trajectorySupervisor.js) ---------------
+  // ---- Thin trajectory supervisor (trajectorySupervisor.ts) ---------------
   // Per-sub-agent stagnation policy. Mirrors the main-loop wiring in
   // useAbelinkPlan.js: Fase 1 fields only. Bench arch axis (ABELINK_BENCH_ARCH,
   // default basic): vanilla = no supervisor, no verify-gate replan.
@@ -253,7 +253,7 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
           continue
         }
 
-        // VERIFICATION GATE (objectiveVerifier.js): a 'final' report is a
+        // VERIFICATION GATE (objectiveVerifier.ts): a 'final' report is a
         // model claim, not proof. Before accepting the pause, check the
         // objective's world-state evidence; an unproven claim gets a bounded
         // replan observation instead of silently ending the mission.

@@ -7,7 +7,7 @@ import {
   HEADLESS_BLOCKED_TOOLS,
   HEADLESS_INTERACTIVE_TOOLS,
   ALLOWED_SHELL_BINARIES
-} from '../src/api/ai/headlessSecurity.js'
+} from '../src/api/ai/headlessSecurity.ts'
 
 describe('headlessSecurity - fail-closed security preflight', () => {
   const workspaceRoot = '/tmp/abelink-test-workspace'

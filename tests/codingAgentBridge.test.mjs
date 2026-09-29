@@ -3,7 +3,7 @@ import {
   AGENT_CANDIDATES,
   detectInstalledAgents,
   buildCodingCommand
-} from '../src/api/ai/codingAgentBridge.js'
+} from '../src/api/ai/codingAgentBridge.ts'
 
 describe('codingAgentBridge', () => {
   it('AGENT_CANDIDATES memuat 4 CLI agent utama', () => {
@@ -15,7 +15,7 @@ describe('codingAgentBridge', () => {
   })
 
   it('PREFERRED_CODING_AGENTS dikunci ke opencode+hermes', async () => {
-    const { PREFERRED_CODING_AGENTS } = await import('../src/api/ai/codingAgentBridge.js')
+    const { PREFERRED_CODING_AGENTS } = await import('../src/api/ai/codingAgentBridge.ts')
     // Keputusan owner (dikunci ulang 2026-09-26): hanya dua agen ini yang boleh
     // dipilih runtime; codex/claude tetap terdaftar sebagai referensi saja.
     expect(PREFERRED_CODING_AGENTS).toEqual(['opencode', 'hermes'])

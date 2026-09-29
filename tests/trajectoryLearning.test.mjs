@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildTrajectoryLearningPack, formatTrajectoryLearningPack } from '../src/api/ai/trajectoryLearning.js'
+import { buildTrajectoryLearningPack, formatTrajectoryLearningPack } from '../src/api/ai/trajectoryLearning.ts'
 
 describe('trajectoryLearning', () => {
   it('separates successful evidence from failed diagnostics', () => {

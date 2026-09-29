@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { BUDGET_RENEW_STEPS, shouldRenewBudget, renewBudgetWindow } from '../src/api/ai/planStepBudget.js'
+import { BUDGET_RENEW_STEPS, shouldRenewBudget, renewBudgetWindow } from '../src/api/ai/planStepBudget.ts'
 
 const okTool = { status: 'done', fullResult: 'hasil kerja nyata' }
 const failTool = { status: 'done', fullResult: '[ERROR] gagal total' }

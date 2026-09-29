@@ -15,6 +15,26 @@ import {
   graduateTrialSkill
 } from '../db.js'
 
+interface LearnedSkillLike {
+  id?: string
+  name?: string
+  description?: string
+  content?: string
+  state?: string
+}
+
+interface SkillEvalResult {
+  evalPassed: boolean
+  score: number
+  checks: {
+    hasSubstance: boolean
+    hasStructure: boolean
+    hasActionableSteps: boolean
+    isSafe: boolean
+  }
+  reasons: string[]
+}
+
 export const DANGEROUS_SKILL_PATTERNS = [
   /rm\s+-rf\s+[/~]/i,
   /mkfs/i,
@@ -29,12 +49,12 @@ export const DANGEROUS_SKILL_PATTERNS = [
  * @param {{ name: string, content: string, description?: string }} skill
  * @returns {{ evalPassed: boolean, score: number, checks: object, reasons: string[] }}
  */
-export function runSkillMiniEval(skill) {
+export function runSkillMiniEval(skill: LearnedSkillLike | null | undefined): SkillEvalResult {
   const content = String(skill?.content || '').trim()
   const description = String(skill?.description || '').trim()
 
-  const reasons = []
-  const checks = {
+  const reasons: string[] = []
+  const checks: SkillEvalResult['checks'] = {
     hasSubstance: false,
     hasStructure: false,
     hasActionableSteps: false,
@@ -58,7 +78,7 @@ export function runSkillMiniEval(skill) {
   }
 
   // 3. Cek langkah konkret / actionable (kata kerja tindakan atau referensi tool)
-  const actionKeywords = [
+  const actionKeywords: string[] = [
     'langkah', 'step', 'baca', 'periksa', 'eksekusi', 'jalankan', 'panggil',
     'tool', 'query', 'file', 'verifikasi', 'cek', 'analisis', 'simpan'
   ]
@@ -95,10 +115,11 @@ export function runSkillMiniEval(skill) {
  * @param {string} idOrName
  * @returns {Promise<{ skillId: string, previousState: string, newState: string, evalResult: object }>}
  */
-export async function evaluateAndGraduateSkill(idOrName) {
+export async function evaluateAndGraduateSkill(idOrName: unknown) {
   if (!idOrName) return null
-  const skill = (await db.learnedSkills.get(idOrName)) ||
-    (await db.learnedSkills.where('name').equalsIgnoreCase(idOrName).first())
+  const key = String(idOrName)
+  const skill = (await db.learnedSkills.get(key)) ||
+    (await db.learnedSkills.where('name').equalsIgnoreCase(key).first())
 
   if (!skill) return null
   const previousState = skill.state || 'trial'
@@ -113,8 +134,8 @@ export async function evaluateAndGraduateSkill(idOrName) {
     }
   }
 
-  const evalResult = runSkillMiniEval(skill)
-  const newState = await graduateTrialSkill(skill.id, {
+  const evalResult = runSkillMiniEval(skill as LearnedSkillLike)
+  const newState = await graduateTrialSkill(skill.id!, {
     evalPassed: evalResult.evalPassed,
     now: Date.now()
   })
@@ -138,15 +159,19 @@ export async function evaluateAndGraduateSkill(idOrName) {
  * @param {{ name: string, description?: string, content: string }} skill
  * @returns {Promise<boolean>}
  */
-export async function exportSkillToDisk(skill) {
+export async function exportSkillToDisk(skill: LearnedSkillLike | null | undefined) {
   if (!skill || !skill.name) return false
-  if (typeof window !== 'undefined' && window.api?.saveSkill) {
+  type SkillBridge = { saveSkill: (name: string, content: string) => Promise<unknown> }
+  const bridge = (typeof window !== 'undefined'
+    ? (window as unknown as { api?: SkillBridge }).api
+    : undefined)
+  if (bridge?.saveSkill) {
     const rawContent = skill.content || ''
     const contentWithFrontmatter = rawContent.startsWith('---')
       ? rawContent
       : `---\nname: ${skill.name}\ndescription: ${skill.description || 'Skill otomatis Abelink'}\n---\n\n${rawContent}`
     try {
-      await window.api.saveSkill(skill.name, contentWithFrontmatter)
+      await bridge.saveSkill(skill.name, contentWithFrontmatter)
       return true
     } catch (e) {
       console.warn(`[SkillMiniEval] Gagal ekspor skill /${skill.name} ke disk:`, e)
@@ -168,8 +193,8 @@ export async function sweepTrialSkills({
   trialDays = 7,
   now = Date.now()
 } = {}) {
-  const trialSkills = await db.learnedSkills.where('state').equals('trial').toArray()
-  const result = {
+  const trialSkills = (await db.learnedSkills.where('state').equals('trial').toArray()) as LearnedSkillLike[]
+  const result: { graduated: string[]; archived: string[]; remainingTrial: string[] } = {
     graduated: [],
     archived: [],
     remainingTrial: []
@@ -182,18 +207,18 @@ export async function sweepTrialSkills({
       evalPassed = evalRes.evalPassed
     }
 
-    const nextState = await graduateTrialSkill(skill.id, {
+    const nextState = await graduateTrialSkill(skill.id!, {
       evalPassed,
       trialDays,
       now
     })
 
     if (nextState === 'active') {
-      result.graduated.push(skill.name || skill.id)
+      result.graduated.push(skill.name || skill.id || '')
     } else if (nextState === 'archived') {
-      result.archived.push(skill.name || skill.id)
+      result.archived.push(skill.name || skill.id || '')
     } else {
-      result.remainingTrial.push(skill.name || skill.id)
+      result.remainingTrial.push(skill.name || skill.id || '')
     }
   }
 
@@ -206,14 +231,14 @@ export async function sweepTrialSkills({
  * @param {string} currentTaskText
  * @returns {string|null}
  */
-export function buildTrialSkillNudge(learnedSkills, currentTaskText = '') {
+export function buildTrialSkillNudge(learnedSkills: LearnedSkillLike[] | null | undefined, currentTaskText = '') {
   if (!Array.isArray(learnedSkills) || learnedSkills.length === 0) return null
-  const trials = learnedSkills.filter((s) => s && s.state === 'trial')
+  const trials = learnedSkills.filter((s: LearnedSkillLike | null | undefined) => s && s.state === 'trial')
   if (trials.length === 0) return null
 
   const taskLower = String(currentTaskText || '').toLowerCase()
   const relevantTrials = taskLower
-    ? trials.filter((t) => {
+    ? trials.filter((t: LearnedSkillLike) => {
         const name = (t.name || '').toLowerCase()
         const desc = (t.description || '').toLowerCase()
         return taskLower.includes(name) || desc.split(/\s+/).some((word) => word.length > 3 && taskLower.includes(word))

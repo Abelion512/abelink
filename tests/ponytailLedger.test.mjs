@@ -12,7 +12,7 @@ const LEDGER = readFileSync(path.join(ROOT, 'PONYTAIL.md'), 'utf8')
 
 const EXCLUDED = new Set([
   'tests/builtinPlugins.test.js', // fixture data, bukan keputusan
-  'src/api/ai/builtinPlugins.js', // field data plugin bernama ponytail, bukan marker
+  'src/api/ai/builtinPlugins.ts', // field data plugin bernama ponytail, bukan marker
 ])
 
 function filesWithMarkers() {

@@ -1,4 +1,4 @@
-// strategyLib.js — Adaptive Stagnation Ladder S0..S8 & Strategy Selection.
+// strategyLib.ts — Adaptive Stagnation Ladder S0..S8 & Strategy Selection.
 //
 // Pure, deterministic strategy escalation across attempts.
 // Maps trajectory stagnation depth and execution progress into a clear 9-stage ladder:
@@ -83,7 +83,7 @@ export function resolveStagnationRung({
  * with tests while adding ladder rung metadata.
  */
 export function getNextStrategy(
-  current,
+  current: string | null | undefined,
   { repeat = 0, verificationBlocked = false, hasPriorSuccess = false, stagnantStreak = 0, _noActionStreak = 0 } = {}
 ) {
   if (repeat >= 5) return { strategy: 'STOP', reason: 'nothing-works', rung: 5, stage: STRATEGY_LADDER.S5_ABANDON }

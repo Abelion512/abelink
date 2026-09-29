@@ -1,5 +1,5 @@
 /**
- * citationEngine.js - Ephemeral Passage Store & Verbatim Citation Verifier
+ * citationEngine.ts - Ephemeral Passage Store & Verbatim Citation Verifier
  * 
  * Mengadopsi standar Anthropic Citations & Character-Offset Grounding:
  * 1. Menghancurkan teks hasil pencarian web / ekstraksi dokumen menjadi
@@ -10,11 +10,25 @@
  *    menolak halusinasi sebelum jawaban disajikan ke pengguna.
  */
 
+export interface StoredPassage {
+  id: string
+  source: string
+  url: string
+  text: string
+  startOffset: number
+  endOffset: number
+}
+
 export class EphemeralPassageStore {
-  constructor({ maxPassageLen = 350, overlap = 50 } = {}) {
+  maxPassageLen: number
+  overlap: number
+  passages: StoredPassage[]
+  passageCounter: number
+
+  constructor({ maxPassageLen = 350, overlap = 50 }: { maxPassageLen?: number; overlap?: number } = {}) {
     this.maxPassageLen = maxPassageLen
     this.overlap = overlap
-    this.passages = [] // Array of { id, source, url, text, startOffset, endOffset }
+    this.passages = []
     this.passageCounter = 1
   }
 
@@ -32,11 +46,11 @@ export class EphemeralPassageStore {
    * @param {{ source?: string, url?: string }} meta 
    * @returns {Array<{ id: string, text: string }>}
    */
-  ingest(rawText, meta = {}) {
+  ingest(rawText: unknown, meta: { source?: string; url?: string } = {}) {
     const text = String(rawText || '').trim()
     if (!text) return []
 
-    const added = []
+    const added: StoredPassage[] = []
     let cursor = 0
     const source = meta.source || 'web'
     const url = meta.url || ''
@@ -78,7 +92,7 @@ export class EphemeralPassageStore {
   /**
    * Cari passage berdasarkan ID
    */
-  getPassage(id) {
+  getPassage(id: unknown) {
     if (!id) return null
     const cleanId = String(id).toUpperCase().trim()
     return this.passages.find((p) => p.id === cleanId) || null
@@ -107,8 +121,8 @@ export class EphemeralPassageStore {
  * @param {string} text 
  * @returns {Array<{ passageId: string, quote: string }>}
  */
-export function extractCitations(text) {
-  const citations = []
+export function extractCitations(text: unknown) {
+  const citations: { passageId: string; quote: string }[] = []
   const raw = String(text || '')
 
   // 1. Format dalam kurung siku: [P-1: "quote"] atau [P-1]
@@ -144,13 +158,13 @@ export function extractCitations(text) {
  * @param {string} passageText - Teks passage rujukan
  * @returns {{ valid: boolean, offset: number, normalizedMatch: boolean }}
  */
-export function verifyVerbatimQuote(quote, passageText) {
+export function verifyVerbatimQuote(quote: unknown, passageText: unknown) {
   if (!quote || !passageText) {
     return { valid: false, offset: -1, normalizedMatch: false }
   }
 
-  const q = quote.trim()
-  const p = passageText.trim()
+  const q = String(quote).trim()
+  const p = String(passageText).trim()
 
   // 1. Exact string match
   const exactIdx = p.indexOf(q)
@@ -175,7 +189,7 @@ export function verifyVerbatimQuote(quote, passageText) {
  * @param {{ answer: string, passageStore: EphemeralPassageStore }} 
  * @returns {{ score: number, citationsCount: number, validCount: number, invalidCitations: Array }}
  */
-export function verifyAnswerGrounding({ answer = '', passageStore = null }) {
+export function verifyAnswerGrounding({ answer = '', passageStore = null }: { answer?: string; passageStore?: EphemeralPassageStore | null } = {}) {
   if (!passageStore || passageStore.getAll().length === 0) {
     return { score: 1.0, citationsCount: 0, validCount: 0, invalidCitations: [] }
   }

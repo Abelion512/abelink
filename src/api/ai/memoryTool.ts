@@ -1,8 +1,31 @@
-// src/api/ai/memoryTool.js
+// src/api/ai/memoryTool.ts
 // Single `memory` tool spec + validator + execution engine (Hermes pattern (c)).
 // Wiring: core-tools, toolCatalog, knowledgeTools, and subagentExecutor.
 
 import { getAllMemory, insertMemory, updateMemory, deleteMemory } from '../db.js'
+
+interface MemoryRowLike {
+  id?: number
+  memory?: string | null
+  type?: string
+  summary?: string
+}
+
+interface MemoryOpLike {
+  action?: string
+  target?: string
+  old_text?: string
+  new_text?: string
+  summary?: string
+  operations?: unknown[]
+}
+
+interface MemoryDbProvider {
+  getAllMemory: typeof getAllMemory
+  insertMemory: typeof insertMemory
+  updateMemory: typeof updateMemory
+  deleteMemory: typeof deleteMemory
+}
 
 export const MEMORY_TOOL_SPEC = {
   name: 'memory',
@@ -15,7 +38,7 @@ export const MEMORY_TOOL_SPEC = {
 const ACTIONS = new Set(MEMORY_TOOL_SPEC.actions)
 const TARGETS = new Set(['memory', 'user'])
 
-function nonEmptyString(v) {
+function nonEmptyString(v: unknown) {
   return typeof v === 'string' && v.trim().length > 0
 }
 
@@ -23,25 +46,26 @@ function nonEmptyString(v) {
  * Validates a memory op. Returns { ok, errors[] }.
  * op: { action, target, old_text?, new_text?, operations? }
  */
-export function validateMemoryOp(op) {
-  const errors = []
+export function validateMemoryOp(op: unknown) {
+  const errors: string[] = []
+  const o = (op ?? {}) as MemoryOpLike
   if (!op || typeof op !== 'object') return { ok: false, errors: ['op harus objek'] }
-  if (!ACTIONS.has(op.action)) errors.push(`action tidak dikenal: ${op.action}`)
-  if (!TARGETS.has(op.target)) errors.push(`target tidak dikenal: ${op.target}`)
+  if (!ACTIONS.has(o.action as string)) errors.push(`action tidak dikenal: ${o.action}`)
+  if (!TARGETS.has(o.target as string)) errors.push(`target tidak dikenal: ${o.target}`)
   if (errors.length > 0) return { ok: false, errors }
 
-  if (op.action === 'add') {
-    if (!nonEmptyString(op.new_text)) errors.push('add butuh new_text non-kosong')
-  } else if (op.action === 'replace') {
-    if (!nonEmptyString(op.old_text)) errors.push('replace butuh old_text non-kosong')
-    if (!nonEmptyString(op.new_text)) errors.push('replace butuh new_text non-kosong')
-  } else if (op.action === 'remove') {
-    if (!nonEmptyString(op.old_text)) errors.push('remove butuh old_text non-kosong')
-  } else if (op.action === 'batch') {
-    if (!Array.isArray(op.operations) || op.operations.length === 0) {
+  if (o.action === 'add') {
+    if (!nonEmptyString(o.new_text)) errors.push('add butuh new_text non-kosong')
+  } else if (o.action === 'replace') {
+    if (!nonEmptyString(o.old_text)) errors.push('replace butuh old_text non-kosong')
+    if (!nonEmptyString(o.new_text)) errors.push('replace butuh new_text non-kosong')
+  } else if (o.action === 'remove') {
+    if (!nonEmptyString(o.old_text)) errors.push('remove butuh old_text non-kosong')
+  } else if (o.action === 'batch') {
+    if (!Array.isArray(o.operations) || o.operations.length === 0) {
       errors.push('batch butuh operations array non-kosong')
     } else {
-      op.operations.forEach((sub, i) => {
+      o.operations.forEach((sub: unknown, i: number) => {
         const r = validateMemoryOp(sub)
         if (!r.ok) errors.push(`operations[${i}]: ${r.errors.join('; ')}`)
       })
@@ -55,9 +79,9 @@ export function validateMemoryOp(op) {
  * Parses raw query string (JSON or pipe format: action||target||...)
  * into a structured memory operation object.
  */
-export function parseMemoryQuery(query) {
+export function parseMemoryQuery(query: unknown) {
   if (!query) return null
-  if (typeof query === 'object') return query
+  if (typeof query === 'object') return query as MemoryOpLike
 
   const str = String(query).trim()
   if (!str) return null
@@ -67,9 +91,9 @@ export function parseMemoryQuery(query) {
     try {
       const parsed = JSON.parse(str)
       if (Array.isArray(parsed)) {
-        return { action: 'batch', target: 'memory', operations: parsed }
+        return { action: 'batch', target: 'memory', operations: parsed } as MemoryOpLike
       }
-      return parsed
+      return parsed as MemoryOpLike
     } catch {
       // lanjut ke fallback pipe parser
     }
@@ -81,29 +105,29 @@ export function parseMemoryQuery(query) {
   const target = parts[1]?.toLowerCase() || 'memory'
 
   if (action === 'add') {
-    return { action, target, new_text: parts.slice(2).join('||') }
+    return { action, target, new_text: parts.slice(2).join('||') } as MemoryOpLike
   }
   if (action === 'replace') {
-    return { action, target, old_text: parts[2] || '', new_text: parts.slice(3).join('||') }
+    return { action, target, old_text: parts[2] || '', new_text: parts.slice(3).join('||') } as MemoryOpLike
   }
   if (action === 'remove') {
-    return { action, target, old_text: parts.slice(2).join('||') }
+    return { action, target, old_text: parts.slice(2).join('||') } as MemoryOpLike
   }
   if (action === 'batch') {
     const rawOps = parts.slice(2).join('||')
     try {
       const ops = JSON.parse(rawOps)
-      return { action: 'batch', target, operations: ops }
+      return { action: 'batch', target, operations: ops } as MemoryOpLike
     } catch {
-      return { action: 'batch', target, operations: [] }
+      return { action: 'batch', target, operations: [] } as MemoryOpLike
     }
   }
 
-  return { action, target }
+  return { action, target } as MemoryOpLike
 }
 
 // State tracker kegagalan memori per-turn
-const turnFailures = new Map()
+const turnFailures = new Map<string, number>()
 
 export function getTurnFailureCount(turnId = 'default') {
   return turnFailures.get(String(turnId)) || 0
@@ -127,7 +151,7 @@ export function isMemoryFailureCapped(turnId = 'default') {
 /**
  * Mencari item memori yang cocok dengan query oldText (ID, exact, atau substring).
  */
-export function findMemoryTarget(memories, oldText) {
+export function findMemoryTarget(memories: MemoryRowLike[] | null | undefined, oldText: unknown): MemoryRowLike | null {
   if (!oldText || !Array.isArray(memories)) return null
   const cleaned = String(oldText).trim().toLowerCase()
   if (!cleaned) return null
@@ -162,9 +186,12 @@ const defaultDbProvider = {
  * @param {object} op Operasi memori
  * @param {object} options { turnId, dbProvider }
  */
-export async function executeMemoryOp(op, options = {}) {
+export async function executeMemoryOp(
+  op: MemoryOpLike,
+  options: { turnId?: string; dbProvider?: MemoryDbProvider } = {}
+) {
   const turnId = options.turnId || 'default'
-  const db = options.dbProvider || defaultDbProvider
+  const db: MemoryDbProvider = options.dbProvider || defaultDbProvider
 
   if (isMemoryFailureCapped(turnId)) {
     return {
@@ -187,7 +214,7 @@ export async function executeMemoryOp(op, options = {}) {
       const memType = op.target === 'user' ? 'profile' : 'notes'
       await db.insertMemory({
         type: memType,
-        memory: op.new_text,
+        memory: op.new_text || '',
         summary: op.summary || ''
       })
       resetMemoryFailureCount(turnId)
@@ -212,7 +239,7 @@ export async function executeMemoryOp(op, options = {}) {
       await db.updateMemory({
         id: found.id,
         type: memType,
-        memory: op.new_text,
+        memory: op.new_text || '',
         summary: found.summary || ''
       })
       resetMemoryFailureCount(turnId)
@@ -245,10 +272,15 @@ export async function executeMemoryOp(op, options = {}) {
     if (op.action === 'batch') {
       // Step 1: Pra-validasi dan snapshot cek untuk atomicity
       const currentMemories = await db.getAllMemory()
-      const plannedActions = []
+      const plannedActions: Array<{
+        type: string
+        op: MemoryOpLike
+        targetId?: number
+        existing?: MemoryRowLike
+      }> = []
 
-      for (let i = 0; i < op.operations.length; i++) {
-        const subOp = op.operations[i]
+      for (let i = 0; i < (op.operations as MemoryOpLike[]).length; i++) {
+        const subOp = (op.operations as MemoryOpLike[])[i]
         if (subOp.action === 'add') {
           plannedActions.push({ type: 'add', op: subOp })
         } else if (subOp.action === 'replace') {
@@ -275,23 +307,23 @@ export async function executeMemoryOp(op, options = {}) {
       }
 
       // Step 2: Eksekusi seluruh aksi secara terjamin
-      const applied = []
+      const applied: string[] = []
       for (const item of plannedActions) {
         if (item.type === 'add') {
           const memType = item.op.target === 'user' ? 'profile' : 'notes'
           await db.insertMemory({
             type: memType,
-            memory: item.op.new_text,
+            memory: item.op.new_text || '',
             summary: item.op.summary || ''
           })
           applied.push(`add(${item.op.target}): "${item.op.new_text}"`)
         } else if (item.type === 'replace') {
-          const memType = item.op.target === 'user' ? 'profile' : item.existing.type
+          const memType = item.op.target === 'user' ? 'profile' : item.existing?.type || 'notes'
           await db.updateMemory({
             id: item.targetId,
             type: memType,
-            memory: item.op.new_text,
-            summary: item.existing.summary || ''
+            memory: item.op.new_text || '',
+            summary: item.existing?.summary || ''
           })
           applied.push(`replace(ID ${item.targetId}): "${item.op.new_text}"`)
         } else if (item.type === 'remove') {
@@ -313,7 +345,7 @@ export async function executeMemoryOp(op, options = {}) {
     return { success: false, error: `Action ${op.action} tidak didukung.` }
   } catch (err) {
     recordMemoryFailure(turnId)
-    return { success: false, error: `Kegagalan eksekusi memori: ${err?.message || err}` }
+    return { success: false, error: `Kegagalan eksekusi memori: ${(err as Error)?.message || err}` }
   }
 }
 
@@ -321,7 +353,10 @@ export async function executeMemoryOp(op, options = {}) {
  * Entry point umum untuk memanggil tool `memory` dari planner atau executor.
  * Mengembalikan string representasi hasil (terminalSuccess).
  */
-export async function executeMemoryTool(rawQuery, options = {}) {
+export async function executeMemoryTool(
+  rawQuery: unknown,
+  options: { turnId?: string; dbProvider?: MemoryDbProvider } = {}
+) {
   const turnId = options.turnId || 'default'
 
   if (isMemoryFailureCapped(turnId)) {
