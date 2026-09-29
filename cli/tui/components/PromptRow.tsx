@@ -182,7 +182,12 @@ export function PromptRow(props: PromptRowProps) {
   // dan popup tetap buka setelah perintah dijalankan.
   const clearTextarea = () => {
     try {
-      if (ta && !ta.isDestroyed && typeof ta.setText === 'function') ta.setText('')
+      if (ta && !ta.isDestroyed && typeof ta.setText === 'function') {
+        ta.setText('')
+        // setText programatik tak picu onContentChange — paksa re-render
+        // popup dari buffer kosong (jaga-jaga sisa teks filter dialog).
+        setBufTick((t) => t + 1)
+      }
     } catch {}
   }
 

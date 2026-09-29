@@ -1,8 +1,6 @@
 /** @jsxImportSource @opentui/solid */
-// cli/tui/App.tsx — layout ikut opencode routes/session/index.tsx:1177-1358:
-// row [kolom konten (padding 2, gap 1) | sidebar 42 bila wide>120],
-// kolom: scrollbox pesan + Prompt + status line. Panel kanan ikut
-// sidebar.tsx: bg panel, padding 2, Context/MCP/LSP.
+// cli/tui/App.tsx — layout session: row [kolom konten (padding 2, gap 1)
+// | sidebar 42 bila wide>120], kolom: scrollbox pesan + Prompt + status line.
 // Referensi: /tmp/opencode-ref (sst/opencode, sparse packages/tui).
 // V2-1: echo lokal; engine wiring = slice berikut.
 import { createSignal, For, Show, onMount, onCleanup } from 'solid-js'
@@ -68,8 +66,8 @@ export function App(props: AppProps = {}) {
   const wide = () => isWide(dims()?.width ?? 80)
   const title = () => props.title ?? 'Abelink'
   const sessionId = () => (typeof props.sessionId === 'function' ? props.sessionId() : props.sessionId) ?? ''
-  // Batch C (sidebar opencode jujur): baca state tiap render agar
-  // usage/mcp/lsp ikut segar (pola modelLabel/agentName di atas).
+  // Batch C: baca state tiap render agar usage ikut segar
+  // (pola modelLabel/agentName di atas).
   const tokensLabel = () => {
     props.tick?.()
     return readOpt(props.tokens)
