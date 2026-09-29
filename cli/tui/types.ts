@@ -67,13 +67,11 @@ export interface TuiState {
   showThinking: boolean
   showDetails: boolean
   busy: boolean
-  // Batch C: sinyal usage sesi berjalan (null = belum terukur) + MCP/LSP
+  // Batch C: sinyal usage sesi berjalan (null = belum terukur) + MCP
   // (null = engine belum expose) + hook alih sesi.
   usage?: { tokensEst: number | null; modelCtx: number | null }
   modelCapabilities?: { ctx?: number | null } | null
   mcpConnected?: string[] | null
-  mcpError?: boolean
-  lspCount?: number | null
   onSessionSwitch?: ((sessionId: string) => void) | null
   // Stream D: mode plan/build (default 'build') + status working per turn
   // ({ steps, tool } — ditulis engine via noteWorking, dibaca entry).
@@ -168,11 +166,6 @@ export interface AppProps {
   tokens?: string | (() => string | null) | null
   usagePct?: string | (() => string | null) | null
   spent?: string | (() => string | null) | null
-  // MCP error + LSP count ala footer opencode (kiri direktori, kanan status).
-  // null/undefined = data tak tersedia -> segmen di-skip (tanpa angka palsu).
-  // LSP 0 = faktual (TUI tanpa language server), bukan fabrikasi.
-  mcpError?: boolean
-  lspCount?: number | null
   // Sesi terakhir tersimpan (session-destination opencode): HomeView tawarkan
   // `/continue <id>` bila ada; null = belum ada sesi.
   lastSessionId?: string | null

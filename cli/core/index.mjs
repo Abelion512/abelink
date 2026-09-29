@@ -35,6 +35,7 @@ export {
 } from './session-store.mjs'
 export { createSidecarClient } from './sidecar-client.mjs'
 export { normalizePaste, pasteLineCount, shouldSummarizePaste, summarizePaste } from './paste.mjs'
+export { writeClipboard } from './clipboard.mjs'
 export { createPromptHistory, appendPromptHistory, movePromptHistory, MAX_PROMPT_HISTORY } from './promptHistory.mjs'
 export {
   createHarnessWriter,

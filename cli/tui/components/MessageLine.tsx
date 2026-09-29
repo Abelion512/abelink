@@ -23,6 +23,22 @@ export function MessageLine(props: MessageLineProps) {
   // Thought disamarkan (muted) — isi tetap ada, tak berisik.
   const base = () => (role === 'thought' ? ABELINK_THEME.textMuted : messageColor(role))
   const lines = () => renderMarkdownLines(String(props.text ?? ''))
+  // Port opencode UserMessage: panel border-kiri + bg panel + padding,
+  // margin atas antar pesan (kecuali pesan pertama — App oper index 0? tidak;
+  // marginTop selalu 1: spacing konsisten gantikan paddingBottom lama).
+  if (role === 'user') {
+    return (
+      <box style={{ flexDirection: 'column', border: ['left'], borderColor: ABELINK_THEME.accent, marginTop: 1 }}>
+        <box style={{ paddingTop: 1, paddingBottom: 1, paddingLeft: 2, backgroundColor: ABELINK_THEME.backgroundPanel, flexShrink: 0 }}>
+          <For each={lines()}>
+            {(l) => (
+              <text fg={l.code ? ABELINK_THEME.secondary : ABELINK_THEME.text}>{l.text || ' '}</text>
+            )}
+          </For>
+        </box>
+      </box>
+    )
+  }
   return (
     <box style={{ flexDirection: 'column', paddingBottom: 1 }}>
       <For each={lines()}>

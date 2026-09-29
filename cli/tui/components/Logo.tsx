@@ -1,53 +1,28 @@
 /** @jsxImportSource @opentui/solid */
-// cli/tui/components/Logo.tsx — logo ASCII block.
-// Port opencode component/logo.tsx + logo.ts: dua kolom (kiri muted,
-// kanan bold), mark `_`/`^`/`~`/`,` jadi spasi/blok/shadow.
+// cli/tui/components/Logo.tsx — wordmark "abelink" block font 3 baris,
+// 7 huruf × 5 kolom (4 glyph + 1 spasi). Tanpa panel bayangan ganda
+// (pola dua-kolom opencode dihapus: dobel render justru tak terbaca).
 import { For } from 'solid-js'
 import { ABELINK_THEME } from '../theme.ts'
 
-const LOGO_LEFT = Object.freeze([
-  '                       ',
-  '█▀▀█ █▀▀█ █▀▀█ █   █▀▀▄',
-  '█__█ █__█ █▀▀▀ █   █__█',
-  '▀▀▀▀ █▀▀▀ ▀▀▀▀ ▀▀▀ ▀  ▀',
-])
-const LOGO_RIGHT = Object.freeze([
-  '         ▄           ',
-  '█▀▀█ █▀█ █▀█ █▀▀ █__█',
-  '█__█ █ █ █ █ █▀  █__█',
-  '▀▀▀▀ ▀ ▀ ▀ ▀ ▀   ▀▀▀▀',
-])
+const A = [' ██ ', '█  █', '████', '█  █', '█  █']
+const B = ['███ ', '█  █', '███ ', '█  █', '███ ']
+const E = ['████', '█   ', '███ ', '█   ', '████']
+const L = ['█   ', '█   ', '█   ', '█   ', '███ ']
+const I = ['███ ', ' █  ', ' █  ', ' █  ', '███ ']
+const N = ['█  █', '██ █', '█ ██', '█  █', '█  █']
+const K = ['█  █', '█ █ ', '██  ', '█ █ ', '█  █']
 
-function renderChar(ch: string, fg: string, shadow: string, bold: boolean) {
-  if (ch === '_') return <text fg={fg}>{' '}</text>
-  if (ch === '^') return <text fg={fg}>▀</text>
-  if (ch === '~') return <text fg={shadow}>▀</text>
-  if (ch === ',') return <text fg={shadow}>▄</text>
-  return <text fg={fg}>{ch}</text>
-}
+const LOGO: readonly string[] = Object.freeze(
+  [0, 1, 2, 3, 4].map((r) => [A[r], B[r], E[r], L[r], I[r], N[r], K[r]].join(' ')),
+)
 
 export function Logo() {
-  const fg = ABELINK_THEME.textMuted
-  const fgBold = ABELINK_THEME.text
-  const shadow = ABELINK_THEME.borderSubtle
   return (
     <box style={{ flexDirection: 'column' }}>
-      <For each={[...LOGO_LEFT.keys()]}>
-        {(i) => (
-          <box style={{ flexDirection: 'row', gap: 1 }}>
-            <box style={{ flexDirection: 'row' }}>
-              <For each={Array.from(LOGO_LEFT[i])}>
-                {(ch) => renderChar(ch, fg, shadow, false)}
-              </For>
-            </box>
-            <box style={{ flexDirection: 'row' }}>
-              <For each={Array.from(LOGO_RIGHT[i])}>
-                {(ch) => (ch === '_' || ch === '^' || ch === '~' || ch === ','
-                  ? renderChar(ch, fgBold, shadow, true)
-                  : <text fg={fgBold}><b>{ch}</b></text>)}
-              </For>
-            </box>
-          </box>
+      <For each={LOGO}>
+        {(line) => (
+          <text fg={ABELINK_THEME.text}><b>{line}</b></text>
         )}
       </For>
     </box>

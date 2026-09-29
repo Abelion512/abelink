@@ -191,6 +191,20 @@ async function main() {
   // kirim Shift+Enter sebagai CR biasa -> binding newline tak pernah match.
   const renderer = await createCliRenderer({ useKittyKeyboard: {} })
   const keymap = createDefaultOpenTuiKeymap(renderer)
+  // Port opencode app.tsx: copy-on-select + judul dinamis ("Abelink" idle,
+  // "● Abelink" saat busy = LED tab terminal).
+  renderer.console.onCopySelection = async (text: string) => {
+    if (!text) return
+    try {
+      const { writeClipboard } = await import('../cli/core/clipboard.mjs')
+      await writeClipboard(text)
+      renderer.clearSelection()
+    } catch {}
+  }
+  const setTitle = (busy: boolean) => {
+    try { renderer.setTerminalTitle(busy ? '● Abelink' : 'Abelink') } catch {}
+  }
+  setTitle(false)
   let exited = false
   let sidecar: SidecarClient | null = null
   const exit = () => {
@@ -204,11 +218,17 @@ async function main() {
   }
 
   const [tick, setTick] = createSignal(0)
-  const [busy, setBusy] = createSignal(false)
+  const [busyRaw, setBusyRaw] = createSignal(false)
+  // Judul tab ikut status (● = kerja) — bungkus setBusy sekali di sini.
+  const busy = () => busyRaw()
+  const setBusy = (v: boolean) => { setBusyRaw(v); setTitle(v) }
   const [picker, setPicker] = createSignal<PickerState | null>(null)
   // Batch C (session-destination opencode): id sesi terakhir tersimpan untuk
   // tawaran `/continue` di HomeView. null = belum ada (fallback teks lama).
   const [lastSessionId, setLastSessionId] = createSignal<string | null>(null)
+  // MCP via engine (CLI sebagai client, pola GUI CapabilitiesHub):
+  // capabilities:list via sidecar lazy; null = belum/tak tersedia.
+  const [mcpNames, setMcpNames] = createSignal<string[] | null>(null)
   const bump = () => setTick((t) => t + 1)
   // Repaint tiap engine push (prompt user, info, error) — bukan hanya saat
   // event agent tiba, supaya TUI tidak tampak beku selama turn panjang.
@@ -226,6 +246,7 @@ async function main() {
       if (last?.id && last.id !== state.sessionId) setLastSessionId(String(last.id))
     } catch { /* tanpa store -> fallback teks */ }
   }).catch(() => {})
+  // MCP connectors via sidecar (fire-and-forget; null = sembunyikan seksi).
   const getSidecar = async (): Promise<SidecarClient> => {
     if (!sidecar) {
       const { createSidecarClient } = await import('../cli/core/index.mjs')
@@ -233,6 +254,18 @@ async function main() {
     }
     return sidecar
   }
+  void (async () => {
+    try {
+      const c = await getSidecar()
+      const rpc = c.rpc as unknown as (action: string, payload: unknown[]) => Promise<{ data?: unknown } | null>
+      const resp = await rpc('capabilities:list', [])
+      const list = (resp?.data ?? resp ?? []) as unknown[]
+      if (Array.isArray(list) && list.length) {
+        setMcpNames(list.map((x) => String((x as { name?: unknown; id?: unknown })?.name ?? (x as { id?: unknown })?.id ?? x)))
+        bump()
+      }
+    } catch { /* sidecar mati -> seksi MCP disembunyikan */ }
+  })()
 
   // Overlay generik (pola opencode dialog): satu mekanisme render di App untuk
   // (1) picker model, (2) command palette ctrl+p, (3) dialog sesi /sessions.
@@ -500,8 +533,8 @@ async function main() {
           tokens={() => { tick(); const u = sessionContextUsage(state.usage?.tokensEst ?? 0, state.usage?.modelCtx ?? null); return state.usage?.tokensEst == null ? null : u.label }}
           usagePct={() => { tick(); const u = sessionContextUsage(state.usage?.tokensEst ?? 0, state.usage?.modelCtx ?? null); return u.pct }}
           spent={null}
-          mcpError={false}
-          lspCount={null}
+          // MCP via engine capabilities:list (null/kosong = seksi disembunyikan).
+          connected={mcpNames() ?? []}
           lastSessionId={lastSessionId()}
         />
       </KeymapProvider>

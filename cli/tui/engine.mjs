@@ -540,6 +540,15 @@ async function runSlash(state, cmd, deps) {
     case 'help':
       pushMessage(state, 'info', deps.helpText || 'Ketik /help di TUI untuk daftar perintah.')
       return { kind: 'message', role: 'info' }
+    // /status: ringkasan sesi berjalan (model, effort, mode, pesan, usage).
+    // Ada karena status line + home merujuknya — tanpa ini halusinasi.
+    case 'status': {
+      const n = Array.isArray(state.messages) ? state.messages.length : 0
+      const u = state.usage?.tokensEst
+      pushMessage(state, 'info',
+        [`Sesi: ${state.sessionId || '—'}`, `Model: ${state.model || '—'}`, `Effort: ${state.effort || '—'}`, `Mode: ${state.mode === 'plan' ? 'plan' : 'build'}`, `Pesan: ${n}`, u == null ? 'Konteks: —' : `Konteks: ~${Number(u).toLocaleString('en-US')} tokens (est.)`].join('\n'))
+      return { kind: 'message', role: 'info' }
+    }
     case 'unsupported':
       pushMessage(state, 'error', cmd.reason)
       return { kind: 'message', role: 'error' }
@@ -708,6 +717,9 @@ async function runSlash(state, cmd, deps) {
       }
       state.sessionId = `session-${Date.now()}`
       state.history = []
+      // Layar fresh ala opencode: pesan lama ikut dibuang (bukan lanjut di bawah).
+      state.messages = []
+      try { state.onPush?.() } catch {}
       pushMessage(state, 'info', `Sesi baru: ${state.sessionId}`)
       return { kind: 'message', role: 'info' }
     case 'compact': {
@@ -724,6 +736,39 @@ async function runSlash(state, cmd, deps) {
       state.showThinking = !state.showThinking
       pushMessage(state, 'info', `Blok thinking: ${state.showThinking ? 'TAMPIL' : 'SEMBUNYI'}.`)
       return { kind: 'message', role: 'info' }
+    // Port opencode dialog-message: Copy = pesan assistant terakhir ke
+    // clipboard; Fork = sesi baru berisi histori sampai pesan itu.
+    // Revert butuh primitif undo file engine (tak ada) — tolak jujur.
+    case 'copy': {
+      const last = [...(state.messages || [])].reverse().find((m) => m?.role === 'assistant' && String(m.text ?? '').trim())
+      if (!last) {
+        pushMessage(state, 'error', 'Belum ada pesan AI untuk disalin.')
+        return { kind: 'message', role: 'error' }
+      }
+      try {
+        const { writeClipboard } = await import('../core/clipboard.mjs')
+        await writeClipboard(String(last.text))
+        pushMessage(state, 'info', 'Pesan AI terakhir disalin ke clipboard.')
+      } catch (err) {
+        pushMessage(state, 'error', `Gagal menyalin: ${String(err?.message || err).slice(0, 120)}`)
+      }
+      return { kind: 'message', role: 'info' }
+    }
+    case 'fork': {
+      const msgs = [...(state.messages || [])]
+      const idx = msgs.map((m) => m?.role).lastIndexOf('assistant')
+      if (idx < 0) {
+        pushMessage(state, 'error', 'Belum ada pesan AI untuk fork.')
+        return { kind: 'message', role: 'error' }
+      }
+      const cut = msgs.slice(0, idx + 1)
+      state.sessionId = `session-${Date.now()}`
+      state.history = cut
+        .filter((m) => m?.role === 'user' || m?.role === 'assistant')
+        .map((m) => ({ role: m.role, content: String(m.text ?? '') }))
+      pushMessage(state, 'info', `Fork sesi baru: ${state.sessionId} (${cut.length} pesan dibawa).`)
+      return { kind: 'message', role: 'info' }
+    }
     case 'details':
       state.showDetails = !state.showDetails
       pushMessage(state, 'info', `Detail tool: ${state.showDetails ? 'TAMPIL' : 'SEMBUNYI'}.`)
@@ -781,6 +826,28 @@ async function runSlash(state, cmd, deps) {
         : defaultWriteFile(state.workspace, target, draft))
       pushMessage(state, res.ok ? 'info' : 'error', res.ok ? `Draf AGENTS.md ditulis ke ${res.path}.` : res.error)
       return { kind: 'message', role: res.ok ? 'info' : 'error' }
+    }
+    // Port GUI Skills: daftar nama+deskripsi via sidecar lazy (load when
+    // needed — tanpa sidecar = tolak jujur, bukan render semua di awal).
+    case 'skills': {
+      const sidecar = deps.sidecar || null
+      if (!sidecar?.rpc) {
+        pushMessage(state, 'error', 'Skills butuh sidecar (jalan interaktif, bukan pipe).')
+        return { kind: 'message', role: 'error' }
+      }
+      try {
+        const resp = await sidecar.rpc('skills:get-all', [])
+        const list = resp?.data ?? resp ?? []
+        const rows = Array.isArray(list) ? list : []
+        if (!rows.length) {
+          pushMessage(state, 'info', 'Belum ada skill. Isi dibaca saat dipakai (lazy).')
+          return { kind: 'message', role: 'info' }
+        }
+        pushMessage(state, 'info', rows.map((s) => `· ${s?.name ?? s}${s?.description ? ` — ${s.description}` : ''}`).join('\n'))
+      } catch (err) {
+        pushMessage(state, 'error', `Skills gagal: ${String(err?.message || err).slice(0, 120)}`)
+      }
+      return { kind: 'message', role: 'info' }
     }
     case 'usage': {
       const { summarizeDir, renderUsage } = await import('./usageStats.mjs')

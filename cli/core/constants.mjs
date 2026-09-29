@@ -38,6 +38,9 @@ export const TUI_HELP = `Perintah slash (tak dikirim sebagai prompt):
   /continue <id>     Lanjut sesi tersimpan
   /new               Mulai sesi baru (alias: /clear)
   /compact           Ringkas histori sesi berjalan (alias: /summarize)
+  /copy              Salin pesan AI terakhir ke clipboard
+  /fork              Sesi baru dari histori sampai pesan AI terakhir
+  /skills            Daftar skill (lazy, via sidecar)
   /thinking          Tampilkan/sembunyikan blok thinking
   /details           Tampilkan/sembunyikan detail eksekusi tool
   /plan              Mode rencana: model susun rencana tanpa tool (toggle: ctrl+o)
@@ -46,6 +49,7 @@ export const TUI_HELP = `Perintah slash (tak dikirim sebagai prompt):
   /editor            Tulis prompt panjang di $EDITOR
   /init              Buat/perbarui AGENTS.md dari struktur workspace
   /help              Tampilkan bantuan ini
+  /status            Ringkasan sesi berjalan
   /exit              Keluar (alias: /quit, /q; Ctrl-D juga bisa)
 File: @path/ke/file = lampirkan isi file ke prompt. !perintah = shell cepat (tak masuk histori).
 Catatan: /undo ditunda (tanpa primitif). Ctrl-C membatalkan turn saja, sesi tetap jalan.`

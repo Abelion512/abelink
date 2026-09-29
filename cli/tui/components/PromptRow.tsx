@@ -396,10 +396,10 @@ export function PromptRow(props: PromptRowProps) {
       <box
         style={{
           width: '100%',
-          // Port opencode: border netral theme.border; highlight agen
-          // (tint + fade) ditunda jujur — tanpa itu cyan menyala tidak setia.
+          // Border kiri ikut mode (plan = warning, build = netral) —
+          // umpan balik visual tanpa teks tambahan.
           border: ['left'],
-          borderColor: ABELINK_THEME.border,
+          borderColor: String(agent()).toLowerCase().startsWith('plan') ? ABELINK_THEME.warning : ABELINK_THEME.border,
           customBorderChars: PROMPT_BORDER_CHARS,
         }}
       >

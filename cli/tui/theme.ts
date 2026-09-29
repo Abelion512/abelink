@@ -69,6 +69,9 @@ export const TUI_COMMANDS: TuiCommand[] = Object.freeze([
   { name: '/continue', desc: 'Lanjut sesi tersimpan' },
   { name: '/new', desc: 'Mulai sesi baru' },
   { name: '/compact', desc: 'Ringkas histori sesi' },
+  { name: '/copy', desc: 'Salin pesan AI terakhir ke clipboard' },
+  { name: '/fork', desc: 'Sesi baru dari histori sampai pesan AI terakhir' },
+  { name: '/skills', desc: 'Daftar skill (isi dibaca saat dipakai)' },
   { name: '/thinking', desc: 'Tampilkan/sembunyikan thinking' },
   { name: '/details', desc: 'Tampilkan/sembunyikan detail tool' },
   { name: '/plan', desc: 'Mode rencana: model susun rencana tanpa tool (toggle ctrl+o)' },
@@ -77,6 +80,7 @@ export const TUI_COMMANDS: TuiCommand[] = Object.freeze([
   { name: '/editor', desc: 'Tulis prompt di $EDITOR' },
   { name: '/init', desc: 'Buat/perbarui AGENTS.md' },
   { name: '/help', desc: 'Tampilkan bantuan' },
+  { name: '/status', desc: 'Ringkasan sesi berjalan' },
   { name: '/exit', desc: 'Keluar' },
 ]) as TuiCommand[]
 

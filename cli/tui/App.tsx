@@ -65,7 +65,7 @@ export function App(props: AppProps = {}) {
   const busy = () => props.busy?.() ?? false
   const wide = () => isWide(dims()?.width ?? 80)
   const title = () => props.title ?? 'Abelink'
-  const sessionId = () => (typeof props.sessionId === 'function' ? props.sessionId() : props.sessionId) ?? ''
+  const sessionId = () => { props.tick?.(); return (typeof props.sessionId === 'function' ? props.sessionId() : props.sessionId) ?? '' }
   // Batch C: baca state tiap render agar usage ikut segar
   // (pola modelLabel/agentName di atas).
   const tokensLabel = () => {
@@ -295,8 +295,9 @@ export function App(props: AppProps = {}) {
             <text fg={ABELINK_THEME.textMuted}>{sessionId()}</text>
           </box>
           {/* Sidebar isi: judul + id sesi, Context (token estimasi nyata
-              bila engine expose, else '—'). Tanpa MCP/LSP — TUI tak punya
-              backend keduanya (redundant, hapus 2026-09-29). */}
+              bila engine expose, else '—'), MCP (via engine
+              capabilities:list; disembunyikan bila kosong — mindset
+              engine-client: TUI tampilkan yang engine sediakan). */}
           <box style={{ flexDirection: 'column', paddingTop: 2, gap: 1, flexGrow: 1 }}>
             <text fg={ABELINK_THEME.text}>Context</text>
             <text fg={ABELINK_THEME.textMuted}>{tokensLabel() ?? '—'}</text>
@@ -306,6 +307,14 @@ export function App(props: AppProps = {}) {
             </Show>
             <text fg={ABELINK_THEME.text}>Model</text>
             <text fg={ABELINK_THEME.textMuted}>{shortModel(model())}</text>
+            <Show when={connected().length > 0}>
+              <text fg={ABELINK_THEME.text}>MCP</text>
+              <For each={connected()}>
+                {(c) => (
+                  <text fg={ABELINK_THEME.textMuted}>⊙ {c}</text>
+                )}
+              </For>
+            </Show>
           </box>
           {/* Branding footer ala opencode: dot success + nama + versi. */}
           <box style={{ flexShrink: 0, paddingTop: 1 }}>

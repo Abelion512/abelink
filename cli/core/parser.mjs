@@ -36,6 +36,9 @@ export function parseSlashCommand(line = '') {
     case 'clear': return { kind: 'new', arg: arg || null }
     case 'compact':
     case 'summarize': return { kind: 'compact', arg: null }
+    case 'copy': return { kind: 'copy', arg: null }
+    case 'fork': return { kind: 'fork', arg: null }
+    case 'skills': return { kind: 'skills', arg: arg || null }
     case 'thinking': return { kind: 'thinking', arg: null }
     case 'details': return { kind: 'details', arg: null }
     // Stream D: mode plan/build (opencode agent.cycle build<->plan).
@@ -48,6 +51,7 @@ export function parseSlashCommand(line = '') {
     case 'editor': return { kind: 'editor', arg: null }
     case 'init': return { kind: 'init', arg: arg || null }
     case 'help': return { kind: 'help', arg: null }
+    case 'status': return { kind: 'status', arg: null }
     case 'exit':
     case 'quit':
     case 'q': return { kind: 'exit', arg: null }
