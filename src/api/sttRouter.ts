@@ -175,7 +175,7 @@ export const getHardwareSttSupport = async (): Promise<{ cores: number; isLiteMo
 export const transcribeAudioUnified = async (
   pcmBuffer: Float32Array,
   onProgress: unknown,
-  setStatusMessage: unknown
+  setStatusMessage: (msg: string) => void
 ): Promise<string> => {
   const configs = await getAllConfig()
   const cfg = configs[0] || {}

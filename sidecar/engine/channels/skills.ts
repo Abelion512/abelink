@@ -94,50 +94,6 @@ async function readDescription(folderPath: string): Promise<string> {
   }
 }
 
-// Direktori skill eksternal (Hermes/claude/opencode pola): tiap folder
-// berisi SKILL.md dengan frontmatter name/description. Read-only scan —
-// tanpa import kode, tanpa eksekusi. Sanitasi: hanya baca, tolak symlink
-// keluar (realpath prefix check).
-const EXTERNAL_SKILL_DIRS: string[] = (() => {
-  const home = process.env.HOME || ''
-  const cands = [
-    process.env.ABELINK_SKILLS_EXTRA,
-    home ? path.join(home, '.agents', 'skills') : null,
-    home ? path.join(home, '.claude', 'skills') : null,
-    path.join(process.cwd(), '.opencode', 'skills')
-  ].filter(Boolean) as string[]
-  return [...new Set(cands)]
-})()
-
-const isSafeSkillDir = (dir: string, base: string): boolean => {
-  try {
-    const real = fs.realpathSync(dir)
-    const realBase = fs.realpathSync(base)
-    return real === realBase || real.startsWith(realBase + path.sep)
-  } catch {
-    return false
-  }
-}
-
-type ExternalSkillMeta = { name: string; description: string; type: 'external'; path: string; source: string }
-const scanExternalDir = async (base: string): Promise<ExternalSkillMeta[]> => {
-  const out: ExternalSkillMeta[] = []
-  let entries
-  try {
-    entries = await fs.promises.readdir(base, { withFileTypes: true })
-  } catch {
-    return out
-  }
-  for (const e of entries) {
-    if (!e.isDirectory() || e.name.startsWith('.')) continue
-    const full = path.join(base, e.name)
-    if (!isSafeSkillDir(full, base)) continue
-    const desc = await readDescription(full)
-    if (desc) out.push({ name: e.name, description: desc, type: 'external', path: full, source: base })
-  }
-  return out
-}
-
 // Nama skill wajib sederhana tanpa slash dan tanpa titik di depan agar tidak
 // bisa dipakai untuk path traversal keluar dari folder skills.
 const isValidSkillName = (name: unknown): name is string =>

@@ -1,0 +1,208 @@
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { getAllConfig, saveMainThread, getMainThread, type ConfigRow } from '../../api/db'
+
+export interface ChatMessage {
+  role?: string
+  content?: unknown
+  timestamp?: string | number
+  isThinking?: boolean
+  isSearching?: boolean
+  isSummarizing?: boolean
+  isProactive?: boolean
+  [key: string]: unknown
+}
+
+export interface NotificationItem {
+  id: number
+  type: string
+  message: string
+  timestamp: number
+}
+
+export interface ProcessItem {
+  id: number | string
+  type?: string
+  status?: string
+  data?: unknown
+  [key: string]: unknown
+}
+
+export const useAbelinkState = () => {
+  const [chatData, setChatData] = useState<ChatMessage[]>([])
+  const [config, setConfig] = useState<ConfigRow[]>([])
+  const [message, setMessage] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const [isAgentBusy, setIsAgentBusy] = useState(false)
+  const [runningSessionIds, setRunningSessionIds] = useState<number[]>([])
+  const runningSessionId = runningSessionIds[0] || null
+
+  const addRunningSessionId = (id: unknown) => {
+    const num = Number(id)
+    setRunningSessionIds((prev) => (prev.map(Number).includes(num) ? prev : [...prev, num]))
+  }
+
+  const removeRunningSessionId = (id: unknown) => {
+    const num = Number(id)
+    setRunningSessionIds((prev) => prev.filter((x) => Number(x) !== num))
+  }
+
+  const setRunningSessionId = (id: number | null | undefined) => {
+    if (id === null || id === undefined) {
+      setRunningSessionIds([])
+    } else {
+      addRunningSessionId(id)
+    }
+  }
+  const [isSpeak, setIsSpeak] = useState(false)
+  const [orbStatus, setOrbStatus] = useState('idle')
+  const [currentResponse, setCurrentResponse] = useState<ChatMessage | null>(null)
+  const [notifications, setNotifications] = useState<NotificationItem[]>([])
+  const [activeProcesses, setActiveProcesses] = useState<ProcessItem[]>([])
+  const [inputSource, setInputSource] = useState('pc')
+  const [activeTopic, setActiveTopic] = useState<string | null>(null)
+  const [isChatLoaded, setIsChatLoaded] = useState(false)
+  const [isBooting, setIsBooting] = useState(true)
+
+  const abortControllerRef = useRef<AbortController | null>(null)
+
+  const loadConfig = useCallback(async () => {
+    const data = await getAllConfig()
+    if (data.length > 0) setConfig(data)
+  }, [])
+
+  const loadMainThread = useCallback(async () => {
+    const data = (await getMainThread()) as ChatMessage[]
+    if (data && data.length > 0) {
+      setChatData(data)
+    }
+    setIsChatLoaded(true)
+  }, [])
+
+  useEffect(() => {
+    void (async () => {
+      await loadConfig()
+      await loadMainThread()
+    })()
+
+    const handleConfigUpdate = (e: Event) => {
+      const detail = (e as CustomEvent).detail
+      if (detail) {
+        setConfig([detail as ConfigRow])
+      }
+    }
+
+    window.addEventListener('config-updated', handleConfigUpdate)
+    return () => {
+      window.removeEventListener('config-updated', handleConfigUpdate)
+    }
+  }, [loadConfig, loadMainThread])
+
+  useEffect(() => {
+    // Save to DB on every change if not initial empty array
+    if (chatData !== undefined && isChatLoaded) {
+      saveMainThread(chatData)
+    }
+  }, [chatData, isChatLoaded])
+
+  const clearChat = () => {
+    setChatData([]) // saveMainThread will auto save the empty array
+  }
+
+  const pushNotification = (type: string, message: string) => {
+    setNotifications((prev) => [
+      ...prev,
+      { id: Date.now() + Math.random(), type, message, timestamp: Date.now() }
+    ])
+  }
+
+  const pushProcess = (process: ProcessItem) => {
+    // process: { id, type, status, data }
+    setActiveProcesses((prev) => {
+      const existing = prev.findIndex((p) => p.id === process.id)
+      if (existing !== -1) {
+        // Update
+        const next = [...prev]
+        next[existing] = { ...next[existing], ...process }
+        return next
+      }
+      // Add new
+      return [...prev, process]
+    })
+  }
+
+  const dismissProcess = (id: number | string) => {
+    setActiveProcesses((prev) => prev.filter((p) => p.id !== id))
+  }
+
+  const handleStop = () => {
+    abortControllerRef.current?.abort()
+    if (window.api?.browserClose) {
+      window.api.browserClose()
+    }
+    // Hentikan juga otomasi PC (daemon + aksi os-* berikutnya) bila sedang aktif.
+    if (window.api?.pcEmergencyStop) {
+      window.api.pcEmergencyStop().catch(() => {})
+    }
+  }
+
+  // Ctrl+Shift+S global (Rust) -> event 'pc-emergency-stop' -> abort semua
+  // sesi AI + kill daemon otomasi PC. Jalur darurat, tanpa approval.
+  useEffect(() => {
+    if (!window.api?.onPcEmergencyStop) return
+    const off = window.api.onPcEmergencyStop(() => {
+      abortControllerRef.current?.abort()
+      // Putus juga retry sleep ai-bridge (tanpa ini Ctrl+Shift+S tak hentikan
+      // loop "Mencoba ulang (N/10)"; pola sama seperti core.js abortFetchAI).
+      if (window.api?.abortFetchAI) {
+        window.api.abortFetchAI().catch(() => {})
+      }
+      window.api.pcEmergencyStop?.().catch(() => {})
+    })
+    return () => {
+      try {
+        off?.()
+      } catch {}
+    }
+  }, [])
+
+  return {
+    chatData,
+    setChatData,
+    clearChat,
+    config,
+    setConfig,
+    message,
+    setMessage,
+    isLoading,
+    setIsLoading,
+    isAgentBusy,
+    setIsAgentBusy,
+    runningSessionId,
+    setRunningSessionId,
+    runningSessionIds,
+    setRunningSessionIds,
+    addRunningSessionId,
+    removeRunningSessionId,
+    isSpeak,
+    setIsSpeak,
+    orbStatus,
+    setOrbStatus,
+    currentResponse,
+    setCurrentResponse,
+    notifications,
+    pushNotification,
+    activeProcesses,
+    setActiveProcesses,
+    pushProcess,
+    dismissProcess,
+    inputSource,
+    setInputSource,
+    activeTopic,
+    setActiveTopic,
+    isChatLoaded,
+    isBooting,
+    setIsBooting,
+    abortControllerRef,
+    handleStop
+  }
+}

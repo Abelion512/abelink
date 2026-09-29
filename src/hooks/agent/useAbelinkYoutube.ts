@@ -1,0 +1,106 @@
+import { getYoutubeSummary } from '../../api/ai/tools'
+import type { ChatMessage } from './useAbelinkState'
+
+type SetChatDataFn = (updater: (prev: ChatMessage[]) => ChatMessage[]) => void
+
+/** Hasil oembed YouTube. */
+interface YoutubeDataResult {
+  judul: string
+  author: string
+  thumbnail: string | null
+  success: boolean
+}
+
+export const useAbelinkYoutube = (setChatData: SetChatDataFn) => {
+  const handleYoutubeSearch = async (
+    answer: { command?: { query?: string }; answer?: string },
+    signal: AbortSignal | null,
+    customSetChatData?: SetChatDataFn | null
+  ): Promise<void> => {
+    const targetSet = customSetChatData || setChatData
+    try {
+      const searchResults = await window.api.searchYoutube(answer.command?.query || '')
+      targetSet((prev) => [
+        ...prev.filter((item) => !item.isThinking),
+        {
+          role: 'ai',
+          content: answer.answer,
+          isYoutubeSearch: true,
+          youtubeLink: [...(searchResults as unknown[])],
+          queryYoutube: answer.command?.query
+        }
+      ])
+    } catch (error) {
+      console.error('Youtube Search Error:', error)
+      if ((error as Error).name === 'AbortError') {
+        targetSet((prev) => [...prev.filter((item) => !item.isThinking)])
+        targetSet((prev) => prev.slice(0, -1))
+      } else {
+        targetSet((prev) => [
+          ...prev.filter((item) => !item.isThinking),
+          {
+            role: 'ai',
+            content: 'Gagal dapet info dari youtube nih, koneksi atau captcha mungkin bermasalah.'
+          }
+        ])
+      }
+    }
+  }
+
+  const getYoutubeData = async (url: string, signal: AbortSignal | null = null): Promise<YoutubeDataResult> => {
+    try {
+      const endpoint = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`
+      // Timeout 15s: oembed gantung menahan alur ringkasan.
+      const res = await fetch(endpoint, { signal: signal ?? AbortSignal.timeout(15000) })
+      if (!res.ok) throw new Error(`oembed ${res.status}`)
+      const data = (await res.json()) as {
+        title?: string
+        author_name?: string
+        thumbnail_url?: string
+      }
+      return {
+        judul: data.title || 'Video Tidak Ditemukan',
+        author: data.author_name || '-',
+        thumbnail: data.thumbnail_url || null,
+        success: true
+      }
+    } catch (error) {
+      console.error('Gagal ambil data YouTube:', (error as Error).message)
+      return { judul: 'Video Tidak Ditemukan', author: '-', thumbnail: null, success: false }
+    }
+  }
+
+  const handleYoutubeSummary = async (
+    url: string,
+    signal: AbortSignal | null,
+    customSetChatData?: SetChatDataFn | null
+  ): Promise<void> => {
+    const targetSet = customSetChatData || setChatData
+    targetSet((prev) => [...prev, { role: 'ai', content: 'Sedang menonton video youtube (hal ini akan membutuhkan waktu beberapa saat mohon ditunggu)...', isSummarizing: true, youtubeLink: url }])
+    try {
+      const data = await getYoutubeData(url)
+      const searchResults = await getYoutubeSummary(url, data, signal)
+      targetSet((prev) => [
+        ...prev.filter((item) => !item.isSummarizing),
+        { role: 'ai', content: searchResults, isYoutubeSummary: true, youtubeLink: url }
+      ])
+    } catch (error) {
+      console.error('Youtube Summary Error:', error)
+      if ((error as Error).name === 'AbortError') {
+        targetSet((prev) => [...prev.filter((item) => !item.isSummarizing)])
+        targetSet((prev) => prev.slice(0, -1))
+      } else {
+        targetSet((prev) => [
+          ...prev.filter((item) => !item.isSummarizing),
+          {
+            role: 'ai',
+            content: 'Gagal dapet info dari youtube nih, koneksi atau captcha mungkin bermasalah.'
+          }
+        ])
+      }
+    }
+  }
+
+
+  return { handleYoutubeSearch, handleYoutubeSummary, getYoutubeData }
+}

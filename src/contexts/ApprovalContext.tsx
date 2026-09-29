@@ -1,0 +1,466 @@
+import { createContext, useState, useContext, useCallback, useRef, useEffect, type ReactNode } from 'react'
+import { ShieldAlert } from 'lucide-react'
+import { getAlwaysAllowedPaths, addAlwaysAllowedPath } from '../api/db'
+
+interface ApprovalRequestData {
+  message?: string
+  tool?: string
+  query?: string
+  resolve?: (approved: boolean) => void
+}
+
+interface AskUserData {
+  title?: string
+  message?: string
+  placeholder?: string
+  resolve?: (result: { confirmed: boolean; comment: string }) => void
+}
+
+interface ApprovalContextValue {
+  requestApproval: (message: string, tool: string, query: string) => Promise<boolean>
+  requestUserInput: (opts: { title?: string; message?: string; placeholder?: string; defaultValue?: string }) => Promise<{ confirmed: boolean; comment: string }>
+  approvalData?: ApprovalRequestData | null
+  askUserData?: AskUserData | null
+  alwaysAllowedPaths?: string[]
+  setAlwaysAllowedPaths?: React.Dispatch<React.SetStateAction<string[]>>
+}
+
+const ApprovalContext = createContext<ApprovalContextValue | null>(null)
+
+function getPathFromQuery(query: unknown) {
+  if (!query || typeof query !== 'string') return ''
+  const firstPart = query.split('||')[0].trim()
+  return firstPart.replace(/^["']|["']$/g, '').replace(/[\\/]+/g, '/').toLowerCase()
+}
+
+function getFolderFromPath(filePath: unknown) {
+  if (!filePath) return ''
+  const p = String(filePath)
+  const lastSlash = p.lastIndexOf('/')
+  if (lastSlash !== -1) {
+    return p.substring(0, lastSlash)
+  }
+  return p
+}
+
+// Tool native -> family izin (mirror semantik gerbang Rust ask/session/always).
+// Gerbang Rust hanya mencakup channel (skills/plugin/tg/google/capabilities);
+// prompt native-tool (run-shell, git, os-*, dst.) diingat DI SINI.
+const TOOL_FAMILY_RULES = [
+  [/^(run-shell|run-task|run-bash)$/, 'shell-exec'],
+  [/^(write-file|replace-content|replace-lines|delete-file)$/, 'fs-write'],
+  [/^git-(commit|revert)$/, 'git-write'],
+  [/^os-/, 'os-control'],
+  [/^browser-download$/, 'browser-download'],
+  [/^(gdrive|gcalendar|gmail)-/, 'google-write']
+]
+
+export function familyOfTool(tool: unknown) {
+  const t = String(tool || '')
+  for (const [re, family] of TOOL_FAMILY_RULES as Array<[RegExp, string]>) {
+    if (re.test(t)) return family
+  }
+  return `tool:${t || 'unknown'}`
+}
+
+const ALWAYS_TOOLS_KEY = 'abelink:approval-always-tools'
+
+function loadAlwaysTools() {
+  try {
+    const raw = localStorage.getItem(ALWAYS_TOOLS_KEY)
+    const arr = JSON.parse(raw || '[]')
+    return Array.isArray(arr) ? arr.filter((x) => typeof x === 'string') : []
+  } catch (_) {
+    return []
+  }
+}
+
+export const ApprovalProvider = ({ children }: { children: ReactNode }) => {
+  const [approvalData, setApprovalData] = useState<ApprovalRequestData | null>(null)
+  const approvalRef = useRef<ApprovalRequestData | null>(null)
+  const approvalPrimaryRef = useRef<HTMLButtonElement | null>(null)
+  const [askUserData, setAskUserData] = useState<AskUserData | null>(null)
+  const askUserRef = useRef<AskUserData | null>(null)
+  const askUserPrimaryRef = useRef<HTMLButtonElement | null>(null)
+
+  useEffect(() => {
+    if (approvalData) approvalPrimaryRef.current?.focus()
+  }, [approvalData])
+
+  useEffect(() => {
+    if (askUserData) askUserPrimaryRef.current?.focus()
+  }, [askUserData])
+  const [userComment, setUserComment] = useState('')
+  const [alwaysAllowedPaths, setAlwaysAllowedPaths] = useState<string[]>([])
+  // Grant per family: session (RAM, hilang saat reload) + always (localStorage).
+  const sessionGrantedRef = useRef(new Set())
+  const [, setAlwaysTools] = useState(loadAlwaysTools)
+
+  const alwaysAllowedPathsRef = useRef(alwaysAllowedPaths)
+  useEffect(() => {
+    alwaysAllowedPathsRef.current = alwaysAllowedPaths
+  }, [alwaysAllowedPaths])
+
+  // Muat data alwaysAllowedPaths dari Dexie DB saat startup
+  useEffect(() => {
+    getAlwaysAllowedPaths().then((paths) => {
+      if (Array.isArray(paths)) {
+        setAlwaysAllowedPaths(paths)
+      }
+    })
+
+    const handleConfigUpdated = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { alwaysAllowedPaths?: string[] } | undefined
+      if (Array.isArray(detail?.alwaysAllowedPaths)) {
+        setAlwaysAllowedPaths(detail.alwaysAllowedPaths)
+      }
+    }
+    window.addEventListener('config-updated', handleConfigUpdated)
+    return () => window.removeEventListener('config-updated', handleConfigUpdated)
+  }, [])
+
+  // Pastikan ref selalu sinkron dengan state saat ini
+  useEffect(() => {
+    approvalRef.current = approvalData
+  }, [approvalData])
+
+  // ESC = batalkan dialog ask-user (eksplisit, bukan diam). Approval keamanan
+  // TIDAK kena ESC (harus klik Tolak/Izinkan — keputusan destruktif).
+  // Dipasang via ref agar tidak kena TDZ (handleCancelAutomation di bawah).
+  const cancelRef = useRef<(() => void) | null>(null)
+  useEffect(() => {
+    if (!askUserData) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && typeof cancelRef.current === 'function') cancelRef.current()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [askUserData])
+
+  const handleApproveAlwaysInternal = useCallback(async (targetQuery: unknown) => {
+    const rawPath = getPathFromQuery(targetQuery)
+    const folderPath = getFolderFromPath(rawPath)
+    const pathToAdd = folderPath || rawPath
+
+    if (pathToAdd) {
+      const updated = await addAlwaysAllowedPath(pathToAdd)
+      if (Array.isArray(updated)) {
+        setAlwaysAllowedPaths(updated)
+      }
+    }
+  }, [])
+
+  const handleRemoteDecision = useCallback((decisionType: string, chatId?: unknown) => {
+    // decisionType: 'approve_once' | 'approve_always' | 'reject'
+    const current = approvalRef.current
+    if (current) {
+      approvalRef.current = null
+      setApprovalData(null)
+
+      if (decisionType === 'approve_always') {
+        handleApproveAlwaysInternal(current.query)
+      }
+
+      const isApproved = decisionType === 'approve_once' || decisionType === 'approve_always'
+      if (typeof current.resolve === 'function') {
+        current.resolve(isApproved)
+      }
+
+      if (chatId && window.api?.tgSendMessage) {
+        let msg = '[INFO]: Permintaan persetujuan telah ditolak.'
+        if (decisionType === 'approve_always') {
+          msg = '[INFO]: Permintaan persetujuan diizinkan SELAMANYA untuk path folder ini.'
+        } else if (decisionType === 'approve_once') {
+          msg = '[INFO]: Permintaan persetujuan telah diizinkan sekali.'
+        }
+        window.api.tgSendMessage(String(chatId), msg)
+      }
+    } else {
+      if (chatId && window.api?.tgSendMessage) {
+        window.api.tgSendMessage(String(chatId), '[INFO]: Tidak ada permintaan persetujuan yang sedang menunggu.')
+      }
+    }
+  }, [handleApproveAlwaysInternal])
+
+  useEffect(() => {
+    // 1. Jalur Dedicated Command Accept
+    if (window.api?.onTgCommandAccept) {
+      window.api.onTgCommandAccept((data: unknown) => {
+        handleRemoteDecision('approve_once', (data as { chatId?: unknown } | null)?.chatId)
+      })
+    }
+
+    // 2. Jalur Dedicated Command Always
+    if (window.api?.onTgCommandAlways) {
+      window.api.onTgCommandAlways((data: unknown) => {
+        handleRemoteDecision('approve_always', (data as { chatId?: unknown } | null)?.chatId)
+      })
+    }
+
+    // 3. Jalur Dedicated Command Reject
+    if (window.api?.onTgCommandReject) {
+      window.api.onTgCommandReject((data: unknown) => {
+        handleRemoteDecision('reject', (data as { chatId?: unknown } | null)?.chatId)
+      })
+    }
+
+    // 4. Fallback Universal via onTgMessage
+    if (window.api?.onTgMessage) {
+      window.api.onTgMessage((payload: unknown) => {
+        const msg = payload as { text?: unknown; chatId?: unknown } | null | undefined
+        const text = String(msg?.text || '').trim().toLowerCase()
+        if (
+          text === '/always' ||
+          text === 'always' ||
+          text === '/selamanya' ||
+          text === 'selamanya' ||
+          text.startsWith('/always@')
+        ) {
+          handleRemoteDecision('approve_always', msg?.chatId)
+        } else if (
+          text === '/accept' ||
+          text === 'accept' ||
+          text === '/izinkan' ||
+          text === 'izinkan' ||
+          text.startsWith('/accept@')
+        ) {
+          handleRemoteDecision('approve_once', msg?.chatId)
+        } else if (
+          text === '/reject' ||
+          text === 'reject' ||
+          text === '/tolak' ||
+          text === 'tolak' ||
+          text.startsWith('/reject@')
+        ) {
+          handleRemoteDecision('reject', msg?.chatId)
+        }
+      })
+    }
+  }, [handleRemoteDecision])
+
+  const requestApproval = useCallback((message: string, tool: string, query: string) => {
+    // Auto Mode (Claude Code / Codex style):
+    // Operasi workspace, editing, shell, browser, dan skill otomatis diizinkan
+    // tanpa popup modal yang memblokir ReAct loop.
+    // Observabilitas non-blocking dikirim via event toast.
+    if (typeof window !== 'undefined' && window.dispatchEvent) {
+      window.dispatchEvent(
+        new CustomEvent('abelink-toast', {
+          detail: {
+            title: `Aksi Otonom: ${tool}`,
+            message: message || (typeof query === 'string' ? query.slice(0, 100) : '') || tool,
+            type: 'info'
+          }
+        })
+      )
+    }
+
+    return Promise.resolve(true)
+  }, [])
+
+  const handleApproveOnce = () => {
+    const current = approvalRef.current || approvalData
+    approvalRef.current = null
+    setApprovalData(null)
+    if (current && typeof current.resolve === 'function') {
+      current.resolve(true)
+    }
+  }
+
+  const handleApproveSession = () => {
+    const current = approvalRef.current || approvalData
+    approvalRef.current = null
+    setApprovalData(null)
+    if (current) {
+      sessionGrantedRef.current.add(familyOfTool(current.tool))
+      if (typeof current.resolve === 'function') {
+        current.resolve(true)
+      }
+    }
+  }
+
+  const handleApproveAlways = () => {
+    const current = approvalRef.current || approvalData
+    approvalRef.current = null
+    setApprovalData(null)
+    if (current) {
+      const family = familyOfTool(current.tool)
+      sessionGrantedRef.current.add(family)
+      setAlwaysTools((prev) => {
+        if (prev.includes(family)) return prev
+        const next = [...prev, family]
+        try {
+          localStorage.setItem(ALWAYS_TOOLS_KEY, JSON.stringify(next))
+        } catch (_) {}
+        return next
+      })
+      handleApproveAlwaysInternal(current.query)
+      if (typeof current.resolve === 'function') {
+        current.resolve(true)
+      }
+    }
+  }
+
+  const handleReject = () => {
+    const current = approvalRef.current || approvalData
+    approvalRef.current = null
+    setApprovalData(null)
+    if (current && typeof current.resolve === 'function') {
+      current.resolve(false)
+    }
+  }
+
+  const requestUserInput = useCallback(({ title, message, placeholder, defaultValue = '' }: { title?: string; message?: string; placeholder?: string; defaultValue?: string }): Promise<{ confirmed: boolean; comment: string }> => {
+    return new Promise((resolve) => {
+      setUserComment(defaultValue)
+      const data: AskUserData = {
+        title: title || 'Abelink Paused for Input',
+        message: message || 'Silakan selesaikan aksi manual atau berikan respon yang diperlukan.',
+        placeholder: placeholder || 'Tambahkan komentar atau instruksi untuk Abelink (opsional)...',
+        resolve
+      }
+      askUserRef.current = data
+      setAskUserData(data)
+    })
+  }, [])
+
+  const handleResumeAutomation = () => {
+    const current = askUserRef.current || askUserData
+    askUserRef.current = null
+    setAskUserData(null)
+    if (current && typeof current.resolve === 'function') {
+      current.resolve({ confirmed: true, comment: userComment.trim() })
+    }
+    setUserComment('')
+  }
+
+  const handleCancelAutomation = () => {
+    const current = askUserRef.current || askUserData
+    askUserRef.current = null
+    setAskUserData(null)
+    if (current && typeof current.resolve === 'function') {
+      current.resolve({ confirmed: false, comment: '' })
+    }
+    setUserComment('')
+  }
+  // Sinkron ref di effect (bukan saat render — melanggar rules-of-hooks).
+  useEffect(() => {
+    cancelRef.current = handleCancelAutomation
+  })
+
+  return (
+    <ApprovalContext.Provider
+      value={{
+        requestApproval,
+        requestUserInput,
+        alwaysAllowedPaths,
+        setAlwaysAllowedPaths
+      }}
+    >
+      {children}
+      {/* Modal Izin Keamanan */}
+      {approvalData && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-[response-fade-in_0.15s_ease-out_forwards]">
+          <div role="dialog" aria-modal="true" aria-labelledby="approval-modal-title" className="bg-base-200 border border-white/10 p-6 rounded-xl shadow-2xl max-w-lg w-full">
+            <div aria-hidden="true" className="md:hidden mx-auto mb-3 h-1 w-10 rounded-full bg-white/20" />
+            <h3 id="approval-modal-title" className="text-lg font-bold text-error mb-2 flex items-center gap-2">
+              <ShieldAlert className="w-5 h-5 text-error" /> Abelink Meminta Izin
+            </h3>
+            <p className="mb-3 text-xs text-base-content/70">
+              Abelink membutuhkan persetujuan Anda untuk mengeksekusi aksi berikut.
+            </p>
+            <div className="whitespace-pre-wrap font-mono text-xs bg-base-300 p-3.5 rounded-xl overflow-x-auto max-h-56 overflow-y-auto shadow-inner border border-white/5 mb-4 text-base-content/90">
+              {approvalData.message ||
+                `Tool: ${approvalData.tool || 'tak dikenal'}\nQuery: ${approvalData.query || '(kosong)'}`}
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2.5 mt-4">
+              <button className="btn btn-ghost btn-sm" onClick={handleReject}>
+                Tolak
+              </button>
+              <div className="flex items-center gap-2">
+                <button className="btn btn-outline btn-sm" onClick={handleApproveOnce}>
+                  Izinkan Sekali
+                </button>
+                <button className="btn btn-outline btn-sm" onClick={handleApproveSession}>
+                  Sesi Ini
+                </button>
+                <button ref={approvalPrimaryRef} className="btn btn-error btn-sm shadow-md" onClick={handleApproveAlways}>
+                  Selalu
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Interaktif: Pause for User Input / Human Intervention */}
+      {askUserData && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 backdrop-blur-md animate-[response-fade-in_0.2s_ease-out_forwards]">
+          <div role="dialog" aria-modal="true" aria-labelledby="askuser-modal-title" className="bg-base-200/95 border border-primary/40 p-6 rounded-[18px] shadow-2xl max-w-md w-full flex flex-col gap-4">
+            <div aria-hidden="true" className="md:hidden mx-auto h-1 w-10 rounded-full bg-white/20" />
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-primary/20 flex items-center justify-center text-primary">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                  <path d="M2 17l10 5 10-5" />
+                  <path d="M2 12l10 5 10-5" />
+                </svg>
+              </div>
+              <div>
+                <h3 id="askuser-modal-title" className="text-base font-bold text-base-content tracking-tight">
+                  {askUserData.title}
+                </h3>
+                <span className="text-[11px] text-primary/80 font-medium">
+                  Automation paused — menunggu tindakan Anda
+                </span>
+              </div>
+            </div>
+
+            <div className="text-xs text-base-content/85 leading-relaxed bg-base-300/80 p-3.5 rounded-xl border-l-4 border-primary shadow-inner">
+              {askUserData.message}
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-semibold text-base-content/60">
+                Komentar / Respon Balasan (Opsional):
+              </label>
+              <textarea
+                value={userComment}
+                onChange={(e) => setUserComment(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    handleResumeAutomation()
+                  }
+                }}
+                placeholder={askUserData.placeholder}
+                rows={3}
+                className="textarea textarea-bordered w-full bg-base-300/90 text-xs rounded-xl focus:border-primary focus:outline-hidden"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm text-xs text-base-content/60 hover:text-base-content"
+                onClick={handleCancelAutomation}
+              >
+                Batalkan
+              </button>
+              <button
+                ref={askUserPrimaryRef}
+                type="button"
+                className="btn btn-primary btn-sm text-xs font-semibold px-4 shadow-lg shadow-primary/25"
+                onClick={handleResumeAutomation}
+              >
+                Lanjutkan (Resume)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </ApprovalContext.Provider>
+  )
+}
+
+export const useApproval = () => useContext(ApprovalContext)

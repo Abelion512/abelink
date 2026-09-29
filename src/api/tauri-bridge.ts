@@ -259,13 +259,13 @@ export const api = {
     return invoke('misc_show_notification', { title: title ?? null, body: body ?? null })
   },
   getDocumentsPath: () => invoke('misc_get_documents_path'),
-  getLiteMode: () => invoke('misc_get_lite_mode').then((d) => d ?? { isLite: false }),
+  getLiteMode: () => invoke<{ isLite: boolean; totalRAMGB?: number | null }>('misc_get_lite_mode').then((d) => d ?? { isLite: false }),
   // Salin folder extension ter-bundel ke data dir (pengguna binary tanpa repo).
   ensureExtensionFiles: () => invoke('misc_ensure_extension_files'),
   // Buka folder di file manager desktop
   openFolder: (path: string) => invoke('misc_open_folder', { path }),
   // Konfirmasi native (rfd di Rust main thread) untuk aksi berisiko non-sidecar.
-  nativeConfirm: (message: string) => invoke('misc_native_confirm', { message }),
+  nativeConfirm: (message: string) => invoke<boolean>('misc_native_confirm', { message }),
   // Fetch resource web via native (validasi SSRF + tanpa CORS renderer).
   fetchWebResource: (url: string) => invoke('misc_fetch_web_resource', { url }),
 
@@ -652,7 +652,7 @@ export const api = {
     return { canceled: list.length === 0, filePaths: list }
   },
   // Metadata file/directory (size bytes, isDir, mtime) untuk preview lampiran.
-  statPath: (path: string) => invoke('misc_stat_path', { path }),
+  statPath: (path: string) => invoke<[number, boolean]>('misc_stat_path', { path }),
   selectDirectory: () => invoke('misc_open_directory_dialog'),
 
   // ---------- Legacy memory migration (MEM) ----------

@@ -1,0 +1,564 @@
+// Eksekutor tool domain MULTI-AGENT (dipindah murni dari useAbelinkPlan.executeSingleTool):
+// spawn/wait/send/list/kill sub-agent, read-tools, read-skill.
+//
+// Kontrak: kembalikan objek `res` ({ success, data?, message?, error? ...})
+// atau undefined bila tool bukan domain ini. Formatting resultString +
+// trajectory log dilakukan TERPUSAT di toolDispatcher (sama seperti sebelumnya).
+import { logSubAgentSpawn as trajectoryLogSub } from '../../../api/trajectory'
+import { getLearnedSkill, bumpLearnedSkillUse } from '../../../api/db.js'
+import { formatSkillFolderBundle as formatSkillFolderBundleImport } from '../../../api/skills/skillFolder.js'
+
+// Param skillFolder.js ter-infer never[] dari default []; buka lewat cast lokal.
+const formatBundle = formatSkillFolderBundleImport as unknown as (
+  o: {
+    name?: string
+    content?: string
+    references?: string[]
+    scripts?: string[]
+    basePath?: string
+    sourceType?: string
+  }
+) => string
+import { NATIVE_SKILLS } from '../../../components/core/native-skills.js'
+import { isTruncatedOutput } from '../../../api/ai/agentDecision.ts'
+import { waitWithTimeout } from './waitHelper.js'
+import type { ToolCtx } from './toolDispatcher'
+import type { ChatMessage } from '../useAbelinkState'
+
+/** Baris sub-agent dari subagentStore (bentuk longgar). */
+interface SubagentRow {
+  id?: string | number
+  name?: string
+  role?: string
+  status?: string
+  goal?: string
+  finalAnswer?: string
+  turnCount?: number
+  [key: string]: unknown
+}
+
+/** Skill bundle (learned/native) untuk pembacaan read-skill. */
+interface SkillBundleLike {
+  name?: string
+  content?: string
+  references?: unknown[]
+  scripts?: unknown[]
+  basePath?: string
+  state?: string
+  id?: string | number
+  [key: string]: unknown
+}
+
+/** Skill dari disk via window.api.readSkill. */
+interface SkillFileData {
+  content?: string
+  basePath?: string
+  references?: unknown[]
+  scripts?: unknown[]
+  [key: string]: unknown
+}
+
+
+// Kelengkapan satu agen sub-agent untuk gerbang wait_subagents (RI-11/12/13):
+// laporan yang dibangun di atas output terpotong tidak boleh diam-diam
+// menjadi bahan sintesis.
+export const getAgentCompleteness = (agent: SubagentRow = {}) => {
+  const answer = typeof agent.finalAnswer === 'string' ? agent.finalAnswer : ''
+  if (isTruncatedOutput(answer)) return 'TRUNCATED'
+  const status = String(agent.status || '').toLowerCase()
+  if (status === 'failed' || status === 'killed') return 'FAILED'
+  if (status === 'running') return 'RUNNING'
+  return answer.trim() ? 'COMPLETE' : 'FAILED'
+}
+
+// success:true HANYA bila semua agen COMPLETE. TRUNCATED/FAILED/RUNNING =>
+// success:false + pemulihan konkret. Failure membawa `error` karena dispatcher
+// membaca res.message||res.error (tanpanya laporan hilang jadi generic error).
+export const buildWaitReport = (agents: SubagentRow[] = []) => {
+  const list = Array.isArray(agents) ? agents.filter(Boolean) : []
+  if (list.length === 0) {
+    const data =
+      '[STATUS SUB-AGENTS (TIDAK ADA DATA)]:\n\nTidak ada sub-agent yang cocok dengan ID yang diminta (TIDAK ADA DATA). Tidak ada bahan sintesis: jangan mengarang laporan.'
+    return { success: false, data, error: data }
+  }
+  const rows = list.map((a) => ({ agent: a, completeness: getAgentCompleteness(a) }))
+  const allComplete = rows.every((r) => r.completeness === 'COMPLETE')
+  const failedRows = rows.filter((r) => r.completeness === 'FAILED')
+  const truncatedRows = rows.filter((r) => r.completeness === 'TRUNCATED')
+  const runningRows = rows.filter((r) => r.completeness === 'RUNNING')
+
+  const summaryBits: string[] = []
+  if (failedRows.length > 0) {
+    summaryBits.push(`ADA AGEN GAGAL (${failedRows.map((r) => r.agent.id).join(', ')})`)
+  }
+  if (truncatedRows.length > 0) {
+    summaryBits.push(`ADA AGEN TERPOTONG (${truncatedRows.map((r) => r.agent.id).join(', ')})`)
+  }
+  if (runningRows.length > 0) {
+    summaryBits.push(`${runningRows.length} AGEN MASIH RUNNING`)
+  }
+  const statusSummary = allComplete ? 'SEMUA SELESAI' : summaryBits.join('; ')
+
+  const reports = rows
+    .map(({ agent: a, completeness }) => {
+      const answer = a.finalAnswer || '(Belum ada output)'
+      let note = ''
+      if (completeness === 'TRUNCATED') {
+        note = `\n\n[CATATAN: OUTPUT TERPOTONG: laporan ini tidak lengkap dan TIDAK BOLEH dijadikan bahan sintesis akhir. Kirim 'send_message' ke "${a.id}" dengan instruksi meminta bagian yang hilang dalam potongan yang lebih kecil.]`
+      } else if (completeness === 'FAILED') {
+        note = `\n\n[CATATAN: agen "${a.id}" GAGAL/berhenti sebelum mencapai goal. Kirim 'send_message' ke "${a.id}" dengan instruksi perbaikan/query alternatif.]`
+      } else if (completeness === 'RUNNING') {
+        note = `\n\n[CATATAN: agen "${a.id}" masih RUNNING di background. Jika kamu butuh hasilnya, panggil kembali 'wait_subagents'.]`
+      }
+      return `### LAPORAN ${a.name} (${a.role}) - ID: ${a.id}\nStatus: [${completeness}] (Total Turns: ${a.turnCount || 0})\nGoal: ${a.goal}\nHasil Akhir:\n${answer}${note}`
+    })
+    .join('\n\n---\n\n')
+
+  let prompt = ''
+  if (failedRows.length > 0) {
+    const failedInfo = failedRows.map((r) => `"${r.agent.id}" (${r.agent.name})`).join(', ')
+    prompt = `\n\n[PENGINGAT ORCHESTRATOR - EARLY FAIL INTERRUPT]: Sub-agent ${failedInfo} GAGAL saat sub-agent lain masih bekerja! Kamu WAJIB SEGERA mengirim pesan instruksi perbaikan/query alternatif ke ID tersebut menggunakan 'send_message' (format: "ID||instruksi kamu"). Sub-agent lain yang berstatus RUNNING akan tetap bekerja di background.`
+  } else if (truncatedRows.length > 0) {
+    const truncatedInfo = truncatedRows.map((r) => `"${r.agent.id}" (${r.agent.name})`).join(', ')
+    prompt = `\n\n[PENGINGAT ORCHESTRATOR - OUTPUT TERPOTONG]: Sub-agent ${truncatedInfo} melaporkan OUTPUT TERPOTONG sehingga laporannya belum lengkap dan TIDAK BOLEH disintesis apa adanya. Kirim 'send_message' ke ID tersebut (format: "ID||instruksi kamu") dengan instruksi meminta bagian yang hilang dalam potongan yang lebih kecil.`
+  } else if (runningRows.length > 0) {
+    prompt = `\n\n[PENGINGAT ORCHESTRATOR]: Masih ada ${runningRows.length} sub-agent yang sedang bekerja di background. Jika kamu butuh menunggu mereka, panggil kembali 'wait_subagents'.`
+  } else {
+    prompt = `\n\n[PENGINGAT ORCHESTRATOR - PROTOKOL PEER-REVIEW & PIPELINE RELAY]: Sub-agent telah memberikan laporan. Sebagai Lead Orchestrator:\n1. RELAY DATA: Kamu BISA meneruskan/menyalurkan temuan dari satu agen ke agen lain yang membutuhkan via 'send_message' (misal: "id_agen_2||Temuan dari Agen 1: ... Tolong lanjutkan dengan menganalisis ...").\n2. REVIEW KRITIS: Evaluasi temuan agen secara mendalam sebelum menyusun kesimpulan akhir.`
+  }
+
+  const data = `[STATUS SUB-AGENTS (${statusSummary})]:\n\n${reports}${prompt}`
+  return allComplete ? { success: true, data } : { success: false, data, error: data }
+}
+
+/**
+ * @returns {object|undefined} res bila tool milik domain ini.
+ */
+export const runAgentTool = async (tool: string, query: string, ctx: ToolCtx) => {
+  const { targetSetChatData, currentSignal } = ctx
+  if (tool === 'spawn_subagent') {
+    const { subagentStore } = await import('../../../api/subagent/subagentStore.js')
+    const { runSubagentTurn } = await import('../../../api/subagent/subagentExecutor.js')
+    const parts = (query || '').split('||')
+    const name = parts[0]?.trim() || 'Worker-Agent'
+    const role = parts[1]?.trim() || 'Technical Specialist'
+    const goal = parts[2]?.trim() || 'Selesaikan misi teknis'
+    const initialMessage = parts[3]?.trim() || goal
+    const tools = parts[4]
+      ? parts[4]
+          .split(',')
+          .map((t) => t.trim())
+          .filter(Boolean)
+      : ['*']
+
+    const createSub = subagentStore.createSubagent as unknown as (
+      a: Record<string, unknown>
+    ) => Promise<SubagentRow & { id: string | number }>
+    const sub = await createSub({
+      name,
+      role,
+      goal,
+      allowedTools: tools,
+      parentSessionId: 'main_chat',
+      workspaceRoot: ctx?.workspaceRoot ?? null
+    })
+
+    // Log sub-agent spawn to trajectory buffer
+    trajectoryLogSub({ name, parentAgentId: 'main_chat' })
+
+    // Jalankan loop eksekusi ReAct secara paralel di background (non-blocking)
+    runSubagentTurn(String(sub.id), initialMessage).catch((err) => {
+      console.error(`[Sub-Agent ${sub.id}] Background error:`, err)
+    })
+
+    return {
+      success: true,
+      data: `[SUB-AGENT BERHASIL DIBUAT & BERJALAN DI BACKGROUND]\n- Nama: ${name}\n- ID: ${sub.id}\n- Role: ${role}\n- Goal: ${goal}\nSub-agent ini telah mulai bekerja secara paralel di background. Kamu bisa langsung membuat sub-agent lain (batch) atau gunakan tool 'wait_subagents' (query: 'all' atau ID-nya) untuk menunggu dan mengumpulkan hasil laporannya.`
+    }
+  }
+  if (tool === 'wait_subagents') {
+    const { subagentStore } = await import('../../../api/subagent/subagentStore.js')
+    const parts = (query || '').split('||')
+    const targetIdsRaw = parts[0]?.trim() || 'all'
+    const maxWaitSeconds = parseInt(parts[1]?.trim() || '40', 10) || 40
+
+    let targetIds: Array<string | number> = []
+    if (targetIdsRaw === 'all' || !targetIdsRaw) {
+      const running = (await subagentStore.listSubagents('running' as unknown as null)) as SubagentRow[]
+      targetIds = running.map((s) => s.id as string | number)
+    } else {
+      targetIds = targetIdsRaw
+        .split(',')
+        .map((id: string) => id.trim())
+        .filter(Boolean)
+    }
+
+    if (targetIds.length === 0) {
+      const all = (await subagentStore.listSubagents()) as SubagentRow[]
+      const summary = all
+        .slice(0, 5)
+        .map(
+          (s) =>
+            `- [${s.name} (${s.id})]: Status=${s.status}\n  Hasil: ${s.finalAnswer || '(Belum ada laporan)'}`
+        )
+        .join('\n\n')
+      return {
+        success: true,
+        data: `Tidak ada sub-agent yang sedang berjalan.\nRiwayat sub-agent:\n${summary || 'Kosong'}`
+      }
+    }
+    let finalAgents: SubagentRow[] = []
+    const tick = () => {
+      // Update status thinking secara live agar pengguna tahu sub-agent sedang bekerja
+      targetSetChatData?.((prev: ChatMessage[]) => {
+        const filtered = prev.filter((item) => !item.isThinking)
+        return [
+          ...filtered,
+          {
+            role: 'ai',
+            content: `Menunggu tim Sub-Agent bekerja...`,
+            isThinking: true
+          }
+        ]
+      })
+    }
+    const res = await waitWithTimeout({
+      timeoutMs: maxWaitSeconds * 1000,
+      intervalMs: 1500,
+      signal: currentSignal,
+      onTick: tick,
+      check: async () => {
+        const agents = (await Promise.all(
+          targetIds.map(async (id) => (await subagentStore.getSubagent(id)) as SubagentRow | null)
+        )) as Array<SubagentRow | null>
+        finalAgents = agents.filter(Boolean) as SubagentRow[]
+        const hasFailed = finalAgents.some(
+          (a) => a?.status === 'failed' || a?.status === 'killed'
+        )
+        if (hasFailed) return { done: false, failed: true, value: finalAgents }
+        const stillRunning = finalAgents.some((a) => a?.status === 'running')
+        return { done: !stillRunning, value: finalAgents }
+      }
+    })
+    finalAgents = (res.value as SubagentRow[] | undefined) ?? finalAgents
+
+    return buildWaitReport(finalAgents)
+  }
+  if (tool === 'send_message') {
+    const { runSubagentTurn } = await import('../../../api/subagent/subagentExecutor.js')
+    const parts = (query || '').split('||')
+    const targetId = parts[0]?.trim()
+    const msgText = parts[1]?.trim()
+
+    if (!targetId || !msgText) {
+      return {
+        success: false,
+        error: 'Format query send_message salah. Gunakan: subagent_id||pesan_instruksi'
+      }
+    }
+    const runResult = await runSubagentTurn(targetId, msgText)
+    if (runResult.success) {
+      return {
+        success: true,
+        data: `[BALASAN EVALUASI DARI SUB-AGENT (${targetId})]:\n"${runResult.reply}"\n${runResult.thought ? `(Pemikiran: ${runResult.thought})\n` : ''}Evaluasi apakah hasil pendalaman ini sudah memenuhi standar kualitas tinggi. Jika sudah solid, susun jawaban komprehensif ke user. Jika masih butuh pengujian, kirimkan 'send_message' lanjutan.`
+      }
+    }
+    return { success: false, error: `Sub-Agent error: ${runResult.error}` }
+  }
+  if (tool === 'list_subagents') {
+    const { subagentStore } = await import('../../../api/subagent/subagentStore.js')
+    const filter = query ? query.trim().toLowerCase() : null
+    const list = (await subagentStore.listSubagents(filter as unknown as null)) as SubagentRow[]
+    if (!list || list.length === 0) {
+      return { success: true, data: 'Tidak ada sub-agent yang aktif/tersedia saat ini.' }
+    }
+    const summary = list
+      .map(
+        (s: SubagentRow) =>
+          `- [${s.id}] ${s.name} (${s.role}): Status=${s.status}, Turns=${s.turnCount || 0}, Goal="${s.goal}"\n  Hasil: ${s.finalAnswer ? s.finalAnswer.slice(0, 150) + '...' : '(Belum ada)'}`
+      )
+      .join('\n\n')
+    return { success: true, data: `Daftar Sub-Agent Terdaftar:\n${summary}` }
+  }
+  if (tool === 'kill_subagent') {
+    const { killSubagentExecution } = await import('../../../api/subagent/subagentExecutor.js')
+    const parts = (query || '').split('||')
+    const targetId = parts[0]?.trim()
+    if (!targetId) {
+      return { success: false, error: 'Sebutkan subagent_id yang ingin dihentikan.' }
+    }
+    killSubagentExecution(targetId)
+    return { success: true, data: `Sub-agent ${targetId} berhasil dihentikan paksa.` }
+  }
+  if (tool === 'read-tools') {
+    const rawQuery = (query || '').trim()
+    const { resolveReadToolsQuery, group_tools, browserExtensionStatusLine } = await import('../../../api/tools/group-tools.js')
+    const dynamicGroups = (await group_tools().catch(() => ({}))) as unknown as null
+    const resolveQuery = resolveReadToolsQuery as unknown as (
+      q: string,
+      o?: Record<string, unknown>
+    ) => Promise<{
+      success?: boolean
+      groupName?: string | null
+      toolName?: string | null
+      query?: string | null
+      message?: string
+    }>
+    const resolved = await resolveQuery(rawQuery, {
+      customGroups: (dynamicGroups ?? {}) as unknown as Record<string, unknown>
+    })
+    if (resolved && resolved.success) {
+      let extLine = ''
+      if (resolved.groupName === 'advanced_browser' || rawQuery.toLowerCase().includes('browser')) {
+        extLine = (await browserExtensionStatusLine()) + '\n'
+      }
+      return {
+        success: true,
+        loaded_target: resolved.groupName || resolved.toolName || resolved.query || rawQuery,
+        message: `BERHASIL MEMUAT DOKUMENTASI TOOL:\n${extLine}${resolved.message}`
+      }
+    }
+    return {
+      success: false,
+      message: resolved?.message || `Grup atau tool "${rawQuery}" tidak ditemukan.`
+    }
+  }
+  if (tool === 'read-skill') {
+    const rawQuery = (query || '').trim()
+    if (!rawQuery) {
+      return { success: false, message: 'Harap sebutkan nama_skill yang ingin dibaca (misal: "goal", "plan", atau "nama_skill||references/file.md").' }
+    }
+
+    const { parseSkillQuery, extractSkillSubfile } = await import(
+      '../../../api/skills/skillFolder.js'
+    )
+    const { skillName, subpath } = parseSkillQuery(rawQuery)
+
+    // A. KASUS 1: SUBPATH DIBERIKAN ("skillName||references/doc.md" atau "skillName||scripts/run.sh")
+    if (subpath) {
+      // 1. Cek Dexie learnedSkills
+      const learned = await getLearnedSkill(skillName)
+      if (learned) {
+        const subContent = extractSkillSubfile(learned, subpath)
+        if (subContent != null) {
+          return {
+            success: true,
+            data: `[BERKAS SUB-SKILL (DEXIE): ${skillName}/${subpath}]\n${subContent}`
+          }
+        }
+      }
+
+      // 2. Cek NATIVE_SKILLS bawaan
+      const native = NATIVE_SKILLS.find(
+        (s) => s.name.toLowerCase() === skillName.toLowerCase()
+      )
+      if (native) {
+        const subContent = extractSkillSubfile(native, subpath)
+        if (subContent != null) {
+          return {
+            success: true,
+            data: `[BERKAS SUB-SKILL (NATIVE): ${skillName}/${subpath}]\n${subContent}`
+          }
+        }
+      }
+
+      // 3. Cek disk via window.api
+      if (typeof window !== 'undefined' && window.api?.readSkillFile) {
+        try {
+          const fileContent = await window.api.readSkillFile(skillName, subpath)
+          if (fileContent != null) {
+            return {
+              success: true,
+              data: `[BERKAS SUB-SKILL (FILE): ${skillName}/${subpath}]\n${fileContent}`
+            }
+          }
+        } catch {}
+      }
+
+      return {
+        success: false,
+        message: `Berkas "${subpath}" tidak ditemukan pada skill "${skillName}".`
+      }
+    }
+
+    // B. KASUS 2: PEMBACAAN SKILL UTAMA / FOLDER BUNDLE
+    // 1. Cek Dexie learnedSkills (Self-Improved / Dynamic Native Skills)
+    const learned = (await getLearnedSkill(skillName)) as SkillBundleLike | null
+    if (learned && (learned.content || learned.references || learned.scripts)) {
+      // RSI telemetry: tiap pemakaian sukses menaikkan use_count & auto-graduate trial.
+      try {
+        await bumpLearnedSkillUse(String(learned.id || skillName))
+        if (learned.state === 'trial') {
+          const { graduateTrialSkill } = await import('../../../api/db.js')
+          await graduateTrialSkill(String(learned.id || skillName))
+        }
+      } catch {}
+      const bundleText = formatBundle({
+        name: skillName,
+        content: learned.content || '',
+        references: (learned.references || []) as unknown as string[],
+        scripts: (learned.scripts || []) as unknown as string[],
+        sourceType: 'LEARNED/DEXIE'
+      })
+      return {
+        success: true,
+        data: bundleText
+      }
+    }
+
+    // 2. Cek NATIVE_SKILLS bawaan
+    const native = (NATIVE_SKILLS as SkillBundleLike[]).find(
+      (s) => String(s.name).toLowerCase() === skillName.toLowerCase()
+    )
+    if (native && (native.content || native.references || native.scripts)) {
+      const bundleText = formatBundle({
+        name: skillName,
+        content: native.content || '',
+        references: (native.references || []) as unknown as string[],
+        scripts: (native.scripts || []) as unknown as string[],
+        sourceType: 'NATIVE'
+      })
+      return {
+        success: true,
+        data: bundleText
+      }
+    }
+
+    // 3. Cek berkas disk di store skills
+    if (typeof window !== 'undefined' && window.api?.readSkill) {
+      try {
+        const skillData = (await window.api.readSkill(skillName)) as
+          | string
+          | SkillFileData
+          | null
+        if (skillData) {
+          const obj = typeof skillData === 'string' ? null : (skillData as SkillFileData)
+          const content = obj ? obj.content : (skillData as string)
+          const basePath = obj?.basePath || ''
+          const references = obj && Array.isArray(obj.references) ? obj.references : []
+          const scripts = obj && Array.isArray(obj.scripts) ? obj.scripts : []
+
+          const bundleText = formatBundle({
+            name: skillName,
+            content: content || '',
+            references: references as unknown as string[],
+            scripts: scripts as unknown as string[],
+            basePath,
+            sourceType: 'FILE'
+          })
+
+          return {
+            success: true,
+            data: bundleText
+          }
+        }
+      } catch {}
+      return {
+        success: false,
+        message: `Skill "${skillName}" tidak ditemukan di keahlian internal maupun folder Abelink Skills.`
+      }
+    }
+
+    return {
+      success: false,
+      message: `Skill "${skillName}" tidak ditemukan.`
+    }
+  }
+  if (tool === 'delegate_coding') {
+    // Satu sumber: daftar agen yang didukung bridge (keputusan owner dikunci
+    // ulang ke opencode/hermes, bukan konstanta lokal yang bisa basi).
+    const { detectInstalledAgents, buildCodingCommand, PREFERRED_CODING_AGENTS } = await import(
+      '../../../api/ai/codingAgentBridge.ts'
+    )
+    const parts = (query || '').split('||')
+    const requestedAgent = parts[0]?.trim() || 'auto'
+    const instruction = parts[1]?.trim() || ''
+    const customBranch = parts[2]?.trim()
+
+    if (!instruction) {
+      return {
+        success: false,
+        error: 'Instruksi tugas coding tidak boleh kosong. Gunakan format: agent_name||instruksi||nama_branch'
+      }
+    }
+
+    const availableAgents = await detectInstalledAgents()
+    if (availableAgents.length === 0) {
+      return {
+        success: false,
+        error: `Tidak ditemukan CLI coding agent yang terpasang di sistem (${PREFERRED_CODING_AGENTS.join(', ')}). Mohon pasang minimal satu CLI agent terlebih dahulu.`
+      }
+    }
+
+    let selectedAgent = null
+    if (requestedAgent === 'auto') {
+      selectedAgent = availableAgents[0]
+    } else {
+      selectedAgent = availableAgents.find(
+        (a) =>
+          a.id.toLowerCase() === requestedAgent.toLowerCase() ||
+          a.name.toLowerCase().includes(requestedAgent.toLowerCase())
+      )
+      if (!selectedAgent) {
+        selectedAgent = availableAgents[0]
+      }
+    }
+
+    const branch = customBranch || `auto/delegate-${Date.now().toString(36)}`
+    const taskId = `code-${Date.now().toString(36)}`
+    const workspaceRoot = ctx?.workspaceRoot || '.'
+
+    const { command, agent } = buildCodingCommand({
+      agentId: selectedAgent.id,
+      prompt: instruction,
+      branch,
+      workdir: workspaceRoot
+    })
+
+    if (ctx?.requestApproval) {
+      const approved = await ctx.requestApproval(
+        `Abelink ingin mendelegasikan tugas ke CLI Agent [${agent.name}] di branch [${branch}]:\n\n"${instruction}"\n\nCommand: ${command}`,
+        'delegate_coding',
+        query
+      )
+      if (!approved) {
+        return {
+          success: false,
+          error: 'User menolak pendelegasian tugas coding ini.'
+        }
+      }
+    }
+
+    let spawnRes = null
+    if (window.api && window.api.executeNativeTool) {
+      try {
+        // cwd eksplisit: workspaceRoot sesi atau '.' — jangan mendarat di XDG root.
+        spawnRes = await window.api.executeNativeTool('run-task', `${taskId}||${command}`, {
+          workspaceRoot: ctx?.workspaceRoot || '.'
+        })
+      } catch (err) {
+        spawnRes = { success: false, error: (err as Error).message }
+      }
+    }
+
+    const spawnObj = spawnRes as { success?: boolean; message?: string; error?: string } | null
+    if (spawnObj && !spawnObj.success) {
+      return {
+        success: false,
+        error: `Gagal meluncurkan background task koding: ${spawnObj.message || spawnObj.error}`
+      }
+    }
+
+    return {
+      success: true,
+      data: `[TUGAS KODING BERHASIL DIDELEGASIKAN KE BACKGROUND]\n` +
+        `- Agen Pelaksana: ${agent.name} (${selectedAgent.binaryPath})\n` +
+        `- Task ID: ${taskId}\n` +
+        `- Sandbox Git Branch: ${branch}\n` +
+        `- Status: Berjalan di background (nice -n 10, non-blocking).\n` +
+        `Petunjuk: Gunakan tool 'read-task-output' dengan query "${taskId}||30" untuk memeriksa status output kapan saja.`
+    }
+  }
+  return undefined
+}
+

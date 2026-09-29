@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 describe('YouTube Music Ad-Free Player Configuration', () => {
-  const contextPath = path.resolve(process.cwd(), 'src/contexts/YoutubeMusicContext.jsx')
+  const contextPath = path.resolve(process.cwd(), 'src/contexts/YoutubeMusicContext.tsx')
   const content = fs.readFileSync(contextPath, 'utf-8')
 
   it('menggunakan host youtube-nocookie.com', () => {
@@ -21,7 +21,7 @@ describe('YouTube Music Ad-Free Player Configuration', () => {
   })
 
   it('memiliki logic penanganan unMute dan error handling pada event player', () => {
-    expect(content).toContain('target.unMute()')
+    expect(content).toMatch(/target\.unMute\?\.\(\)|target\.unMute\(\)/)
     expect(content).toContain('setPlaybackError(msg)')
   })
 })
