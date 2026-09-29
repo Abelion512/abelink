@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from 'react'
+import { useRef, useEffect, useState, type ChangeEvent } from 'react'
 import { createPortal } from 'react-dom'
 import {
   Mic,
@@ -22,14 +22,15 @@ import {
   dedupeAttachments,
   extractDroppedItems,
   extractClipboardFiles,
-  resolveDroppedFile
+  resolveDroppedFile,
+  type AttachmentItem
 } from '../../utils/attachments'
 
 // Command history recall (gaya TUI) + draft persistence anti-crash.
 const PROMPT_HISTORY_KEY = 'abelink:prompt-history'
 const DRAFT_KEY = 'abelink:draft'
 
-const formatFileSize = (bytes) => {
+const formatFileSize = (bytes: number | null | undefined) => {
   if (!bytes) return ''
   if (bytes < 1024) return bytes + ' B'
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
@@ -37,13 +38,30 @@ const formatFileSize = (bytes) => {
 }
 
 const getFileIcon = (fileName = '') => {
-  const ext = fileName.split('.').pop().toLowerCase()
+  const ext = fileName.split('.').pop()?.toLowerCase() ?? ''
   if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext))
     return <FileImage className="text-[#0a84ff] w-4 h-4" />
   if (['pdf'].includes(ext)) return <FileText className="text-[#ff453a] w-4 h-4" />
   if (['js', 'jsx', 'ts', 'tsx', 'html', 'css', 'json', 'py', 'cpp', 'cs'].includes(ext))
     return <FileCode className="text-[#0a84ff] w-4 h-4" />
   return <FileText className="text-white/60 w-4 h-4" />
+}
+
+interface InputBarProps {
+  onSubmit: (text: string) => void
+  isLoading?: boolean
+  isRecording?: boolean
+  isProcessing?: boolean
+  audioIntensity?: number
+  onStartRecord?: () => void
+  onStopRecord?: () => void
+  onStop?: () => void
+  source?: string
+  inline?: boolean
+  className?: string
+  workspaceRoot?: string | null
+  onSelectWorkspace?: (() => Promise<void>) | null
+  sessionId?: number
 }
 
 const InputBar = ({
@@ -61,9 +79,9 @@ const InputBar = ({
   workspaceRoot = null,
   onSelectWorkspace = null,
   sessionId = 1
-}) => {
-  const inputRef = useRef(null)
-  const fileInputRef = useRef(null)
+}: InputBarProps) => {
+  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [inputText, setInputText] = useState(() => {
     // Draft persistence: teks yang sedang diketik selamat dari app mati/crash.
     try {
@@ -72,7 +90,7 @@ const InputBar = ({
       return ''
     }
   })
-  const [promptHistory, setPromptHistory] = useState(() => {
+  const [promptHistory, setPromptHistory] = useState<string[]>(() => {
     try {
       return JSON.parse(localStorage.getItem(PROMPT_HISTORY_KEY) || '[]')
     } catch {
@@ -83,22 +101,22 @@ const InputBar = ({
   const recallDraftRef = useRef('')
   const [showAttachMenu, setShowAttachMenu] = useState(false)
   const [showAbortConfirm, setShowAbortConfirm] = useState(false)
-  const [attachedFiles, setAttachedFiles] = useState([])
+  const [attachedFiles, setAttachedFiles] = useState<AttachmentItem[]>([])
   const [isDragging, setIsDragging] = useState(false)
   // Index attachment yang sedang dibuka di modal preview (klik/hover chip).
   // -1 = modal tertutup.
   const [previewIdx, setPreviewIdx] = useState(-1)
   const [hoverPreviewIdx, setHoverPreviewIdx] = useState(-1)
-  const hoverTimerRef = useRef(null)
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastPromptRef = useRef('')
 
-  const [skills, setSkills] = useState([])
-  const [filteredSkills, setFilteredSkills] = useState([])
+  const [skills, setSkills] = useState<Array<{ name: string; description?: string }>>([])
+  const [filteredSkills, setFilteredSkills] = useState<Array<{ name: string; description?: string }>>([])
   const [showSkillList, setShowSkillList] = useState(false)
   const [selectedSkillIndex, setSelectedSkillIndex] = useState(0)
 
-  const reloadSkills = async () => {
-    if (window.api && window.api.getSkills) {
+  const reloadSkills = async (): Promise<Array<{ name: string; description?: string }>> => {
+    if (typeof window.api?.getSkills === 'function') {
       try {
         // Lewat cache (TTL + invalidasi event skills-updated), bukan fs-scan ulang.
         const loadedSkills = await getCachedSkills()
@@ -132,8 +150,8 @@ const InputBar = ({
 
   // Drop di area mana pun (layer global DropAnywhere di App.jsx) -> lampirkan.
   useEffect(() => {
-    const onGlobalDrop = (e) => {
-      const items = e.detail || []
+    const onGlobalDrop = (e: Event) => {
+      const items = ((e as CustomEvent<AttachmentItem[]>).detail as AttachmentItem[] | undefined) || []
       if (items.length > 0) {
         setAttachedFiles((prev) => dedupeAttachments(prev, items))
       }
@@ -145,7 +163,7 @@ const InputBar = ({
   // QuickLook ESC key listener
   useEffect(() => {
     if (previewIdx === -1) return
-    const handleKeyDown = (e) => {
+    const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault()
         setPreviewIdx(-1)
@@ -170,7 +188,7 @@ const InputBar = ({
     }
   }, [])
 
-  const handleFileChange = (e) => {
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
     addFiles(files)
     if (fileInputRef.current) fileInputRef.current.value = ''
@@ -195,14 +213,14 @@ const InputBar = ({
             try {
               const [size, isDir] = await window.api.statPath(p)
               item.size = Number(size) || 0
-              item.isDir = !!isDir
+              ;(item as { isDir?: boolean }).isDir = !!isDir
             } catch {
               // stat gagal (file sudah terhapus, dsb.) — lampirkan tanpa ukuran
             }
             return item
           })
         )
-        setAttachedFiles((prev) => dedupeAttachments(prev, items))
+        setAttachedFiles((prev) => dedupeAttachments(prev, items as AttachmentItem[]))
         return
       } catch (err) {
         console.error('[InputBar] Open dialog error:', err)
@@ -214,7 +232,7 @@ const InputBar = ({
 
   // Jalur drop lokal + input web: resolusi path via helper bersama (sama dengan
   // layer global DropAnywhere) supaya perilaku & dedupe identik.
-  const addFiles = async (newFiles) => {
+  const addFiles = async (newFiles: File[]) => {
     const parsedFiles = await Promise.all(newFiles.map(resolveDroppedFile))
     setAttachedFiles((prev) => dedupeAttachments(prev, parsedFiles))
     setTimeout(() => {
@@ -222,7 +240,7 @@ const InputBar = ({
     }, 50)
   }
 
-  const removeFile = (indexToRemove) => {
+  const removeFile = (indexToRemove: number) => {
     setAttachedFiles((prev) => {
       const removed = prev[indexToRemove]
       if (removed?.previewUrl) {
@@ -235,19 +253,19 @@ const InputBar = ({
     setPreviewIdx(-1)
   }
 
-  const handleDragOver = (e) => {
+  const handleDragOver = (e: React.DragEvent<HTMLElement>) => {
     e.preventDefault()
     e.stopPropagation()
     if (!isDragging) setIsDragging(true)
   }
 
-  const handleDragLeave = (e) => {
+  const handleDragLeave = (e: React.DragEvent<HTMLElement>) => {
     e.preventDefault()
     e.stopPropagation()
     setIsDragging(false)
   }
 
-  const handleDrop = async (e) => {
+  const handleDrop = async (e: React.DragEvent<HTMLElement>) => {
     e.preventDefault()
     e.stopPropagation()
     setIsDragging(false)
@@ -266,7 +284,7 @@ const InputBar = ({
     }
   }
 
-  const handlePaste = async (e) => {
+  const handlePaste = async (e: React.ClipboardEvent<HTMLElement>) => {
     const items = Array.from(e.clipboardData?.items || [])
     const types = Array.from(e.clipboardData?.types || [])
     const hasFile = items.some((it) => it.kind === 'file')
@@ -312,10 +330,13 @@ const InputBar = ({
         }
 
         try {
-          const skillData = await window.api.readSkill(skillName)
+          const skillData = (await window.api.readSkill(skillName)) as
+            | string
+            | { content?: string; basePath?: string }
+            | null
           if (skillData) {
             // Support both old string format and new object format
-            const content = typeof skillData === 'string' ? skillData : skillData.content
+            const content = typeof skillData === 'string' ? skillData : skillData.content ?? ''
             const basePath =
               typeof skillData === 'object' && skillData.basePath ? skillData.basePath : ''
 
@@ -366,7 +387,7 @@ const InputBar = ({
       // Rekam ke prompt history (dedupe berurutan, cap 100) + bersihkan draft.
       const trimmedPrompt = String(userText || finalPrompt || '').trim()
       if (trimmedPrompt) {
-        setPromptHistory((prev) => {
+        setPromptHistory((prev: string[]) => {
           const next = [...prev.filter((p) => p !== trimmedPrompt), trimmedPrompt].slice(-100)
           try {
             localStorage.setItem(PROMPT_HISTORY_KEY, JSON.stringify(next))
@@ -386,7 +407,7 @@ const InputBar = ({
     }
   }
 
-  const handleTextChange = async (e) => {
+  const handleTextChange = async (e: ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value
     setInputText(val)
     try {
@@ -410,13 +431,13 @@ const InputBar = ({
     }
   }
 
-  const selectSkill = (skillObj) => {
+  const selectSkill = (skillObj: { name: string; description?: string }) => {
     setInputText(`/${skillObj.name} `)
     setShowSkillList(false)
     if (inputRef.current) inputRef.current.focus()
   }
 
-  const handleKeyDown = (e) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (showSkillList && filteredSkills.length > 0) {
       if (e.key === 'ArrowDown') {
         e.preventDefault()
@@ -450,7 +471,7 @@ const InputBar = ({
     // ArrowUp saat kursor di posisi paling awal / kotak kosong -> mundur
     // ke prompt sebelumnya. ArrowDown maju; lewat terbaru -> kembalikan
     // draf yang sedang ditulis sebelum mulai recall.
-    const el = e.target
+    const el = e.target as HTMLTextAreaElement
     const caretAtStart = el.selectionStart === 0 && el.selectionEnd === 0
     if (
       e.key === 'ArrowUp' &&
@@ -526,13 +547,13 @@ const InputBar = ({
               className="flex items-center gap-2 bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] rounded-full px-2.5 py-1.5 text-xs text-white shadow-lg animate-fade-in group hover:border-primary/50 transition-all flex-shrink-0 cursor-pointer"
               onClick={() => setPreviewIdx(idx)}
               onMouseEnter={() => {
-                clearTimeout(hoverTimerRef.current)
+                if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current)
                 if (file.previewUrl) {
                   hoverTimerRef.current = setTimeout(() => setHoverPreviewIdx(idx), 150)
                 }
               }}
               onMouseLeave={() => {
-                clearTimeout(hoverTimerRef.current)
+                if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current)
                 setHoverPreviewIdx(-1)
               }}
               title="Klik atau hover untuk pratinjau"
@@ -670,7 +691,7 @@ const InputBar = ({
 
         {/* Input Textarea */}
         <textarea
-          ref={inputRef}
+          ref={inputRef as React.RefObject<HTMLTextAreaElement>}
           rows={1}
           value={inputText}
           onChange={handleTextChange}

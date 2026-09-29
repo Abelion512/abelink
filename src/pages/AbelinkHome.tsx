@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef, useCallback, type ChangeEvent, type MouseEvent as ReactMouseEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useChat } from '../contexts/useChat'
 import OrbVisualizer from '../components/core/OrbVisualizer'
@@ -29,7 +29,7 @@ import LiteBadge from '../components/core/LiteBadge'
 import { useYoutubeMusic } from '../contexts/YoutubeMusicContext'
 import { useVAD } from '../hooks/useVAD'
 import { useMemoryGroomer } from '../hooks/useMemoryGroomer'
-import { db, setSessionWorkspace, getAllConfig, saveConfiguration } from '../api/db'
+import { db, setSessionWorkspace, getAllConfig, saveConfiguration, type ConfigRow } from '../api/db'
 import { DEFAULT_STT_MODEL } from '../api/sttGuard'
 
 /**
@@ -38,9 +38,10 @@ import { DEFAULT_STT_MODEL } from '../api/sttGuard'
  * Sesuai aturan: pada mode Voice (Jarvis), teks percakapan biasa tidak ditampilkan
  * agar layar tetap bersih, KECUALI jika AI memberikan data terstruktur.
  */
-const isRichContent = (text, resp) => {
+const isRichContent = (text: unknown, resp: unknown) => {
   // Dukung rendering kartu jika respons membawa opsi ask-choice (seperti pemilihan track musik / OST)
-  if (resp?.choice && Array.isArray(resp.choice.options) && resp.choice.options.length > 0) return true
+  const choice = (resp as { choice?: { options?: unknown[] } } | null)?.choice
+  if (choice && Array.isArray(choice.options) && choice.options.length > 0) return true
   if (!text || typeof text !== 'string') return false
   // Jangan pernah buka tab samping untuk percakapan lisan biasa atau konfirmasi tool singkat
   if (text.includes('|') && text.includes('\n|')) return true // Tabel markdown terstruktur
@@ -51,9 +52,39 @@ const isRichContent = (text, resp) => {
   return false
 }
 
+// Bentuk konteks chat yang dipakai AbelinkHome — useChat() typed longgar
+// (Record<string, unknown>), jadi destructure dengan default dianotasi di sini.
+interface ChatContextShape {
+  chatData?: ChatItem[]
+  setChatData?: (rows: ChatItem[]) => void
+  message?: string
+  setMessage?: (msg: string) => void
+  isLoading?: boolean
+  isAgentBusy?: boolean
+  setIsSpeak?: (v: boolean) => void
+  handlePlanningCommand?: (cmd: string) => unknown
+  orbStatus?: string
+  setOrbStatus?: (s: string | ((prev: string) => string)) => void
+  notifications?: unknown[]
+  activeProcesses?: unknown[]
+  dismissProcess?: (id: unknown) => void
+  inputSource?: string
+  handleStop?: () => void
+  isBooting?: boolean
+  config?: ConfigRow
+}
+
+interface ChatItem {
+  role?: string
+  content?: string
+  isThinking?: boolean
+  isSearching?: boolean
+  [key: string]: unknown
+}
+
 const AbelinkHome = () => {
   const chatContext = useChat()
-  const safeContext = chatContext ?? {}
+  const safeContext = (chatContext ?? {}) as ChatContextShape
   const {
     chatData = [],
     setChatData = () => {},
@@ -74,7 +105,9 @@ const AbelinkHome = () => {
     config
   } = safeContext
 
-  const { isPlaying, currentTrack } = useYoutubeMusic()
+  const ytMusic = useYoutubeMusic()
+  const isPlaying = !!ytMusic?.isPlaying
+  const currentTrack = ytMusic?.currentTrack ?? null
   useMemoryGroomer(true) // Hippocampus Engine
 
   const location = useLocation()
@@ -91,7 +124,7 @@ const AbelinkHome = () => {
     localStorage.getItem('abelink:preferred_mode') ||
     'voice'
 
-  const [currentMode, setCurrentMode] = useState(initialMode)
+  const [currentMode, setCurrentMode] = useState<string>(initialMode)
   const [capsuleInput, setCapsuleInput] = useState('')
   const [orbStyle, setOrbStyle] = useState(() => {
     try {
@@ -113,11 +146,11 @@ const AbelinkHome = () => {
   // (Reset mute state & onboarding dipindah ke handleModeChange di atas.)
 
   // Drag / Slide with cursor handler untuk beralih Orb (klik biasa untuk toggle mic di mode voice)
-  const dragStartXRef = useRef(null)
-  const handleOrbMouseDown = (e) => {
+  const dragStartXRef = useRef<number | null>(null)
+  const handleOrbMouseDown = (e: ReactMouseEvent<HTMLElement>) => {
     dragStartXRef.current = e.clientX
   }
-  const handleOrbMouseUp = (e) => {
+  const handleOrbMouseUp = (e: ReactMouseEvent<HTMLElement>) => {
     if (dragStartXRef.current === null) return
     const deltaX = e.clientX - dragStartXRef.current
     if (Math.abs(deltaX) > 30) {
@@ -137,12 +170,12 @@ const AbelinkHome = () => {
     }
     dragStartXRef.current = null
   }
-  const handleOrbTouchStart = (e) => {
+  const handleOrbTouchStart = (e: React.TouchEvent<HTMLElement>) => {
     if (e.touches && e.touches[0]) {
       dragStartXRef.current = e.touches[0].clientX
     }
   }
-  const handleOrbTouchEnd = (e) => {
+  const handleOrbTouchEnd = (e: React.TouchEvent<HTMLElement>) => {
     if (dragStartXRef.current === null) return
     if (e.changedTouches && e.changedTouches[0]) {
       const deltaX = e.changedTouches[0].clientX - dragStartXRef.current
@@ -165,17 +198,17 @@ const AbelinkHome = () => {
     dragStartXRef.current = null
   }
 
-  const cancelRecordingRef = useRef(null)
+  const cancelRecordingRef = useRef<(() => void) | null>(null)
 
   // Reset mute state & Smart Voice Onboarding saat berganti mode.
   // Dijalankan di dalam handler (bukan useEffect) agar tidak memicu
   // cascading renders react-hooks/set-state-in-effect.
   const maybeShowVoiceOnboarding = useCallback(() => {
     getAllConfig().then((cfgs) => {
-      const c = cfgs[0] || {}
+      const c = (cfgs[0] || {}) as ConfigRow
       const hasValidCustom =
         Array.isArray(c.sttConnections) &&
-        c.sttConnections.some((conn) => conn.enabled && conn.endpoint?.trim())
+        c.sttConnections.some((conn: { enabled?: boolean; endpoint?: string }) => conn.enabled && conn.endpoint?.trim())
       const hasLegacy = c.customSttEndpoint?.trim()
       const isWhisper = c.sttProvider === 'whisper'
 
@@ -185,7 +218,7 @@ const AbelinkHome = () => {
     })
   }, [])
 
-  const handleModeChange = useCallback((newMode) => {
+  const handleModeChange = useCallback((newMode: string) => {
     cancelRecordingRef.current?.()
     setCurrentMode(newMode)
     setIsMicMuted(false)
@@ -200,19 +233,19 @@ const AbelinkHome = () => {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const [isChatStudioOpen, setIsChatStudioOpen] = useState(false)
   const [isMemoryMapOpen, setIsMemoryMapOpen] = useState(false)
-  const [currentResponse, setCurrentResponse] = useState(null)
+  const [currentResponse, setCurrentResponse] = useState<unknown>(null)
   const [showMusicWidget, setShowMusicWidget] = useState(false)
   const [, setIsMusicAnimatingOut] = useState(false)
   const [isMaxWindow, setIsMaxWindow] = useState(false)
   const [ttsIntensity, setTtsIntensity] = useState(0)
-  const [workspaceRoot, setWorkspaceRoot] = useState(null)
-  const [, setWinState] = useState({ isMaximized: false, isFullScreen: false })
+  const [workspaceRoot, setWorkspaceRoot] = useState<string | null>(null)
+  const [, setWinState] = useState<{ isMaximized: boolean; isFullScreen: boolean }>({ isMaximized: false, isFullScreen: false })
 
   // ── Vision & Screen Share Refs & State ──────────────────────────────────
-  const videoRef = useRef(null)
-  const screenVideoRef = useRef(null)
-  const [, setCamStream] = useState(null)
-  const [camError, setCamError] = useState(null)
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const screenVideoRef = useRef<HTMLVideoElement | null>(null)
+  const [, setCamStream] = useState<MediaStream | null>(null)
+  const [camError, setCamError] = useState<string | null>(null)
   const [isCamMirrored] = useState(() => {
     try {
       const saved = localStorage.getItem('abelink:camera_mirrored')
@@ -221,10 +254,10 @@ const AbelinkHome = () => {
       return true
     }
   })
-  const [screenStream, setScreenStream] = useState(null)
-  const [screenError, setScreenError] = useState(null)
-  const [liveScreenFrame, setLiveScreenFrame] = useState(null)
-  const liveMirrorIntervalRef = useRef(null)
+  const [screenStream, setScreenStream] = useState<MediaStream | null>(null)
+  const [screenError, setScreenError] = useState<string | null>(null)
+  const [liveScreenFrame, setLiveScreenFrame] = useState<string | null>(null)
+  const liveMirrorIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const isScreenStreamingRef = useRef(false)
   const isCapturingTickRef = useRef(false)
 
@@ -239,14 +272,14 @@ const AbelinkHome = () => {
 
   useEffect(() => {
     if (window.api?.onWindowState) {
-      window.api.onWindowState((s) => setWinState(s))
-      window.api.getWindowState?.().then(setWinState)
+      window.api.onWindowState((s) => setWinState((s as { isMaximized: boolean; isFullScreen: boolean }) ?? { isMaximized: false, isFullScreen: false }))
+      window.api.getWindowState?.().then((s) => setWinState((s as { isMaximized: boolean; isFullScreen: boolean }) ?? { isMaximized: false, isFullScreen: false }))
     }
   }, [])
 
   const handleSelectWorkspace = async () => {
     if (window.api && window.api.selectDirectory) {
-      const selected = await window.api.selectDirectory()
+      const selected = (await window.api.selectDirectory()) as string
       if (selected) {
         await setSessionWorkspace(1, selected)
         setWorkspaceRoot(selected)
@@ -256,8 +289,8 @@ const AbelinkHome = () => {
 
   // ── TTS Sync & Intensity ────────────────────────────────────────────────
   useEffect(() => {
-    const handleTtsIntensity = (e) => {
-      setTtsIntensity(e.detail || 0)
+    const handleTtsIntensity = (e: Event) => {
+      setTtsIntensity((e as CustomEvent<number>).detail || 0)
       if (typeof setOrbStatus === 'function') {
         if (window.isAbelinkSpeaking) {
           setOrbStatus('speaking')
@@ -273,12 +306,12 @@ const AbelinkHome = () => {
   useEffect(() => {
     // 'window-maximized' tidak pernah di-emit Rust (hanya 'window-state') —
     // dengar yang benar + state awal, pola sama seperti WindowControls.
-    let unsubWin = null
+    let unsubWin: (() => void) | null = null
     if (window.api?.onWindowState) {
       unsubWin = window.api.onWindowState((s) => {
-        setIsMaxWindow(!!s?.isMaximized)
+        setIsMaxWindow(!!(s as { isMaximized?: boolean } | null)?.isMaximized)
       })
-      window.api.getWindowState?.().then((s) => setIsMaxWindow(!!s?.isMaximized)).catch(() => {})
+      window.api.getWindowState?.().then((s) => setIsMaxWindow(!!(s as { isMaximized?: boolean } | null)?.isMaximized)).catch(() => {})
     }
 
     const handleOpenMap = () => setIsMemoryMapOpen(true)
@@ -308,6 +341,7 @@ const AbelinkHome = () => {
       canvas.width = video.videoWidth || 640
       canvas.height = video.videoHeight || 480
       const ctx = canvas.getContext('2d')
+      if (!ctx) return null
       if (isCamMirrored) {
         ctx.translate(canvas.width, 0)
         ctx.scale(-1, 1)
@@ -354,8 +388,8 @@ const AbelinkHome = () => {
             const frameUrl =
               typeof res === 'string'
                 ? res
-                : res?.base64
-                ? `data:image/png;base64,${res.base64}`
+                : typeof (res as { base64?: string })?.base64 === 'string'
+                ? `data:image/png;base64,${(res as { base64: string }).base64}`
                 : null
             if (frameUrl) {
               setLiveScreenFrame(frameUrl)
@@ -382,6 +416,7 @@ const AbelinkHome = () => {
         canvas.width = video.videoWidth || 1280
         canvas.height = video.videoHeight || 720
         const ctx = canvas.getContext('2d')
+        if (!ctx) return null
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
         return canvas.toDataURL('image/jpeg', 0.85)
       } catch (e) {
@@ -395,7 +430,8 @@ const AbelinkHome = () => {
       try {
         const res = await window.api.takeScreenshot()
         if (typeof res === 'string') return res
-        if (res?.base64) return `data:image/png;base64,${res.base64}`
+        const b64 = (res as { base64?: string } | null)?.base64
+        if (b64) return `data:image/png;base64,${b64}`
       } catch (_) {}
     }
     return null
@@ -403,7 +439,7 @@ const AbelinkHome = () => {
 
   // ── Unified Voice Transcript Handler ────────────────────────────────────
   const handleVoiceTranscript = useCallback(
-    async (text) => {
+    async (text: string) => {
       let finalPrompt = `(Mikrofon) ${text}`
 
       // Multimodal injection jika di mode Vision atau Screen
@@ -419,9 +455,9 @@ const AbelinkHome = () => {
         }
       }
 
-      setMessage(finalPrompt)
-      setIsSpeak(true)
-      handlePlanningCommand(finalPrompt, null, false, null, { forceSpeak: true, isVoice: true })
+      setMessage?.(finalPrompt)
+      setIsSpeak?.(true)
+      ;(handlePlanningCommand as unknown as (...args: unknown[]) => void)?.(finalPrompt, null, false, null, { forceSpeak: true, isVoice: true })
     },
     [currentMode, captureCameraFrame, captureScreenFrame, setMessage, setIsSpeak, handlePlanningCommand]
   )
@@ -447,7 +483,7 @@ const AbelinkHome = () => {
   // set-state-in-effect; cleanup identik.
   useEffect(() => {
     if (currentMode === 'vision') {
-      let activeStream = null
+      let activeStream: MediaStream | null = null
       queueMicrotask(() => setCamError(null))
       void (async () => {
         try {
@@ -494,9 +530,9 @@ const AbelinkHome = () => {
         }
         return
       } catch (err) {
-        if (err.name === 'NotAllowedError' || err.name === 'AbortError' || err.name === 'OverconstrainedError') {
+        if (err instanceof Error && (err.name === 'NotAllowedError' || err.name === 'AbortError' || err.name === 'OverconstrainedError')) {
           setScreenError(null)
-          if (window.api?.takeScreenshot) {
+          if (typeof window.api?.takeScreenshot === 'function') {
             startLiveMirrorLoop()
             return
           }
@@ -505,7 +541,7 @@ const AbelinkHome = () => {
     }
 
     // 2. Fallback otomatis ke continuous live desktop mirror (X11 native via screenshot API)
-    if (window.api?.takeScreenshot) {
+    if (typeof window.api?.takeScreenshot === 'function') {
       startLiveMirrorLoop()
       return
     }
@@ -559,9 +595,9 @@ const AbelinkHome = () => {
 
   // Keyboard navigation & shortcuts
   useEffect(() => {
-    const handleKeyDown = (e) => {
-      const tag = e.target?.tagName?.toLowerCase()
-      const isEditable = tag === 'input' || tag === 'textarea' || e.target?.isContentEditable
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement | null)?.tagName?.toLowerCase()
+      const isEditable = tag === 'input' || tag === 'textarea' || (e.target as HTMLElement | null)?.isContentEditable === true
 
       // Global shortcuts with Alt/Ctrl modifier (aktif bahkan saat fokus di input teks)
       if (e.altKey || e.ctrlKey) {
@@ -598,7 +634,7 @@ const AbelinkHome = () => {
         if (isRecording) {
           cancelRecording()
         }
-        handleStop()
+        handleStop?.()
         return
       }
 
@@ -657,7 +693,7 @@ const AbelinkHome = () => {
   // set-state-in-effect; timer cleanup identik.
   useEffect(() => {
     const hasTrack = isPlaying && currentTrack?.title
-    let timer = null
+    let timer: ReturnType<typeof setTimeout> | null = null
     queueMicrotask(() => {
       if (hasTrack) {
         setIsMusicAnimatingOut(false)
@@ -678,7 +714,7 @@ const AbelinkHome = () => {
   }, [isPlaying, currentTrack?.title, showMusicWidget])
 
   // Kompaksi manual + tracker gauge (session compaction, sesi utama).
-  useManualCompaction({ messages: chatData, setMessages: setChatData, sessionId: 1 })
+  useManualCompaction({ messages: chatData as never, setMessages: setChatData as never, sessionId: 1 })
 
   // Orb Status Sync
   useEffect(() => {
@@ -722,13 +758,14 @@ const AbelinkHome = () => {
     })
   }, [chatData, isLoading])
 
-  const handleSubmit = (e, text) => {
-    if (safeContext.handleSubmit) {
-      safeContext.handleSubmit(e, text)
+  const handleSubmit = (e: unknown, text?: string) => {
+    const ctxSubmit = (safeContext as { handleSubmit?: (e: unknown, text?: string) => void }).handleSubmit
+    if (ctxSubmit) {
+      ctxSubmit(e, text)
     } else {
-      const sendText = typeof text === 'string' && text.trim() ? text.trim() : message.trim()
+      const sendText = typeof text === 'string' && text.trim() ? text.trim() : (message ?? '').trim()
       if (sendText) {
-        handlePlanningCommand(sendText)
+        ;(handlePlanningCommand as unknown as (...args: unknown[]) => void)?.(sendText)
       }
     }
   }
@@ -743,8 +780,8 @@ const AbelinkHome = () => {
   const showRichCardInVoice =
     currentMode === 'voice' &&
     currentResponse &&
-    !currentResponse.isThinking &&
-    isRichContent(currentResponse.text, currentResponse)
+    !(currentResponse as { isThinking?: boolean }).isThinking &&
+    isRichContent((currentResponse as { text?: string }).text, currentResponse)
 
   if (!chatContext) {
     return null
@@ -754,7 +791,7 @@ const AbelinkHome = () => {
     <div
       className="h-screen text-white overflow-hidden relative transition-colors duration-1000 bg-[#161618] rounded-xl border border-white/5 shadow-2xl font-sans"
       style={{
-        backgroundColor: `color-mix(in srgb, ${bgGlowColor} 10%, rgba(22, 22, 24, ${config?.[0]?.windowOpacity ?? 0.95}))`
+        backgroundColor: `color-mix(in srgb, ${bgGlowColor} 10%, rgba(22, 22, 24, ${config?.windowOpacity ?? 0.95}))`
       }}
     >
       {/* Subtle Apple Ambient Glow */}
@@ -875,7 +912,7 @@ const AbelinkHome = () => {
                 <OrbVisualizer
                   status={orbStatus}
                   intensity={orbStatus === 'speaking' ? ttsIntensity : isRecording ? audioIntensity : 0}
-                  mood={currentResponse?.mood || 'neutral'}
+                  mood={(currentResponse as { mood?: string } | null)?.mood || 'neutral'}
                   size="hero"
                 />
               ) : (
@@ -995,7 +1032,7 @@ const AbelinkHome = () => {
                 <OrbVisualizer
                   status={orbStatus}
                   intensity={orbStatus === 'speaking' ? ttsIntensity : 0}
-                  mood={currentResponse?.mood || 'neutral'}
+                  mood={(currentResponse as { mood?: string } | null)?.mood || 'neutral'}
                 />
               </div>
             </div>
@@ -1024,8 +1061,8 @@ const AbelinkHome = () => {
 
           {/* Bottom Classic InputBar */}
           <InputBar
-            onSubmit={(prompt) => {
-              setIsSpeak(false)
+            onSubmit={(prompt: string) => {
+              setIsSpeak?.(false)
               handleSubmit(prompt)
             }}
             isLoading={isLoading || isAgentBusy}
@@ -1034,7 +1071,7 @@ const AbelinkHome = () => {
             audioIntensity={audioIntensity}
             onStartRecord={startRecording}
             onStopRecord={stopRecording}
-            onStop={handleStop}
+            onStop={handleStop ?? undefined}
             source={inputSource}
             workspaceRoot={workspaceRoot}
             onSelectWorkspace={handleSelectWorkspace}
@@ -1096,7 +1133,7 @@ const AbelinkHome = () => {
                 if (frame) {
                   const prompt = capsuleInput.trim() || 'Jelaskan objek apa yang ada di tangkapan kamera ini.'
                   const fullPrompt = `${prompt}\n\n[FRAME KAMERA]: ${frame}`
-                  handlePlanningCommand(fullPrompt)
+                  ;(handlePlanningCommand as unknown as (...args: unknown[]) => void)?.(fullPrompt)
                   setCapsuleInput('')
                 }
               }}
@@ -1120,7 +1157,7 @@ const AbelinkHome = () => {
                   <span className="text-red-400 font-bold tracking-wider">LIVE SCREEN</span>
                   <span className="text-white/30">|</span>
                   <span className="text-white/70 text-[11px]">
-                    {screenStream?.getVideoTracks?.[0]?.label || 'Desktop Mirror (X11 Native)'}
+                    {screenStream?.getVideoTracks()[0]?.label || 'Desktop Mirror (X11 Native)'}
                   </span>
                 </div>
 
@@ -1193,7 +1230,7 @@ const AbelinkHome = () => {
                     if (frame) {
                       const prompt = capsuleInput.trim() || 'Analisis dan jelaskan apa yang sedang tampil di layar ini.'
                       const fullPrompt = `${prompt}\n\n[FRAME LAYAR]: ${frame}`
-                      handlePlanningCommand(fullPrompt)
+                      ;(handlePlanningCommand as unknown as (...args: unknown[]) => void)?.(fullPrompt)
                       setCapsuleInput('')
                     }
                   }}
@@ -1227,7 +1264,7 @@ const AbelinkHome = () => {
                 />
               ) : (
                 <img
-                  src={liveScreenFrame}
+                  src={liveScreenFrame ?? undefined}
                   alt="Live Screen"
                   className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl border border-white/10"
                 />

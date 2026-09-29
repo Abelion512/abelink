@@ -1,6 +1,12 @@
 import { AppleHello } from './AppleHello.jsx'
 
-export default function BootScreen({ showRecovery, onClearCache }) {
+export default function BootScreen({
+  showRecovery,
+  onClearCache
+}: {
+  showRecovery?: boolean
+  onClearCache?: () => void
+}) {
   return (
     <div className="flex-1 flex flex-col items-center justify-center gap-5">
       {/* Keputusan eksplisit: hello boot SELALU animasi walau OS reduced-motion. */}

@@ -6,19 +6,26 @@ const MAX_CHARS = MAX_SESSION_CHARS
 // Gauge ring konteks sesi + popover (ATM upstream, adaptasi).
 // Mendengar `context-tracker-updated`; tombol Compact dispatch
 // `request-manual-compaction` yang ditangani useManualCompaction.
-export const ContextGauge = React.memo(function ContextGauge({ sessionId = 1, allowCompact = true }) {
-  const [tracker, setTracker] = useState({ currentChars: 0, percentage: 0, lastCompactedAt: null })
+export const ContextGauge = React.memo(function ContextGauge({
+  sessionId = 1,
+  allowCompact = true
+}: {
+  sessionId?: number
+  allowCompact?: boolean
+}) {
+  const [tracker, setTracker] = useState<{ currentChars: number; percentage: number; lastCompactedAt: string | null }>({ currentChars: 0, percentage: 0, lastCompactedAt: null })
   const [open, setOpen] = useState(false)
-  const popRef = useRef(null)
+  const popRef = useRef<HTMLDivElement | null>(null)
   const sid = String(sessionId ?? 1)
 
   useEffect(() => {
-    const onUpdate = (e) => {
-      if (!e?.detail || String(e.detail.sessionId ?? '') !== sid) return
+    const onUpdate = (e: Event) => {
+      const d = (e as CustomEvent<{ sessionId?: string; currentChars?: number; percentage?: number; lastCompactedAt?: string | null }>).detail
+      if (!d || String(d.sessionId ?? '') !== sid) return
       setTracker({
-        currentChars: Number(e.detail.currentChars) || 0,
-        percentage: Number(e.detail.percentage) || 0,
-        lastCompactedAt: e.detail.lastCompactedAt || null
+        currentChars: Number(d.currentChars) || 0,
+        percentage: Number(d.percentage) || 0,
+        lastCompactedAt: d.lastCompactedAt || null
       })
     }
     window.addEventListener('context-tracker-updated', onUpdate)
@@ -27,8 +34,8 @@ export const ContextGauge = React.memo(function ContextGauge({ sessionId = 1, al
 
   useEffect(() => {
     if (!open) return
-    const onDown = (e) => {
-      if (popRef.current && !popRef.current.contains(e.target)) setOpen(false)
+    const onDown = (e: MouseEvent) => {
+      if (popRef.current && !popRef.current.contains(e.target as Node)) setOpen(false)
     }
     document.addEventListener('mousedown', onDown)
     return () => document.removeEventListener('mousedown', onDown)
