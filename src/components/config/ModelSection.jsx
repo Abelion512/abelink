@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Bot, Terminal, Plug } from 'lucide-react'
 import { detectProviderFromUrl } from '../../api/ai/providerDetect.js'
 import { listPresets, resolveEndpointUrl } from '../../api/ai/providerRegistry.js'

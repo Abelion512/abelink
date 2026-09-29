@@ -116,7 +116,7 @@ describe('skillSynthesizer — trusted evidence provenance', () => {
 // its `not_run` / `general` defaults and no trajectory can ever be verified.
 describe('useAbelinkPlan — production caller forwards verifier evidence', () => {
   const hookSrc = fs.readFileSync(
-    path.resolve(process.cwd(), 'src/hooks/agent/useAbelinkPlan.js'),
+    path.resolve(process.cwd(), 'src/hooks/agent/useAbelinkPlan.ts'),
     'utf-8'
   )
   const callSite = hookSrc.match(/synthesizeSkillAndSave\(\{[\s\S]*?\n\s*\}\)/)

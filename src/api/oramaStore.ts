@@ -219,11 +219,12 @@ export async function hydrateFromDexie(onProgress?: (done: number, total: number
       const turnUpdates: Array<{ key: unknown; changes: Record<string, unknown> }> = []
       for (const item of prepared) {
         if (item instanceof Error) continue
-        if (item && item.row) {
-          validTurns.push(item.row)
-          turnUpdates.push(item.update)
-        } else if (item) {
-          validTurns.push(item)
+        const it = item as { row?: Record<string, unknown>; update?: { key: unknown; changes: Record<string, unknown> } } | null
+        if (it && it.row) {
+          validTurns.push(it.row)
+          turnUpdates.push(it.update!)
+        } else if (it) {
+          validTurns.push(it as Record<string, unknown>)
         }
       }
 
@@ -275,11 +276,12 @@ export async function hydrateFromDexie(onProgress?: (done: number, total: number
   const archiveUpdates: Array<{ key: unknown; changes: Record<string, unknown> }> = []
   for (const item of archiveResults) {
     if (item instanceof Error) continue
-    if (item && item.row) {
-      validArchives.push(item.row)
-      archiveUpdates.push(item.update)
-    } else if (item) {
-      validArchives.push(item)
+    const it = item as { row?: Record<string, unknown>; update?: { key: unknown; changes: Record<string, unknown> } } | null
+    if (it && it.row) {
+      validArchives.push(it.row)
+      archiveUpdates.push(it.update!)
+    } else if (it) {
+      validArchives.push(it as Record<string, unknown>)
     }
   }
 
@@ -319,11 +321,12 @@ export async function hydrateFromDexie(onProgress?: (done: number, total: number
   const docUpdates: Array<{ key: unknown; changes: Record<string, unknown> }> = []
   for (const item of docResults) {
     if (item instanceof Error) continue
-    if (item && item.row) {
-      validDocs.push(item.row)
-      docUpdates.push(item.update)
-    } else if (item) {
-      validDocs.push(item)
+    const it = item as { row?: Record<string, unknown>; update?: { key: unknown; changes: Record<string, unknown> } } | null
+    if (it && it.row) {
+      validDocs.push(it.row)
+      docUpdates.push(it.update!)
+    } else if (it) {
+      validDocs.push(it as Record<string, unknown>)
     }
   }
 
@@ -363,11 +366,12 @@ export async function hydrateFromDexie(onProgress?: (done: number, total: number
   const memoryUpdates: Array<{ key: unknown; changes: Record<string, unknown> }> = []
   for (const item of memoryResults) {
     if (item instanceof Error) continue
-    if (item && item.row) {
-      validMemories.push(item.row)
-      memoryUpdates.push(item.update)
-    } else if (item) {
-      validMemories.push(item)
+    const it = item as { row?: Record<string, unknown>; update?: { key: unknown; changes: Record<string, unknown> } } | null
+    if (it && it.row) {
+      validMemories.push(it.row)
+      memoryUpdates.push(it.update!)
+    } else if (it) {
+      validMemories.push(it as Record<string, unknown>)
     }
   }
 

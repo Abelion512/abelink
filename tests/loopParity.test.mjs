@@ -17,7 +17,7 @@ import { createTrajectorySupervisor, MODIFY_REPEAT, ABANDON_REPEAT } from '../sr
 import { resolvePlanStepBudget } from '../src/api/ai/planStepBudget.ts'
 import { classifyObjectiveKind } from '../src/api/ai/objectiveVerifier.ts'
 
-const GUI_LOOP = 'src/hooks/agent/useAbelinkPlan.js'
+const GUI_LOOP = 'src/hooks/agent/useAbelinkPlan.ts'
 const HEADLESS_LOOP = 'src/api/ai/agentRunner.ts'
 
 // Skema kontrak (tunggal untuk kedua loop) — kalau tabel ini berubah tanpa
