@@ -14,14 +14,14 @@ const workspaceRoot = () => {
   return path.join(brandDir(), 'workspace')
 }
 
-export async function runFs(actionId, args) {
+export async function runFs(actionId: string, args: { path?: string; content?: unknown } = {}) {
   const root = workspaceRoot()
   const rel = String(args?.path || '').trim()
   const guarded = rel ? assertContained(root, rel) : { ok: true, path: root }
 
   if (actionId === 'list') {
     if (!guarded.ok) throw new Error(guarded.error)
-    const dir = guarded.path
+    const dir: string = guarded.path ?? root
     if (!fs.existsSync(dir)) throw new Error(`Folder tidak ditemukan: ${rel || '(root workspace)'}`)
     if (!fs.statSync(dir).isDirectory()) throw new Error(`Bukan folder: ${rel}`)
     const entries = fs.readdirSync(dir, { withFileTypes: true })
@@ -40,7 +40,7 @@ export async function runFs(actionId, args) {
 
   if (!rel) throw new Error('Parameter path wajib diisi.')
   if (!guarded.ok) throw new Error(guarded.error)
-  const filePath = guarded.path
+  const filePath: string = guarded.path ?? root
 
   if (actionId === 'read') {
     if (!fs.existsSync(filePath)) throw new Error(`File tidak ditemukan: ${rel}`)

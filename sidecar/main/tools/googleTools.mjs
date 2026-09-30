@@ -1,9 +1,9 @@
 // Tool Google Workspace (dipindah murni dari main/node-tools.js).
 import {
   searchFiles, listFiles, readFile, uploadFile, createFile, moveFile, copyFile, getDriveInfo
-} from '../google/google-drive.js'
-import { listEvents, createEvent, deleteEvent } from '../google/google-calendar.js'
-import { searchEmails, readEmail, sendEmail, markAsRead } from '../google/google-gmail.js'
+} from '../google/google-drive.ts'
+import { listEvents, createEvent, deleteEvent } from '../google/google-calendar.ts'
+import { searchEmails, readEmail, sendEmail, markAsRead } from '../google/google-gmail.ts'
 import { parsePagination } from './_shared.mjs'
 
 export const googleTools = {

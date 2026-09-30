@@ -8,13 +8,13 @@ import path from 'path'
 const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'abelink-cap-valid-'))
 process.env.XDG_DATA_HOME = tmpRoot
 
-const { validateArgs } = await import('../sidecar/main/capabilities/validation.mjs')
+const { validateArgs } = await import('../sidecar/main/capabilities/validation.ts')
 const {
   executeCapability,
   listConnections,
   readAudit,
   registerConnector
-} = await import('../sidecar/main/capabilities/manager.mjs')
+} = await import('../sidecar/main/capabilities/manager.ts')
 
 describe('validateArgs unit', () => {
   it('valid passes', () => {
@@ -96,8 +96,8 @@ describe('listConnections sanitized', () => {
     registerConnector({ id: 'rahasia', url: 'https://api.contoh.test:8443/jalur/x?q=1', headers: { Authorization: 'Bearer S3CR3T' } })
     // Simulasi koneksi terotorisasi tanpa jaringan: tulis langsung via authorize
     // path connection-less tidak cocok, jadi tulis store mentah lalu baca sanitasi.
-    const { writeConnections } = await import('../sidecar/main/capabilities/connections.mjs')
-    const { readConnections } = await import('../sidecar/main/capabilities/connections.mjs')
+    const { writeConnections } = await import('../sidecar/main/capabilities/connections.ts')
+    const { readConnections } = await import('../sidecar/main/capabilities/connections.ts')
     const map = await readConnections()
     map.rahasia = {
       url: 'https://api.contoh.test:8443/jalur/x?q=1',

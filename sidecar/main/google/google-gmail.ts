@@ -1,9 +1,9 @@
-import { getAuthClient, getGoogle } from './google-service.js'
+import { getAuthClient, getGoogle } from './google-service.ts'
 
 /**
  * Helper to initialize the Gmail API.
  */
-export async function getGmailApi(clientId, clientSecret) {
+export async function getGmailApi(clientId?: string, clientSecret?: string) {
   const auth = await getAuthClient(clientId, clientSecret)
   if (!auth) throw new Error('Not connected to Google Workspace.')
   const google = await getGoogle()
@@ -13,7 +13,7 @@ export async function getGmailApi(clientId, clientSecret) {
 /**
  * gmail-search: Search emails.
  */
-export async function searchEmails(clientId, clientSecret, query = 'is:unread', maxResults = 10) {
+export async function searchEmails(clientId?: string, clientSecret?: string, query = 'is:unread', maxResults = 10) {
   const gmail = await getGmailApi(clientId, clientSecret)
   const res = await gmail.users.messages.list({
     userId: 'me',
@@ -24,7 +24,7 @@ export async function searchEmails(clientId, clientSecret, query = 'is:unread', 
   if (!res.data.messages) return []
 
   // Fetch details for each message
-  const messages = await Promise.all(res.data.messages.map(async (msg) => {
+  const messages = await Promise.all(res.data.messages.map(async (msg: { id?: string }) => {
     const detail = await gmail.users.messages.get({
       userId: 'me',
       id: msg.id,
@@ -32,13 +32,13 @@ export async function searchEmails(clientId, clientSecret, query = 'is:unread', 
       metadataHeaders: ['From', 'Subject', 'Date']
     })
     
-    const headers = detail.data.payload.headers
+    const headers = (detail.data.payload?.headers || []) as Array<{ name?: string; value?: string }>
     return {
       id: detail.data.id,
       snippet: detail.data.snippet,
-      from: headers.find(h => h.name === 'From')?.value || 'Unknown',
-      subject: headers.find(h => h.name === 'Subject')?.value || 'No Subject',
-      date: headers.find(h => h.name === 'Date')?.value || ''
+      from: headers.find((h) => h.name === 'From')?.value || 'Unknown',
+      subject: headers.find((h) => h.name === 'Subject')?.value || 'No Subject',
+      date: headers.find((h) => h.name === 'Date')?.value || ''
     }
   }))
   
@@ -48,7 +48,7 @@ export async function searchEmails(clientId, clientSecret, query = 'is:unread', 
 /**
  * gmail-read: Get full body of an email.
  */
-export async function readEmail(clientId, clientSecret, messageId) {
+export async function readEmail(clientId?: string, clientSecret?: string, messageId?: string) {
   const gmail = await getGmailApi(clientId, clientSecret)
   const res = await gmail.users.messages.get({
     userId: 'me',
@@ -57,7 +57,7 @@ export async function readEmail(clientId, clientSecret, messageId) {
   })
   
   // Gmail bodies are base64url encoded. We need to decode it.
-  const getBody = (payload) => {
+  const getBody = (payload: any): string => {
     if (payload.body && payload.body.data) {
       return Buffer.from(payload.body.data, 'base64').toString('utf-8')
     }
@@ -72,13 +72,13 @@ export async function readEmail(clientId, clientSecret, messageId) {
   }
 
   const body = getBody(res.data.payload)
-  const headers = res.data.payload.headers
+  const headers = (res.data.payload?.headers || []) as Array<{ name?: string; value?: string }>
   
   return {
     id: res.data.id,
-    from: headers.find(h => h.name === 'From')?.value,
-    subject: headers.find(h => h.name === 'Subject')?.value,
-    date: headers.find(h => h.name === 'Date')?.value,
+    from: headers.find((h) => h.name === 'From')?.value,
+    subject: headers.find((h) => h.name === 'Subject')?.value,
+    date: headers.find((h) => h.name === 'Date')?.value,
     body
   }
 }
@@ -86,7 +86,7 @@ export async function readEmail(clientId, clientSecret, messageId) {
 /**
  * gmail-send: Send an email.
  */
-export async function sendEmail(clientId, clientSecret, to, subject, bodyText) {
+export async function sendEmail(clientId?: string, clientSecret?: string, to?: string, subject?: string, bodyText?: string) {
   const gmail = await getGmailApi(clientId, clientSecret)
   
   // Construct raw email according to RFC 2822
@@ -117,7 +117,7 @@ export async function sendEmail(clientId, clientSecret, to, subject, bodyText) {
 /**
  * gmail-abelink-read: tandai email sebagai sudah dibaca.
  */
-export async function markAsRead(clientId, clientSecret, messageId) {
+export async function markAsRead(clientId?: string, clientSecret?: string, messageId?: string) {
   const gmail = await getGmailApi(clientId, clientSecret)
   await gmail.users.messages.modify({
     userId: 'me',

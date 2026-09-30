@@ -1,9 +1,9 @@
-import { getAuthClient, getGoogle } from './google-service.js'
+import { getAuthClient, getGoogle } from './google-service.ts'
 
 /**
  * Helper to initialize the Drive API.
  */
-export async function getDriveApi(clientId, clientSecret) {
+export async function getDriveApi(clientId?: string, clientSecret?: string) {
   const auth = await getAuthClient(clientId, clientSecret)
   if (!auth) throw new Error('Not connected to Google Workspace.')
   const google = await getGoogle()
@@ -13,7 +13,7 @@ export async function getDriveApi(clientId, clientSecret) {
 /**
  * gdrive-search: Searches files by name or mimeType.
  */
-export async function searchFiles(clientId, clientSecret, query, maxResults = 10) {
+export async function searchFiles(clientId?: string, clientSecret?: string, query: string = '', maxResults = 10) {
   const drive = await getDriveApi(clientId, clientSecret)
   // Build a simple query, or use the raw query if advanced
   // Let's assume the query is a simple string for name matching
@@ -31,7 +31,7 @@ export async function searchFiles(clientId, clientSecret, query, maxResults = 10
 /**
  * gdrive-list: List recent files or files in a folder.
  */
-export async function listFiles(clientId, clientSecret, folderId = null, maxResults = 10) {
+export async function listFiles(clientId?: string, clientSecret?: string, folderId: string | null = null, maxResults = 10) {
   const drive = await getDriveApi(clientId, clientSecret)
   const q = folderId ? `'${folderId}' in parents and trashed = false` : `trashed = false`
   const res = await drive.files.list({
@@ -46,7 +46,7 @@ export async function listFiles(clientId, clientSecret, folderId = null, maxResu
 /**
  * gdrive-read: Read text content from a Google Doc, Sheet, or raw text file.
  */
-export async function readFile(clientId, clientSecret, fileId) {
+export async function readFile(clientId?: string, clientSecret?: string, fileId?: string) {
   const drive = await getDriveApi(clientId, clientSecret)
 
   // First get file metadata to know its mimeType
@@ -80,14 +80,14 @@ export async function readFile(clientId, clientSecret, fileId) {
       return res.data
     }
   } catch (error) {
-    throw new Error(`Failed to read file: ${error.message}`)
+    throw new Error(`Failed to read file: ${(error as Error).message}`)
   }
 }
 
 /**
  * gdrive-upload: Upload text as a new file (simplified for AI).
  */
-export async function uploadFile(clientId, clientSecret, name, content, mimeType = 'text/plain') {
+export async function uploadFile(clientId?: string, clientSecret?: string, name?: string, content?: string, mimeType = 'text/plain') {
   const drive = await getDriveApi(clientId, clientSecret)
   const res = await drive.files.create({
     requestBody: { name, mimeType },
@@ -100,9 +100,9 @@ export async function uploadFile(clientId, clientSecret, name, content, mimeType
 /**
  * gdrive-create: Create an empty Google Doc or Sheet.
  */
-export async function createFile(clientId, clientSecret, name, type = 'doc') {
+export async function createFile(clientId?: string, clientSecret?: string, name?: string, type: string = 'doc') {
   const drive = await getDriveApi(clientId, clientSecret)
-  const mimeMap = {
+  const mimeMap: Record<string, string> = {
     doc: 'application/vnd.google-apps.document',
     sheet: 'application/vnd.google-apps.spreadsheet',
     folder: 'application/vnd.google-apps.folder'
@@ -119,7 +119,7 @@ export async function createFile(clientId, clientSecret, name, type = 'doc') {
 /**
  * gdrive-move: Move a file to a specific folder.
  */
-export async function moveFile(clientId, clientSecret, fileId, folderId) {
+export async function moveFile(clientId?: string, clientSecret?: string, fileId?: string, folderId?: string) {
   const drive = await getDriveApi(clientId, clientSecret)
 
   // Get current parents
@@ -139,7 +139,7 @@ export async function moveFile(clientId, clientSecret, fileId, folderId) {
 /**
  * gdrive-copy: Copy a file.
  */
-export async function copyFile(clientId, clientSecret, fileId, newName) {
+export async function copyFile(clientId?: string, clientSecret?: string, fileId?: string, newName?: string) {
   const drive = await getDriveApi(clientId, clientSecret)
   const res = await drive.files.copy({
     fileId,
@@ -152,7 +152,7 @@ export async function copyFile(clientId, clientSecret, fileId, newName) {
 /**
  * gdrive-info: Get Google Drive storage info.
  */
-export async function getDriveInfo(clientId, clientSecret) {
+export async function getDriveInfo(clientId?: string, clientSecret?: string) {
   const drive = await getDriveApi(clientId, clientSecret)
   const res = await drive.about.get({
     fields: 'storageQuota, user'
@@ -168,7 +168,7 @@ export async function getDriveInfo(clientId, clientSecret) {
   const usageInDrive = parseInt(quota.usageInDrive, 10) || 0
   const usageInDriveTrash = parseInt(quota.usageInDriveTrash, 10) || 0
 
-  const formatBytes = (bytes) => {
+  const formatBytes = (bytes: number): string => {
     if (bytes === 0) return '0 B'
     const k = 1024
     const sizes = ['B', 'KB', 'MB', 'GB', 'TB']

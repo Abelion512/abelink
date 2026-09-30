@@ -2,14 +2,14 @@
 // Mengelola token OAuth 2.0 per-provider (Google, dsb.) dengan refresh token otomatis.
 // Zero-leak: token hanya diakses in-memory dan disimpan di berkas XDG 0600.
 
-import { getTokens as getGoogleTokens, getValidGoogleToken } from '../google/google-service.js'
+import { getTokens as getGoogleTokens, getValidGoogleToken } from '../google/google-service.ts'
 
 /**
  * Memeriksa apakah provider OAuth tertentu sudah memiliki token tersimpan.
  * @param {string} provider Nama provider, misal 'google'
  * @returns {Promise<boolean>}
  */
-export async function isProviderAuthorized(provider) {
+export async function isProviderAuthorized(provider: string): Promise<boolean> {
   const norm = String(provider || '').toLowerCase().trim()
   if (norm === 'google') {
     const tokens = await getGoogleTokens()
@@ -25,7 +25,7 @@ export async function isProviderAuthorized(provider) {
  * @param {boolean} [opts.forceRefresh=false] Paksa refresh token baru dari refresh_token
  * @returns {Promise<string|null>}
  */
-export async function getValidToken(provider, { forceRefresh = false } = {}) {
+export async function getValidToken(provider: string, { forceRefresh = false }: { forceRefresh?: boolean } = {}): Promise<string | null> {
   const norm = String(provider || '').toLowerCase().trim()
   if (norm === 'google') {
     return getValidGoogleToken({ forceRefresh })

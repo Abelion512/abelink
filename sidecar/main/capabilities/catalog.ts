@@ -14,15 +14,15 @@
 // Privacy-first: kredensial koneksi disimpan di berkas XDG mode 0600
 // (lihat connections.mjs); tidak ada telemetri.
 
-import { runWeather } from './weather.mjs'
-import { runTime } from './time.mjs'
-import { runFs } from './fs.mjs'
-import { runShellTool } from './shell-tool.mjs'
-import { runBrowserExtension } from './browser-extension.mjs'
+import { runWeather } from './weather.ts'
+import { runTime } from './time.ts'
+import { runFs } from './fs.ts'
+import { runShellTool } from './shell-tool.ts'
+import { runBrowserExtension } from './browser-extension.ts'
 
 // ------------------------------------------------------------- weather
 
-const weatherConnector = {
+const weatherConnector: Connector = {
   id: 'weather',
   name: 'Weather (Open-Meteo)',
   description:
@@ -55,7 +55,7 @@ const weatherConnector = {
 
 // ------------------------------------------------------------- time
 
-const timeConnector = {
+const timeConnector: Connector = {
   id: 'time',
   name: 'Time & Calendar Math',
   description: 'Waktu sistem lokal dan utilitas tanggal (offline murni).',
@@ -87,7 +87,7 @@ const timeConnector = {
 
 // ------------------------------------------------------------- fs (workspace)
 
-const fsConnector = {
+const fsConnector: Connector = {
   id: 'fs',
   name: 'Workspace Files',
   description:
@@ -143,7 +143,7 @@ const fsConnector = {
 
 // ------------------------------------------------------------- shell (gate)
 
-const shellToolConnector = {
+const shellToolConnector: Connector = {
   id: 'shell-tool',
   name: 'Shell (run-shell gate)',
   description:
@@ -174,7 +174,7 @@ const shellToolConnector = {
 
 // ------------------------------------------------- browser-extension
 
-const browserExtensionConnector = {
+const browserExtensionConnector: Connector = {
   id: 'browser-extension',
   name: 'Browser Extension (Abelink Bridge)',
   description:
@@ -219,7 +219,7 @@ const browserExtensionConnector = {
 
 // ------------------------------------------------- google-calendar-mcp (Official MCP)
 
-export const googleCalendarMcpConnector = {
+export const googleCalendarMcpConnector: Connector = {
   id: 'google-calendar-mcp',
   name: 'Google Calendar (Official MCP)',
   description:
@@ -234,7 +234,7 @@ export const googleCalendarMcpConnector = {
 
 // ------------------------------------------------- context7 (MCP)
 
-export const context7McpConnector = {
+export const context7McpConnector: Connector = {
   id: 'context7',
   name: 'Context7 MCP',
   description:
@@ -248,7 +248,30 @@ export const context7McpConnector = {
 
 // ------------------------------------------------------------------- registry
 
-export const CONNECTORS = new Map()
+interface ConnectorAction {
+  summary?: string
+  inputSchema?: Record<string, unknown>
+  scopes?: string[]
+  guide?: { steps?: unknown[]; examples?: unknown[] }
+  run?: (actionId: string, args?: any, ctx?: any) => Promise<unknown>
+  [key: string]: unknown
+}
+
+export interface Connector {
+  id: string
+  name: string
+  description: string
+  scopes: string[]
+  actions: Record<string, ConnectorAction>
+  url?: string
+  transport?: string
+  authType?: string | null
+  oauthProvider?: string | null
+  headers?: Record<string, string>
+  [key: string]: unknown
+}
+
+export const CONNECTORS = new Map<string, Connector>()
 for (const c of [
   weatherConnector,
   timeConnector,
@@ -273,12 +296,12 @@ export const listConnectors = () =>
     scopes: c.scopes,
     actions: Object.entries(c.actions || {}).map(([id, a]) => ({
       id,
-      summary: a.summary || '',
-      scopes: a.scopes || []
+      summary: (a as ConnectorAction).summary || '',
+      scopes: (a as ConnectorAction).scopes || []
     }))
   }))
 
-export const getConnector = (id) => CONNECTORS.get(String(id || '')) || null
+export const getConnector = (id: unknown): Connector | null => CONNECTORS.get(String(id || '')) || null
 
 // ------------------------------------------------- runtime registration (seam)
 // TITIK KONTRIBUSI seam kapabilitas (pola deepseek-harness: definisi +
@@ -286,7 +309,7 @@ export const getConnector = (id) => CONNECTORS.get(String(id || '')) || null
 // didaftarkan saat runtime tanpa patch katalog. Transport 'mcp' berarti
 // eksekusi di-route ke MCP client (Fase F3); sebelum itu execute fail-fast
 // jujur (Lihat executeCapability), tidak pernah sukses palsu.
-export function registerConnector(def = {}) {
+export function registerConnector(def: Record<string, any> = {}) {
   const id = String(def.id || '').trim()
   if (!id || /[^a-z0-9_-]/i.test(id)) {
     throw new Error(`ID connector tidak valid: '${def.id}' (huruf/angka/dash/underscore).`)
@@ -297,7 +320,7 @@ export function registerConnector(def = {}) {
   }
   // Header auth opsional (mis. API key): objek string->string, disimpan di
   // connections.json 0600 + memori — tidak pernah ke renderer/log.
-  let headers = {}
+  const headers: Record<string, string> = {}
   if (def.headers && typeof def.headers === 'object') {
     for (const [k, v] of Object.entries(def.headers)) {
       if (typeof k === 'string' && typeof v === 'string' && k && v) headers[k] = v
@@ -322,7 +345,7 @@ export function registerConnector(def = {}) {
 }
 
 // Action guide ala OpenConnector: schema + scopes + connection identity + contoh.
-export const getActionGuide = (connectorId, actionId) => {
+export const getActionGuide = (connectorId: unknown, actionId: unknown) => {
   const c = getConnector(connectorId)
   if (!c) return null
   const a = c.actions[String(actionId || '')]

@@ -15,20 +15,26 @@
 // googleapis butuh ~2 detik saat import, yang membuat listRegistry()/
 // capabilities:list melebihi timeout test. Semua pemakaian NATIVE_TOOLS
 // di bawah lewat getRunShell() yang mengimpor saat dibutuhkan saja.
-async function getRunShell() {
+interface ShellToolEntry {
+  needsApproval?: ((command: string) => boolean) | boolean
+  approvalMessage?: (command: string) => string
+  handler: (command: string, config?: unknown) => Promise<{ success?: boolean; output?: unknown; error?: unknown; message?: string }>
+}
+
+async function getRunShell(): Promise<ShellToolEntry | undefined> {
   const { shellTools } = await import('../tools/shellTools.mjs')
-  return shellTools['run-shell']
+  return (shellTools as Record<string, ShellToolEntry>)['run-shell']
 }
 
 // Test hook: override perilaku isDangerousCommand untuk keperluan pengujian
 // (null = pakai perilaku asli). Import node-tools tetap jalan normal; hanya
 // keputusan approval yang bisa di-stub sehingga tes tidak menyentuh spawn.
-let _dangerousOverride = null
-export const setDangerousOverride = (v) => {
+let _dangerousOverride: boolean | null = null
+export const setDangerousOverride = (v: boolean | null) => {
   _dangerousOverride = v
 }
 
-export async function runShellTool(actionId, args, ctx) {
+export async function runShellTool(actionId: string, args: { command?: string } = {}, ctx: { config?: unknown } = {}) {
   if (actionId !== 'exec') throw new Error(`Aksi shell-tool tidak dikenal: ${actionId}`)
   const command = String(args?.command || '').trim()
   if (!command) throw new Error('Parameter command wajib diisi.')
@@ -48,18 +54,19 @@ export async function runShellTool(actionId, args, ctx) {
       tool.approvalMessage
         ? tool.approvalMessage(command)
         : `Perintah berbahaya perlu persetujuan: ${command}`
-    )
+    ) as Error & { code?: string; approvalMessage?: string }
     e.code = 'CAPABILITY_APPROVAL_REQUIRED'
     e.approvalMessage = e.message
     throw e
   }
 
-  const result =
+  const result = (
     _dangerousOverride !== null
       ? { success: true, output: 'MOCK-OUTPUT', error: null }
       : await tool.handler(command, ctx?.config || undefined)
+  ) as { success?: boolean; output?: unknown; error?: unknown; message?: string } | undefined
   if (!result?.success) {
-    throw new Error(result?.message || result?.error || 'run-shell gagal tanpa pesan.')
+    throw new Error(result?.message || String(result?.error ?? '') || 'run-shell gagal tanpa pesan.')
   }
   return { output: result.output, stderr: result.error || null }
 }

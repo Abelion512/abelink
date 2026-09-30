@@ -16,27 +16,39 @@
 
 const KNOWN_TYPES = new Set(['string', 'number', 'integer', 'boolean', 'array', 'object'])
 
+interface SchemaProp {
+  type?: string
+  enum?: unknown[]
+  items?: SchemaProp
+  properties?: Record<string, SchemaProp>
+  required?: unknown
+  [key: string]: unknown
+}
+
+type ValidationResult = { ok: boolean; errors: string[] }
+
 /**
- * @param {object} schema inputSchema aksi (boleh null/asing -> fail-open)
- * @param {object} args argumen pemanggil (null/undefined = {} untuk skema object)
- * @returns {{ok: boolean, errors: string[]}} errors berisi path ("a.b", "ids[1]")
+ * @param schema inputSchema aksi (boleh null/asing -> fail-open)
+ * @param args argumen pemanggil (null/undefined = {} untuk skema object)
+ * @returns errors berisi path ("a.b", "ids[1]")
  */
-export function validateArgs(schema, args) {
+export function validateArgs(schema: unknown, args: unknown): ValidationResult {
   try {
     if (!schema || typeof schema !== 'object' || Array.isArray(schema)) {
       return { ok: true, errors: [] }
     }
-    if (schema.type && schema.type !== 'object') return { ok: true, errors: [] }
-    const props = schema.properties
+    const s = schema as SchemaProp
+    if (s.type && s.type !== 'object') return { ok: true, errors: [] }
+    const props = s.properties
     if (!props || typeof props !== 'object' || Array.isArray(props)) {
       return { ok: true, errors: [] }
     }
-    const value = args == null ? {} : args
+    const value = (args == null ? {} : args) as Record<string, unknown>
     if (typeof value !== 'object' || Array.isArray(value)) {
       return { ok: false, errors: ['$root: harus object'] }
     }
-    const errors = []
-    checkRequired(schema.required, value, '', errors)
+    const errors: string[] = []
+    checkRequired(s.required, value, '', errors)
     for (const [key, prop] of Object.entries(props)) {
       if (value[key] === undefined) continue
       checkValue(prop, value[key], key, errors, 0)
@@ -47,22 +59,23 @@ export function validateArgs(schema, args) {
   }
 }
 
-function checkRequired(required, value, prefix, errors) {
+function checkRequired(required: unknown, value: Record<string, unknown>, prefix: string, errors: string[]) {
   if (!Array.isArray(required)) return
   for (const key of required) {
-    if (value?.[key] === undefined) errors.push(`${prefix}${key}: wajib diisi`)
+    if (value?.[String(key)] === undefined) errors.push(`${prefix}${String(key)}: wajib diisi`)
   }
 }
 
-function checkValue(prop, v, path, errors, depth) {
+function checkValue(prop: unknown, v: unknown, path: string, errors: string[], depth: number) {
   if (!prop || typeof prop !== 'object' || Array.isArray(prop)) return
-  const t = prop.type
+  const p = prop as SchemaProp
+  const t = p.type
   if (!t || !KNOWN_TYPES.has(t)) return // tipe asing -> fail-open, lewati
   switch (t) {
     case 'string':
       if (typeof v !== 'string') errors.push(`${path}: harus string`)
-      else if (Array.isArray(prop.enum) && !prop.enum.includes(v)) {
-        errors.push(`${path}: harus salah satu dari [${prop.enum.join(', ')}]`)
+      else if (Array.isArray(p.enum) && !p.enum.includes(v)) {
+        errors.push(`${path}: harus salah satu dari [${p.enum.join(', ')}]`)
       }
       break
     case 'number':
@@ -77,22 +90,24 @@ function checkValue(prop, v, path, errors, depth) {
     case 'array':
       if (!Array.isArray(v)) {
         errors.push(`${path}: harus array`)
-      } else if (prop.items && typeof prop.items === 'object' && prop.items.type) {
-        v.forEach((item, i) => checkValue(prop.items, item, `${path}[${i}]`, errors, depth + 1))
+      } else if (p.items && typeof p.items === 'object' && p.items.type) {
+        v.forEach((item: unknown, i: number) => checkValue(p.items, item, `${path}[${i}]`, errors, depth + 1))
       }
       break
-    case 'object':
+    case 'object': {
       if (!v || typeof v !== 'object' || Array.isArray(v)) {
         errors.push(`${path}: harus object`)
-      } else if (depth < 1 && prop.properties && typeof prop.properties === 'object') {
+      } else if (depth < 1 && p.properties && typeof p.properties === 'object') {
         // Nested SATU level: required + tipe propertinya; lebih dalam tidak
         // direkursi (cukup untuk skema katalog/MCP saat ini).
-        checkRequired(prop.required, v, `${path}.`, errors)
-        for (const [k, sub] of Object.entries(prop.properties)) {
-          if (v[k] === undefined) continue
-          checkValue(sub, v[k], `${path}.${k}`, errors, depth + 1)
+        const rec = v as Record<string, unknown>
+        checkRequired(p.required, rec, `${path}.`, errors)
+        for (const [k, sub] of Object.entries(p.properties)) {
+          if (rec[k] === undefined) continue
+          checkValue(sub, rec[k], `${path}.${k}`, errors, depth + 1)
         }
       }
       break
+    }
   }
 }

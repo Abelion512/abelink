@@ -13,7 +13,7 @@ process.env.XDG_DOCUMENTS_DIR = path.join(tmpRoot, 'Documents')
 
 const { pluginToDescriptors } = await import('../sidecar/main/plugins/plugin-loader.js')
 const { skillToDescriptor } = await import('../sidecar/engine/channels/skills.ts')
-const { listRegistry } = await import('../sidecar/main/capabilities/registry.mjs')
+const { listRegistry } = await import('../sidecar/main/capabilities/registry.ts')
 
 beforeAll(async () => {
   // Seed satu skill temp: <XDG>/abelink/skills/uji-reg/SKILL.md

@@ -54,10 +54,10 @@ const getTracker = lazy(async () =>
 // argumen string legacy dibungkus {query} oleh manager.
 on('plugin:execute', async (action: unknown, query: unknown) => {
   try {
-    const { executeCapability } = await import('../../main/capabilities/manager.mjs')
-    const args =
+    const { executeCapability } = await import('../../main/capabilities/manager.ts')
+    const args: unknown =
       typeof query === 'string' ? { query } : query && typeof query === 'object' ? query : {}
-    const data = await executeCapability({ connectorId: 'plugin', actionId: String(action || ''), args })
+    const data = await executeCapability({ connectorId: 'plugin', actionId: String(action || ''), args } as Parameters<typeof executeCapability>[0])
     return { success: true, data }
   } catch (err) {
     return { success: false, error: (err as Error).message }

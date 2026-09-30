@@ -21,29 +21,30 @@ const auditFile = () => path.join(capDir(), 'audit.jsonl')
 
 // ------------------------------------------------------------- connections
 
-export async function readConnections() {
+export async function readConnections(): Promise<Record<string, unknown>> {
   const file = connectionsFile()
   try {
     const raw = await fsp.readFile(file, 'utf8')
-    const parsed = JSON.parse(raw)
+    const parsed = JSON.parse(raw) as { connections?: Record<string, unknown> }
     if (parsed && typeof parsed === 'object' && parsed.connections) return parsed.connections
     return {}
   } catch (e) {
-    if (e.code !== 'ENOENT') {
+    const err = e as { code?: string; message?: string }
+    if (err.code !== 'ENOENT') {
       // Berkas rusak: jangan diam-diam dianggap kosong selamanya — reset dengan
       // jejak jelas di audit, tapi tetap lanjut (fail-open untuk availability,
       // bukan untuk keamanan: koneksi hilang = akses ikut hilang, aman).
       appendAudit({
         op: 'connections.reset',
         status: 'error',
-        error: String(e?.message || e).slice(0, 300)
+        error: String(err?.message || e).slice(0, 300)
       })
     }
     return {}
   }
 }
 
-export async function writeConnections(map) {
+export async function writeConnections(map: Record<string, unknown>) {
   const dir = capDir()
   await fsp.mkdir(dir, { recursive: true })
   const file = connectionsFile()
@@ -66,7 +67,7 @@ export async function writeConnections(map) {
 // agar urutan request->result deterministik dan tes tidak flaky. Cek trim
 // di-throttle (tiap 25 append) agar stat+rewrite tidak terjadi tiap execute.
 let appendCount = 0
-export function appendAudit(entry) {
+export function appendAudit(entry: Record<string, unknown>) {
   const line = JSON.stringify({ ts: new Date().toISOString(), ...entry }) + '\n'
   return fsp
     .mkdir(capDir(), { recursive: true })

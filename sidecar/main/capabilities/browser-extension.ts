@@ -6,17 +6,17 @@
 // user (tutup tab = perintah extension via channel browser:*, bukan sini).
 import { listSessions, dropSession, getBrowserConfig } from '../browser/bridge-core.mjs'
 
-export async function runBrowserExtension(actionId, args = {}) {
+export async function runBrowserExtension(actionId: string, args: { sessionId?: string } = {}) {
   switch (String(actionId || '')) {
     case 'status': {
-      const sessions = listSessions().map((s) => ({
+      const sessions = listSessions().map((s: { id?: string; connected?: boolean; queued?: number }) => ({
         id: s.id,
         connected: s.connected,
         queued: s.queued
       }))
       return {
         sessions,
-        connected: sessions.some((s) => s.connected),
+        connected: sessions.some((s: { connected?: boolean }) => s.connected),
         autoCloseTabs: getBrowserConfig().autoCloseTabs
       }
     }

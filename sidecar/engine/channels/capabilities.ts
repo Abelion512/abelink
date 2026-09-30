@@ -40,7 +40,7 @@ const getManager = lazyManager()
 
 function lazyManager(): () => Promise<ManagerModule> {
   let p: Promise<ManagerModule> | null = null
-  return () => (p ??= import('../../main/capabilities/manager.mjs') as unknown as Promise<ManagerModule>)
+  return () => (p ??= import('../../main/capabilities/manager.ts') as unknown as Promise<ManagerModule>)
 }
 
 on('capabilities:list', async () => {
@@ -111,22 +111,22 @@ on('capabilities:audit', async (limit: unknown, offset: unknown) => {
 })
 
 on('capabilities:registry', async () => {
-  const { listRegistry } = await import('../../main/capabilities/registry.mjs')
+  const { listRegistry } = await import('../../main/capabilities/registry.ts')
   return listRegistry()
 })
 
 on('capabilities:bundle-install', async (bundle: unknown) => {
-  const { installBundle } = await import('../../main/capabilities/bundles.mjs')
-  return installBundle(bundle || {})
+  const { installBundle } = await import('../../main/capabilities/bundles.ts')
+  return installBundle((bundle as Record<string, unknown>) || {})
 })
 
 on('capabilities:bundle-list', async () => {
-  const { listBundles } = await import('../../main/capabilities/bundles.mjs')
+  const { listBundles } = await import('../../main/capabilities/bundles.ts')
   return listBundles()
 })
 
 on('capabilities:bundle-remove', async (id: unknown) => {
-  const { removeBundle } = await import('../../main/capabilities/bundles.mjs')
+  const { removeBundle } = await import('../../main/capabilities/bundles.ts')
   return removeBundle(id)
 })
 

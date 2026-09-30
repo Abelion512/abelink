@@ -4,7 +4,7 @@
 const UA = 'Mozilla/5.0 (X11; Linux x86_64) AbelinkAgentCapabilities/1.0'
 const FETCH_TIMEOUT_MS = 15000
 
-async function fetchJson(url) {
+async function fetchJson(url: string): Promise<Record<string, any>> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
   try {
@@ -19,7 +19,7 @@ async function fetchJson(url) {
   }
 }
 
-async function geocode(city) {
+async function geocode(city: string) {
   const data = await fetchJson(
     `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=id&format=json`
   )
@@ -32,16 +32,16 @@ async function geocode(city) {
   }
 }
 
-export async function runWeather(actionId, args) {
+export async function runWeather(actionId: string, args: { latitude?: unknown; longitude?: unknown; city?: unknown } = {}) {
   if (actionId !== 'current') throw new Error(`Aksi weather tidak dikenal: ${actionId}`)
-  let { latitude, longitude, city } = args || {}
+  const { latitude: latIn, longitude: lonIn, city } = args || {}
+  let latitude = Number(latIn)
+  let longitude = Number(lonIn)
   if (city != null && city !== '') {
     const g = await geocode(String(city))
     latitude = g.latitude
     longitude = g.longitude
   }
-  latitude = Number(latitude)
-  longitude = Number(longitude)
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
     throw new Error('Butuh latitude+longitude angka, atau city.')
   }

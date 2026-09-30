@@ -7,37 +7,43 @@
 
 const RPC_TIMEOUT_MS = 20000
 
-const redactHeaders = (headers = {}) => {
-  const out = {}
+type HeadersLike =
+  | Record<string, string>
+  | (() => Promise<Record<string, string>>)
+  | { getHeaders?: () => Promise<Record<string, string>>; headers?: Record<string, string> | (() => Promise<Record<string, string>>); onAuthRetry?: () => Promise<Record<string, string>> }
+
+const redactHeaders = (headers: Record<string, string> = {}): Record<string, string> => {
+  const out: Record<string, string> = {}
   for (const [k, v] of Object.entries(headers)) {
     out[k] = /key|token|auth|secret|bearer/i.test(k) ? '[REDACTED]' : v
   }
   return out
 }
 
-async function resolveHeaders(headersOrOpts) {
+async function resolveHeaders(headersOrOpts: HeadersLike | null | undefined): Promise<Record<string, string>> {
   if (!headersOrOpts) return {}
   if (typeof headersOrOpts === 'function') {
     return (await headersOrOpts()) || {}
   }
   if (typeof headersOrOpts === 'object') {
-    if (typeof headersOrOpts.getHeaders === 'function') {
-      return (await headersOrOpts.getHeaders()) || {}
+    const opts = headersOrOpts as { getHeaders?: () => Promise<Record<string, string>>; headers?: Record<string, string> | (() => Promise<Record<string, string>>) }
+    if (typeof opts.getHeaders === 'function') {
+      return (await opts.getHeaders()) || {}
     }
-    if (headersOrOpts.headers) {
-      if (typeof headersOrOpts.headers === 'function') {
-        return (await headersOrOpts.headers()) || {}
+    if (opts.headers) {
+      if (typeof opts.headers === 'function') {
+        return (await opts.headers()) || {}
       }
-      return headersOrOpts.headers
+      return opts.headers
     }
   }
-  return headersOrOpts
+  return headersOrOpts as Record<string, string>
 }
 
-async function rpc(url, headersOrOpts, method, params = {}, retryCount = 0) {
+async function rpc(url: string, headersOrOpts: HeadersLike, method: string, params: Record<string, unknown> = {}, retryCount = 0): Promise<unknown> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(new Error(`Timeout ${RPC_TIMEOUT_MS / 1000}s ke MCP ${url}`)), RPC_TIMEOUT_MS)
-  let res
+  let res: Response
   const headers = await resolveHeaders(headersOrOpts)
   try {
     res = await fetch(url, {
@@ -51,37 +57,38 @@ async function rpc(url, headersOrOpts, method, params = {}, retryCount = 0) {
       signal: controller.signal
     })
   } catch (e) {
-    throw new Error(`MCP ${method} gagal (jaringan/timeout): ${e?.message || e}`)
+    throw new Error(`MCP ${method} gagal (jaringan/timeout): ${(e as Error)?.message || e}`)
   } finally {
     clearTimeout(timer)
   }
   if (!res.ok) {
-    if (res.status === 401 && retryCount === 0 && headersOrOpts?.onAuthRetry) {
+    const opts = headersOrOpts as { onAuthRetry?: () => Promise<Record<string, string>>; headers?: Record<string, string> }
+    if (res.status === 401 && retryCount === 0 && opts?.onAuthRetry) {
       try {
-        const freshHeaders = await headersOrOpts.onAuthRetry()
-        const nextOpts = {
-          ...headersOrOpts,
-          headers: freshHeaders || headersOrOpts.headers
+        const freshHeaders = await opts.onAuthRetry()
+        const nextOpts: HeadersLike = {
+          ...opts,
+          headers: freshHeaders || opts.headers
         }
         return await rpc(url, nextOpts, method, params, retryCount + 1)
       } catch (_) {}
     }
     const body = await res.text().catch(() => '')
-    const err = new Error(`MCP ${method} HTTP ${res.status}: ${body.slice(0, 200)}`)
+    const err = new Error(`MCP ${method} HTTP ${res.status}: ${body.slice(0, 200)}`) as Error & { status?: number; code?: string }
     err.status = res.status
     if (res.status === 401) err.code = 'MCP_UNAUTHORIZED'
     throw err
   }
   const ctype = res.headers.get('content-type') || ''
-  let payload
+  let payload: Record<string, any>
   if (ctype.includes('text/event-stream')) {
     // Streamable HTTP bisa membalas SSE: ambil frame data JSON terakhir.
     const text = await res.text()
     const frames = text
       .split('\n')
-      .filter((l) => l.startsWith('data:'))
-      .map((l) => l.slice(5).trim())
-      .filter((d) => d && d !== '[DONE]')
+      .filter((l: string) => l.startsWith('data:'))
+      .map((l: string) => l.slice(5).trim())
+      .filter((d: string) => d && d !== '[DONE]')
     if (frames.length === 0) throw new Error(`MCP ${method}: stream SSE kosong.`)
     try {
       payload = JSON.parse(frames[frames.length - 1])
@@ -101,7 +108,7 @@ async function rpc(url, headersOrOpts, method, params = {}, retryCount = 0) {
   return payload?.result
 }
 
-async function initialize(url, headersOrOpts) {
+async function initialize(url: string, headersOrOpts: HeadersLike) {
   const result = await rpc(url, headersOrOpts, 'initialize', {
     protocolVersion: '2024-11-05',
     capabilities: {},
@@ -128,29 +135,29 @@ async function initialize(url, headersOrOpts) {
 }
 
 /** Daftar tools server MCP (probe saat authorize). */
-export async function listMcpTools(url, headers = {}) {
+export async function listMcpTools(url: string, headers: HeadersLike = {}) {
   if (!/^https?:\/\//i.test(url || '')) throw new Error(`URL MCP harus http(s): '${url}'`)
   await initialize(url, headers)
-  const result = await rpc(url, headers, 'tools/list', {})
-  const tools = Array.isArray(result?.tools) ? result.tools : []
-  return tools.map((t) => ({
+  const result = (await rpc(url, headers, 'tools/list', {})) as { tools?: Array<Record<string, unknown>> } | undefined
+  const tools = Array.isArray(result?.tools) ? result!.tools! : []
+  return tools.map((t: Record<string, unknown>) => ({
     name: String(t.name || ''),
     description: String(t.description || ''),
     inputSchema: t.inputSchema || { type: 'object' }
-  })).filter((t) => t.name)
+  })).filter((t: { name: string }) => t.name)
 }
 
 /** Panggil satu tool MCP. Hasil dinormalkan ke teks. */
-export async function callMcpTool(url, headers = {}, toolName, args = {}) {
+export async function callMcpTool(url: string, headers: HeadersLike = {}, toolName: string, args: Record<string, unknown> = {}) {
   if (!toolName) throw new Error('Nama tool MCP kosong.')
   await initialize(url, headers)
-  const result = await rpc(url, headers, 'tools/call', {
+  const result = (await rpc(url, headers, 'tools/call', {
     name: toolName,
     arguments: args && typeof args === 'object' ? args : {}
-  })
-  const content = Array.isArray(result?.content) ? result.content : []
+  })) as { content?: Array<Record<string, any>> } | undefined
+  const content = Array.isArray(result?.content) ? result!.content! : []
   const texts = content
-    .map((c) => {
+    .map((c: Record<string, any>) => {
       if (typeof c?.text === 'string') return c.text
       if (c?.type === 'resource' && c?.resource?.text) return String(c.resource.text)
       return null

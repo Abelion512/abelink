@@ -5,8 +5,20 @@ import fs from 'fs/promises'
 import { spawn } from 'child_process'
 import { brandDir } from '../utils/dataHome.ts'
 
-let _google = null
-export async function getGoogle() {
+interface GoogleTokenStore {
+  access_token?: string
+  refresh_token?: string
+  expiry_date?: number
+  clientId?: string
+  clientSecret?: string
+  [key: string]: unknown
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type GoogleAny = any
+
+let _google: GoogleAny = null
+export async function getGoogle(): Promise<GoogleAny> {
   if (!_google) {
     const mod = await import('googleapis')
     _google = mod.google || mod.default?.google || mod.default
@@ -25,12 +37,12 @@ const SCOPES = [
   'https://www.googleapis.com/auth/gmail.modify'
 ]
 
-export async function saveTokens(tokens) {
+export async function saveTokens(tokens: GoogleTokenStore) {
   // 0600: OAuth token hanya boleh dibaca user (paritas connections.mjs).
   await fs.writeFile(TOKEN_PATH, JSON.stringify(tokens), { mode: 0o600 })
 }
 
-export async function getTokens() {
+export async function getTokens(): Promise<GoogleTokenStore | null> {
   try {
     const data = await fs.readFile(TOKEN_PATH, 'utf-8')
     return JSON.parse(data)
@@ -42,7 +54,7 @@ export async function getTokens() {
 /**
  * Validates and returns an authenticated OAuth2 client if tokens exist.
  */
-export async function getAuthClient(clientId, clientSecret) {
+export async function getAuthClient(clientId?: string, clientSecret?: string) {
   const tokens = await getTokens()
   if (!tokens) return null
 
@@ -60,7 +72,7 @@ export async function getAuthClient(clientId, clientSecret) {
   oAuth2Client.setCredentials(tokens)
 
   // Handle automatic token refresh
-  oAuth2Client.on('tokens', async (newTokens) => {
+  oAuth2Client.on('tokens', async (newTokens: GoogleTokenStore) => {
     const currentTokens = (await getTokens()) || {}
     // Only update if we received new tokens (sometimes refresh_token is not sent back)
     if (newTokens.refresh_token) {
@@ -91,21 +103,21 @@ export async function getValidGoogleToken({ forceRefresh = false } = {}) {
   // Needs refresh: attempt refresh if refresh_token and client credentials exist
   if (tokens.refresh_token && (tokens.clientId || tokens.clientSecret)) {
     try {
-      const client = await getAuthClient()
+      const client = await getAuthClient(tokens.clientId, tokens.clientSecret)
       if (client) {
         const res = await client.getAccessToken()
         return res?.token || tokens.access_token
       }
     } catch (e) {
-      console.warn('[Google] Gagal refresh access token:', e?.message || e)
+      console.warn('[Google] Gagal refresh access token:', (e as Error)?.message || e)
     }
   }
   return tokens.access_token
 }
 
-let currentAuthServer = null
+let currentAuthServer: http.Server | null = null
 
-export async function connectGoogle(clientId, clientSecret) {
+export async function connectGoogle(clientId?: string, clientSecret?: string) {
   const google = await getGoogle()
   const savedTokens = await getTokens().catch(() => null)
   const cleanId = (clientId || savedTokens?.clientId || process.env.GOOGLE_CLIENT_ID || '').trim()
@@ -120,11 +132,11 @@ export async function connectGoogle(clientId, clientSecret) {
       currentAuthServer = null
     }
 
-    let oAuth2Client = null
+    let oAuth2Client: GoogleAny = null
 
     const server = http.createServer(async (req, res) => {
       try {
-        if (req.url.indexOf('/oauth2callback') > -1) {
+        if (req.url && req.url.indexOf('/oauth2callback') > -1) {
           const qs = new url.URL(req.url, 'http://127.0.0.1').searchParams
           const code = qs.get('code')
           
@@ -199,6 +211,7 @@ export async function connectGoogle(clientId, clientSecret) {
           resolve(true)
         }
       } catch (e) {
+        const err = e as Error
         res.end(`
           <!DOCTYPE html>
           <html>
@@ -221,8 +234,8 @@ export async function connectGoogle(clientId, clientSecret) {
               <h1>Authentication Error</h1>
               <p>Something went wrong during the connection process.</p>
               <div class="error-box">
-                <strong>Error:</strong> ${e.message || String(e)}<br/><br/>
-                <strong>Stack:</strong><br/>${(e.stack || 'No stack').replace(/\n/g, '<br/>')}
+                <strong>Error:</strong> ${err.message || String(e)}<br/><br/>
+                <strong>Stack:</strong><br/>${(err.stack || 'No stack').replace(/\n/g, '<br/>')}
               </div>
             </div>
           </body>
@@ -241,7 +254,8 @@ export async function connectGoogle(clientId, clientSecret) {
 
     // listen(0) automatically finds an open, available port. Force IPv4 127.0.0.1 to avoid production IPv6 ::1 issues
     server.listen(0, '127.0.0.1', () => {
-      const port = server.address().port
+      const addr = server.address()
+      const port = typeof addr === 'object' && addr !== null ? addr.port : 0
       currentAuthServer = server
 
       // Now we know the exact port, initialize OAuth client
