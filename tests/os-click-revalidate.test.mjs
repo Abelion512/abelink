@@ -72,7 +72,7 @@ const {
   openPCSession,
   closePCSession,
   readDesktop
-} = await import('../sidecar/main/pc-agent.js')
+} = await import('../sidecar/main/pc-agent.ts')
 
 describe('matchElementText', () => {
   it('cocok substring', () => {

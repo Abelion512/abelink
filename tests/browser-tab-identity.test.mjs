@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterAll } from 'vitest'
-import { parseNavigateQuery } from '../sidecar/main/browser/nav-query.mjs'
+import { parseNavigateQuery } from '../sidecar/main/browser/nav-query.ts'
 import {
   ensureSession,
   dropSession,
@@ -9,7 +9,7 @@ import {
   getLastUrl,
   getFocusedTab,
   BROWSER_BRIDGE
-} from '../sidecar/main/browser/bridge-core.mjs'
+} from '../sidecar/main/browser/bridge-core.ts'
 
 describe('parseNavigateQuery', () => {
   it('default tidak adopt tab user', () => {

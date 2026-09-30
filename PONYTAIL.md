@@ -17,8 +17,8 @@
 | P-04 | `src/api/ai/playbooks.ts` | FIFO eviction 50 entri (bukan LRU) | Bila ada data hit-rate yang bilang LRU lebih baik |
 | P-05 | `src/api/ai/core.ts` | Satu skema kunci recent-cache untuk custom+lm-studio | Bila dua provider butuh skema kunci berbeda |
 | P-06 | `src/api/ai/agentDecision.ts` | Shared predicate, ceiling 1 challenge | Bila model terus gagal challenge → tambah retry terukur |
-| P-07 | `sidecar/main/services/gemini-web.js` | Rantai kata kunci tunggal (tanpa map per versi) | Bila versi model baru gagal resolve |
-| P-08 | `sidecar/main/browser/native-host.mjs` | Python literals wajib double-quote (batasan -c) | Bila migrasi dari `python -c` |
+| P-07 | `sidecar/main/services/gemini-web.ts` | Rantai kata kunci tunggal (tanpa map per versi) | Bila versi model baru gagal resolve |
+| P-08 | `sidecar/main/browser/native-host.ts` | Python literals wajib double-quote (batasan -c) | Bila migrasi dari `python -c` |
 | P-09 | `bin/abelink.mjs` + `bin/abelink-tui.mjs` | auto-mkdir workspace (cermin TUI) | Bila tool mulai validasi workspace sendiri |
 | P-10 | `tests/cli-tui-v2.test.mjs` | spawn + stdin.end (execFile `input:` hang di env ini) | Bila execFile bekerja di env CI baru |
 | P-11 | `scripts/bump-version.mjs` + `release-version.mjs` | regex footer, bukan parser Conventional-Commits penuh | Bila kasus commit nyata yang salah klasifikasi |

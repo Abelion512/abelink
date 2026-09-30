@@ -35,16 +35,16 @@ type WindowTrackerModule = {
 }
 
 const getPl = lazy(async () =>
-  (await import('../../main/plugins/plugin-loader.js')) as unknown as PluginLoaderModule
+  (await import('../../main/plugins/plugin-loader.ts')) as unknown as PluginLoaderModule
 )
 const getGsvc = lazy(async () =>
   (await import('../../main/google/google-service.js')) as unknown as GoogleServiceModule
 )
 const getWs = lazy(async () =>
-  (await import('../../main/workspace-rag.js')) as unknown as WorkspaceRagModule
+  (await import('../../main/workspace-rag.ts')) as unknown as WorkspaceRagModule
 )
 const getTracker = lazy(async () =>
-  (await import('../../main/awareness/window-tracker.js')) as unknown as WindowTrackerModule
+  (await import('../../main/awareness/window-tracker.ts')) as unknown as WindowTrackerModule
 )
 
 // ------------------------------------------------------- Plugins (fase B: tanpa Electron)
@@ -54,10 +54,10 @@ const getTracker = lazy(async () =>
 // argumen string legacy dibungkus {query} oleh manager.
 on('plugin:execute', async (action: unknown, query: unknown) => {
   try {
-    const { executeCapability } = await import('../../main/capabilities/manager.mjs')
-    const args =
+    const { executeCapability } = await import('../../main/capabilities/manager.ts')
+    const args: unknown =
       typeof query === 'string' ? { query } : query && typeof query === 'object' ? query : {}
-    const data = await executeCapability({ connectorId: 'plugin', actionId: String(action || ''), args })
+    const data = await executeCapability({ connectorId: 'plugin', actionId: String(action || ''), args } as Parameters<typeof executeCapability>[0])
     return { success: true, data }
   } catch (err) {
     return { success: false, error: (err as Error).message }

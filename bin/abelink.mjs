@@ -36,7 +36,7 @@ import {
 
 const { runAgentLoop } = await import('../src/api/ai/agentRunner.ts')
 const { evaluateHeadlessSecurity } = await import('../src/api/ai/headlessSecurity.ts')
-const { NATIVE_TOOLS } = await import('../sidecar/main/node-tools.js')
+const { NATIVE_TOOLS } = await import('../sidecar/main/node-tools.ts')
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { cleanAndParse } from '../src/api/ai/core.ts'
-import { cleanAndParse as cleanAndParseSidecar } from '../sidecar/main/ai-bridge.js'
+import { cleanAndParse as cleanAndParseSidecar } from '../sidecar/main/ai-bridge.ts'
 
 describe('cleanAndParse', () => {
   it('parse JSON murni', () => {

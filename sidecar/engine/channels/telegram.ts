@@ -17,7 +17,7 @@ type TelegramServiceModule = {
   sendProgress: (taskId: unknown, status: unknown, details: unknown, chatId: unknown) => Promise<unknown>
 }
 const getTg = lazy(async () =>
-  (await import('../../main/telegram/telegram-service.js')) as unknown as TelegramServiceModule
+  (await import('../../main/telegram/telegram-service.ts')) as unknown as TelegramServiceModule
 )
 
 // Config terakhir yang disinkronkan renderer — sumber tgAdminIds untuk broadcast.

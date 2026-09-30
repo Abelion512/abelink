@@ -12,7 +12,7 @@ import {
   stopTelegramBot,
   getConnectionStatus,
   sendAgentExecutionDone
-} from '../sidecar/main/telegram/telegram-service.js'
+} from '../sidecar/main/telegram/telegram-service.ts'
 
 const online = async () => {
   try {

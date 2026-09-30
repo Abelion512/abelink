@@ -1,6 +1,6 @@
 // cli/core/tool-hooks.mjs — H5 tool gateway hooks (pre/post tool).
 // Hermes H5: registry tool ada, tapi TANPA pre/post hook (bukti: grep
-// preTool|postTool|onToolCall di node-tools.js = kosong). Middleware ini
+// preTool|postTool|onToolCall di node-tools.ts = kosong). Middleware ini
 // choke point SATU untuk semua host headless (CLI + TUI v1 + TUI v2):
 //
 //   executeToolWithHooks(core, hooks, tool, query, ctx)

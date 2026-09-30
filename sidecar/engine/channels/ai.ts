@@ -7,8 +7,8 @@
 // type-only, runtime persis asli).
 import { on, handlers, emit, lazy, type HandlerResult } from '../registry.ts'
 import { setLatestConfig } from './telegram.ts'
-import { writeSharedConfig } from '../../main/shared-config.js'
-import { normalizeLegacyProviderConfig } from '../../main/legacy-provider-shim.mjs'
+import { writeSharedConfig } from '../../main/shared-config.ts'
+import { normalizeLegacyProviderConfig } from '../../main/legacy-provider-shim.ts'
 
 type AiBridgeModule = {
   fetchAI: (
@@ -35,10 +35,10 @@ type TgModule = {
 }
 
 const getAi = lazy(async () =>
-  (await import('../../main/ai-bridge.js')) as unknown as AiBridgeModule
+  (await import('../../main/ai-bridge.ts')) as unknown as AiBridgeModule
 )
 const getNt = lazy(async () =>
-  (await import('../../main/node-tools.js')) as unknown as NodeToolsModule
+  (await import('../../main/node-tools.ts')) as unknown as NodeToolsModule
 )
 
 // Daftarkan manual (bukan lewat on()) supaya bentuk frame sukses/gagal ke bridge
@@ -84,9 +84,9 @@ on('sync-config', async (rawConfig: unknown) => {
   // ~/.config/abelink/shared.json yang dibaca headlessCli.loadCliFileConfig.
   // Best-effort: kegagalan tulis TIDAK boleh menggagalkan sync GUI.
   try { writeSharedConfig(config) } catch { /* never break GUI sync */ }
-  const { setBrowserConfig } = await import('../../main/browser/bridge-core.mjs')
+  const { setBrowserConfig } = await import('../../main/browser/bridge-core.ts')
   setBrowserConfig({ autoCloseTabs: !!config?.browserAutoCloseTabs, autoLaunch: config?.browserAutoLaunch !== false })
-  const tgMod = (await import('../../main/telegram/telegram-service.js')) as unknown as TgModule
+  const tgMod = (await import('../../main/telegram/telegram-service.ts')) as unknown as TgModule
   if (
     config?.tgBotToken &&
     (config.tgBotToken as string).trim() &&
@@ -100,7 +100,7 @@ on('sync-config', async (rawConfig: unknown) => {
 // ------------------------------------------------------------- Native tools
 on('native-tool:execute', async (toolName: unknown, query: unknown, config: unknown) => {
   const { setTurnId, checkTaintGate, isTaintingTool, markTurnTainted } = await import(
-    '../../main/taint-gate.mjs'
+    '../../main/taint-gate.ts'
   )
   const cfg = config as { turnId?: string } | null | undefined
   if (cfg?.turnId) {

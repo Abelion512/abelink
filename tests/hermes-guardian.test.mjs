@@ -6,7 +6,7 @@ import {
   isDangerousCommand,
   classifyCommand,
   DANGEROUS_KEYWORDS
-} from '../sidecar/main/tools/_shared.mjs'
+} from '../sidecar/main/tools/_shared.ts'
 
 describe('hardline (auto-deny, tanpa approval)', () => {
   it('rm -rf ke root/home/sistem', () => {
@@ -117,7 +117,7 @@ describe('self-dir & sensitive-write protection (ala Hermes)', () => {
 
 describe('run-shell handler auto-deny hardline', () => {
   it('handler menolak hardline tanpa eksekusi', async () => {
-    const { shellTools } = await import('../sidecar/main/tools/shellTools.mjs')
+    const { shellTools } = await import('../sidecar/main/tools/shellTools.ts')
     const r = await shellTools['run-shell'].handler('rm -rf /', {})
     expect(r.success).toBe(false)
     expect(r.message).toMatch(/HARDLINE|hardline/i)

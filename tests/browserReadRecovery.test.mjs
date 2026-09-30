@@ -1,5 +1,5 @@
 // Tests: browser-read recovery proaktif (bukan lempar manual ke user).
-// Target: tryExtensionReadDom di sidecar/main/tools/browserTools.mjs.
+// Target: tryExtensionReadDom di sidecar/main/tools/browserTools.ts.
 // Kontrak: tidak ada sesi connected -> auto-launch bounded lalu retry read;
 // gagal -> null (caller memakai error machine-actionable). Tidak pernah throw.
 
@@ -8,8 +8,8 @@ import {
   tryExtensionReadDomForTest,
   NO_EXTENSION_HINT,
   launchBlockMessage
-} from '../sidecar/main/tools/browserTools.mjs'
-import { setLastUrl, getLastUrl, dropSession } from '../sidecar/main/browser/bridge-core.mjs'
+} from '../sidecar/main/tools/browserTools.ts'
+import { setLastUrl, getLastUrl, dropSession } from '../sidecar/main/browser/bridge-core.ts'
 
 const session = (id = 'default', connected = true) => ({ id, connected })
 

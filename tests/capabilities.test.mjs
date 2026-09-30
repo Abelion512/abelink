@@ -23,8 +23,8 @@ const {
   readAudit,
   getConnector,
   registerConnector
-} = await import('../sidecar/main/capabilities/manager.mjs')
-const { setDangerousOverride } = await import('../sidecar/main/capabilities/shell-tool.mjs')
+} = await import('../sidecar/main/capabilities/manager.ts')
+const { setDangerousOverride } = await import('../sidecar/main/capabilities/shell-tool.ts')
 
 describe('capability catalog & guides', () => {
   it('getConnector mengembalikan connector yang ada dan null yang tidak ada', () => {
@@ -291,7 +291,7 @@ describe('MCP transport (Streamable HTTP, server tiruan lokal)', () => {
   })
 
   it('mcp-client melakukan auto-retry jika menerima HTTP 401 dan onAuthRetry disediakan', async () => {
-    const { callMcpTool } = await import('../sidecar/main/capabilities/mcp-client.mjs')
+    const { callMcpTool } = await import('../sidecar/main/capabilities/mcp-client.ts')
     let attempts = 0
     const http = await import('node:http')
     const authServer = http.createServer((req, res) => {

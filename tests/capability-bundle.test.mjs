@@ -11,7 +11,7 @@ process.env.XDG_DATA_HOME = tmpRoot
 process.env.XDG_DOCUMENTS_DIR = path.join(tmpRoot, 'Documents')
 
 const { installBundle, listBundles, removeBundle } = await import(
-  '../sidecar/main/capabilities/bundles.mjs'
+  '../sidecar/main/capabilities/bundles.ts'
 )
 
 const BUNDLE_FILE = path.join(tmpRoot, 'abelink', 'capabilities', 'bundles.json')

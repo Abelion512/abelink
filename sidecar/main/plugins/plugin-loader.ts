@@ -1,0 +1,366 @@
+import fs from 'fs'
+import os from 'os'
+import path from 'path'
+import { execFile } from 'child_process'
+import util from 'util'
+
+import { isDev } from '../utils/dataHome.ts'
+
+const execFilePromise = util.promisify(execFile)
+
+let loadedPlugins: any = []
+let pluginHandlers: Record<string, any> = {}
+
+// Folder plugin: XDG documents (tanpa Electron). Bisa dioverride lewat env.
+// Namespace dev/prod: dev memakai 'Abelink Plugins-dev' agar plugin
+// eksperimental sesi dev tak terbaca instansi prod (lihat dev.sh).
+export const getPluginsDir = () => {
+  const docPath = process.env.XDG_DOCUMENTS_DIR || path.join(os.homedir(), 'Documents')
+  const folder = isDev() ? 'Abelink Plugins-dev' : 'Abelink Plugins'
+  const pluginDir = path.join(docPath, folder)
+  if (!fs.existsSync(pluginDir)) {
+    fs.mkdirSync(pluginDir, { recursive: true })
+  }
+  return pluginDir
+}
+
+// Cegah path traversal: nama plugin hanya boleh resolve di dalam folder plugins.
+const resolveContainedPluginPath = (name: any) => {
+  const root = getPluginsDir()
+  const p = path.resolve(root, String(name || ''))
+  if (p !== root && !p.startsWith(root + path.sep)) return null
+  return p
+}
+
+// Nama package npm yang diizinkan (opsional scope @org/pkg dan range versi),
+// plus blok karakter shell berbahaya sebagai lapisan kedua.
+const isValidNpmDependency = (d: any) =>
+  /^(@[a-zA-Z0-9][a-zA-Z0-9._-]*\/)?[a-zA-Z0-9][a-zA-Z0-9._-]*(@[a-zA-Z0-9^~><=*,.\s|-]+)?$/.test(d) &&
+  !/[;&|`$()<>"'\\]/.test(d)
+
+// Buka path di file manager: execFile TANPA shell, path sudah ter-kontinemen.
+const openInFileManager = (targetPath: any) => {
+  const contained = resolveContainedPluginPath(targetPath || '.')
+  if (!contained) return { success: false, message: 'Path plugin tidak valid.' }
+  execFile('xdg-open', [contained], (err) => {
+    if (err) console.error('[plugins] xdg-open gagal:', err.message)
+  })
+  return { success: true }
+}
+
+export const loadPlugins = async () => {
+  const pluginDir = getPluginsDir()
+  loadedPlugins = []
+  pluginHandlers = {}
+
+  const folders = fs
+    .readdirSync(pluginDir, { withFileTypes: true })
+    .filter((dirent) => dirent.isDirectory())
+    .map((dirent) => dirent.name)
+
+  for (const folder of folders) {
+    const pluginPath = path.join(pluginDir, folder)
+    const manifestPath = path.join(pluginPath, 'plugin.json')
+    const indexPath = path.join(pluginPath, 'index.js')
+
+    if (fs.existsSync(manifestPath) && fs.existsSync(indexPath)) {
+      try {
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
+
+        // Dynamic import (file://) dengan cache-busting timestamp agar selalu
+        // load file terbaru pas di-save (plugins CJS -> default = module.exports).
+        const moduleUrl = new URL(`file://${indexPath}`).href + '?t=' + Date.now()
+        const handler = await import(moduleUrl)
+
+        const indexContent = fs.readFileSync(indexPath, 'utf8')
+
+        manifest.folderPath = pluginPath
+
+        // Daftarkan semua action ke dictionary global HANYA JIKA plugin diaktifkan.
+        if (manifest.isEnabled !== false && manifest.actions && Array.isArray(manifest.actions)) {
+          manifest.actions.forEach((act: any) => {
+            // asumsikan handler di-export secara default
+            const defaultHandlers = handler.default as Record<string, any> | undefined
+            if (defaultHandlers && defaultHandlers[act.name]) {
+              pluginHandlers[act.name] = handler.default[act.name]
+            }
+
+            // Extract code from index.js for UI Editor
+            const searchStr1 = `'${act.name}': async ({ query }) => {`
+            const searchStr2 = `"${act.name}": async ({ query }) => {`
+            const searchStr3 = `${act.name}: async ({ query }) => {`
+
+            let startIdx = indexContent.indexOf(searchStr1)
+            if (startIdx === -1) startIdx = indexContent.indexOf(searchStr2)
+            if (startIdx === -1) startIdx = indexContent.indexOf(searchStr3)
+
+            if (startIdx !== -1) {
+              const len =
+                startIdx === indexContent.indexOf(searchStr1)
+                  ? searchStr1.length
+                  : startIdx === indexContent.indexOf(searchStr2)
+                    ? searchStr2.length
+                    : searchStr3.length
+              let i = startIdx + len
+              let openBrackets = 1
+              for (; i < indexContent.length; i++) {
+                if (indexContent[i] === '{') openBrackets++
+                if (indexContent[i] === '}') {
+                  openBrackets--
+                  if (openBrackets === 0) break
+                }
+              }
+
+              const rawCode = indexContent.substring(startIdx + len, i)
+              // remove 4 spaces indentation if present
+              act.code = rawCode
+                .split('\n')
+                .map((l) => (l.startsWith('    ') ? l.substring(4) : l))
+                .join('\n')
+                .trim()
+            }
+          })
+        }
+
+        loadedPlugins.push(manifest)
+      } catch (err: any) {
+        console.error(`Gagal load plugin ${folder}:`, err)
+      }
+    }
+  }
+  return loadedPlugins
+}
+
+export const getLoadedPlugins = () => loadedPlugins
+export const getPluginHandlers = () => pluginHandlers
+
+// Proyeksi manifes plugin ke CapabilityDescriptor (satu per action).
+// Pure + additive: tidak menyentuh loadPlugins/pluginExecute. Invalid -> [].
+const KNOWN_SCHEMA_TYPES = new Set(['string', 'number', 'integer', 'boolean', 'array', 'object', 'null'])
+const sanitizeDescriptorPart = (s: any) => String(s ?? '').toLowerCase().replace(/[^a-z0-9_-]/g, '-') || 'unnamed'
+
+export const pluginToDescriptors = (manifest: any) => {
+  try {
+    if (!manifest || typeof manifest !== 'object' || !manifest.name || !Array.isArray(manifest.actions)) return []
+    const plugin = sanitizeDescriptorPart(manifest.name)
+    const enabled = manifest.isEnabled !== false
+    return manifest.actions
+      .filter((act: any) => act && typeof act === 'object')
+      .map((act: any) => {
+        const params = act.parameters && typeof act.parameters === 'object' ? Object.keys(act.parameters) : []
+        const properties = params.length
+          ? Object.fromEntries(params.map((k) => {
+              const t = String(act.parameters[k] ?? '').toLowerCase()
+              return [k, { type: KNOWN_SCHEMA_TYPES.has(t) ? t : 'string' }]
+            }))
+          : { query: { type: 'string' } }
+        return {
+          id: `plugin:${plugin}:${sanitizeDescriptorPart(act.name)}`,
+          kind: 'plugin',
+          version: manifest.version ?? '1.0.0',
+          description: act.description ?? manifest.description ?? '',
+          inputSchema: { type: 'object', properties },
+          scopes: [],
+          guide: { steps: act.description ? [act.description] : [], examples: [] },
+          enabled,
+          source: { type: 'plugin', dir: manifest.folderPath || null }
+        }
+      })
+  } catch {
+    return []
+  }
+}
+
+// ---- Fungsi channel (didaftarkan engine.mjs; tanpa Electron IPC) ----
+
+export const pluginExecute = async (action: any, query: any) => {
+  if (pluginHandlers[action]) {
+    try {
+      const result = await pluginHandlers[action]({ query })
+      return { success: true, data: result }
+    } catch (err: any) {
+      return { success: false, error: err.message }
+    }
+  }
+  return { success: false, error: 'Action tidak ditemukan' }
+}
+
+export const pluginOpenFolder = () => openInFileManager('.')
+
+export const pluginOpenSpecificFolder = (targetPath: any) => openInFileManager(targetPath)
+
+export const pluginToggle = async (pluginName: any, isEnabled: any) => {
+  const pluginPath = resolveContainedPluginPath(pluginName)
+  if (!pluginPath) return { success: false, message: 'Nama plugin tidak valid.' }
+  const manifestPath = path.join(pluginPath, 'plugin.json')
+  if (fs.existsSync(manifestPath)) {
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
+    manifest.isEnabled = isEnabled
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2))
+    await loadPlugins()
+    return { success: true }
+  }
+  return { success: false, error: 'Plugin not found' }
+}
+
+export const pluginReload = async () => await loadPlugins()
+
+export const pluginCreate = async (payload: any) => {
+  try {
+    const { name, description, actions, isEdit } = payload
+    const kebabPluginName = name.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()
+
+    const pDir = getPluginsDir()
+    const newPluginDir = path.join(pDir, kebabPluginName)
+
+    if (!isEdit && fs.existsSync(newPluginDir)) {
+      return { success: false, error: 'Plugin dengan nama tersebut sudah ada' }
+    }
+
+    fs.mkdirSync(newPluginDir, { recursive: true })
+
+    const manifestActions = actions.map((act: any) => ({
+      name: act.name.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase(),
+      description: act.description,
+      triggerHint: act.triggerHint,
+      code: act.code,
+    }))
+
+    const manifest = {
+      name: kebabPluginName,
+      version: '1.0.0',
+      description: description,
+      dependencies: payload.dependencies ? payload.dependencies.split(',').map((d: any) => d.trim()).filter((d: any) => d) : [],
+      actions: manifestActions,
+    }
+
+    fs.writeFileSync(path.join(newPluginDir, 'plugin.json'), JSON.stringify(manifest, null, 2))
+
+    let codeTemplate = `module.exports = {\n`
+    actions.forEach((act: any, index: any) => {
+      const actionKebabName = act.name.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()
+      codeTemplate += `  '${actionKebabName}': async ({ query }) => {\n${act.code.split('\n').map((line: any) => '    ' + line).join('\n')}\n  }`
+      if (index < actions.length - 1) codeTemplate += `,\n`
+      else codeTemplate += `\n`
+    })
+    codeTemplate += `}`
+
+    fs.writeFileSync(path.join(newPluginDir, 'index.js'), codeTemplate)
+
+    // Install dependencies if specified
+    if (manifest.dependencies.length > 0) {
+      try {
+        // Tolak seluruh instalasi bila satu saja dependency tidak lolos validasi.
+        const invalidDeps = manifest.dependencies.filter((d: any) => !isValidNpmDependency(d))
+        if (invalidDeps.length > 0) {
+          return { success: false, error: 'Dependency npm tidak valid: ' + invalidDeps.join(', ') }
+        }
+        if (!fs.existsSync(path.join(newPluginDir, 'package.json'))) {
+          await execFilePromise('npm', ['init', '-y'], { cwd: newPluginDir, timeout: 120000 })
+        }
+        await execFilePromise(
+          'npm',
+          ['install', '--no-audit', '--no-fund', ...manifest.dependencies],
+          { cwd: newPluginDir, timeout: 120000 }
+        )
+      } catch (npmErr: any) {
+        console.error('Gagal install dependencies:', npmErr)
+        return { success: false, error: 'Gagal menginstall dependencies npm: ' + npmErr.message }
+      }
+    }
+
+    await loadPlugins()
+    return { success: true }
+  } catch (err: any) {
+    return { success: false, error: err.message }
+  }
+}
+
+export const pluginInstallFromGit = async (rawUrlOrShorthand: any) => {
+  let targetDir = null
+  try {
+    const input = String(rawUrlOrShorthand || '').trim()
+    if (!input) return { success: false, error: 'URL atau repository GitHub tidak boleh kosong' }
+
+    let cloneUrl = input
+    let repoName = ''
+
+    // Match "owner/repo" shorthand
+    if (/^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/.test(input)) {
+      cloneUrl = `https://github.com/${input}.git`
+      repoName = input.split('/')[1].replace(/\.git$/, '')
+    } else {
+      const match = input.match(/\/([^/]+?)(?:\.git)?$/)
+      repoName = match ? match[1] : `plugin-${Date.now()}`
+    }
+
+    const sanitizedName = repoName.replace(/[^a-zA-Z0-9_.-]/g, '-').toLowerCase()
+    const contained = resolveContainedPluginPath(sanitizedName)
+    if (!contained) return { success: false, error: 'Invalid plugin name.' }
+    targetDir = contained
+
+    if (fs.existsSync(targetDir)) {
+      const hasManifest = fs.existsSync(path.join(targetDir, 'plugin.json'))
+      const hasIndex = fs.existsSync(path.join(targetDir, 'index.js'))
+      if (!hasManifest || !hasIndex) {
+        return { success: false, error: `"${sanitizedName}" is not an Abelink plugin (missing plugin.json/index.js).` }
+      }
+      return { success: false, error: `Plugin "${sanitizedName}" sudah terpasang.` }
+    }
+
+    // Git clone --depth 1
+    await execFilePromise('git', ['clone', '--depth', '1', cloneUrl, targetDir], {
+      timeout: 120000
+    })
+
+    // Format check: cloned repo must be an Abelink plugin.
+    if (!fs.existsSync(path.join(targetDir, 'plugin.json')) || !fs.existsSync(path.join(targetDir, 'index.js'))) {
+      fs.rmSync(targetDir, { recursive: true, force: true })
+      targetDir = null
+      return { success: false, error: `"${sanitizedName}" is not an Abelink plugin (missing plugin.json/index.js).` }
+    }
+
+    // Auto install dependencies if package.json exists
+    const pkgPath = path.join(targetDir, 'package.json')
+    if (fs.existsSync(pkgPath)) {
+      try {
+        await execFilePromise('npm', ['install', '--no-audit', '--no-fund'], {
+          cwd: targetDir,
+          timeout: 180000
+        })
+      } catch (npmErr: any) {
+        console.warn('[plugins] npm install warning:', npmErr.message)
+      }
+    }
+
+    await loadPlugins()
+    // Jejak audit install plugin (fire-and-forget; audit tak boleh menggagalkan install).
+    import('../capabilities/connections.ts')
+      .then(({ appendAudit }) =>
+        appendAudit({ op: 'plugin.install-git', plugin: sanitizedName, url: cloneUrl, status: 'ok' })
+      )
+      .catch(() => {})
+    return { success: true, name: sanitizedName }
+  } catch (err: any) {
+    console.error('[plugins] pluginInstallFromGit gagal:', err)
+    if (targetDir) fs.rmSync(targetDir, { recursive: true, force: true })
+    return { success: false, error: err.message }
+  }
+}
+
+export const pluginDelete = async (pluginName: any) => {
+  try {
+    const pluginPath = resolveContainedPluginPath(pluginName)
+    if (!pluginPath) return { success: false, message: 'Nama plugin tidak valid.' }
+    if (fs.existsSync(pluginPath)) {
+      fs.rmSync(pluginPath, { recursive: true, force: true })
+      await loadPlugins()
+      return { success: true }
+    }
+    return { success: false, error: 'Plugin tidak ditemukan' }
+  } catch (err: any) {
+    return { success: false, error: err.message }
+  }
+}
+
+

@@ -5,7 +5,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import crypto from 'node:crypto'
-import { ensureNativeHost, NATIVE_HOST_NAME, NATIVE_HOST_NAME_DEV, EXTENSION_ID, resolveDataHome, hostNameForFlavor, hostDirFor } from '../sidecar/main/browser/native-host.mjs'
+import { ensureNativeHost, NATIVE_HOST_NAME, NATIVE_HOST_NAME_DEV, EXTENSION_ID, resolveDataHome, hostNameForFlavor, hostDirFor } from '../sidecar/main/browser/native-host.ts'
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..')
 const HOST = path.join(ROOT, 'extension', 'native-host', 'abelink-bridge-host.mjs')

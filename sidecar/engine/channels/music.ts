@@ -94,7 +94,7 @@ on('ping', () => 'pong')
 // take-screenshot                            -> Rust native `misc_take_screenshot`
 // browser:* -> engine/channels/browser.ts (Fase C3 Jalur A, target W1-4).
 // os:* (colon) -> engine/channels/os.ts (Fase B6: alias ke NATIVE_TOOLS dash
-// yang LIVE via pc-agent.js). JANGAN daftarkan stub di sini dua kali.
+// yang LIVE via pc-agent.ts). JANGAN daftarkan stub di sini dua kali.
 
 // ------------------------------------------------------- PC emergency stop
 // Ctrl+Shift+S (global shortcut, Rust) -> renderer -> channel ini.
@@ -102,7 +102,7 @@ on('ping', () => 'pong')
 // di-reset lewat os-control-open/os-ask berikutnya. TIDAK approval-gated —
 // justru jalur pemberhentian darurat, kebalikan dari aksi destruktif.
 on('os:emergency-stop', async () => {
-  const { triggerEmergencyStopExternal } = await import('../../main/pc-agent.js')
+  const { triggerEmergencyStopExternal } = await import('../../main/pc-agent.ts')
   const stopped = triggerEmergencyStopExternal()
   return { stopped, message: stopped ? 'Emergency stop dijalankan.' : 'Tidak ada sesi PC automation aktif.' }
 })

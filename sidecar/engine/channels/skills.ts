@@ -12,7 +12,7 @@
 import { on, emit } from '../registry.ts'
 import fs from 'fs'
 import path from 'path'
-import { brandDir } from '../../main/utils/dataHome.mjs'
+import { brandDir } from '../../main/utils/dataHome.ts'
 
 import os from 'os'
 

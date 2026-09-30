@@ -1,5 +1,5 @@
 // Child process untuk pengukuran MV3 (dipanggil scripts/mv3-keepalive-measure.mjs).
-// Menjalankan server bridge ASLI (sidecar/main/browser/server.mjs) di port
+// Menjalankan server bridge ASLI (sidecar/main/browser/server.ts) di port
 // internal, plus satu port admin kecil agar parent bisa:
 //   - start/stop bridge (simulasi sidecar hidup/mati = outage nyata),
 //   - drop session + regenerate token file (kasus terburuk token basi),
@@ -18,8 +18,8 @@ import {
   listSessions,
   getSession,
   dispatchCommand
-} from '../sidecar/main/browser/bridge-core.mjs'
-import { startBrowserBridge, stopBrowserBridge } from '../sidecar/main/browser/server.mjs'
+} from '../sidecar/main/browser/bridge-core.ts'
+import { startBrowserBridge, stopBrowserBridge } from '../sidecar/main/browser/server.ts'
 
 const ADMIN_PORT = Number(process.env.ABELINK_MV3_ADMIN_PORT || 49002)
 // Sink TCP untuk mode 'hold': accept koneksi tapi TIDAK PERNAH menjawab —

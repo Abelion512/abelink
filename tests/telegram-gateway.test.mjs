@@ -5,7 +5,7 @@ import {
   isAllowed,
   createTelegramGateway,
   resolveHeadlessTelegramEnabled,
-} from '../sidecar/main/telegram/gateway.mjs'
+} from '../sidecar/main/telegram/gateway.ts'
 
 const textUpdate = (over = {}) => ({
   message: {

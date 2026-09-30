@@ -28,7 +28,7 @@ import http from 'node:http'
 import 'fake-indexeddb/auto'
 
 import { runAgentTool } from '../src/hooks/agent/plan/agentTools.js'
-import { browserTools } from '../sidecar/main/tools/browserTools.mjs'
+import { browserTools } from '../sidecar/main/tools/browserTools.ts'
 import { subagentStore } from '../src/api/subagent/subagentStore.js'
 
 const PORT = 49791
@@ -102,7 +102,7 @@ const HTML = {
 }
 beforeAll(async () => {
   // Auto-launch browser OFF: jalur extension/launch bukan bagian bukti ini.
-  const { setBrowserConfig } = await import('../sidecar/main/browser/bridge-core.mjs')
+  const { setBrowserConfig } = await import('../sidecar/main/browser/bridge-core.ts')
   setBrowserConfig({ autoLaunch: false })
   await new Promise((resolve) => {
     server = http.createServer((req, res) => {

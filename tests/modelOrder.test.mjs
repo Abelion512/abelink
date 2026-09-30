@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { isFreeModelId, orderModelsPreferFree, selectNextModelInPool } from '../sidecar/main/ai-bridge.js'
+import { isFreeModelId, orderModelsPreferFree, selectNextModelInPool } from '../sidecar/main/ai-bridge.ts'
 
 describe('orderModelsPreferFree (urutan server dihormati, gratis duluan)', () => {
   it('mendeteksi id gratis ala OpenRouter', () => {

@@ -36,7 +36,7 @@ fs.mkdirSync(path.join(skillsDir, 'resep'), { recursive: true })
 fs.writeFileSync(path.join(skillsDir, 'resep', 'SKILL.md'), '# Resep\nlangkah 1')
 
 const { executeCapability, readAudit } = await import(
-  '../sidecar/main/capabilities/manager.mjs'
+  '../sidecar/main/capabilities/manager.ts'
 )
 
 describe('unified execute: plugin', () => {

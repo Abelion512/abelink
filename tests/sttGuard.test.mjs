@@ -12,7 +12,7 @@ import {
 } from '../src/api/sttGuard.ts'
 import { transcribeToEndpoint } from '../src/api/sttRouter.ts'
 import * as db from '../src/api/db.ts'
-import { resolveDataHome, brandDir } from '../sidecar/main/utils/dataHome.mjs'
+import { resolveDataHome, brandDir } from '../sidecar/main/utils/dataHome.ts'
 
 describe('isSpeechValid (pre-STT gate)', () => {
   it('menolak durasi vokal di bawah minimum', () => {

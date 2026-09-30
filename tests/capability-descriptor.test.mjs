@@ -5,7 +5,7 @@ import {
   normalizeDescriptor,
   toPromptLine,
   toGuide
-} from '../sidecar/main/capabilities/descriptor.mjs'
+} from '../sidecar/main/capabilities/descriptor.ts'
 
 const valid = {
   id: 'time',

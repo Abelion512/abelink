@@ -2,7 +2,7 @@
 // Kasus asal: opsi 'gemini-3.7-flash' di dropdown jatuh ke 3.6 tanpa efek;
 // tidak ada alias latest; mode PRO (3) hilang dari map.
 import { describe, it, expect } from 'vitest'
-import { resolveGeminiWebModel } from '../sidecar/main/services/gemini-web.js'
+import { resolveGeminiWebModel } from '../sidecar/main/services/gemini-web.ts'
 
 describe('alias latest + versi 2026', () => {
   it('gemini-latest -> mode 1 (Flash terbaru)', () => {

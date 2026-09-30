@@ -23,9 +23,9 @@ import {
   handshake,
   tokenOk,
   writeTokenFile,
-} from '../sidecar/main/browser/bridge-core.mjs'
-import { startBrowserBridge, stopBrowserBridge } from '../sidecar/main/browser/server.mjs'
-import { tryExtensionReadDomForTest } from '../sidecar/main/tools/browserTools.mjs'
+} from '../sidecar/main/browser/bridge-core.ts'
+import { startBrowserBridge, stopBrowserBridge } from '../sidecar/main/browser/server.ts'
+import { tryExtensionReadDomForTest } from '../sidecar/main/tools/browserTools.ts'
 
 const TEST_PORT = 49798
 const S = 'audit-verify'
@@ -72,7 +72,7 @@ afterAll(async () => {
   // menunjuk ke path tmp. Install ulang dengan env asli agar manifest
   // kembali menunjuk ke data home prod yang benar.
   try {
-    const { ensureNativeHost } = await import('../sidecar/main/browser/native-host.mjs')
+    const { ensureNativeHost } = await import('../sidecar/main/browser/native-host.ts')
     await ensureNativeHost({ flavor: 'prod' })
   } catch {}
   try {
@@ -280,7 +280,7 @@ describe('RC3: startError tidak lagi latch (anti-latch + stop-reset)', () => {
     const script = `
       import http from 'node:http'
       const { startBrowserBridge, stopBrowserBridge, bridgeReady } = await import(${JSON.stringify(
-        pathToFileURL(path.resolve('sidecar/main/browser/server.mjs')).href
+        pathToFileURL(path.resolve('sidecar/main/browser/server.ts')).href
       )})
       const PORT = ${TEST_PORT - 1}
       // Fase 1: port diblokir -> start gagal EADDRINUSE.

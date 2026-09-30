@@ -1,12 +1,12 @@
 // Tests: verifikasi teks anti-stale-ID pada browser-click.
 // Target: parseClickTarget + elementTextMatches di
-// sidecar/main/tools/browserTools.mjs (pure, tanpa browser sungguhan;
+// sidecar/main/tools/browserTools.ts (pure, tanpa browser sungguhan;
 // actionFn di extension/background.js berjalan di konteks halaman sehingga
 // logika pencocokannya di-mirror ke elementTextMatches agar unit-testable).
 // Kontrak query: `akN` (jalur lama) atau `akN||teks-yang-diharapkan`.
 
 import { describe, it, expect } from 'vitest'
-import { parseClickTarget, elementTextMatches } from '../sidecar/main/tools/browserTools.mjs'
+import { parseClickTarget, elementTextMatches } from '../sidecar/main/tools/browserTools.ts'
 
 // Duck-type pengganti DOM Element (actionFn memakai innerText.slice(0,120),
 // getAttribute('aria-label'), dan value).

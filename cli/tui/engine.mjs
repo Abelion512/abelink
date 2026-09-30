@@ -512,7 +512,7 @@ export async function defaultRunTurn(state, prompt, deps = {}) {
     const { runAgentLoop } = await import('../../src/api/ai/agentRunner.ts')
     const { evaluateHeadlessSecurity } = await import('../../src/api/ai/headlessSecurity.ts')
     const headless = await import('../../src/api/ai/headlessCli.ts').catch(() => ({}))
-    const { NATIVE_TOOLS } = await import('../../sidecar/main/node-tools.js')
+    const { NATIVE_TOOLS } = await import('../../sidecar/main/node-tools.ts')
     const sidecar = deps.sidecar || null
     const auth = deps.auth || {}
 

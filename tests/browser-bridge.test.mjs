@@ -30,7 +30,7 @@ import {
   tokenPathFor,
   flavorFromPort,
   STATUS_ICON
-} from '../sidecar/main/browser/bridge-core.mjs'
+} from '../sidecar/main/browser/bridge-core.ts'
 
 const S = 'test-session'
 // Token TIDAK di-cache lintas test: beforeEach membuat ulang sesi sehingga

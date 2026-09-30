@@ -18,7 +18,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
-import { brandDir } from '../sidecar/main/utils/dataHome.mjs'
+import { brandDir } from '../sidecar/main/utils/dataHome.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
@@ -322,7 +322,7 @@ function defaultSpawnFn({ argv, env }) {
 async function defaultDeliverFn({ job, reply, outcome }) {
   if (job?.delivery?.platform === 'telegram' && job?.delivery?.target) {
     try {
-      const svc = await import('../sidecar/main/telegram/telegram-service.js')
+      const svc = await import('../sidecar/main/telegram/telegram-service.ts')
       if (typeof svc.sendTelegramMessage === 'function') {
         const res = await svc.sendTelegramMessage(job.delivery.target, String(reply || outcome).slice(0, 4000))
         if (res?.success) return { delivered: true, platform: 'telegram' }

@@ -17,7 +17,7 @@ import path from 'node:path'
 // Sumber TUNGGAL data-home (helper sidecar yang sudah ter-test oleh
 // dataHome.test.mjs / sttGuard.test.mjs): ABELINK_DATA_HOME (trim) > XDG >
 // ~/.local/share. harness-writer hanya menambah brand + subpath harness.
-import { resolveDataHome } from '../../sidecar/main/utils/dataHome.mjs'
+import { resolveDataHome } from '../../sidecar/main/utils/dataHome.ts'
 
 const MAX_FILE_BYTES = 50 * 1024 * 1024 // 50MB — batas jujur, sejajar Rust
 const MAX_LINE_CHARS = 256 * 1024 // sejajar MAX_LINE_CHARS Rust
