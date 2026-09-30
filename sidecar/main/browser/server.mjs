@@ -27,7 +27,7 @@ import {
   flavorFromPort
 } from './bridge-core.mjs'
 import { EXTENSION_ID } from './native-host.mjs'
-import { brandDir } from '../utils/dataHome.mjs'
+import { brandDir } from '../utils/dataHome.ts'
 
 const MAX_BODY = 1024 * 1024 // 1MB — hasil read-dom jauh di bawah ini (dipotong di core)
 

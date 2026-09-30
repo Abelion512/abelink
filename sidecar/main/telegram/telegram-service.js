@@ -3,7 +3,7 @@ import path from 'path'
 import os from 'os'
 import { fileURLToPath } from 'url'
 import { getGlobalConfig, abortAllFetches, activeAbortControllers } from '../ai-bridge.js'
-import { isDev } from '../utils/dataHome.mjs'
+import { isDev } from '../utils/dataHome.ts'
 import { createTelegramGateway, resolveHeadlessTelegramEnabled } from './gateway.mjs'
 
 // Jalur headless (adopsi Hermes H9, M0/B-6). Runner di-inject agar M5 bisa

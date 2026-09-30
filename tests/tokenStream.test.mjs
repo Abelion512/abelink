@@ -3,7 +3,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { assembleStreamChunks, __aiBridgeTest } from '../sidecar/main/ai-bridge.js'
-import { __geminiWebTest } from '../sidecar/main/services/gemini-web.js'
+import { __geminiWebTest } from '../sidecar/main/services/gemini-web.ts'
 
 const { extractGeminiText, diffStreamText } = __geminiWebTest
 

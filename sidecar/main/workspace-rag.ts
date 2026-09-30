@@ -20,7 +20,7 @@ const isDevEnv = () =>
   process.env.NODE_ENV === 'development' ||
   process.env.ABELINK_DEV === '1'
 
-export function getWorkspaceDir(workspaceRoot) {
+export function getWorkspaceDir(workspaceRoot: string): string | null {
   if (!workspaceRoot) return null
   if (fs.existsSync(path.join(workspaceRoot, '.abelink-dev'))) {
     return path.join(workspaceRoot, '.abelink-dev')
@@ -38,9 +38,10 @@ export function getWorkspaceDir(workspaceRoot) {
 /**
  * Memastikan folder workspace metadata (.abelink / .abelink-dev) ada dan mendaftarkannya ke .gitignore
  */
-export function ensureAbelinkWorkspace(workspaceRoot) {
+export function ensureAbelinkWorkspace(workspaceRoot: string): string | null {
   if (!workspaceRoot || !fs.existsSync(workspaceRoot)) return null
   const targetDir = getWorkspaceDir(workspaceRoot)
+  if (!targetDir) return null
   const dirName = path.basename(targetDir)
 
   try {
@@ -74,7 +75,7 @@ export function ensureAbelinkWorkspace(workspaceRoot) {
 
     return targetDir
   } catch (err) {
-    console.error('[WorkspaceRAG] ensureAbelinkWorkspace error:', err.message)
+    console.error('[WorkspaceRAG] ensureAbelinkWorkspace error:', (err as Error).message)
     return null
   }
 }
@@ -82,16 +83,17 @@ export function ensureAbelinkWorkspace(workspaceRoot) {
 /**
  * Membaca Working Memory aktif dari .abelink/working-memory.json
  */
-export function readWorkingMemory(workspaceRoot) {
+export function readWorkingMemory(workspaceRoot: string): Record<string, unknown> | null {
   if (!workspaceRoot) return null
   try {
     const targetDir = getWorkspaceDir(workspaceRoot)
+    if (!targetDir) return null
     const memoryPath = path.join(targetDir, 'working-memory.json')
     if (fs.existsSync(memoryPath)) {
       return JSON.parse(fs.readFileSync(memoryPath, 'utf-8'))
     }
   } catch (err) {
-    console.error('[WorkspaceRAG] readWorkingMemory error:', err.message)
+    console.error('[WorkspaceRAG] readWorkingMemory error:', (err as Error).message)
   }
   return null
 }
@@ -99,7 +101,7 @@ export function readWorkingMemory(workspaceRoot) {
 /**
  * Menyimpan Working Memory ke working-memory.json
  */
-export function saveWorkingMemory(workspaceRoot, memoryData) {
+export function saveWorkingMemory(workspaceRoot: string, memoryData: Record<string, unknown>): boolean {
   if (!workspaceRoot || !memoryData) return false
   try {
     const targetDir = ensureAbelinkWorkspace(workspaceRoot)
@@ -114,7 +116,7 @@ export function saveWorkingMemory(workspaceRoot, memoryData) {
     fs.writeFileSync(memoryPath, JSON.stringify(updated, null, 2), 'utf-8')
     return true
   } catch (err) {
-    console.error('[WorkspaceRAG] saveWorkingMemory error:', err.message)
+    console.error('[WorkspaceRAG] saveWorkingMemory error:', (err as Error).message)
     return false
   }
 }
@@ -122,14 +124,14 @@ export function saveWorkingMemory(workspaceRoot, memoryData) {
 /**
  * Menghitung hash MD5 untuk deteksi perubahan berkas
  */
-function getFileHash(content) {
+function getFileHash(content: string): string {
   return crypto.createHash('md5').update(content).digest('hex')
 }
 
 /**
  * Memecah teks berkas menjadi chunk 600 karakter dengan 100 overlap
  */
-function chunkFileContent(filePath, content, relativePath) {
+function chunkFileContent(filePath: string, content: string, relativePath: string) {
   const chunks = []
   const chunkSize = 600
   const overlap = 100
@@ -169,7 +171,7 @@ function chunkFileContent(filePath, content, relativePath) {
 /**
  * Memindai dan mengindeks seluruh berkas kode proyek ke .abelink/codebase-index.json secara inkremental
  */
-export async function indexWorkspace(workspaceRoot) {
+export async function indexWorkspace(workspaceRoot: string) {
   if (!workspaceRoot || !fs.existsSync(workspaceRoot)) {
     return { success: false, error: 'Workspace root tidak ditemukan.' }
   }
@@ -178,7 +180,7 @@ export async function indexWorkspace(workspaceRoot) {
   if (!abelinkDir) return { success: false, error: 'Gagal menginisialisasi folder .abelink' }
 
   const indexPath = path.join(abelinkDir, 'codebase-index.json')
-  let existingIndex = { files: {}, chunks: [], lastIndexed: 0 }
+  let existingIndex: { files: Record<string, { mtime?: number; hash?: string }>; chunks: Array<Record<string, unknown> & { filePath?: string }>; lastIndexed: number } = { files: {}, chunks: [], lastIndexed: 0 }
 
   if (fs.existsSync(indexPath)) {
     try {
@@ -186,11 +188,11 @@ export async function indexWorkspace(workspaceRoot) {
     } catch (_) {}
   }
 
-  const newFilesMap = {}
-  const allChunks = []
+  const newFilesMap: Record<string, unknown> = {}
+  const allChunks: Record<string, unknown>[] = []
   let indexedCount = 0
 
-  function scanDir(dir) {
+  function scanDir(dir: string) {
     let entries
     try {
       entries = fs.readdirSync(dir, { withFileTypes: true })
@@ -267,14 +269,14 @@ export async function indexWorkspace(workspaceRoot) {
       indexedCount
     }
   } catch (err) {
-    return { success: false, error: err.message }
+    return { success: false, error: (err as Error).message }
   }
 }
 
 /**
  * Mencari potongan kode yang paling relevan dari .abelink/codebase-index.json
  */
-export function queryCodebase(workspaceRoot, queryText, topK = 4) {
+export function queryCodebase(workspaceRoot: string, queryText: string, topK = 4) {
   if (!workspaceRoot || !queryText) return []
   const targetDir = getWorkspaceDir(workspaceRoot)
   if (!targetDir) return []
@@ -320,7 +322,7 @@ export function queryCodebase(workspaceRoot, queryText, topK = 4) {
     scored.sort((a, b) => b.score - a.score)
     return scored.slice(0, topK)
   } catch (err) {
-    console.error('[WorkspaceRAG] queryCodebase error:', err.message)
+    console.error('[WorkspaceRAG] queryCodebase error:', (err as Error).message)
     return []
   }
 }

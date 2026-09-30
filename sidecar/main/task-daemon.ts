@@ -1,18 +1,30 @@
-import { spawn } from 'child_process'
+import { spawn, type ChildProcess } from 'child_process'
 
-const activeTasks = new Map()
+interface TaskState {
+  id: string
+  command: string
+  pid: number | undefined
+  outputBuffer: string[]
+  status: string
+  startedAt: number
+  process: ChildProcess
+  exitCode?: number | null
+  error?: string
+}
+
+const activeTasks = new Map<string, TaskState>()
 
 // Retensi: simpan maksimal 20 entri task yang sudah selesai supaya Map tidak tumbuh tanpa batas.
 const MAX_FINISHED_TASKS = 20
 // Status terminal; task berstatus lain (mis. running) tidak pernah dibersihkan.
 const FINISHED_STATUSES = ['completed', 'failed', 'killed', 'error']
-let reapTimer = null
+let reapTimer: ReturnType<typeof setTimeout> | null = null
 
-const isFinishedStatus = (status) => FINISHED_STATUSES.includes(status)
+const isFinishedStatus = (status: string) => FINISHED_STATUSES.includes(status)
 
 // Map mempertahankan urutan insertion, jadi iterasi pertama = entri selesai tertua.
 function reapOldestFinishedTasks() {
-  const finishedIds = []
+  const finishedIds: string[] = []
   for (const [id, task] of activeTasks.entries()) {
     if (isFinishedStatus(task.status)) finishedIds.push(id)
   }
@@ -37,7 +49,7 @@ function scheduleFinishedTaskReap() {
 /**
  * Menjalankan background terminal task secara non-blocking
  */
-export function spawnBackgroundTask(taskId, command, cwd) {
+export function spawnBackgroundTask(taskId: string, command: string, cwd?: string) {
   if (!taskId || !command) {
     return { success: false, message: 'TaskId dan command wajib diisi.' }
   }
@@ -50,7 +62,7 @@ export function spawnBackgroundTask(taskId, command, cwd) {
     cwd: cwd || process.cwd()
   })
 
-  const taskState = {
+  const taskState: TaskState = {
     id: taskId,
     command,
     pid: child.pid,
@@ -75,7 +87,7 @@ export function spawnBackgroundTask(taskId, command, cwd) {
     }
   })
 
-  child.on('close', (code) => {
+  child.on('close', (code: number | null) => {
     taskState.status = code === 0 ? 'completed' : 'failed'
     taskState.exitCode = code
     scheduleFinishedTaskReap()
@@ -99,7 +111,7 @@ export function spawnBackgroundTask(taskId, command, cwd) {
 /**
  * Membaca output log terbaru dari background task
  */
-export function readBackgroundTaskOutput(taskId, lineCount = 40) {
+export function readBackgroundTaskOutput(taskId: string, lineCount = 40) {
   const task = activeTasks.get(taskId)
   if (!task) return { success: false, message: `Task '${taskId}' tidak ditemukan.` }
 
@@ -116,7 +128,7 @@ export function readBackgroundTaskOutput(taskId, lineCount = 40) {
 /**
  * Menghentikan background task
  */
-export function killBackgroundTask(taskId) {
+export function killBackgroundTask(taskId: string) {
   const task = activeTasks.get(taskId)
   if (!task) return { success: false, message: `Task '${taskId}' tidak ditemukan.` }
 
@@ -136,7 +148,7 @@ export function killBackgroundTask(taskId) {
  * Mendapatkan daftar seluruh background tasks yang aktif
  */
 export function listBackgroundTasks() {
-  const list = []
+  const list: Array<{ taskId: string; command: string; pid: number | undefined; status: string; startedAt: number }> = []
   for (const [id, t] of activeTasks.entries()) {
     list.push({
       taskId: id,

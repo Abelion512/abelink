@@ -2,8 +2,8 @@
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
-import { validateFileSyntax } from '../syntax-validator.js'
-import { assertContained } from '../utils/fsGuard.js'
+import { validateFileSyntax } from '../syntax-validator.ts'
+import { assertContained } from '../utils/fsGuard.ts'
 import { getWorkspaceDir } from './_shared.mjs'
 
 export const fsTools = {

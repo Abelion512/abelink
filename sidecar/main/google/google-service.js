@@ -3,7 +3,7 @@ import url from 'url'
 import path from 'path'
 import fs from 'fs/promises'
 import { spawn } from 'child_process'
-import { brandDir } from '../utils/dataHome.mjs'
+import { brandDir } from '../utils/dataHome.ts'
 
 let _google = null
 export async function getGoogle() {

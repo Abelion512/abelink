@@ -246,7 +246,7 @@ describe('headlessCli — loadCliFileConfig', () => {
 
 describe('sidecar shared-config — snapshot GUI untuk CLI/TUI', () => {
   it('menulis hanya field AI (0600) + merge, never-throw', async () => {
-    const { writeSharedConfig, readSharedConfig, pickSharedAiConfig } = await import('../sidecar/main/shared-config.js')
+    const { writeSharedConfig, readSharedConfig, pickSharedAiConfig } = await import('../sidecar/main/shared-config.ts')
     const home = fs.mkdtempSync(path.join(os.tmpdir(), 'abelink-shared-'))
     // Field non-AI (token telegram) TIDAK boleh ikut bocor ke file.
     const picked = pickSharedAiConfig({ aiProvider: 'custom', customModel: 'm', tgBotToken: 'SECRET' })

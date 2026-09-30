@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import path from 'path'
-import { resolveDataHome, brandDir, isDev } from '../sidecar/main/utils/dataHome.mjs'
+import { resolveDataHome, brandDir, isDev } from '../sidecar/main/utils/dataHome.ts'
 import { harnessRoot, parseArgs } from '../scripts/harness-common.mjs'
 
 describe('dataHome.mjs contracts', () => {

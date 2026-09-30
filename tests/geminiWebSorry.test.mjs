@@ -19,7 +19,7 @@ delete process.env.ABELINK_DATA_HOME
 
 const { describe, it, expect } = await import('vitest')
 const { generateGeminiResponse, __geminiWebTest } = await import(
-  '../sidecar/main/services/gemini-web.js'
+  '../sidecar/main/services/gemini-web.ts'
 )
 
 const SORRY_HTML =

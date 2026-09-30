@@ -4,7 +4,7 @@ import path from 'path'
 import { execFile } from 'child_process'
 import util from 'util'
 
-import { isDev } from '../utils/dataHome.mjs'
+import { isDev } from '../utils/dataHome.ts'
 
 const execFilePromise = util.promisify(execFile)
 

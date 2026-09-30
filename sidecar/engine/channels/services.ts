@@ -41,10 +41,10 @@ const getGsvc = lazy(async () =>
   (await import('../../main/google/google-service.js')) as unknown as GoogleServiceModule
 )
 const getWs = lazy(async () =>
-  (await import('../../main/workspace-rag.js')) as unknown as WorkspaceRagModule
+  (await import('../../main/workspace-rag.ts')) as unknown as WorkspaceRagModule
 )
 const getTracker = lazy(async () =>
-  (await import('../../main/awareness/window-tracker.js')) as unknown as WindowTrackerModule
+  (await import('../../main/awareness/window-tracker.ts')) as unknown as WindowTrackerModule
 )
 
 // ------------------------------------------------------- Plugins (fase B: tanpa Electron)

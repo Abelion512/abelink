@@ -1,11 +1,11 @@
 // Connector plugin: berkas DI DALAM workspace abelink (XDG data dir).
-// Kontainmen path lewat utils/fsGuard.js — persis konvensi node-tools.js.
+// Kontainmen path lewat utils/fsGuard.ts — persis konvensi node-tools.js.
 // Baca: teks saja, maks 2MB, tampil 400 baris awal (hemat konteks LLM).
 
 import fs from 'fs'
 import path from 'path'
-import { assertContained } from '../utils/fsGuard.js'
-import { brandDir } from '../utils/dataHome.mjs'
+import { assertContained } from '../utils/fsGuard.ts'
+import { brandDir } from '../utils/dataHome.ts'
 
 const MAX_READ_BYTES = 2 * 1024 * 1024
 const MAX_READ_LINES = 400

@@ -18,7 +18,7 @@ import { isProviderAuthorized, getValidToken } from './oauth-provider.mjs'
 import { validateArgs } from './validation.mjs'
 import fs from 'fs'
 import path from 'path'
-import { brandDir } from '../utils/dataHome.mjs'
+import { brandDir } from '../utils/dataHome.ts'
 
 export { listConnectors, getConnector, getActionGuide, readAudit, registerConnector, isProviderAuthorized, getValidToken }
 

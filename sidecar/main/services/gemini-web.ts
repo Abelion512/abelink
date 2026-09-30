@@ -38,11 +38,11 @@ const persistCooldown = () => {
 // 3=Pro, 4=Auto, 5=Thinking-lite, 6=Flash-lite. Nama model = label lokal.
 // ponytail: satu rantai kata kunci, tanpa map per versi (nama baru otomatis
 // mode Flash; yang tak dikenal pun = mode 1).
-const modeEntry = (mode, think, name) => ({ mode, think, name, desc: '' })
+const modeEntry = (mode: number, think: number, name: string) => ({ mode, think, name, desc: '' })
 
 // ponytail: map per-model dihapus — resolver kata kunci di bawah satu-satunya
 // sumber kebenaran. Nama export dipertahankan untuk kompatibilitas (`{}`).
-export const GEMINI_WEB_MODELS = {}
+export const GEMINI_WEB_MODELS: Record<string, never> = {}
 
 const DEFAULT_BL = 'boq_assistant-bard-web-server_20260730.01_p1'
 
@@ -64,7 +64,7 @@ const sorryError = (retryAfterMs = 0) => {
     retryAfterMs > 0
       ? ` Coba lagi dalam ${Math.max(1, Math.ceil(retryAfterMs / 60000))} menit, atau ganti provider di Configuration > Model.`
       : ' Tunggu 1-2 menit lalu coba lagi, atau ganti provider di Configuration > Model.'
-  const e = new Error('Gemini Web dibatasi Google (halaman verifikasi / rate-limit).' + wait)
+  const e = new Error('Gemini Web dibatasi Google (halaman verifikasi / rate-limit).' + wait) as Error & { code?: string; retryAfterMs?: number }
   e.code = 'GEMINI_WEB_LIMITED'
   e.retryAfterMs = retryAfterMs
   return e
@@ -93,7 +93,7 @@ export const __geminiWebTest = {
 // Muat ingatan blokir saat modul pertama diimpor (proses sidecar baru).
 loadPersistedCooldown()
 
-export function resolveGeminiWebModel(modelName) {
+export function resolveGeminiWebModel(modelName: unknown) {
   // Kata kunci -> mode 1-6, tak dikenal -> mode 1 (flash).
   const req = String(modelName || 'gemini-latest').toLowerCase()
   if (req.includes('thinking-lite')) return modeEntry(5, 0, req)
@@ -104,7 +104,13 @@ export function resolveGeminiWebModel(modelName) {
   return modeEntry(1, 4, req)
 }
 
-function httpPost(urlStr, headers, bodyData, timeoutMs = 120000, onData = null) {
+function httpPost(
+  urlStr: string,
+  headers: Record<string, string>,
+  bodyData: string,
+  timeoutMs = 120000,
+  onData: ((piece: string) => void) | null = null
+): Promise<string> {
   return new Promise((resolve, reject) => {
     const parsedUrl = new URL(urlStr)
     const options = {
@@ -116,7 +122,7 @@ function httpPost(urlStr, headers, bodyData, timeoutMs = 120000, onData = null) 
     }
     const req = https.request(options, (res) => {
       let data = ''
-      res.on('data', (chunk) => {
+      res.on('data', (chunk: Buffer) => {
         const text = chunk.toString()
         data += text
         try {
@@ -134,12 +140,15 @@ function httpPost(urlStr, headers, bodyData, timeoutMs = 120000, onData = null) 
   })
 }
 
-function findRc(arr) {
+type JsonValue = unknown
+
+function findRc(arr: JsonValue): JsonValue {
   if (!Array.isArray(arr)) return null
-  if (arr[0] && typeof arr[0] === 'string' && arr[0].startsWith('rc_')) {
-    return arr[1][0]
+  const a = arr as JsonValue[]
+  if (a[0] && typeof a[0] === 'string' && (a[0] as string).startsWith('rc_')) {
+    return (a[1] as JsonValue[])?.[0] ?? null
   }
-  for (const item of arr) {
+  for (const item of a) {
     const res = findRc(item)
     if (res) return res
   }
@@ -150,15 +159,15 @@ function findRc(arr) {
 // Dipakai jawaban final SEKALIGUS incremental streaming (buffer parsial ->
 // delta vs teks terakhir yang sudah di-emit). Function declaration (hoisted)
 // agar __geminiWebTest di atas bisa mereferensikannya tanpa TDZ.
-export function extractGeminiText(rawText = '') {
+export function extractGeminiText(rawText = ''): string {
   let best = ''
   for (const line of String(rawText).split('\n')) {
     if (line.trim().startsWith('[["wrb.fr"')) {
       try {
-        const parsed = JSON.parse(line.trim())
-        const innerStr = parsed[0][2]
+        const parsed = JSON.parse(line.trim()) as unknown[]
+        const innerStr = (parsed?.[0] as unknown[])?.[2]
         if (innerStr) {
-          const text = findRc(JSON.parse(innerStr))
+          const text = findRc(JSON.parse(String(innerStr)))
           if (typeof text === 'string' && text.length > best.length) {
             best = text
           }
@@ -170,20 +179,25 @@ export function extractGeminiText(rawText = '') {
 }
 
 // Murni: porsi teks yang belum di-emit (kasus umum = prefix tumbuh).
-export function diffStreamText(prev = '', cur = '') {
+export function diffStreamText(prev = '', cur = ''): string {
   const p = String(prev)
   const c = String(cur)
   if (!c || c === p) return ''
   return c.startsWith(p) ? c.slice(p.length) : c
 }
 
+interface GeminiTokenPayload {
+  text: string
+  done: boolean
+}
+
 export async function generateGeminiResponse(
-  prompt,
+  prompt: string,
   modelName = 'gemini-latest',
   cookie = '',
-  bl = DEFAULT_BL,
-  onToken = null
-) {
+  bl: string = DEFAULT_BL,
+  onToken: ((payload: GeminiTokenPayload) => void) | null = null
+): Promise<string> {
   // Gagal-cepat selama cooldown blokir (tanpa menghantam Google lagi).
   // Cooldown dibaca ulang dari file: proses sidecar lain mungkin yang trip.
   loadPersistedCooldown()
@@ -197,7 +211,7 @@ export async function generateGeminiResponse(
   const modelId = selected.mode
   const thinkMode = selected.think
 
-  const inner = new Array(80).fill(null)
+  const inner: unknown[] = new Array(80).fill(null)
   inner[0] = [prompt, 0, null, null, null, null, 0]
   inner[1] = ['en']
   inner[2] = ['', '', '', null, null, null, null, null, null, '']
@@ -225,7 +239,7 @@ export async function generateGeminiResponse(
   const reqid = Math.floor(Date.now() / 1000) % 1000000
   const url = `https://gemini.google.com/_/BardChatUi/data/assistant.lamda.BardFrontendService/StreamGenerate?bl=${bl}&hl=id&_reqid=${reqid}&rt=c`
 
-  const headers = {
+  const headers: Record<string, string> = {
     'content-type': 'application/x-www-form-urlencoded;charset=UTF-8',
     accept: '*/*',
     'x-same-domain': '1',
@@ -243,7 +257,7 @@ export async function generateGeminiResponse(
   // Tanpa onToken = jalur buffer lama (hasil akhir identik).
   let streamBuf = ''
   let streamEmitted = ''
-  const rawText = await httpPost(
+  const rawText: string = await httpPost(
     url,
     headers,
     bodyParams.toString(),

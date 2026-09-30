@@ -26,9 +26,9 @@ export const STATE_CHANGING_TOOLS = new Set([
 ])
 
 let currentTurnTainted = false
-let currentTurnId = null
+let currentTurnId: string | null = null
 
-export function setTurnId(turnId) {
+export function setTurnId(turnId: string) {
   if (turnId && turnId !== currentTurnId) {
     currentTurnId = turnId
     currentTurnTainted = false
@@ -39,7 +39,7 @@ export function isTurnTainted() {
   return currentTurnTainted
 }
 
-export function markTurnTainted(source = 'web') {
+export function markTurnTainted(_source: string = 'web') {
   currentTurnTainted = true
 }
 
@@ -48,15 +48,15 @@ export function resetTurnTaint() {
   currentTurnId = null
 }
 
-export function isTaintingTool(toolName) {
+export function isTaintingTool(toolName: unknown) {
   return TAINTING_TOOLS.has(String(toolName || '').trim().toLowerCase())
 }
 
-export function isStateChangingTool(toolName) {
+export function isStateChangingTool(toolName: unknown) {
   return STATE_CHANGING_TOOLS.has(String(toolName || '').trim().toLowerCase())
 }
 
-export function checkTaintGate(toolName) {
+export function checkTaintGate(toolName: unknown) {
   const norm = String(toolName || '').trim().toLowerCase()
   if (currentTurnTainted && isStateChangingTool(norm)) {
     return {

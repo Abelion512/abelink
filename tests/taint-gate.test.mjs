@@ -7,7 +7,7 @@ import {
   isTaintingTool,
   isStateChangingTool,
   checkTaintGate
-} from '../sidecar/main/taint-gate.mjs'
+} from '../sidecar/main/taint-gate.ts'
 
 describe('Taint Gate Security (Jarvis Pattern)', () => {
   beforeEach(() => {

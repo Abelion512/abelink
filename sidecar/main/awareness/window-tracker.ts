@@ -1,9 +1,16 @@
 import { execFile } from 'child_process'
 
+interface ActivityEntry {
+  time?: string
+  app?: string
+  title?: string
+  [key: string]: unknown
+}
+
 // Pengganti active-win: binding native-nya tak dibutuhkan di Linux —
 // jalur linux active-win sendiri murni spawn xprop/xwininfo. xprop langsung:
 // tanpa dep native, aman di-bundle single-file, gagal graceful (null) di Wayland.
-const run = (cmd, args) =>
+const run = (cmd: string, args: string[]): Promise<string> =>
   new Promise((resolve) => {
     execFile(cmd, args, { timeout: 5000 }, (err, stdout) =>
       resolve(err ? '' : String(stdout || ''))
@@ -11,21 +18,21 @@ const run = (cmd, args) =>
   })
 
 const activeWindow = async () => {
-  const root = await run('xprop', ['-root', '_NET_ACTIVE_WINDOW'])
+  const root: string = await run('xprop', ['-root', '_NET_ACTIVE_WINDOW'])
   const id = (root.match(/window id #\s*(0x[0-9a-fA-F]+)/) || [])[1]
   if (!id) return null
-  const out = await run('xprop', ['-id', id, 'WM_CLASS', '_NET_WM_NAME'])
+  const out: string = await run('xprop', ['-id', id, 'WM_CLASS', '_NET_WM_NAME'])
   const cls = (out.match(/WM_CLASS\([^)]*\)\s*=\s*"([^"]*)",\s*"([^"]*)"/) || []).slice(1)
   const title = (out.match(/_NET_WM_NAME\([^)]*\)\s*=\s*"([\s\S]*?)"/) || [])[1]
   if (cls.length === 0 && title === undefined) return null
   return { title: title || '', owner: { name: cls[1] || cls[0] || '' } }
 }
 
-let buffer = []
-let intervalId = null
+let buffer: ActivityEntry[] = []
+let intervalId: ReturnType<typeof setInterval> | null = null
 let wasIdle = false
 
-function pushToBuffer(entry) {
+function pushToBuffer(entry: ActivityEntry) {
   const now = new Date()
   const newEntry = {
     time: now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
@@ -44,7 +51,7 @@ export function startTracking() {
       // powerMonitor (Electron) tidak ada di runtime bun sidecar. Deteksi idle
       // via `xprintidle` (umum di desktop Linux); jika tidak tersedia,
       // anggap tidak idle agar polling active-window tetap jalan.
-      const idleTime = await getSystemIdleSeconds()
+      const idleTime: number = await getSystemIdleSeconds()
       
       if (idleTime > 180) { // 3 minutes idle
         if (!wasIdle) {
@@ -86,7 +93,7 @@ export function stopTracking() {
 
 // Deteksi idle Linux-native: xprintidle mengembalikan milidetik sejak input
 // terakhir. Gagal/tidak tersedia -> 0 (anggap tidak idle).
-function getSystemIdleSeconds() {
+function getSystemIdleSeconds(): Promise<number> {
   return new Promise((resolve) => {
     try {
       execFile('xprintidle', (err, stdout) => {

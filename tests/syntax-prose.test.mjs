@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validateFileSyntax } from '../sidecar/main/syntax-validator.js'
+import { validateFileSyntax } from '../sidecar/main/syntax-validator.ts'
 
 describe('prose bypass', () => {
   it('.md dengan apostrof = valid', async () => {

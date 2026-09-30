@@ -6,7 +6,7 @@ import path from 'path'
  * agar operasi file tidak bisa keluar dari folder workspace.
  * Mengembalikan path hasil resolve di dalam root, atau null bila ditolak.
  */
-export function resolveContained(root, p) {
+export function resolveContained(root: unknown, p: unknown): string | null {
   const r = path.resolve(String(root || ''))
   const target = String(p ?? '').trim()
   if (!target) return null
@@ -26,7 +26,7 @@ export function resolveContained(root, p) {
  * Bentuk hasil siap pakai untuk handler tool:
  * { ok: true, path } bila aman, atau { ok: false, error } bila ditolak.
  */
-export function assertContained(root, p) {
+export function assertContained(root: unknown, p: unknown): { ok: boolean; path?: string; error?: string } {
   const resolved = resolveContained(root, p)
   if (!resolved) return { ok: false, error: 'Path di luar workspace tidak diizinkan' }
   return { ok: true, path: resolved }

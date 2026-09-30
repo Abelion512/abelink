@@ -1,6 +1,6 @@
 // Tool shell/git/task (dipindah murni dari main/node-tools.js).
-import { getGitStatus, getGitDiff, gitCommit, gitRevert } from '../git-service.js'
-import { spawnBackgroundTask, readBackgroundTaskOutput, killBackgroundTask, listBackgroundTasks } from '../task-daemon.js'
+import { getGitStatus, getGitDiff, gitCommit, gitRevert } from '../git-service.ts'
+import { spawnBackgroundTask, readBackgroundTaskOutput, killBackgroundTask, listBackgroundTasks } from '../task-daemon.ts'
 import { execPromise, isDangerousCommand, isHardlineCommand, classifyCommand } from './_shared.mjs'
 
 export const shellTools = {

@@ -34,8 +34,8 @@ export function sharedConfigPath({ homeDir = null } = {}) {
 
 // Ambil hanya field AI dari config GUI (drop sisanya agar file tidak bocorkan
 // seluruh Dexie row: token telegram, dsb).
-export function pickSharedAiConfig(config = {}) {
-  const out = {}
+export function pickSharedAiConfig(config: Record<string, unknown> = {}): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
   if (!config || typeof config !== 'object') return out
   for (const key of SHARED_AI_KEYS) {
     if (config[key] !== undefined) out[key] = config[key]
@@ -64,7 +64,7 @@ export function writeSharedConfig(config = {}, { homeDir = null, now = Date.now(
     try { fs.chmodSync(file, 0o600) } catch { /* mode sudah 0600 saat create */ }
     return { ok: true, path: file }
   } catch (err) {
-    return { ok: false, error: String(err?.message || err), path: null }
+    return { ok: false, error: String((err as Error)?.message || err), path: null }
   }
 }
 

@@ -7,8 +7,8 @@
 // type-only, runtime persis asli).
 import { on, handlers, emit, lazy, type HandlerResult } from '../registry.ts'
 import { setLatestConfig } from './telegram.ts'
-import { writeSharedConfig } from '../../main/shared-config.js'
-import { normalizeLegacyProviderConfig } from '../../main/legacy-provider-shim.mjs'
+import { writeSharedConfig } from '../../main/shared-config.ts'
+import { normalizeLegacyProviderConfig } from '../../main/legacy-provider-shim.ts'
 
 type AiBridgeModule = {
   fetchAI: (
@@ -100,7 +100,7 @@ on('sync-config', async (rawConfig: unknown) => {
 // ------------------------------------------------------------- Native tools
 on('native-tool:execute', async (toolName: unknown, query: unknown, config: unknown) => {
   const { setTurnId, checkTaintGate, isTaintingTool, markTurnTainted } = await import(
-    '../../main/taint-gate.mjs'
+    '../../main/taint-gate.ts'
   )
   const cfg = config as { turnId?: string } | null | undefined
   if (cfg?.turnId) {

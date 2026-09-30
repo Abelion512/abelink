@@ -5,7 +5,14 @@ import fs from 'fs'
 // Jalankan pemeriksa sintaks lewat array argv tanpa shell agar isi filePath
 // tidak bisa disisipkan sebagai perintah shell. Kode ENOENT ditandai `missing`
 // (interpreter tidak tersedia) sehingga tidak salah dianggap sebagai syntax error.
-const runCheck = (bin, args, timeoutMs = 30000) =>
+interface RunCheckResult {
+  missing?: boolean
+  ok?: boolean
+  stdout?: string
+  stderr?: string
+}
+
+const runCheck = (bin: string, args: string[], timeoutMs = 30000): Promise<RunCheckResult> =>
   new Promise((resolve) => {
     execFile(bin, args, { timeout: timeoutMs }, (err, stdout, stderr) => {
       if (err && err.code === 'ENOENT') resolve({ missing: true })
@@ -18,8 +25,8 @@ const runCheck = (bin, args, timeoutMs = 30000) =>
  * Memindai kode sambil mengabaikan string literal dan komentar,
  * lalu memeriksa pasangan { }, [ ], ( ).
  */
-function checkBracketBalance(content, commentType = 'c-style') {
-  const stack = []
+function checkBracketBalance(content: string, commentType = 'c-style') {
+  const stack: { char: string; line: number; col: number }[] = []
   let inSingleQuote = false
   let inDoubleQuote = false
   let inBacktick = false
@@ -182,11 +189,11 @@ function checkBracketBalance(content, commentType = 'c-style') {
         }
       }
       const last = stack.pop()
-      const pairs = { '}': '{', ']': '[', ')': '(' }
-      if (last.char !== pairs[char]) {
+      const pairs: Record<string, string> = { '}': '{', ']': '[', ')': '(' }
+      if (!last || last.char !== pairs[char]) {
         return {
           valid: false,
-          error: `Mismatched delimiter: expected closing for '${last.char}' (from line ${last.line}), but found '${char}' at line ${line}, col ${col}`
+          error: `Mismatched delimiter: expected closing for '${last?.char}' (from line ${last?.line}), but found '${char}' at line ${line}, col ${col}`
         }
       }
     }
@@ -222,7 +229,7 @@ function checkBracketBalance(content, commentType = 'c-style') {
 /**
  * Validasi Pasangan Tag HTML / XML / SVG / Vue / Svelte
  */
-function checkXmlTagBalance(content) {
+function checkXmlTagBalance(content: string) {
   const voidTags = new Set([
     'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
     'link', 'meta', 'param', 'source', 'track', 'wbr'
@@ -235,7 +242,7 @@ function checkXmlTagBalance(content) {
   sanitized = sanitized.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '<style></style>')
 
   const tagRegex = /<\/?([a-zA-Z0-9_\-:]+)([^>]*?)(\/?)>/g
-  const stack = []
+  const stack: string[] = []
   let match
 
   while ((match = tagRegex.exec(sanitized)) !== null) {
@@ -257,8 +264,8 @@ function checkXmlTagBalance(content) {
           error: `Unexpected closing tag </${tagName}> without matching opening tag`
         }
       }
-      const last = stack.pop()
-      if (last !== tagName && !voidTags.has(last)) {
+      const last: string | undefined = stack.pop()
+      if (last !== tagName && (last === undefined || !voidTags.has(last))) {
         return {
           valid: false,
           error: `Tag mismatch: expected </${last}>, but found </${tagName}>`
@@ -287,7 +294,7 @@ function checkXmlTagBalance(content) {
  * @param {string} content Konten berkas
  * @returns {Promise<{ valid: boolean, error?: string }>}
  */
-export async function validateFileSyntax(filePath, content) {
+export async function validateFileSyntax(filePath: string, content: string): Promise<{ valid: boolean; error?: string }> {
   if (!filePath || !content) return { valid: true }
   const ext = path.extname(filePath).toLowerCase()
   // Prosa bukan kode: jangan parse sintaks (apostrof/bracket teks bebas).
@@ -301,7 +308,7 @@ export async function validateFileSyntax(filePath, content) {
         JSON.parse(cleanJson)
         return { valid: true }
       } catch (jsonErr) {
-        return { valid: false, error: `JSON Parse Error: ${jsonErr.message}` }
+        return { valid: false, error: `JSON Parse Error: ${(jsonErr as Error).message}` }
       }
     }
 
@@ -328,7 +335,7 @@ export async function validateFileSyntax(filePath, content) {
       if (!bracketCheck.valid) return bracketCheck
 
       if (fs.existsSync(filePath)) {
-        const nodeRes = await runCheck('node', ['--check', filePath])
+        const nodeRes: RunCheckResult = await runCheck('node', ['--check', filePath])
         if (!nodeRes.ok && !nodeRes.missing) {
           const cleanErr = (nodeRes.stderr || nodeRes.stdout || '').trim()
           return { valid: false, error: `JavaScript SyntaxError:\n${cleanErr}` }
@@ -412,7 +419,7 @@ export async function validateFileSyntax(filePath, content) {
       const bracketCheck = checkBracketBalance(content, 'c-style')
       if (!bracketCheck.valid) return bracketCheck
       if (fs.existsSync(filePath)) {
-        const goRes = await runCheck('gofmt', ['-e', filePath])
+        const goRes: RunCheckResult = await runCheck('gofmt', ['-e', filePath])
         if (!goRes.ok && !goRes.missing) {
           const cleanErr = (goRes.stderr || goRes.stdout || '').trim()
           if (cleanErr) {

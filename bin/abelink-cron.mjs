@@ -18,7 +18,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
-import { brandDir } from '../sidecar/main/utils/dataHome.mjs'
+import { brandDir } from '../sidecar/main/utils/dataHome.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')

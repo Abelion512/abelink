@@ -1,7 +1,7 @@
 import path from 'path'
 import { exec, spawn } from 'child_process'
 import util from 'util'
-import { brandDir } from '../utils/dataHome.mjs'
+import { brandDir } from '../utils/dataHome.ts'
 
 export const DANGEROUS_KEY_COMBOS = [
   'alt+f4',

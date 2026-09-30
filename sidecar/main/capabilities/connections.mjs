@@ -7,7 +7,7 @@
 
 import fsp from 'fs/promises'
 import path from 'path'
-import { brandDir } from '../utils/dataHome.mjs'
+import { brandDir } from '../utils/dataHome.ts'
 
 const MAX_AUDIT_BYTES = 1024 * 1024 // 1MB
 const MAX_AUDIT_TAIL = 500 // baris yang dipertahankan saat trim
