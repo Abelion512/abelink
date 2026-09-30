@@ -450,7 +450,7 @@ Horizon pasca-P1 (owner, 2026-09-28): **Agents -> Loops -> Graphs -> Self Improv
 
 ## 16. Status Eksekusi (update berjalan)
 
-Updated: 2026-09-28, mode otonom (owner: "execute aja semua, gw bagian terima report hasil kerja").
+Updated: 2026-09-30, mode otonom. **Arahan owner 2026-09-30 (masuk PLAN, bukan wave migrasi):** (1) MCP harus bisa lepas-pasang, transport stdio + Streamable HTTP — jadikan TODO/PLAN; (2) fix extension sampai connect tanpa delay connection — PLAN setelah migrasi; (3) prioritas arsitektur = infrastruktur agentic + self-improvement system (bukan tuning model cloud); (4) referensi mutlak bila tanpa wawancara: amati-tiru-modifikasi Anthropic, OpenAI, hermes-agent, NVIDIA, Moonshot Research, Google Research, Muse Research, DeepSeek quantization.
 
 ### W0 — Governance (DONE, PR #87)
 `scripts/ci/no-new-js.sh` (hard gate CI) + tsc masuk verify.sh + marker handoff lama dihapus + siklus kerja agent & ponytail penuh terdokumentasi di AGENT_CONTRIBUTION_GUIDELINES.
@@ -472,13 +472,20 @@ engine + registry + 9 channel (1.580 baris) 100% TS. Smoke dual-path (hot + cold
 | #102 W2-7b | oramaStore/ragPipeline/turnPairMigrator | MERGED |
 | #103 W2-8a | 13 file root api (locale/choiceBus/localWhisper/workspaceRag/harness/harnessCore/semverLite/selfModel/mic/scraping/sttGuard/skillsCache/appIdentity) | MERGED |
 | #105 W2-8b | groq/sttRouter/taskExecutor/taskStore/trajectory — root src/api kini 0 .js | MERGED |
-| W2-8c | 28 file sisa `src/api/ai/*` (~5.882 brs) | BELUM — PR berikutnya |
+| W2-8c | 28 file sisa `src/api/ai/*` (~5.882 brs) | MERGED (#109) |
+| W3 | hooks+utils+contexts 100% TS | MERGED (#110) |
+| W4 | components+pages 100% TS | MERGED (#114) |
+| W5 | sidecar core 38 file: infra leaf (11) + capabilities/google (18) + browser/tools/telegram/plugins/pc-agent/ai-bridge (20, 892 err tsc ditutup) | MERGED (#115, squash 651774dc) |
+| W6 | scripts/evaluation/bin → .ts + entry node→bun | BERIKUTNYA |
+| W7 | tests → .ts | PLAN |
+| W8 | configs + extension → .ts | PLAN |
+| W9 | final sweep + eskalasi any-policy (599 warning no-explicit-any zona kontrak) + laporan 5W1H | PLAN |
 
 ### Baseline pengukuran (anti-klaim-kosong, permintaan owner)
-- Test: 1788 → **1810 pass / 16 skip** (nol regresi di setiap PR).
-- LOC tsc coverage: 1.518 → ~12.500+ baris dalam program typecheck ketat.
-- Files: 8 file TS awal → 60+ file .ts produktif; sisa .js produktif hanya src/api/ai (28), hooks/pages/components (renderer, W3-W4), sidecar/main (W5).
-- Gate per PR: 3x tsc exit 0 + lint exit 0 (2 warning ponytail terdaftar) + vitest 1810 + vite build + evaluation smoke.
+- Test: 1788 → 1810 → **1836 pass / 16 skip** pasca-W5 (nol regresi di setiap PR; W5 menambah test yang menunjuk file .ts).
+- Files: sisa .js produktif pasca-W5 hanya scripts/evaluation/bin (W6), tests (W7), configs+extension (W8).
+- Gate per PR: 3x tsc exit 0 + lint 0 error (warning no-explicit-any zona kontrak = recorded W9) + vitest + vite build + evaluation smoke + engine:ready = 1 (86 aksi).
+- Lint warning W5: 599 no-explicit-any (zona kontrak sidecar/cli/renderer-agent) — eskalasi kebijakan any di W9.
 
 ### Pola teknis yang stabil (utk W2-8c + W3)
 1. Augmentasi Window.api tak terlihat di program node-zone → cast lokal `{ api?: ... }`.
