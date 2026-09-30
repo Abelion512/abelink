@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useYoutubeMusic } from '../contexts/YoutubeMusicContext'
+import { useYoutubeMusic, type YoutubeMusicContextValue } from '../contexts/YoutubeMusicContext'
 import { GripVertical, Trash2, ListMusic, Music2, Repeat, Repeat1 } from 'lucide-react'
 
 /**
@@ -24,9 +24,9 @@ export const YoutubeMusicPlayer = () => {
     repeatMode,
     cycleRepeatMode,
     playbackError
-  } = useYoutubeMusic()
+  } = (useYoutubeMusic() ?? {}) as YoutubeMusicContextValue
 
-  const [draggedIndex, setDraggedIndex] = useState(null)
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
   const [showQueue, setShowQueue] = useState(false)
 
   // Thumbnail YT Music (lh3.googleusercontent) sering 429 (rate limit).
@@ -34,7 +34,7 @@ export const YoutubeMusicPlayer = () => {
   // Reset-on-track-change via adjust-during-render (pola resmi React):
   // bandingkan key saat render, bukan setState di effect.
   const [thumbFailed, setThumbFailed] = useState(false)
-  const [prevThumbKey, setPrevThumbKey] = useState(null)
+  const [prevThumbKey, setPrevThumbKey] = useState<string | null>(null)
   const thumbKey = `${currentTrack.id}::${currentTrack.thumbnail}`
   if (thumbKey !== prevThumbKey) {
     setPrevThumbKey(thumbKey)
@@ -56,21 +56,24 @@ export const YoutubeMusicPlayer = () => {
 
   useEffect(() => {
     if (window.api?.onExecuteMusicCommand) {
-      window.api.onExecuteMusicCommand((command, payload) => {
+      window.api.onExecuteMusicCommand((command: unknown, payload: unknown) => {
         if (command === 'play' && payload) {
           // Payload kompatibel dua bentuk: url string ATAU item ternormalisasi.
           if (typeof payload === 'string') playUrlRef.current(payload)
-          else playUrlRef.current(`https://music.youtube.com/watch?v=${payload.id}`, payload)
+          else {
+            const item = payload as { id?: string }
+            playUrlRef.current(`https://music.youtube.com/watch?v=${item.id}`, payload as never)
+          }
         } else if (command === 'next') nextTrackRef.current()
         else if (command === 'prev') prevTrackRef.current()
         else if (command === 'toggle') playPauseRef.current()
       })
     }
     if (window.api?.onExecuteMusicCommandWa) {
-      window.api.onExecuteMusicCommandWa((command, payload) => {
+      window.api.onExecuteMusicCommandWa((command: unknown, payload: unknown) => {
         if (command === 'play' && payload) {
           // Payload WA berupa string query — cari lalu mainkan teratas.
-          window.api.searchMusic(payload).then((music) => {
+          window.api.searchMusic(String(payload)).then((music) => {
             const top = music && music.length > 0 ? music[0] : null
             if (top) playUrlRef.current(`https://music.youtube.com/watch?v=${top.id}`, top)
           })
@@ -178,7 +181,7 @@ export const YoutubeMusicPlayer = () => {
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
-                          removeFromQueue(track.id)
+                          removeFromQueue(String(track.id))
                         }}
                         className="opacity-0 group-hover:opacity-100 btn btn-ghost btn-xs btn-circle text-white/40 hover:text-red-400"
                         title="Remove from queue"

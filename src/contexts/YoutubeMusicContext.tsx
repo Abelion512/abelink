@@ -72,7 +72,7 @@ const extractEngineVideoId = (input: unknown): string | null => {
  * - playbackError: string|null — pesan error terakhir dari engine (mis. embed blocked)
  */
 
-interface YoutubeMusicContextValue {
+export interface YoutubeMusicContextValue {
   musicUrl: string
   playUrl: (url: string, initialTrack?: MusicTrack | null) => boolean
   playTrack: (item: MusicTrack) => boolean
