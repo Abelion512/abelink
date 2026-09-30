@@ -37,6 +37,29 @@ export function bumpRank(commit) {
 }
 
 // Bump tertinggi dari sekumpulan commit (mayoritas konvensi proyek).
+export function selectReleaseBaseline(lastTagVersion, releases = []) {
+  // A prepared-but-untagged release is not part of release history yet.
+  // Once a reachable tag exists, it is the only authoritative baseline.
+  if (lastTagVersion) return lastTagVersion
+
+  const validReleases = (releases || [])
+    .map((release) => release?.version)
+    .filter((version) => semverValid(version))
+    .sort((a, b) => {
+      const aParsed = semverParse(a)
+      const bParsed = semverParse(b)
+      if (!aParsed || !bParsed) return 0
+      return (
+        bParsed.major - aParsed.major ||
+        bParsed.minor - aParsed.minor ||
+        bParsed.patch - aParsed.patch ||
+        String(bParsed.prerelease).localeCompare(String(aParsed.prerelease))
+      )
+    })
+
+  return validReleases[0] || null
+}
+
 export function detectBumpType(commits) {
   const rank = { major: 3, minor: 2, patch: 1 }
   let best = null
