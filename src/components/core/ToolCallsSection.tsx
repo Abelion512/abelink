@@ -116,12 +116,27 @@ function ToolCallRow({ call }) {
   )
 }
 
+export interface ToolCallRow {
+  tool_name?: string
+  tool_category?: string
+  message?: string
+  inputs?: unknown
+  output?: unknown
+  [key: string]: unknown
+}
+
 export function ToolCallsSection({
   toolCalls = [],
   defaultExpanded = false,
   className = '',
   maxIconsToShow = 10,
   title,
+}: {
+  toolCalls?: ToolCallRow[]
+  defaultExpanded?: boolean
+  className?: string
+  maxIconsToShow?: number
+  title?: string
 }) {
   const [open, setOpen] = useState(defaultExpanded)
 

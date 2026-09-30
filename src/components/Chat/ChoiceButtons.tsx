@@ -7,17 +7,26 @@ import { useYoutubeMusic } from '../../contexts/YoutubeMusicContext'
 // MessageBubble di chat DAN ResponseArea di home). Klik me-resolve janji
 // choiceBus sehingga loop agent lanjut otomatis, tanpa ketik.
 // Mendukung rendering kartu multimodal/music preview jika rawOptions membawa metadata.
-export const ChoiceButtons = React.memo(function ChoiceButtons({ choice }) {
-  const [playingAudio, setPlayingAudio] = useState(null)
-  const audioRef = useRef(null)
+interface ChoiceShape {
+  id?: string
+  type?: string
+  options?: unknown[]
+  rawOptions?: Array<Record<string, unknown> | null>
+  selected?: unknown
+}
+
+export const ChoiceButtons = React.memo(function ChoiceButtons({ choice }: { choice?: unknown }) {
+  const [playingAudio, setPlayingAudio] = useState<string | null>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
   const musicCtx = useYoutubeMusic()
   const { previewSnippet, isPlaying, pauseTrack } = musicCtx || {}
+  const c = (choice ?? {}) as ChoiceShape
 
-  if (!choice || !Array.isArray(choice.options) || choice.options.length === 0) return null
+  if (!c || !Array.isArray(c.options) || c.options.length === 0) return null
 
-  const isMusicChoice = choice.type === 'music_preview' || (Array.isArray(choice.rawOptions) && choice.rawOptions.some(o => o && typeof o === 'object' && (o.thumbnail || o.artist || o.duration)))
+  const isMusicChoice = c.type === 'music_preview' || (Array.isArray(c.rawOptions) && c.rawOptions.some((o) => o && typeof o === 'object' && (o.thumbnail || o.artist || o.duration)))
 
-  const togglePreview = (e, audioUrl, videoId) => {
+  const togglePreview = (e: React.MouseEvent, audioUrl?: string, videoId?: string) => {
     e.stopPropagation()
     if (audioUrl) {
       if (playingAudio === audioUrl) {
@@ -50,25 +59,25 @@ export const ChoiceButtons = React.memo(function ChoiceButtons({ choice }) {
         className="hidden"
       />
       <span className="text-[10px] font-bold opacity-50 w-full uppercase tracking-wider">
-        {choice.selected != null ? 'Pilihan Anda:' : isMusicChoice ? 'Pilih Track Musik:' : 'Pilih satu:'}
+        {c.selected != null ? 'Pilihan Anda:' : isMusicChoice ? 'Pilih Track Musik:' : 'Pilih satu:'}
       </span>
 
       {isMusicChoice ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full">
-          {choice.options.map((opt, i) => {
-            const raw = choice.rawOptions?.[i] || {}
-            const isSelected = choice.selected === opt
-            const done = choice.selected != null
-            const title = typeof raw === 'object' ? raw.title || opt : opt
-            const artist = typeof raw === 'object' ? raw.artist : ''
-            const duration = typeof raw === 'object' ? raw.duration : ''
-            const thumb = typeof raw === 'object' ? raw.thumbnail : ''
-            const previewUrl = typeof raw === 'object' ? raw.previewUrl || raw.preview_url || raw.audioUrl : null
+          {(c.options as string[]).map((opt, i) => {
+            const raw = (c.rawOptions?.[i] || {}) as { title?: string; artist?: string; duration?: string; thumbnail?: string; previewUrl?: string; preview_url?: string; audioUrl?: string; id?: string }
+            const isSelected = c.selected === opt
+            const done = c.selected != null
+            const title = raw?.title || opt
+            const artist = raw?.artist ?? ''
+            const duration = raw?.duration ?? ''
+            const thumb = raw?.thumbnail ?? ''
+            const previewUrl = raw?.previewUrl || raw?.preview_url || raw?.audioUrl || null
 
             return (
               <div
                 key={i}
-                onClick={() => !done && resolveChoice(choice.id, opt)}
+                onClick={() => !done && resolveChoice(c.id as string, opt as string)}
                 className={`p-2.5 rounded-xl border flex items-center gap-3 transition-all cursor-pointer ${
                   isSelected
                     ? 'bg-primary/20 border-primary shadow-sm shadow-primary/20 ring-1 ring-primary'
@@ -104,7 +113,7 @@ export const ChoiceButtons = React.memo(function ChoiceButtons({ choice }) {
                 {(previewUrl || raw.id) && (
                   <button
                     type="button"
-                    onClick={(e) => togglePreview(e, previewUrl, raw.id)}
+                    onClick={(e) => togglePreview(e, previewUrl ?? undefined, raw?.id)}
                     className="btn btn-ghost btn-xs btn-circle text-white/70 hover:text-white bg-white/5 hover:bg-white/10"
                     title={playingAudio === (previewUrl || raw.id) ? 'Pause preview' : 'Play preview (15s)'}
                   >
@@ -121,14 +130,14 @@ export const ChoiceButtons = React.memo(function ChoiceButtons({ choice }) {
         </div>
       ) : (
         <div className="flex flex-wrap gap-2 pt-1">
-          {choice.options.map((opt, i) => {
-            const isSelected = choice.selected === opt
-            const done = choice.selected != null
+          {(c.options as string[]).map((opt, i) => {
+            const isSelected = c.selected === opt
+            const done = c.selected != null
             return (
               <button
                 key={i}
                 disabled={done}
-                onClick={() => resolveChoice(choice.id, opt)}
+                onClick={() => resolveChoice(c.id as string, opt)}
                 className={`px-3.5 py-1.5 rounded-full text-xs font-medium flex items-center gap-2 border backdrop-blur-md transition-all duration-200 hover:scale-105 active:scale-95 ${
                   isSelected
                     ? 'bg-primary text-white border-primary shadow-md shadow-primary/25 ring-2 ring-primary/40'
@@ -144,10 +153,10 @@ export const ChoiceButtons = React.memo(function ChoiceButtons({ choice }) {
         </div>
       )}
 
-      {choice.selected == null && (
+      {c.selected == null && (
         <div className="flex justify-end mt-1">
           <button
-            onClick={() => resolveChoice(choice.id, null)}
+            onClick={() => resolveChoice(c.id as string, null)}
             className="btn btn-xs btn-ghost normal-case text-[10px] text-white/50 hover:text-white"
           >
             Batal

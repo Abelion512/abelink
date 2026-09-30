@@ -11,6 +11,37 @@ import {
   YoutubeSearchBubble
 } from './Chat'
 
+interface ChatListProps {
+  msgId?: unknown
+  role?: string
+  content?: unknown
+  reasoning?: string | null
+  isThinking?: boolean
+  isSearching?: boolean
+  query?: string | null
+  isMemorySaved?: boolean
+  isMemoryUpdated?: boolean
+  isMemoryDeleted?: boolean
+  isSummarizing?: boolean
+  isYoutubeSummary?: boolean
+  isYoutubeSearch?: boolean
+  queryYoutube?: string
+  youtubeLink?: string
+  isSearchingMusic?: boolean
+  sources?: unknown[]
+  executedTools?: unknown[]
+  isPlanSteps?: boolean
+  plan?: unknown[]
+  currentStep?: number
+  isPlanConclusion?: boolean
+  pluginExecution?: unknown
+  choice?: unknown
+  mood?: string
+  timestamp?: string | number
+  source?: string | null
+  sender?: string | null
+}
+
 const ChatList = ({
   msgId = null,
   role = 'user',
@@ -40,22 +71,22 @@ const ChatList = ({
   timestamp = '',
   source = null,
   sender = null
-}) => {
+}: ChatListProps) => {
   const resolvedCurrentStep = currentStep !== undefined ? currentStep : (plan ? plan.length : 0)
   const [isCopied, setIsCopied] = useState(false)
-  const [feedback, setFeedback] = useState(null) // 'up' | 'down' | null
+  const [feedback, setFeedback] = useState<'up' | 'down' | null>(null) // 'up' | 'down' | null
 
   const handleCopy = () => {
-    if (!content) return
+    if (typeof content !== 'string' || !content) return
     navigator.clipboard.writeText(content)
     setIsCopied(true)
     setTimeout(() => setIsCopied(false), 2000)
   }
 
-  const handleFeedback = (type) => {
+  const handleFeedback = (type: 'up' | 'down') => {
     setFeedback((prev) => (prev === type ? null : type))
     try {
-      window.api?.harnessAppend?.('chat_eval_feedback', {
+      ;(window.api as unknown as { harnessAppend?: (kind: string, payload: unknown) => void })?.harnessAppend?.('chat_eval_feedback', {
         msgId,
         role,
         feedback: feedback === type ? 'cancelled' : type,
@@ -70,10 +101,10 @@ const ChatList = ({
   if (isPlanSteps && plan && plan.length > 0) {
     return (
       <PlanningBubble
-        plan={plan}
+        plan={plan as never}
         resolvedCurrentStep={resolvedCurrentStep}
-        reasoning={reasoning}
-        executedTools={executedTools}
+        reasoning={reasoning ?? ''}
+        executedTools={executedTools as never}
       />
     )
   }
@@ -110,7 +141,7 @@ const ChatList = ({
               : 'bg-[#0a84ff] shadow-[0_4px_16px_rgba(10,132,255,0.25)]'
           }`}
         >
-          {content}
+          {typeof content === 'string' ? content : String(content ?? '')}
         </div>
       ) : (
         /* Assistant Stream: Borderless Canvas Layout */
@@ -120,10 +151,9 @@ const ChatList = ({
               isThinking={isThinking}
               isSummarizing={isSummarizing}
               isSearchingMusic={isSearchingMusic}
-              content={content}
-              youtubeLink={youtubeLink}
+              content={typeof content === 'string' ? content : ''}
               reasoning={reasoning}
-              executedTools={executedTools}
+              executedTools={executedTools as never}
             />
           ) : (
             <div className="flex flex-col gap-3">
@@ -134,10 +164,10 @@ const ChatList = ({
               {pluginExecution && <PluginExecutionBubble pluginExecution={pluginExecution} />}
               <MessageBubble
                 isUser={isUser}
-                content={content}
-                reasoning={reasoning}
-                sources={sources}
-                executedTools={executedTools}
+                content={typeof content === 'string' ? content : ''}
+                reasoning={reasoning ?? undefined}
+                sources={sources as never}
+                executedTools={executedTools as never}
                 isPlanConclusion={isPlanConclusion}
                 choice={choice}
               />
@@ -145,7 +175,7 @@ const ChatList = ({
           )}
 
           {/* Footer Actions: Thumbs Up, Thumbs Down, Copy */}
-          {content && !isThinking && !isSummarizing && !isSearchingMusic && (
+          {!!content && !isThinking && !isSummarizing && !isSearchingMusic && (
             <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2 mt-2 px-1 text-white/40">
               <button
                 type="button"

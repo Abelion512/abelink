@@ -1,14 +1,37 @@
 
 import { Check, CheckCircle2, ListOrdered, Brain, ChevronRight } from 'lucide-react'
 import { MobiusLoader } from '../core/MobiusLoader'
-import { ToolCallsSection } from '../core/ToolCallsSection'
+import { ToolCallsSection, type ToolCallRow } from '../core/ToolCallsSection'
 
-export const PlanningBubble = ({ plan = [], resolvedCurrentStep = 0, reasoning = '', executedTools = [] }) => {
+interface PlanStep {
+  tool?: string
+  task?: string
+  title?: string
+  status?: string
+  objective?: string
+  query?: unknown
+  deliverable?: string
+  fullResult?: string
+  resultSummary?: string
+  [key: string]: unknown
+}
+
+export const PlanningBubble = ({
+  plan = [],
+  resolvedCurrentStep = 0,
+  reasoning = '',
+  executedTools = []
+}: {
+  plan?: Array<PlanStep | string>
+  resolvedCurrentStep?: number
+  reasoning?: string
+  executedTools?: PlanStep[]
+}) => {
   const isAllDone = plan.length > 0 && resolvedCurrentStep >= plan.length
   // Execution evidence for the shared ToolCallsSection. Plan steps keep
   // showing intent (title + objective/query detail) in the steps list, so
   // plan-derived rows carry output only — no duplicated inputs.
-  const toolCalls = [
+  const toolCalls: ToolCallRow[] = [
     ...(Array.isArray(executedTools) ? executedTools : []).map((step) => ({
       tool_name: step.tool || step.task || 'tool',
       tool_category: step.tool || step.task || '',
@@ -17,7 +40,7 @@ export const PlanningBubble = ({ plan = [], resolvedCurrentStep = 0, reasoning =
       output: step.fullResult || step.resultSummary,
     })),
     ...(Array.isArray(plan) ? plan : [])
-      .filter((s) => typeof s === 'object' && s && (s.fullResult || s.resultSummary))
+      .filter((s): s is PlanStep => typeof s === 'object' && !!s && !!(s.fullResult || s.resultSummary))
       .map((s) => ({
         tool_name: s.tool || s.task || s.title || 'tool',
         tool_category: s.tool || s.task || s.title || '',
@@ -74,9 +97,9 @@ export const PlanningBubble = ({ plan = [], resolvedCurrentStep = 0, reasoning =
           const isCurrent = idx === resolvedCurrentStep && !isAllDone
 
           const taskTitle = typeof step === 'string' ? step : step.title || step.task || JSON.stringify(step)
-          const stepDetail = typeof step === 'object' ? step.objective || step.query || step.deliverable : null
+          const stepDetail = typeof step === 'object' ? (step.objective || step.query || step.deliverable) ?? null : null
 
-          let prefix = `${idx + 1}.`
+          let prefix: React.ReactNode = `${idx + 1}.`
           let textStyle = 'opacity-40 text-white font-normal'
           let suffix = ''
 
@@ -113,7 +136,7 @@ export const PlanningBubble = ({ plan = [], resolvedCurrentStep = 0, reasoning =
                       </div>
                     </summary>
                     <div className="mt-1 pl-2.5 opacity-75 text-[10px] border-l-2 border-primary/30 ml-1 mb-1 font-mono bg-black/40 p-2 rounded text-white/90 whitespace-pre-wrap break-all max-h-32 overflow-y-auto custom-scrollbar">
-                      {stepDetail}
+                      {String(stepDetail)}
                     </div>
                   </details>
                 ) : (

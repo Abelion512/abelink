@@ -5,7 +5,13 @@ import rehypeExternalLinks from 'rehype-external-links'
 import { CodeBlock } from './CodeBlock'
 import { ChoiceButtons } from './ChoiceButtons'
 import { Brain, ChevronRight, ExternalLink, FileText, Activity } from 'lucide-react'
-import { ToolCallsSection } from '../core/ToolCallsSection'
+import { ToolCallsSection, type ToolCallRow } from '../core/ToolCallsSection'
+
+interface SourceRef {
+  link?: string
+  title?: string
+  [key: string]: unknown
+}
 
 export const MessageBubble = React.memo(function MessageBubble({
   isUser,
@@ -16,9 +22,18 @@ export const MessageBubble = React.memo(function MessageBubble({
   isPlanConclusion = false,
   _isLearned = false,
   choice = null
+}: {
+  isUser: boolean
+  content: unknown
+  reasoning?: string
+  sources?: SourceRef[]
+  executedTools?: Array<{ tool?: string; task?: string; status?: string; query?: unknown; fullResult?: string; resultSummary?: string; [key: string]: unknown }>
+  isPlanConclusion?: boolean
+  _isLearned?: boolean
+  choice?: unknown
 }) {
 
-  const extractContent = (val) => {
+  const extractContent = (val: unknown): { text: string; images: string[] } => {
     if (val == null) return { text: '', images: [] }
     if (typeof val === 'string') {
       if (val.startsWith('data:image/')) {
@@ -55,11 +70,16 @@ export const MessageBubble = React.memo(function MessageBubble({
       return { text: texts.join('\n\n'), images }
     }
     if (typeof val === 'object') {
-      if (val.type === 'image_url') {
+      const rec = val as {
+        type?: string
+        image_url?: { url?: string } | string
+        url?: string
+      }
+      if (rec.type === 'image_url') {
         const imgUrl =
-          val.image_url?.url ||
-          val.url ||
-          (typeof val.image_url === 'string' ? val.image_url : null)
+          rec.image_url?.url ||
+          rec.url ||
+          (typeof rec.image_url === 'string' ? rec.image_url : null)
         if (imgUrl) return { text: '', images: [imgUrl] }
       }
       return { text: JSON.stringify(val, null, 2), images: [] }
@@ -69,7 +89,7 @@ export const MessageBubble = React.memo(function MessageBubble({
 
   const { text: stringContent, images: attachedImages } = extractContent(content)
 
-  const toolCalls = (executedTools || []).map((step) => ({
+  const toolCalls: ToolCallRow[] = (executedTools || []).map((step) => ({
     tool_name: step.tool || step.task || 'tool',
     tool_category: step.tool || step.task || '',
     message: step.status === 'running' ? 'mengeksekusi...' : undefined,
@@ -208,10 +228,10 @@ export const MessageBubble = React.memo(function MessageBubble({
           <span className="text-[10px] font-bold opacity-50 w-full mb-1 uppercase tracking-wider">
             Sumber & Referensi:
           </span>
-          {sources.map((source, i) => (
+          {sources.map((source: SourceRef, i: number) => (
             <button
               key={i}
-              onClick={() => window.api?.openExternal?.(source.link)}
+              onClick={() => source?.link && void window.api?.openExternal?.(source.link)}
               className="btn btn-xs btn-neutral border border-primary/20 hover:border-primary/50 normal-case text-[10px] flex items-center gap-1.5 bg-base-300 transform transition hover:scale-105"
               title={source.link}
             >

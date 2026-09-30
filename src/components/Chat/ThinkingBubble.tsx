@@ -9,10 +9,18 @@ export const ThinkingBubble = ({
   _youtubeLink = '',
   reasoning = null,
   executedTools = []
+}: {
+  _isThinking?: boolean
+  isSummarizing?: boolean
+  isSearchingMusic?: boolean
+  content?: string
+  _youtubeLink?: string
+  reasoning?: string | null
+  executedTools?: Array<{ tool?: string; task?: string; status?: string; query?: unknown; fullResult?: string; resultSummary?: string; [key: string]: unknown }>
 }) => {
   const executingToolCount = executedTools ? executedTools.length : 0
   // WS-2: kunci scroll ke bawah saat chunk stream masuk (reasoning tumbuh).
-  const reasoningRef = useRef(null)
+  const reasoningRef = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
     try {
       const el = reasoningRef.current

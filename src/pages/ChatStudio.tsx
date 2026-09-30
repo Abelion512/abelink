@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import {
   Plus,
   Trash2,
@@ -16,16 +16,41 @@ import {
   deleteSession,
   renameSession,
   getChatData,
-  setSessionWorkspace
+  setSessionWorkspace,
+  type SessionRow
 } from '../api/db'
 import ChatList from '../components/ChatList'
 import InputBar from '../components/core/InputBar'
-import { TocMinimap, toMinimapAnchorId } from '../components/core/TocMinimap'
+import { TocMinimap, toMinimapAnchorId, type TocMinimapItem } from '../components/core/TocMinimap'
 import { useConfirm } from '../hooks/useConfirm'
 import { useManualCompaction } from '../hooks/useManualCompaction'
 
+interface StudioChatItem {
+  id?: unknown
+  created_at?: unknown
+  role?: string
+  content?: unknown
+  isThinking?: boolean
+  [key: string]: unknown
+}
+
 const ChatStudio = () => {
   const chatContext = useChat()
+  const ctx = (chatContext || {}) as {
+    chatData?: StudioChatItem[]
+    setChatData?: (updater: unknown) => void
+    handlePlanningCommand?: (...args: unknown[]) => void
+    isLoading?: boolean
+    isAgentBusy?: boolean
+    runningSessionIds?: Array<number | string>
+    handleStop?: (sessionId?: number) => void
+    isRecording?: boolean
+    isProcessing?: boolean
+    audioIntensity?: number
+    startRecording?: () => void
+    stopRecording?: () => void
+    inputSource?: string
+  }
   const {
     chatData: mainChatData,
     setChatData: setMainChatData,
@@ -40,25 +65,25 @@ const ChatStudio = () => {
     startRecording,
     stopRecording,
     inputSource
-  } = chatContext || {}
+  } = ctx
 
-  const [sessions, setSessions] = useState([])
+  const [sessions, setSessions] = useState<SessionRow[]>([])
   const [activeSessionId, setActiveSessionId] = useState(1)
-  const [activeSessionData, setActiveSessionData] = useState([])
+  const [activeSessionData, setActiveSessionData] = useState<StudioChatItem[]>([])
   const [visibleMessageCount, setVisibleMessageCount] = useState(40)
   const [searchQuery, setSearchQuery] = useState('')
-  const [editingSessionId, setEditingSessionId] = useState(null)
+  const [editingSessionId, setEditingSessionId] = useState<number | null>(null)
   const [editingTitle, setEditingTitle] = useState('')
   const [, setIsLocalLoading] = useState(false)
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
 
-  const messagesContainerRef = useRef(null)
-  const messagesEndRef = useRef(null)
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null)
+  const messagesEndRef = useRef<HTMLDivElement | null>(null)
   const { confirm, ModalComponent } = useConfirm()
 
   useEffect(() => {
-    const handleKeyDown = (e) => {
+    const handleKeyDown = (e: ReactKeyboardEvent<HTMLElement> | globalThis.KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
         e.preventDefault()
         setIsSidebarOpen((prev) => !prev)
@@ -98,7 +123,7 @@ const ChatStudio = () => {
   // Minimap items mirror the visible slice: user = depth 2, assistant = depth 3.
   const minimapItems = useMemo(
     () =>
-      visibleMessages
+      (visibleMessages
         .map((msg, idx) => {
           const rawId = msg.id || msg.created_at || idx
           const raw = msg.content
@@ -121,16 +146,16 @@ const ChatStudio = () => {
             depth: msg.role === 'user' ? 2 : 3
           }
         })
-        .filter(Boolean),
+        .filter(Boolean) as TocMinimapItem[]),
     [visibleMessages]
   )
 
   // Kompaksi manual + tracker gauge (session compaction).
   useManualCompaction({
-    messages: currentDisplayMessages,
-    setMessages: (updater) => {
+    messages: currentDisplayMessages as never,
+    setMessages: (updater: unknown) => {
       if (Number(activeSessionId) === 1) setMainChatData?.(updater)
-      else setActiveSessionData(updater)
+      else setActiveSessionData(updater as StudioChatItem[])
     },
     sessionId: activeSessionId
   })
@@ -146,7 +171,7 @@ const ChatStudio = () => {
     void (async () => {
       setVisibleMessageCount(30)
       if (activeSessionId === 1) return
-      const data = await getChatData(activeSessionId)
+      const data = (await getChatData(activeSessionId)) as StudioChatItem[] | null
       if (!isCancelled) {
         setActiveSessionData(data || [])
       }
@@ -158,9 +183,10 @@ const ChatStudio = () => {
 
   // Real-time live background sync across sessions
   useEffect(() => {
-    const handleSessionUpdate = (e) => {
-      if (e.detail && e.detail.sessionId === activeSessionId) {
-        setActiveSessionData(e.detail.data || [])
+    const handleSessionUpdate = (e: Event) => {
+      const d = (e as CustomEvent<{ sessionId?: number; data?: StudioChatItem[] }>).detail
+      if (d && d.sessionId === activeSessionId) {
+        setActiveSessionData(d.data || [])
       }
     }
     window.addEventListener('session-updated', handleSessionUpdate)
@@ -182,7 +208,7 @@ const ChatStudio = () => {
     isAutoScrollEnabledRef.current = scrollHeight - scrollTop - clientHeight < 80
   }
 
-  const scrollToBottom = (behavior = 'auto') => {
+  const scrollToBottom = (behavior: ScrollBehavior = 'auto') => {
     if (messagesContainerRef.current) {
       messagesContainerRef.current.scrollTo({
         top: messagesContainerRef.current.scrollHeight,
@@ -220,7 +246,7 @@ const ChatStudio = () => {
     }
   }
 
-  const handleDeleteSessionClick = async (e, id) => {
+  const handleDeleteSessionClick = async (e: React.MouseEvent, id: number) => {
     e.stopPropagation()
     if (id === 1) return
 
@@ -228,7 +254,7 @@ const ChatStudio = () => {
       title: 'Hapus Sesi Obrolan',
       message: 'Apakah kamu yakin ingin menghapus sesi percakapan ini secara permanen?',
       confirmText: 'Hapus',
-      confirmColor: 'btn-error'
+      isError: true
     })
 
     if (confirmed?.isConfirmed) {
@@ -240,13 +266,13 @@ const ChatStudio = () => {
     }
   }
 
-  const handleStartRename = (e, session) => {
+  const handleStartRename = (e: React.MouseEvent, session: SessionRow) => {
     e.stopPropagation()
-    setEditingSessionId(session.id)
-    setEditingTitle(session.title)
+    setEditingSessionId(session.id ?? null)
+    setEditingTitle(session.title ?? '')
   }
 
-  const handleSaveRenameSession = async (id) => {
+  const handleSaveRenameSession = async (id: number) => {
     if (editingTitle.trim()) {
       await renameSession(id, editingTitle.trim())
       await loadAllSessions()
@@ -258,15 +284,15 @@ const ChatStudio = () => {
     if (window.api && window.api.selectDirectory) {
       const selected = await window.api.selectDirectory()
       if (selected) {
-        await setSessionWorkspace(activeSessionId, selected)
+        await setSessionWorkspace(activeSessionId, String(selected))
         setSessions((prev) =>
-          prev.map((s) => (s.id === activeSessionId ? { ...s, workspaceRoot: selected } : s))
+          prev.map((s) => (s.id === activeSessionId ? { ...s, workspaceRoot: String(selected) } : s))
         )
       }
     }
   }
 
-  const handleSendMessage = async (prompt) => {
+  const handleSendMessage = async (prompt: string) => {
     if (!prompt.trim()) return
 
     // Auto-update session title if it's default
@@ -279,11 +305,11 @@ const ChatStudio = () => {
     }
 
     if (activeSessionId === 1) {
-      handlePlanningCommand(prompt, false, false, {
+      handlePlanningCommand?.(prompt, false, false, {
         workspaceRoot: currentSession?.workspaceRoot
       })
     } else {
-      handlePlanningCommand(prompt, false, false, {
+      handlePlanningCommand?.(prompt, false, false, {
         sessionId: activeSessionId,
         customChatData: activeSessionData,
         workspaceRoot: currentSession?.workspaceRoot
@@ -303,7 +329,7 @@ const ChatStudio = () => {
     (s.title || '').toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  const activeSessionObj = sessions.find((s) => s.id === activeSessionId) || {
+  const activeSessionObj: SessionRow = sessions.find((s) => s.id === activeSessionId) || {
     id: 1,
     title: 'Main Thread'
   }
@@ -313,11 +339,11 @@ const ChatStudio = () => {
       {/* Top Navigation Bar with Safe Area Gutter */}
       <div
         className="h-14 pl-16 pr-28 border-b border-white/10 flex items-center justify-between bg-[#1c1c1e]/80 backdrop-blur-xl shrink-0 z-30 relative select-none"
-        style={{ WebkitAppRegion: 'drag' }}
+        style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       >
         <div
           className="flex items-center gap-3 pointer-events-auto"
-          style={{ WebkitAppRegion: 'no-drag' }}
+          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
         >
           <button
             type="button"
@@ -340,13 +366,13 @@ const ChatStudio = () => {
         {/* Right Action Buttons */}
         <div
           className="flex items-center gap-2 pointer-events-auto"
-          style={{ WebkitAppRegion: 'no-drag' }}
+          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
         >
           <button
             type="button"
             onClick={handleCreateNewChat}
             className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#0a84ff] text-white hover:bg-[#0a84ff]/90 text-xs font-medium shadow-md shadow-[#0a84ff]/20 cursor-pointer transition-all active:scale-95"
-            style={{ WebkitAppRegion: 'no-drag' }}
+            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
           >
             <Plus className="w-3.5 h-3.5" />
             Sesi Baru
@@ -424,12 +450,12 @@ const ChatStudio = () => {
 
                 return (
                   <div
-                    key={s.id}
+                    key={s.id ?? 'session'}
                     role="button"
                     tabIndex={0}
-                    onClick={() => setActiveSessionId(s.id)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') setActiveSessionId(s.id)
+                    onClick={() => s.id !== undefined && setActiveSessionId(s.id)}
+                    onKeyDown={(e: ReactKeyboardEvent<HTMLDivElement>) => {
+                      if (e.key === 'Enter' || e.key === ' ') s.id !== undefined && setActiveSessionId(s.id)
                     }}
                     className={`w-full p-2.5 rounded-xl text-left transition-all flex items-center justify-between group/item cursor-pointer ${
                       isActive
@@ -453,8 +479,8 @@ const ChatStudio = () => {
                             type="text"
                             value={editingTitle}
                             onChange={(e) => setEditingTitle(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') handleSaveRenameSession(s.id)
+                            onKeyDown={(e: ReactKeyboardEvent<HTMLInputElement>) => {
+                              if (e.key === 'Enter' && s.id !== undefined) handleSaveRenameSession(s.id)
                               if (e.key === 'Escape') setEditingSessionId(null)
                             }}
                             autoFocus
@@ -477,7 +503,7 @@ const ChatStudio = () => {
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
-                            handleSaveRenameSession(s.id)
+                            if (s.id !== undefined) handleSaveRenameSession(s.id)
                           }}
                           className="p-1 rounded-lg hover:bg-white/20 text-white"
                           title="Simpan nama"
@@ -496,7 +522,7 @@ const ChatStudio = () => {
                             <Edit2 className="w-3 h-3" />
                           </button>
                           <button
-                            onClick={(e) => handleDeleteSessionClick(e, s.id)}
+                            onClick={(e) => s.id !== undefined && handleDeleteSessionClick(e, s.id)}
                             className="p-1 rounded-lg text-white/60 hover:text-[#ff453a] hover:bg-[#ff453a]/20 transition-colors"
                             title="Hapus sesi"
                             aria-label="Hapus sesi"
@@ -566,25 +592,25 @@ const ChatStudio = () => {
               ) : (
                 visibleMessages.map((msg, idx) => (
                   <ChatList
-                    key={msg.id || msg.created_at || idx}
-                    msgId={msg.id || msg.created_at || idx}
-                    role={msg.role}
+                    key={(msg.id ?? msg.created_at ?? idx) as string | number}
+                    msgId={msg.id ?? msg.created_at ?? idx}
+                    role={typeof msg.role === 'string' ? msg.role : 'user'}
                     content={msg.content}
-                    reasoning={msg.reasoning}
-                    isThinking={msg.isThinking}
-                    isSearching={msg.isSearching}
-                    isSummarizing={msg.isSummarizing}
-                    isSearchingMusic={msg.isSearchingMusic}
-                    sources={msg.sources}
-                    executedTools={msg.executedTools}
-                    isMemorySaved={msg.isMemorySaved}
+                    reasoning={(msg.reasoning as string | null | undefined) ?? null}
+                    isThinking={!!msg.isThinking}
+                    isSearching={!!msg.isSearching}
+                    isSummarizing={!!msg.isSummarizing}
+                    isSearchingMusic={!!msg.isSearchingMusic}
+                    sources={(msg.sources as unknown[] | undefined) ?? []}
+                    executedTools={(msg.executedTools as unknown[] | undefined) ?? []}
+                    isMemorySaved={!!msg.isMemorySaved}
                     choice={msg.choice}
-                    isMemoryUpdated={msg.isMemoryUpdated}
-                    isMemoryDeleted={msg.isMemoryDeleted}
-                    timestamp={msg.timestamp}
-                    mood={msg.mood}
-                    source={msg.source}
-                    sender={msg.sender}
+                    isMemoryUpdated={!!msg.isMemoryUpdated}
+                    isMemoryDeleted={!!msg.isMemoryDeleted}
+                    timestamp={(msg.timestamp as string | number | undefined) ?? ''}
+                    mood={typeof msg.mood === 'string' ? msg.mood : 'neutral'}
+                    source={(msg.source as string | null | undefined) ?? null}
+                    sender={(msg.sender as string | null | undefined) ?? null}
                   />
                 ))
               )}

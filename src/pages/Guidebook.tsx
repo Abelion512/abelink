@@ -33,7 +33,16 @@ import {
 import { faqs } from '../data/faqData'
 
 // --- Komponen ToolCard ---
-const ToolCard = ({ name, description, needsPermission, queryFormat, howItWorks, example }) => {
+interface ToolCardProps {
+  name: string
+  description: string
+  needsPermission?: boolean
+  queryFormat?: string
+  howItWorks?: string
+  example?: string
+}
+
+const ToolCard = ({ name, description, needsPermission, queryFormat, howItWorks, example }: ToolCardProps) => {
   const [isExpanded, setIsExpanded] = useState(false)
 
   return (
@@ -89,7 +98,14 @@ const ToolCard = ({ name, description, needsPermission, queryFormat, howItWorks,
 }
 
 // --- Komponen FlowStep ---
-const FlowStep = ({ number, title, description, isLast }) => (
+interface FlowStepProps {
+  number: string | number
+  title: string
+  description: string
+  isLast?: boolean
+}
+
+const FlowStep = ({ number, title, description, isLast }: FlowStepProps) => (
   <div className="flex items-start gap-4">
     <div className="flex flex-col items-center">
       <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary text-primary flex items-center justify-center font-bold text-sm shrink-0 shadow-[0_0_10px_oklch(var(--p)/0.3)]">
@@ -135,7 +151,7 @@ const Guidebook = () => {
         <button
           onClick={() => navigate('/')}
           className="btn btn-ghost btn-sm gap-2 text-white/70 hover:text-white mr-6"
-          style={{ WebkitAppRegion: 'no-drag' }}
+          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
         >
           <ArrowLeft /> Kembali
         </button>
@@ -162,7 +178,7 @@ const Guidebook = () => {
                 key={item.id}
                 onClick={() => {
                   setActiveSection(item.id)
-                  document.querySelector('main').scrollTo({ top: 0, behavior: 'smooth' })
+                  document.querySelector('main')?.scrollTo({ top: 0, behavior: 'smooth' })
                 }}
                 className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all text-left ${
                   activeSection === item.id

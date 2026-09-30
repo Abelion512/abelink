@@ -3,14 +3,28 @@ import { AlignRight } from 'lucide-react'
 
 // Single anchor-id scheme shared by ChatStudio items and ChatList rows:
 // `msg-<stable id with unsafe chars dashed>`.
-export const toMinimapAnchorId = (raw) =>
+export const toMinimapAnchorId = (raw: unknown) =>
   `msg-${String(raw).replace(/[^A-Za-z0-9_-]/g, '-')}`
 
 // Slim chat minimap rail: bars mirror the message list (user = depth 2,
 // assistant = depth 3). Hover/focus expands a title panel; click smooth-scrolls
 // to the anchored message. Pure Tailwind, no external hover-card.
-export const TocMinimap = ({ items = [], onJump, scrollRoot = null }) => {
-  const [activeId, setActiveId] = useState(null)
+export interface TocMinimapItem {
+  id: string
+  title: string
+  depth: number
+}
+
+export const TocMinimap = ({
+  items = [],
+  onJump,
+  scrollRoot = null
+}: {
+  items?: TocMinimapItem[]
+  onJump?: (id: string) => void
+  scrollRoot?: React.RefObject<HTMLElement | null> | null
+}) => {
+  const [activeId, setActiveId] = useState<string | null>(null)
   const [open, setOpen] = useState(false)
 
   useEffect(() => {
@@ -25,15 +39,15 @@ export const TocMinimap = ({ items = [], onJump, scrollRoot = null }) => {
         visible.sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)
         setActiveId(visible[0].target.id)
       },
-      { root, rootMargin: '-20% 0px -65% 0px' }
+      { root: (root ?? undefined) as Element | Document | null, rootMargin: '-20% 0px -65% 0px' }
     )
-    targets.forEach((target) => observer.observe(target))
+    targets.forEach((target) => observer.observe(target as Element))
     return () => observer.disconnect()
   }, [items, scrollRoot])
 
   if (!items.length) return null
 
-  const jump = (id) => {
+  const jump = (id: string) => {
     setActiveId(id)
     setOpen(false)
     if (onJump) {
