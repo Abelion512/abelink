@@ -9,6 +9,7 @@ import {
   nextAlphaVersion as nextAlphaVersionReal,
   detectBumpType,
   bumpRank,
+  selectReleaseBaseline,
 } from '../scripts/release-version.mjs'
 import { appToExtVersion } from '../scripts/ext-version.mjs'
 const semver = { parse: semverParse, gt: semverGt, rcompare: semverRcompare }
@@ -338,6 +339,30 @@ describe('monoton pipeline: kandidat dari baseline selalu lebih baru', () => {
 
   it('kompat mundur: nextAlphaVersion modul = patch bump', () => {
     expect(nextAlphaVersionReal('1.0.0-alpha.4')).toBe('1.0.1-alpha.5')
+  })
+})
+
+describe('release baseline (tagged history wins over pending metadata)', () => {
+  it('keeps the last reachable tag as baseline when releases.json contains a pending higher release', () => {
+    const baseline = selectReleaseBaseline('1.7.0-alpha.11', [
+      { version: '1.8.0-alpha.12' },
+      { version: '1.7.0-alpha.11' }
+    ])
+    expect(baseline).toBe('1.7.0-alpha.11')
+    expect(nextVersion(baseline, 'patch')).toBe('1.7.1-alpha.12')
+  })
+
+  it('uses the highest valid releases.json entry only when no tag exists', () => {
+    const baseline = selectReleaseBaseline(null, [
+      { version: '1.6.0-alpha.10' },
+      { version: '1.5.3-alpha.9' },
+      { version: 'invalid' }
+    ])
+    expect(baseline).toBe('1.6.0-alpha.10')
+  })
+
+  it('returns null when neither tag nor valid release metadata exists', () => {
+    expect(selectReleaseBaseline(null, [{ version: 'invalid' }])).toBeNull()
   })
 })
 
