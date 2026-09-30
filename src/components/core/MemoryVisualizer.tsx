@@ -19,23 +19,42 @@ const GRAPH_ROOTS = [
   { id: 'doc-root', name: 'Document Vault', color: '#ffaa00' }
 ]
 
-function useGraphChildren(graphData) {
+interface GraphNode {
+  id: string | number
+  name?: string
+  group?: number
+  fullText?: string
+  typeLabel?: string
+  [key: string]: unknown
+}
+
+interface GraphLink {
+  source: string | number | { id: string | number }
+  target: string | number | { id: string | number }
+}
+
+interface GraphData {
+  nodes: GraphNode[]
+  links: GraphLink[]
+}
+
+function useGraphChildren(graphData: GraphData | null | undefined) {
   return useMemo(() => {
     if (!graphData?.nodes || !graphData?.links) return {}
-    const nodeMap = new Map(graphData.nodes.map((n) => [n.id, n]))
-    const children = new Map()
+    const nodeMap = new Map<string | number, GraphNode>(graphData.nodes.map((n) => [n.id, n]))
+    const children = new Map<string | number, Array<string | number>>()
     for (const link of graphData.links) {
       const src = typeof link.source === 'object' ? link.source.id : link.source
       const tgt = typeof link.target === 'object' ? link.target.id : link.target
       if (!children.has(src)) children.set(src, [])
-      children.get(src).push(tgt)
+      children.get(src)?.push(tgt)
     }
-    const collect = (rootId) => {
-      const visited = new Set()
-      const stack = [rootId]
-      const leaves = []
+    const collect = (rootId: string) => {
+      const visited = new Set<string | number>()
+      const stack: Array<string | number> = [rootId]
+      const leaves: GraphNode[] = []
       while (stack.length) {
-        const cur = stack.pop()
+        const cur = stack.pop() as string | number
         if (visited.has(cur)) continue
         visited.add(cur)
         const node = nodeMap.get(cur)
@@ -46,17 +65,25 @@ function useGraphChildren(graphData) {
       }
       return leaves
     }
-    const out = {}
+    const out: Record<string, GraphNode[]> = {}
     for (const r of GRAPH_ROOTS) out[r.id] = collect(r.id)
     return out
   }, [graphData])
 }
 
-function LiteGraphView({ graphData, setSelectedNode: _setSelectedNode, totalCounts }) {
+function LiteGraphView({
+  graphData,
+  setSelectedNode: _setSelectedNode,
+  totalCounts
+}: {
+  graphData?: GraphData
+  setSelectedNode?: (n: GraphNode | null) => void
+  totalCounts?: { archives?: number; memories?: number; documents?: number } | null
+}) {
   const childrenByRoot = useGraphChildren(graphData)
   const totalItems = graphData?.nodes?.length || 0
   const grandTotal = (totalCounts?.archives || 0) + (totalCounts?.memories || 0) + (totalCounts?.documents || 0)
-  const [openRoot, setOpenRoot] = useState(null)
+  const [openRoot, setOpenRoot] = useState<string | null>(null)
 
   return (
     <div className="absolute inset-0 overflow-y-auto p-6 text-sm text-base-content/80">
@@ -92,7 +119,7 @@ function LiteGraphView({ graphData, setSelectedNode: _setSelectedNode, totalCoun
                     <div
                       key={n.id}
                       className="text-xs p-2 rounded cursor-pointer hover:bg-base-300/50"
-                      onClick={() => handleSelectNode(n)}
+                      onClick={() => _setSelectedNode?.(n)}
                       title={n.fullText}
                     >
                       <span className="truncate block">{n.name}</span>
@@ -109,11 +136,17 @@ function LiteGraphView({ graphData, setSelectedNode: _setSelectedNode, totalCoun
   )
 }
 
-const MemoryVisualizer = ({ isOpen, onClose }) => {
+const MemoryVisualizer = ({
+  isOpen,
+  onClose
+}: {
+  isOpen: boolean
+  onClose: () => void
+}) => {
   const { isGrooming, groomResult, triggerGrooming } = useMemoryGroomer(false)
-  const [graphData, setGraphData] = useState({ nodes: [], links: [] })
-  const [selectedNode, setSelectedNode] = useState(null)
-  const [confirmModal, setConfirmModal] = useState({ isOpen: false, node: null })
+  const [graphData, setGraphData] = useState<GraphData>({ nodes: [], links: [] })
+  const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null)
+  const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; node: GraphNode | null }>({ isOpen: false, node: null })
 
   // Fetch and format data (ringan: tanpa vektor embedding, tanpa isi dokumen
   // penuh — fullText dokumen dimuat on-select via getDocumentChunk).
@@ -122,14 +155,15 @@ const MemoryVisualizer = ({ isOpen, onClose }) => {
     const archives = await getAllChatArchives();
     const explicitMemories = (await getAllMemory()).map((m) => ({
       id: m.id,
-      type: m.type,
+      type: m.type as string,
       memory: m.memory,
-      timestamp: m.timestamp
+      summary: m.summary as string | undefined,
+      timestamp: m.timestamp as number
     }));
     const documents = await getAllDocumentsMeta();
     
-    const nodes = [];
-    const links = [];
+    const nodes: GraphNode[] = [];
+    const links: Array<GraphLink & { color?: string }> = [];
 
         // 0. Core Node
         const coreNodeId = 'core';
@@ -155,9 +189,9 @@ const MemoryVisualizer = ({ isOpen, onClose }) => {
           const topicId = `topic-${arc.topic || 'General'}`;
           nodes.push({
             id: `arc-${arc.id}`,
-            name: arc.summary.substring(0, 30) + '...',
+            name: (arc.summary ?? '').substring(0, 30) + '...',
             fullText: arc.summary,
-            date: new Date(arc.timestamp).toLocaleDateString(),
+            date: new Date(arc.timestamp ?? 0).toLocaleDateString(),
             group: 3,
             val: 4,
             color: '#a0a0a0',
@@ -201,7 +235,7 @@ const MemoryVisualizer = ({ isOpen, onClose }) => {
           nodes.push({
             id: `doc-${doc.id}`,
             name: `Chunk ${doc.chunkIndex}`,
-            fullText: null,
+            fullText: undefined,
             chunkId: doc.id,
             date: doc.timestamp ? new Date(doc.timestamp).toLocaleDateString() : 'Parsed Document',
             group: 3,
@@ -225,7 +259,7 @@ const MemoryVisualizer = ({ isOpen, onClose }) => {
   }, [isOpen]);
 
   // Konten dokumen dimuat on-select (tidak dibawa di node).
-  const handleSelectNode = (node) => {
+  const handleSelectNode = (node: GraphNode | null) => {
     if (node?.typeLabel === 'Document Chunk' && !node.fullText && node.chunkId != null) {
       setSelectedNode({ ...node, fullText: 'Memuat...' })
       getDocumentChunk(node.chunkId)
@@ -374,9 +408,9 @@ const MemoryVisualizer = ({ isOpen, onClose }) => {
           </button>
           <div className="flex gap-2 items-center mb-3">
             <span className={`badge badge-sm ${selectedNode.typeLabel === 'Explicit Memory' ? 'badge-secondary' : selectedNode.typeLabel === 'Document Chunk' ? 'badge-warning' : 'badge-primary'}`}>
-              {selectedNode.typeLabel || 'Memori Terkunci'}
+              {String(selectedNode.typeLabel || 'Memori Terkunci')}
             </span>
-            <span className="text-xs opacity-50">{selectedNode.date}</span>
+            <span className="text-xs opacity-50">{String(selectedNode.date ?? '')}</span>
           </div>
           <p className="text-sm opacity-90 leading-relaxed font-mono mb-4">
             &ldquo;{selectedNode.fullText}&rdquo;
