@@ -29,9 +29,10 @@ describe('selfModel sources exist', () => {
   ]
   for (const { claim, source } of all) {
     // Timeout zamanikan: findFile memindai pohon source secara rekursif;
-    // di bawah beban suite paralel penuh bisa >5s (default) padahal logisnya
-    // deterministik. 20s memberi margin tanpa menyembunyikan regression.
-    it(`sumber ada: ${source} (${claim.slice(0, 40)}…)`, { timeout: 20000 }, () => {
+    // di bawah beban suite paralel penuh bisa >5s (default) dan bahkan >20s
+    // saat transform suite W4 berat. 60s memberi margin tanpa menyembunyikan
+    // regression (logisnya deterministik).
+    it(`sumber ada: ${source} (${claim.slice(0, 40)}…)`, { timeout: 60000 }, () => {
       // Entri path ("a/b.js", "dir/") dicek langsung; basename dicari rekursif.
       const parts = source.split(',').map((s) => s.trim().split(/\s+/)[0])
       const hit = parts.some((s) => {

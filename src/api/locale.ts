@@ -828,3 +828,13 @@ export function tx(langOrConfig: LangInput, key: string): LocaleValue {
   const v = (STRINGS[lang] as Record<string, LocaleValue>)?.[key] ?? (EN as unknown as Record<string, LocaleValue>)[key]
   return v === undefined ? key : v
 }
+
+/**
+ * Helper rendering (W4, js-to-ts-spec): varian `tx` yang SELALU mengembalikan
+ * string — formatter dipanggil dengan maksimal 2 argumen sehingga aman dipakai
+ * langsung di JSX tanpa narrows per-call-site.
+ */
+export function t(langOrConfig: LangInput, key: string, ...args: unknown[]): string {
+  const v = tx(langOrConfig, key)
+  return typeof v === 'function' ? String((v as (a?: unknown, b?: unknown) => unknown)(args[0], args[1])) : v
+}

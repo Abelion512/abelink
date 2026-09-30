@@ -1,0 +1,443 @@
+import { useEffect, useState, useMemo } from 'react'
+import { getAllChatArchives, getAllMemory, getAllDocumentsMeta, getDocumentChunk, deleteMemory, deleteChatArchive } from '../../api/db'
+import { CheckCircle2, Clock, GitMerge, Trash2, RefreshCw, Loader2 } from 'lucide-react'
+import { MobiusLoader } from './MobiusLoader'
+import { useMemoryGroomer } from '../../hooks/useMemoryGroomer'
+import ConfirmModal from './ConfirmModal'
+
+// ponytail: LiteGraphView satu-satunya tampilan (force-graph dep dihapus);
+// senarai grup sudah cukup untuk navigasi memori + hemat RAM.
+
+// Batas node daun per grup (hemat RAM/heap + fisika): terbaru didahulukan,
+// sisanya dihitung di label "X dari Y". Full content TIDAK masuk node.
+const MAX_GRAPH_LEAVES = 200
+
+// Roots that anchor the memory list (color + id match the grouped entries)
+const GRAPH_ROOTS = [
+  { id: 'archives-root', name: 'Chat History', color: '#0a84ff' },
+  { id: 'vector-root', name: 'Knowledge Base', color: '#ff00aa' },
+  { id: 'doc-root', name: 'Document Vault', color: '#ffaa00' }
+]
+
+interface GraphNode {
+  id: string | number
+  name?: string
+  group?: number
+  fullText?: string
+  typeLabel?: string
+  [key: string]: unknown
+}
+
+interface GraphLink {
+  source: string | number | { id: string | number }
+  target: string | number | { id: string | number }
+}
+
+interface GraphData {
+  nodes: GraphNode[]
+  links: GraphLink[]
+}
+
+function useGraphChildren(graphData: GraphData | null | undefined) {
+  return useMemo(() => {
+    if (!graphData?.nodes || !graphData?.links) return {}
+    const nodeMap = new Map<string | number, GraphNode>(graphData.nodes.map((n) => [n.id, n]))
+    const children = new Map<string | number, Array<string | number>>()
+    for (const link of graphData.links) {
+      const src = typeof link.source === 'object' ? link.source.id : link.source
+      const tgt = typeof link.target === 'object' ? link.target.id : link.target
+      if (!children.has(src)) children.set(src, [])
+      children.get(src)?.push(tgt)
+    }
+    const collect = (rootId: string) => {
+      const visited = new Set<string | number>()
+      const stack: Array<string | number> = [rootId]
+      const leaves: GraphNode[] = []
+      while (stack.length) {
+        const cur = stack.pop() as string | number
+        if (visited.has(cur)) continue
+        visited.add(cur)
+        const node = nodeMap.get(cur)
+        if (!node) continue
+        const kids = children.get(cur) || []
+        if (kids.length === 0 && node.group === 3) leaves.push(node)
+        for (const k of kids) stack.push(k)
+      }
+      return leaves
+    }
+    const out: Record<string, GraphNode[]> = {}
+    for (const r of GRAPH_ROOTS) out[r.id] = collect(r.id)
+    return out
+  }, [graphData])
+}
+
+function LiteGraphView({
+  graphData,
+  setSelectedNode: _setSelectedNode,
+  totalCounts
+}: {
+  graphData?: GraphData
+  setSelectedNode?: (n: GraphNode | null) => void
+  totalCounts?: { archives?: number; memories?: number; documents?: number } | null
+}) {
+  const childrenByRoot = useGraphChildren(graphData)
+  const totalItems = graphData?.nodes?.length || 0
+  const grandTotal = (totalCounts?.archives || 0) + (totalCounts?.memories || 0) + (totalCounts?.documents || 0)
+  const [openRoot, setOpenRoot] = useState<string | null>(null)
+
+  return (
+    <div className="absolute inset-0 overflow-y-auto p-6 text-sm text-base-content/80">
+      <div className="max-w-2xl mx-auto space-y-4">
+        <div className="text-xs text-base-content/40">
+          Lite mode — {totalItems} node sebagai senarai (hemat RAM)
+          {grandTotal > totalItems ? ` (dari ${grandTotal} entri)` : ''}
+        </div>
+        {GRAPH_ROOTS.map((r) => {
+          const items = childrenByRoot[r.id] || []
+          const isOpen = openRoot === r.id
+          return (
+            <div key={r.id} className="border border-base-300/50 rounded-lg p-3 bg-base-200/30">
+              <div
+                className="flex items-center justify-between cursor-pointer select-none"
+                onClick={() => setOpenRoot(isOpen ? null : r.id)}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full" style={{ background: r.color }} />
+                  <span className="font-medium text-base-content/90">{r.name}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-base-content/50">{items.length} entri</span>
+                  <Loader2
+                    className={`w-3.5 h-3.5 transition-transform ${isOpen ? 'rotate-90' : ''}`}
+                    style={{ transformOrigin: 'center' }}
+                  />
+                </div>
+              </div>
+              {isOpen && items.length > 0 && (
+                <div className="mt-2 space-y-1 max-h-64 overflow-y-auto">
+                  {items.map((n) => (
+                    <div
+                      key={n.id}
+                      className="text-xs p-2 rounded cursor-pointer hover:bg-base-300/50"
+                      onClick={() => _setSelectedNode?.(n)}
+                      title={n.fullText}
+                    >
+                      <span className="truncate block">{n.name}</span>
+                      {n.typeLabel && <span className="text-base-content/50"> · {n.typeLabel}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+const MemoryVisualizer = ({
+  isOpen,
+  onClose
+}: {
+  isOpen: boolean
+  onClose: () => void
+}) => {
+  const { isGrooming, groomResult, triggerGrooming } = useMemoryGroomer(false)
+  const [graphData, setGraphData] = useState<GraphData>({ nodes: [], links: [] })
+  const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null)
+  const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; node: GraphNode | null }>({ isOpen: false, node: null })
+
+  // Fetch and format data (ringan: tanpa vektor embedding, tanpa isi dokumen
+  // penuh — fullText dokumen dimuat on-select via getDocumentChunk).
+  const [totalCounts, setTotalCounts] = useState({ archives: 0, memories: 0, documents: 0 })
+  const loadMemories = async () => {
+    const archives = await getAllChatArchives();
+    const explicitMemories = (await getAllMemory()).map((m) => ({
+      id: m.id,
+      type: m.type as string,
+      memory: m.memory,
+      summary: m.summary as string | undefined,
+      timestamp: m.timestamp as number
+    }));
+    const documents = await getAllDocumentsMeta();
+    
+    const nodes: GraphNode[] = [];
+    const links: Array<GraphLink & { color?: string }> = [];
+
+        // 0. Core Node
+        const coreNodeId = 'core';
+        nodes.push({ id: coreNodeId, name: 'Abelink Neural Core', group: 0, val: 25, color: '#0a84ff' });
+
+        // 1. Sub-Cores (Main Branches)
+        nodes.push({ id: 'archives-root', name: 'Chat History', group: 1, val: 15, color: '#0a84ff' });
+        nodes.push({ id: 'vector-root', name: 'Knowledge Base', group: 1, val: 15, color: '#ff00aa' });
+        nodes.push({ id: 'doc-root', name: 'Document Vault', group: 1, val: 15, color: '#ffaa00' });
+        
+        links.push({ source: coreNodeId, target: 'archives-root', color: 'rgba(255,255,255,0.3)' });
+        links.push({ source: coreNodeId, target: 'vector-root', color: 'rgba(255,255,255,0.3)' });
+        links.push({ source: coreNodeId, target: 'doc-root', color: 'rgba(255,255,255,0.3)' });
+
+        // 2 & 3. Process Chat Archives
+        const topics = [...new Set(archives.map(a => a.topic || 'General'))];
+        topics.forEach(topic => {
+          nodes.push({ id: `topic-${topic}`, name: topic, group: 2, val: 10, color: '#0a84ff' });
+          links.push({ source: 'archives-root', target: `topic-${topic}`, color: 'rgba(255,255,255,0.1)' });
+        });
+
+        archives.slice(-MAX_GRAPH_LEAVES).forEach(arc => {
+          const topicId = `topic-${arc.topic || 'General'}`;
+          nodes.push({
+            id: `arc-${arc.id}`,
+            name: (arc.summary ?? '').substring(0, 30) + '...',
+            fullText: arc.summary,
+            date: new Date(arc.timestamp ?? 0).toLocaleDateString(),
+            group: 3,
+            val: 4,
+            color: '#a0a0a0',
+            typeLabel: 'Chat Archive'
+          });
+          links.push({ source: topicId, target: `arc-${arc.id}`, color: 'rgba(255,255,255,0.1)' });
+        });
+
+        // 2 & 3. Process Vector Explicit Memories
+        const memoryTypes = [...new Set(explicitMemories.map(m => m.type || 'other'))];
+        memoryTypes.forEach(type => {
+          nodes.push({ id: `type-${type}`, name: type.toUpperCase(), group: 2, val: 10, color: '#ff00aa' });
+          links.push({ source: 'vector-root', target: `type-${type}`, color: 'rgba(255,255,255,0.1)' });
+        });
+
+        explicitMemories.slice(-MAX_GRAPH_LEAVES).forEach(mem => {
+          const typeId = `type-${mem.type || 'other'}`;
+          nodes.push({
+            id: `mem-${mem.id}`,
+            name: mem.summary ? mem.summary : mem.memory.substring(0, 30) + '...',
+            fullText: mem.memory,
+            date: 'Vector RAG',
+            group: 3,
+            val: 5,
+            color: '#e0e0e0',
+            typeLabel: 'Explicit Memory'
+          });
+          links.push({ source: typeId, target: `mem-${mem.id}`, color: 'rgba(255,255,255,0.1)' });
+        });
+
+        // 2 & 3. Process Documents (PDFs) — daun dibatasi terbaru dulu.
+        const docNames = [...new Set(documents.map(d => d.docName || 'Unknown Document'))];
+        docNames.forEach(docName => {
+          nodes.push({ id: `docGroup-${docName}`, name: docName, group: 2, val: 12, color: '#ffaa00' });
+          links.push({ source: 'doc-root', target: `docGroup-${docName}`, color: 'rgba(255,255,255,0.1)' });
+        });
+
+        const docLeaves = documents.slice(-MAX_GRAPH_LEAVES);
+        docLeaves.forEach(doc => {
+          const docGroupId = `docGroup-${doc.docName || 'Unknown Document'}`;
+          nodes.push({
+            id: `doc-${doc.id}`,
+            name: `Chunk ${doc.chunkIndex}`,
+            fullText: undefined,
+            chunkId: doc.id,
+            date: doc.timestamp ? new Date(doc.timestamp).toLocaleDateString() : 'Parsed Document',
+            group: 3,
+            val: 4,
+            color: '#d0b080',
+            typeLabel: 'Document Chunk'
+          });
+          links.push({ source: docGroupId, target: `doc-${doc.id}`, color: 'rgba(255,255,255,0.1)' });
+        });
+
+    setTotalCounts({ archives: archives.length, memories: explicitMemories.length, documents: documents.length });
+    setGraphData({ nodes, links });
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      void (async () => {
+        await loadMemories();
+      })()
+    }
+  }, [isOpen]);
+
+  // Konten dokumen dimuat on-select (tidak dibawa di node).
+  const handleSelectNode = (node: GraphNode | null) => {
+    if (node?.typeLabel === 'Document Chunk' && !node.fullText && node.chunkId != null) {
+      setSelectedNode({ ...node, fullText: 'Memuat...' })
+      getDocumentChunk(node.chunkId)
+        .then((row) => {
+          setSelectedNode({ ...node, fullText: row?.content || '(konten tidak tersedia)' })
+        })
+        .catch(() => {
+          setSelectedNode({ ...node, fullText: '(gagal memuat konten)' })
+        })
+    } else {
+      setSelectedNode(node)
+    }
+  }
+
+  const handleDelete = () => {
+    if (!selectedNode) return;
+    setConfirmModal({ isOpen: true, node: selectedNode });
+  };
+
+  const executeDelete = async () => {
+    const node = confirmModal.node || selectedNode;
+    if (!node) return;
+    setConfirmModal({ isOpen: false, node: null });
+
+    try {
+      if (
+        node.typeLabel === 'Explicit Memory' ||
+        node.typeLabel === 'Core Memory' ||
+        node.typeLabel === 'Learned Memory'
+      ) {
+        const id = parseInt(String(node.id).split('-')[1]);
+        await deleteMemory(id);
+      } else if (node.typeLabel === 'Chat Archive') {
+        const id = parseInt(String(node.id).split('-')[1]);
+        await deleteChatArchive(id);
+      } else {
+        alert('Penghapusan Document Chunk belum didukung dari panel ini.');
+        return;
+      }
+      setSelectedNode(null);
+      await loadMemories();
+    } catch (err) {
+      console.error('Gagal menghapus memori:', err);
+      alert('Gagal menghapus memori!');
+    }
+  };
+
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 z-30 flex items-center justify-center bg-base-300/95 animate-[fade-in_0.5s_ease-out_forwards]">
+      {/* Background Ambience */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(10,132,255,0.05)_0%,transparent_60%)] pointer-events-none" />
+
+      {/* Close Button */}
+      <button
+        onClick={onClose}
+        className="absolute top-8 right-8 btn btn-circle btn-ghost text-white/50 hover:text-white z-10"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+
+      {/* Grooming Status Bar (Hippocampus Engine) */}
+      <div className="absolute top-6 left-6 z-20 flex items-center gap-4 px-4 py-2.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-xs text-white/80 shadow-lg">
+        {isGrooming ? (
+          <div className="flex items-center gap-2 text-primary">
+            <MobiusLoader size={16} />
+            <span>Sedang mengkonsolidasi & merapikan memori...</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              {groomResult.lastChecked ? (
+                <>
+                  <CheckCircle2 className="w-4 h-4 text-info" />
+                  <span>
+                    Terakhir dikonsolidasi:{' '}
+                    {new Date(groomResult.lastChecked).toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Clock className="w-4 h-4 text-white/50" />
+                  <span>Belum ada riwayat konsolidasi</span>
+                </>
+              )}
+            </div>
+            {(groomResult.mergedCount > 0 || groomResult.deletedCount > 0) && (
+              <div className="flex items-center gap-3 pl-3 border-l border-white/10 text-white/70">
+                <span className="flex items-center gap-1">
+                  <GitMerge className="w-3.5 h-3.5 text-info" />
+                  {groomResult.mergedCount} digabung
+                </span>
+                <span className="flex items-center gap-1">
+                  <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                  {groomResult.deletedCount} duplikat dibersihkan
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
+        <button
+          onClick={async () => {
+            await triggerGrooming(true)
+            await loadMemories()
+          }}
+          disabled={isGrooming}
+          className="btn btn-xs btn-primary rounded-full px-3 flex items-center gap-1 ml-2"
+          title="Jalankan Hippocampus Engine untuk mengkonsolidasi dan merapikan ingatan"
+        >
+          <RefreshCw className={`w-3 h-3 ${isGrooming ? 'animate-spin' : ''}`} />
+          <span>Konsolidasi Sekarang</span>
+        </button>
+      </div>
+
+      {/* Graph Area */}
+      <div className="absolute inset-0">
+        <LiteGraphView graphData={graphData} setSelectedNode={handleSelectNode} totalCounts={totalCounts} />
+      </div>
+
+      {/* Info Panel for Selected Node */}
+      {selectedNode && (
+        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 w-full max-w-lg bg-base-100/90 border border-white/10 rounded-2xl p-6 shadow-2xl animate-[slide-up_0.3s_ease-out_forwards] z-10">
+          <button
+            onClick={() => setSelectedNode(null)}
+            className="absolute top-4 right-4 text-white/40 hover:text-white"
+          >
+            ✕
+          </button>
+          <div className="flex gap-2 items-center mb-3">
+            <span className={`badge badge-sm ${selectedNode.typeLabel === 'Explicit Memory' ? 'badge-secondary' : selectedNode.typeLabel === 'Document Chunk' ? 'badge-warning' : 'badge-primary'}`}>
+              {String(selectedNode.typeLabel || 'Memori Terkunci')}
+            </span>
+            <span className="text-xs opacity-50">{String(selectedNode.date ?? '')}</span>
+          </div>
+          <p className="text-sm opacity-90 leading-relaxed font-mono mb-4">
+            &ldquo;{selectedNode.fullText}&rdquo;
+          </p>
+
+          {(selectedNode.typeLabel === 'Explicit Memory' || selectedNode.typeLabel === 'Chat Archive') && (
+            <div className="flex justify-end mt-2">
+              <button onClick={handleDelete} className="btn btn-error btn-sm text-xs">
+                Hapus Ingatan
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title="Hapus Ingatan"
+        message={`Yakin ingin menghapus memori ini secara permanen?\n"${confirmModal.node?.name || ''}"`}
+        onConfirm={executeDelete}
+        onCancel={() => setConfirmModal({ isOpen: false, node: null })}
+        confirmText="Hapus"
+        cancelText="Batal"
+        isError={true}
+      />
+    </div>
+  )
+}
+
+export default MemoryVisualizer

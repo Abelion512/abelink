@@ -1,0 +1,606 @@
+import { useState, useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from 'react'
+import {
+  MessageSquare,
+  Plus,
+  Trash2,
+  Edit2,
+  Search,
+  Pin,
+  Check,
+  ArrowLeft,
+  Bot
+} from 'lucide-react'
+import {
+  getAllSessions,
+  createSession,
+  deleteSession,
+  renameSession,
+  getChatData,
+  setSessionWorkspace,
+  type SessionRow
+} from '../../api/db'
+import ChatList from '../ChatList'
+import InputBar from './InputBar'
+import { useConfirm } from '../../hooks/useConfirm'
+import { useManualCompaction } from '../../hooks/useManualCompaction'
+
+interface ModalChatItem {
+  id?: unknown
+  created_at?: unknown
+  role?: string
+  content?: unknown
+  isThinking?: boolean
+  [key: string]: unknown
+}
+
+export const ChatStudioModal = ({
+  isOpen,
+  onClose,
+  chatContext
+}: {
+  isOpen: boolean
+  onClose: () => void
+  chatContext: unknown
+}) => {
+  const ctx = (chatContext || {}) as {
+    chatData?: ModalChatItem[]
+    setChatData?: (updater: unknown) => void
+    handlePlanningCommand?: (...args: unknown[]) => void
+    isLoading?: boolean
+    isAgentBusy?: boolean
+    runningSessionIds?: Array<number | string>
+    handleStop?: (sessionId?: number) => void
+    isRecording?: boolean
+    isProcessing?: boolean
+    audioIntensity?: number
+    startRecording?: () => void
+    stopRecording?: () => void
+    inputSource?: string
+  }
+  const {
+    chatData: mainChatData,
+    setChatData: setMainChatData,
+    handlePlanningCommand,
+    isLoading: isMainLoading,
+    isAgentBusy,
+    runningSessionIds = [],
+    handleStop,
+    isRecording,
+    isProcessing,
+    audioIntensity,
+    startRecording,
+    stopRecording,
+    inputSource
+  } = ctx
+
+  const [sessions, setSessions] = useState<SessionRow[]>([])
+  const [activeSessionId, setActiveSessionId] = useState(1)
+  const [activeSessionData, setActiveSessionData] = useState<ModalChatItem[]>([])
+  const [visibleMessageCount, setVisibleMessageCount] = useState(40)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [editingSessionId, setEditingSessionId] = useState<number | null>(null)
+  const [editingTitle, setEditingTitle] = useState('')
+  const [, setIsLocalLoading] = useState(false)
+
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null)
+  const messagesEndRef = useRef<HTMLDivElement | null>(null)
+  const { confirm, ModalComponent } = useConfirm()
+
+  const loadAllSessions = async () => {
+    try {
+      const list = await getAllSessions()
+      setSessions(list || [])
+    } catch (e) {
+      console.error('Error loading sessions:', e)
+    }
+  }
+
+  useEffect(() => {
+    if (isOpen) {
+      void (async () => {
+        await loadAllSessions()
+      })()
+    }
+  }, [isOpen])
+
+  // Direct display pipeline: Main Thread uses mainChatData directly with 0ms lag
+  const currentDisplayMessages = activeSessionId === 1 ? mainChatData || [] : activeSessionData
+
+  // Kompaksi manual + tracker gauge (session compaction).
+  useManualCompaction({
+    messages: currentDisplayMessages as never,
+    setMessages: (updater: unknown) => {
+      if (Number(activeSessionId) === 1) setMainChatData?.(updater)
+      else setActiveSessionData(updater as ModalChatItem[])
+    },
+    sessionId: activeSessionId
+  })
+
+  const isCurrentLoading =
+    runningSessionIds.map(Number).includes(Number(activeSessionId)) ||
+    (Number(activeSessionId) === 1 && !runningSessionIds.length && (isMainLoading || isAgentBusy))
+
+  // Sync active session data for custom sessions (id > 1).
+  // Reset count + fetch dibungkus async agar lolos set-state-in-effect.
+  useEffect(() => {
+    let isCancelled = false
+    void (async () => {
+      setVisibleMessageCount(30)
+      if (!isOpen || activeSessionId === 1) return
+      const data = (await getChatData(activeSessionId)) as ModalChatItem[] | null
+      if (!isCancelled) {
+        setActiveSessionData(data || [])
+      }
+    })()
+    return () => {
+      isCancelled = true
+    }
+  }, [activeSessionId, isOpen])
+
+  // Real-time live background sync across sessions
+  useEffect(() => {
+    const handleSessionUpdate = (e: Event) => {
+      const d = (e as CustomEvent<{ sessionId?: number; data?: ModalChatItem[] }>).detail
+      if (d && d.sessionId === activeSessionId) {
+        setActiveSessionData(d.data || [])
+      }
+    }
+    window.addEventListener('session-updated', handleSessionUpdate)
+    return () => {
+      window.removeEventListener('session-updated', handleSessionUpdate)
+    }
+  }, [activeSessionId])
+
+  const lastMessage = currentDisplayMessages[currentDisplayMessages.length - 1]
+  const lastMessageContent = lastMessage?.content || ''
+  const lastMessageIsThinking = !!lastMessage?.isThinking
+  const isAutoScrollEnabledRef = useRef(true)
+
+  const handleScroll = () => {
+    const container = messagesContainerRef.current
+    if (!container) return
+    const { scrollTop, scrollHeight, clientHeight } = container
+    // User is considered at bottom if within 80px
+    isAutoScrollEnabledRef.current = scrollHeight - scrollTop - clientHeight < 80
+  }
+
+  const scrollToBottom = (behavior: ScrollBehavior = 'auto') => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior
+      })
+    }
+  }
+
+  // Auto scroll to bottom on session change or modal open
+  useEffect(() => {
+    if (isOpen) {
+      isAutoScrollEnabledRef.current = true
+      scrollToBottom('auto')
+    }
+  }, [isOpen, activeSessionId])
+
+  // Direct stick-to-bottom without conflicting timers or layout thrashing
+  useEffect(() => {
+    if (isOpen && isAutoScrollEnabledRef.current && messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+    }
+  }, [
+    isOpen,
+    currentDisplayMessages.length,
+    lastMessageContent,
+    lastMessageIsThinking,
+    isCurrentLoading
+  ])
+
+  const handleCreateNewChat = async () => {
+    try {
+      const newSession = await createSession('Percakapan Baru', [])
+      await loadAllSessions()
+      setActiveSessionId(newSession.id)
+      setActiveSessionData([])
+    } catch (err) {
+      console.error('Failed to create session:', err)
+    }
+  }
+
+  const handleDeleteSessionClick = async (e: ReactMouseEvent, id: number) => {
+    e.stopPropagation()
+    if (id === 1) return
+
+    const confirmed = await confirm({
+      title: 'Hapus Sesi Obrolan',
+      message: 'Apakah kamu yakin ingin menghapus sesi percakapan ini secara permanen?',
+      confirmText: 'Hapus',
+      isError: true
+    })
+
+    if (confirmed?.isConfirmed) {
+      await deleteSession(id)
+      await loadAllSessions()
+      if (activeSessionId === id) {
+        setActiveSessionId(1)
+      }
+    }
+  }
+
+  const handleStartRename = (e: ReactMouseEvent, session: SessionRow) => {
+    e.stopPropagation()
+    setEditingSessionId(session.id ?? null)
+    setEditingTitle(session.title ?? '')
+  }
+
+  const handleSaveRename = async (id: number) => {
+    if (editingTitle.trim()) {
+      await renameSession(id, editingTitle.trim())
+      await loadAllSessions()
+    }
+    setEditingSessionId(null)
+  }
+
+  const handleSelectSessionWorkspace = async () => {
+    if (window.api && window.api.selectDirectory) {
+      const selected = await window.api.selectDirectory()
+      if (selected) {
+        await setSessionWorkspace(activeSessionId, String(selected))
+        setSessions((prev) =>
+          prev.map((s) => (s.id === activeSessionId ? { ...s, workspaceRoot: String(selected) } : s))
+        )
+      }
+    }
+  }
+
+  const handleSendMessage = async (prompt: string) => {
+    if (!prompt.trim()) return
+
+    // Auto-update session title if it's default
+    const currentSession = sessions.find((s) => s.id === activeSessionId)
+    let newTitle = currentSession?.title
+    if (newTitle === 'Percakapan Baru' && prompt.length > 0) {
+      newTitle = prompt.slice(0, 30) + (prompt.length > 30 ? '...' : '')
+      await renameSession(activeSessionId, newTitle)
+      await loadAllSessions()
+    }
+
+    if (activeSessionId === 1) {
+      // Direct pass to Main Thread (Home Orb engine)
+      handlePlanningCommand?.(prompt, false, false, {
+        workspaceRoot: currentSession?.workspaceRoot
+      })
+    } else {
+      // Local workspace session execution via useAbelinkPlan
+      handlePlanningCommand?.(prompt, false, false, {
+        sessionId: activeSessionId,
+        customChatData: activeSessionData,
+        workspaceRoot: currentSession?.workspaceRoot
+      })
+    }
+  }
+
+  const handleStopSession = () => {
+    if (handleStop) handleStop(activeSessionId)
+    if (window.api && window.api.browserClose) {
+      window.api.browserClose(activeSessionId === 1 ? 'default' : String(activeSessionId)).catch((e) => console.warn('browserClose gagal:', (e instanceof Error ? e.message : String(e))))
+    }
+    setIsLocalLoading(false)
+  }
+
+  if (!isOpen) return null
+
+  const filteredSessions = sessions.filter((s) =>
+    (s.title || '').toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
+  const activeSessionObj: SessionRow =
+    (sessions.find((s) => s.id === activeSessionId) as SessionRow | undefined) ||
+    ({ id: 1, title: 'Main Thread', data: [], timestamp: 0 } as SessionRow)
+
+  return (
+    <>
+      {/* Full-Screen Chat Studio Workspace (Below Window Controls Bar) */}
+      <div className="fixed inset-0 pt-10 z-30 w-screen h-screen bg-base-300 flex overflow-hidden animate-[response-fade-in_0.2s_ease-out_forwards]">
+        {/* === LEFT SIDEBAR: SESSIONS LIST === */}
+        <div className="w-80 border-r border-white/10 bg-base-200/50 flex flex-col h-full shrink-0">
+          {/* Sidebar Header */}
+          <div
+            className="p-4 border-b border-white/10 space-y-3 z-30 relative select-none"
+            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+          >
+            <div className="flex items-center justify-between pointer-events-auto">
+              <div className="flex items-center gap-2 font-bold text-sm tracking-wide text-white">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onClose()
+                  }}
+                  className="btn btn-ghost btn-sm btn-circle text-white/70 hover:text-white mr-1 cursor-pointer shrink-0 pointer-events-auto"
+                  style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+                  title="Tutup Studio (Esc)"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </button>
+                <Bot className="w-5 h-5 text-primary shrink-0" />
+                <span className="truncate">Chat Studio</span>
+              </div>
+              <div className="flex items-center gap-1 pointer-events-auto">
+                <button
+                  type="button"
+                  onClick={handleCreateNewChat}
+                  className="btn btn-xs btn-primary rounded-lg gap-1 font-medium shadow-md shadow-primary/20 cursor-pointer pointer-events-auto"
+                  style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Sesi Baru
+                </button>
+              </div>
+            </div>
+
+            {/* Search Input */}
+            <div className="relative pointer-events-auto" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-white/60" />
+              <input
+                type="text"
+                placeholder="Cari obrolan..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="input input-sm bg-base-300 border-white/10 pl-9 w-full rounded-xl text-xs text-white placeholder:text-white/60 focus:border-primary/50"
+              />
+            </div>
+          </div>
+
+          {/* Sessions Scroll List */}
+          <div className="flex-1 overflow-y-auto p-2.5 space-y-1 custom-scrollbar">
+            {/* PINNED MAIN THREAD */}
+            <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-white/60 flex items-center gap-1">
+              <Pin className="w-3 h-3 text-primary" />
+              <span>Sesi Utama</span>
+            </div>
+
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => setActiveSessionId(1)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') setActiveSessionId(1)
+              }}
+              className={`w-full p-2.5 rounded-xl text-left transition-all flex items-center justify-between group/item cursor-pointer ${
+                activeSessionId === 1
+                  ? 'bg-primary/20 border border-primary/40 text-white shadow-sm'
+                  : 'hover:bg-white/5 text-white/70 hover:text-white border border-transparent'
+              }`}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div
+                  className={`w-2 h-2 rounded-full shrink-0 ${
+                    runningSessionIds.map(Number).includes(1) ||
+                    (!runningSessionIds.length && (isMainLoading || isAgentBusy))
+                      ? 'bg-warning animate-ping'
+                      : 'bg-primary shadow-[0_0_8px_var(--color-primary)]'
+                  }`}
+                />
+                <div className="min-w-0">
+                  <h4 className="text-xs font-semibold truncate">Main Thread</h4>
+                </div>
+              </div>
+            </div>
+
+            <div className="my-2 border-t border-white/5" />
+
+            {/* WORKSPACE SESSIONS */}
+            <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-white/60">
+              Workspace Threads
+            </div>
+
+            {filteredSessions
+              .filter((s) => s.id !== 1)
+              .map((s) => {
+                const isActive = activeSessionId === s.id
+                const isEditing = editingSessionId === s.id
+                const isThisSessionRunning = runningSessionIds.map(Number).includes(Number(s.id))
+
+                return (
+                  <div
+                    key={s.id ?? 'session'}
+                    onClick={() => s.id !== undefined && setActiveSessionId(s.id)}
+                    className={`w-full p-2.5 rounded-xl text-left transition-all flex items-center justify-between group/session cursor-pointer ${
+                      isActive
+                        ? 'bg-white/10 border border-white/20 text-white shadow-sm'
+                        : 'hover:bg-white/5 text-white/70 hover:text-white border border-transparent'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0 flex-1 pr-2">
+                      <div
+                        className={`w-2 h-2 rounded-full shrink-0 ${
+                          isThisSessionRunning
+                            ? 'bg-warning animate-ping'
+                            : isActive
+                            ? 'bg-primary shadow-[0_0_6px_var(--color-primary)]'
+                            : 'bg-white/20'
+                        }`}
+                      />
+                      <MessageSquare className="w-3.5 h-3.5 opacity-50 shrink-0" />
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          value={editingTitle}
+                          onChange={(e) => setEditingTitle(e.target.value)}
+                          onKeyDown={(e: ReactKeyboardEvent<HTMLInputElement>) => {
+                            if (e.key === 'Enter' && s.id !== undefined) handleSaveRename(s.id)
+                            if (e.key === 'Escape') setEditingSessionId(null)
+                          }}
+                          autoFocus
+                          className="input input-xs bg-base-300 border-primary/50 text-xs text-white p-1 h-6 w-full rounded"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      ) : (
+                        <div className="min-w-0 flex-1">
+                          <h4 className="text-xs font-medium truncate">
+                            {s.title || 'Percakapan'}
+                          </h4>
+                          <p className="text-[10px] opacity-60">
+                            {s.timestamp
+                              ? new Date(s.timestamp).toLocaleDateString('id-ID', {
+                                  month: 'short',
+                                  day: 'numeric'
+                                })
+                              : ''}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Action buttons on hover */}
+                    <div className="flex items-center gap-1 opacity-0 group-hover/session:opacity-100 transition-opacity">
+                      {isEditing ? (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            if (s.id !== undefined) handleSaveRename(s.id)
+                          }}
+                          className="btn btn-ghost btn-xs p-1 text-primary hover:bg-primary/20"
+                        >
+                          <Check className="w-3 h-3" />
+                        </button>
+                      ) : (
+                        <>
+                          <button
+                            onClick={(e) => handleStartRename(e, s)}
+                            className="btn btn-ghost btn-xs p-1 text-white/60 hover:text-white"
+                            title="Ubah judul sesi"
+                          >
+                            <Edit2 className="w-3 h-3" />
+                          </button>
+                          <button
+                            onClick={(e) => s.id !== undefined && handleDeleteSessionClick(e, s.id)}
+                            className="btn btn-ghost btn-xs p-1 text-white/60 hover:text-error"
+                            title="Hapus sesi"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+
+            {filteredSessions.filter((s) => s.id !== 1).length === 0 && (
+              <div className="text-center py-6 text-xs text-white/60">
+                Belum ada sesi workspace lain.
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* === RIGHT MAIN: BUBBLE CHAT AREA === */}
+        <div className="flex-1 flex flex-col h-full bg-base-300/60 relative min-w-0 overflow-hidden">
+          {/* Header */}
+          <div
+            className="h-14 px-6 border-b border-white/10 flex items-center justify-between bg-base-300/80 backdrop-blur-md shrink-0 z-30 relative select-none"
+            style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+          >
+            <div className="flex items-center gap-3 min-w-0" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}>
+              <div className="w-2.5 h-2.5 rounded-full bg-primary shadow-[0_0_10px_var(--color-primary)]" />
+              <div>
+                <h3 className="text-sm font-bold text-white truncate max-w-md">
+                  {activeSessionObj.title || 'Percakapan'}
+                </h3>
+                <span className="text-[10px] text-white/60">
+                  {currentDisplayMessages.length} pesan terdaftar
+                </span>
+              </div>
+            </div>
+
+            <div
+              className="flex items-center gap-2 pointer-events-auto mr-28"
+              style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+            ></div>
+          </div>
+
+          {/* Messages Stream Container */}
+          <div
+            ref={messagesContainerRef}
+            onScroll={handleScroll}
+            className="flex-1 overflow-y-auto overflow-x-hidden px-6 py-6 custom-scrollbar space-y-2 min-h-0"
+          >
+            {currentDisplayMessages.length > visibleMessageCount && (
+              <div className="flex justify-center py-2">
+                <button
+                  type="button"
+                  onClick={() => setVisibleMessageCount((prev) => prev + 30)}
+                  className="btn btn-xs btn-ghost text-[11px] text-white/60 hover:text-white border border-white/10 rounded-full px-4 normal-case cursor-pointer"
+                >
+                  Muat pesan sebelumnya ({currentDisplayMessages.length - visibleMessageCount} pesan
+                  lagi)
+                </button>
+              </div>
+            )}
+
+            {currentDisplayMessages.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-center p-8 text-white/60 space-y-4">
+                <div className="w-14 h-14 rounded-xl bg-base-200/80 border border-white/10 flex items-center justify-center text-primary shadow-xl">
+                  <Bot className="w-7 h-7 animate-pulse" />
+                </div>
+                <div className="max-w-sm space-y-1">
+                  <h4 className="text-sm font-bold text-white">Sesi Obrolan Bersih</h4>
+                  <p className="text-xs text-white/60">
+                    Tanyakan apapun, analisis kode, atau diskusikan ide riset bersama Abelink.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              currentDisplayMessages
+                .slice(-visibleMessageCount)
+                .map((msg, idx) => (
+                  <ChatList
+                    key={(msg.id ?? msg.created_at ?? idx) as string | number}
+                    role={typeof msg.role === 'string' ? msg.role : 'user'}
+                    content={msg.content}
+                    reasoning={(msg.reasoning as string | null | undefined) ?? null}
+                    isThinking={!!msg.isThinking}
+                    isSearching={!!msg.isSearching}
+                    isSummarizing={!!msg.isSummarizing}
+                    isSearchingMusic={!!msg.isSearchingMusic}
+                    sources={(msg.sources as unknown[] | undefined) ?? []}
+                    executedTools={(msg.executedTools as unknown[] | undefined) ?? []}
+                    isMemorySaved={!!msg.isMemorySaved}
+                    choice={msg.choice}
+                    isMemoryUpdated={!!msg.isMemoryUpdated}
+                    isMemoryDeleted={!!msg.isMemoryDeleted}
+                    timestamp={(msg.timestamp as string | number | undefined) ?? ''}
+                    mood={typeof msg.mood === 'string' ? msg.mood : 'neutral'}
+                    source={(msg.source as string | null | undefined) ?? null}
+                    sender={(msg.sender as string | null | undefined) ?? null}
+                  />
+                ))
+            )}
+            <div ref={messagesEndRef} className="h-2" />
+          </div>
+
+          {/* Bottom Input Area */}
+          <div className="p-3 border-t border-white/10 bg-base-200/40 shrink-0">
+            <InputBar
+              inline={true}
+              onSubmit={handleSendMessage}
+              isLoading={isCurrentLoading}
+              isRecording={isRecording}
+              isProcessing={isProcessing}
+              audioIntensity={audioIntensity}
+              onStartRecord={startRecording}
+              onStopRecord={stopRecording}
+              onStop={handleStopSession}
+              source={inputSource || 'pc'}
+              workspaceRoot={activeSessionObj?.workspaceRoot}
+              onSelectWorkspace={handleSelectSessionWorkspace}
+              sessionId={activeSessionId}
+            />
+          </div>
+        </div>
+      </div>
+
+      <ModalComponent />
+    </>
+  )
+}

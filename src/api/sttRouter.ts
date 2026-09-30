@@ -149,9 +149,12 @@ export const getHardwareSttSupport = async (): Promise<{ cores: number; isLiteMo
   const cores = typeof navigator !== 'undefined' ? (navigator.hardwareConcurrency || 2) : 2
   let isLiteMode = false
   try {
-    const w = typeof window !== 'undefined' ? (window as unknown as { api?: { getLiteMode?: () => Promise<boolean> } }) : null
+    const w = typeof window !== 'undefined' ? (window as unknown as { api?: { getLiteMode?: () => Promise<{ isLite?: boolean } | boolean> } }) : null
     if (w?.api?.getLiteMode) {
-      isLiteMode = await w.api.getLiteMode()
+      const res = await w.api.getLiteMode()
+      // getLiteMode mengembalikan OBJEK { isLite, totalRAMGB } (tauri-bridge.ts),
+      // bukan boolean — objek selalu truthy, jadi baca field isLite.
+      isLiteMode = typeof res === 'object' ? !!res?.isLite : !!res
     }
   } catch (_) {}
 

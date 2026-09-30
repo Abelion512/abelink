@@ -88,8 +88,8 @@ export const CORE_TOOL_SPECS = {
     queryFormat: 'path_file||targetContent||replacementContent',
     examples: [
       {
-        query: 'src/components/Header.jsx||<h1 className="title">Halo</h1>||<h1 className="title font-bold">Halo Abelink</h1>',
-        description: 'Mengganti heading judul di file Header.jsx'
+        query: 'src/components/Header.tsx||<h1 className="title">Halo</h1>||<h1 className="title font-bold">Halo Abelink</h1>',
+        description: 'Mengganti heading judul di file Header.tsx'
       }
     ],
     tags: ['edit', 'replace', 'content', 'code', 'modify', 'patch']

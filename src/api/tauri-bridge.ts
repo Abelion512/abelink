@@ -31,6 +31,15 @@ type NodeInvokeResult = {
 
 type UnlistenFn = () => void
 type OnFn = (cb: (payload: unknown) => void) => UnlistenFn
+// Varian listener dua-argumen (command, payload) untuk channel musik remote.
+type OnCmdFn = (cb: (command: unknown, payload: unknown) => void) => UnlistenFn
+const onCmd =
+  (channel: string): OnCmdFn =>
+  (cb) =>
+    on(channel)((payload) => {
+      const p = (payload ?? {}) as { command?: unknown; payload?: unknown }
+      cb(p.command, p.payload)
+    })
 
 // ---- FB#1: router file-ops -> Rust cmd_fs ----
 // Query format AI tools: "path||arg2||arg3"
@@ -358,12 +367,12 @@ export const api = {
   // ---------- YouTube / Music ----------
   getYoutubeTranscript: (url: string) => call('get-youtube-transcript', url),
   searchYoutube: (q: string) => call('youtube-search', q),
-  searchMusic: (q: string) => call('search-music', q),
+  searchMusic: (q: string) => call('search-music', q) as Promise<Array<Record<string, unknown>>>,
   textToSpeech: (text: string, rate: unknown, pitch: unknown) =>
     call('tts-speak', text, rate, pitch),
   // Alias objek untuk tombol Uji Suara (VoiceVideoSection): backend mengembalikan
   // data-URL string; dibungkus { audioBase64 } agar konsisten satu facade.
-  speakTTS: async ({ text, rate, pitch }: { text?: unknown; rate?: unknown; pitch?: unknown } = {}) => {
+  speakTTS: async ({ text, rate, pitch, returnAudio: _returnAudio }: { text?: unknown; rate?: unknown; pitch?: unknown; returnAudio?: boolean } = {}) => {
     const dataUrl = await call('tts-speak', text, rate, pitch)
     if (!dataUrl) return null
     // Prefix MIME apa pun (mp3/mpeg/wav + parameter) dilucuti generik +
@@ -378,7 +387,7 @@ export const api = {
   },
   sendRemoteMusicCommand: (command: string, payload: unknown) =>
     call('remote-music-command', command, payload),
-  onExecuteMusicCommand: on('execute-music-command'),
+  onExecuteMusicCommand: onCmd('execute-music-command'),
   // onExecuteMusicCommandTg dihapus: emit 'execute-music-command-tg' mati
   // bersama botWindow era Electron (9923989) dan tidak punya konsumen.
 
@@ -636,7 +645,7 @@ export const api = {
 
   // ---------- Lite Mode & WhatsApp music ----------
   onLiteModeChanged: on('lite-mode-changed'),
-  onExecuteMusicCommandWa: on('execute-music-command-wa'),
+  onExecuteMusicCommandWa: onCmd('execute-music-command-wa'),
 
   // ---------- Dialog (Fase B5 dipercepat: rfd native di main thread Rust) ----------
   showOpenDialog: async () => {

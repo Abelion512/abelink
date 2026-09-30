@@ -8,6 +8,8 @@ type Extractor = (
 
 type ProgressCallback = (p: unknown) => void
 
+type AttemptDtype = 'fp32' | 'q8'
+
 // cast onnx wasm flags: tipe library menyembunyikan properti runtime simd/threads.
 const onnxWasm = (env.backends as { onnx?: { wasm?: { simd?: boolean; threads?: boolean } } })?.onnx?.wasm
 
@@ -45,6 +47,9 @@ if (!simdSupported && onnxWasm) {
 
 let extractor: Extractor | null = null
 let extractorPromise: Promise<Extractor> | null = null
+// Tier aktif ('fp32' | 'q8') — dilaporkan ke main thread via init_done agar
+// provenansi korpus tahu vektor datang dari model penuh atau terkuantisasi.
+let activeDtype: AttemptDtype = 'fp32'
 // Cache kegagalan init supaya worker tidak retry berulang kali — cukup sekali
 // beri tahu main thread untuk beralih ke Lite Mode (hash embedding).
 let initFailed = false
@@ -67,7 +72,16 @@ function getExtractor(progressCallback?: ProgressCallback): Promise<Extractor> {
   }
 
   extractorPromise = (async () => {
-    const attempts = [{ device: 'wasm' as const, simd: true }]
+    // Tangga 2 tingkat: fp32 penuh dulu, lalu q8 terkuantisasi (~4x lebih
+    // kecil, tetap embedding SEMANTIK nyata — bukan hash). q8 hanya dicoba
+    // bila fp32 gagal karena alasan memori/resource; kegagalan SIMD murni
+    // tetap langsung ke Lite Mode tanpa mengunduh apa pun sia-sia.
+    // Tier aktif dilaporkan via init_done(dtype) agar main thread menandai
+    // provenansi vektor ('minilm' vs 'minilm-q8') di korpus.
+    const attempts: Array<{ device: 'wasm'; simd: boolean; dtype: AttemptDtype }> = [
+      { device: 'wasm', simd: true, dtype: 'fp32' },
+      { device: 'wasm', simd: true, dtype: 'q8' }
+    ]
 
     let lastErr: unknown = null
     const failures: string[] = []
@@ -82,19 +96,29 @@ function getExtractor(progressCallback?: ProgressCallback): Promise<Extractor> {
           'Xenova/paraphrase-multilingual-MiniLM-L12-v2',
           {
             device: attempt.device,
+            dtype: attempt.dtype,
             progress_callback: progressCallback
           }
         )) as unknown as Extractor
-        if (attempt.device !== 'wasm' || attempt.simd === false) {
+        activeDtype = attempt.dtype
+        if (attempt.dtype !== 'fp32') {
           console.info(
-            `[EmbeddingWorker] Init sukses via fallback device=${attempt.device} simd=${attempt.simd} — embedding nyata aktif (tanpa downgrade hash).`
+            `[EmbeddingWorker] Init sukses via quantized dtype=${attempt.dtype} — embedding semantik aktif (tanpa downgrade hash).`
           )
         }
         return extractor
       } catch (err) {
         lastErr = err
         // Kumpulkan diam-diam; satu ringkasan di bawah (bukan warn per attempt).
-        failures.push(`${attempt.device}/simd=${attempt.simd}: ${(err as Error)?.message || err}`)
+        failures.push(`${attempt.device}/simd=${attempt.simd}/dtype=${attempt.dtype}: ${(err as Error)?.message || err}`)
+        // Gate q8: hanya lanjut ke attempt terkuantisasi bila fp32 gagal karena
+        // alasan MEMORI/resource (OOM, alokasi, unduh parsial). Kegagalan SIMD
+        // murni (backend tak ada) tak akan sembuh dengan q8 — langsung keluar
+        // agar tidak mengunduh model kedua sia-sia.
+        if (attempt.dtype === 'fp32') {
+          const msg = (err as Error)?.message || String(err)
+          if (/SIMD|no available backend|Unsupported device|wasm-simd is not enabled/i.test(msg)) break
+        }
       }
     }
     const isSimdIssue =
@@ -125,7 +149,7 @@ self.onmessage = async (event: MessageEvent) => {
       await getExtractor((progress) => {
         self.postMessage({ type: 'progress', data: progress })
       })
-      self.postMessage({ id, type: 'init_done', success: true })
+      self.postMessage({ id, type: 'init_done', success: true, dtype: activeDtype })
     } catch (err) {
       self.postMessage({ id, type: 'init_done', success: false, error: (err as Error).message })
     }

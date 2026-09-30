@@ -8,7 +8,7 @@ import path from 'path'
 const readSrc = (rel) => fs.readFileSync(path.join(process.cwd(), rel), 'utf8')
 
 describe('ConfigSidebar sections', async () => {
-  const mod = await import('../src/components/config/ConfigSidebar.jsx')
+  const mod = await import('../src/components/config/ConfigSidebar.tsx')
 
   it('menyediakan entry capabilites dan voice & video', () => {
     const ids = mod.sections.map((s) => s.id)
@@ -30,7 +30,7 @@ describe('ConfigSidebar sections', async () => {
 })
 
 describe('Configuration page sections (contract via source)', () => {
-  const src = readSrc('src/pages/Configuration.jsx')
+  const src = readSrc('src/pages/Configuration.tsx')
 
   it('section capabilities dirender berdasarkan activeSection', () => {
     expect(src.includes("id=\"cfg-capabilities\"")).toBe(true)
@@ -55,7 +55,7 @@ describe('Configuration page sections (contract via source)', () => {
 })
 
 describe('App routing konsolidasi (halaman terpisah dihapus)', async () => {
-  const appSrc = readSrc('src/App.jsx')
+  const appSrc = readSrc('src/App.tsx')
 
   it('rute halaman mandiri /plugins, /skills, dan /connectors sudah dihapus', () => {
     for (const route of ['/plugins', '/skills', '/connectors']) {

@@ -1,0 +1,621 @@
+import { useState, useEffect, useRef, useCallback } from 'react'
+import Markdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import { sharedMarkdownComponents } from '../Chat/SharedMarkdown'
+import { subagentStore } from '../../api/subagent/subagentStore'
+import {
+  Bot,
+  Send,
+  Square,
+  Terminal,
+  Brain,
+  X,
+  Clock,
+  ArrowDown,
+  ChevronDown,
+  ChevronUp
+} from 'lucide-react'
+import { MobiusLoader } from '../core/MobiusLoader'
+import { runSubagentTurn, killSubagentExecution } from '../../api/subagent/subagentExecutor'
+import { useConfirm } from '../../hooks/useConfirm'
+import { getAllConfig, type ConfigRow } from '../../api/db'
+import { stripAgentTags } from '../../utils/messageTags'
+
+interface SubagentStep {
+  tool: string
+  query?: string
+  observation?: string | null
+}
+
+interface SubagentTurn {
+  type: 'subagent_turn' | 'dialogue'
+  id: unknown
+  sender: string
+  content?: unknown
+  timestamp: unknown
+  thoughts?: string[]
+  steps?: SubagentStep[]
+  answer?: string | null
+}
+
+// Komponen Single Unified Bubble untuk Sub-Agent
+function SubagentUnifiedBubble({
+  turn,
+  subagentName,
+  isRunning
+}: {
+  turn: SubagentTurn
+  subagentName: string
+  isRunning?: boolean
+}) {
+  const [isThoughtOpen, setIsThoughtOpen] = useState(false)
+  const [isStepsOpen, setIsStepsOpen] = useState(false)
+  const [openStepIdx, setOpenStepIdx] = useState<number | null>(null)
+
+  return (
+    <div className="chat chat-start animate-fade-in">
+      <div className="chat-image avatar placeholder">
+        <div className="w-8 h-8 rounded-xl text-[10px] font-bold shadow-md flex items-center justify-center bg-primary/10 text-info border border-primary/20">
+          SUB
+        </div>
+      </div>
+      <div className="chat-header text-[11px] text-zinc-400 mb-1 flex items-center gap-1.5">
+        <span>{subagentName}</span>
+        <span className="text-[10px] text-zinc-500 font-mono">
+          {new Date(String(turn.timestamp)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </span>
+      </div>
+
+      <div className="chat-bubble bg-white/[0.03] text-zinc-200 border border-white/[0.08] shadow-xl max-w-[88%] rounded-xl p-4 space-y-3.5">
+        {/* 1. Dropdown Thought (Reasoning Analisis) */}
+        {turn.thoughts && turn.thoughts.length > 0 && (
+          <div className="bg-primary/10 rounded-xl border border-primary/20 overflow-hidden text-xs select-none shadow-sm">
+            <button
+              type="button"
+              onClick={() => setIsThoughtOpen(!isThoughtOpen)}
+              className="w-full px-3.5 py-2 flex items-center justify-between hover:bg-primary/5 transition-colors text-left"
+            >
+              <div className="flex items-center gap-2 font-medium text-info text-[11px]">
+                <Brain className="w-3.5 h-3.5 shrink-0" />
+                <span>Pemikiran Sub-Agent</span>
+              </div>
+              <div className="flex items-center gap-1 text-[10px] text-zinc-400">
+                <span>{isThoughtOpen ? 'Tutup' : 'Lihat'}</span>
+                {isThoughtOpen ? (
+                  <ChevronUp className="w-3 h-3" />
+                ) : (
+                  <ChevronDown className="w-3 h-3" />
+                )}
+              </div>
+            </button>
+            {isThoughtOpen && (
+              <div className="p-3.5 bg-black/40 border-t border-primary/20 space-y-2 text-[11px] text-zinc-300 whitespace-pre-wrap leading-relaxed">
+                <div className="border-l-2 border-primary/60 pl-2.5 py-0.5">
+                  {turn.thoughts[turn.thoughts.length - 1] || ''}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 2. Dropdown Langkah Eksekusi (Tools) */}
+        {turn.steps && turn.steps.length > 0 && (
+          <div className="bg-black/30 rounded-xl border border-white/[0.08] overflow-hidden text-xs select-none shadow-sm">
+            <button
+              type="button"
+              onClick={() => setIsStepsOpen(!isStepsOpen)}
+              className="w-full px-3.5 py-2 flex items-center justify-between hover:bg-white/[0.03] transition-colors text-left"
+            >
+              <div className="flex items-center gap-2 font-medium text-amber-400 text-[11px]">
+                <Terminal className="w-3.5 h-3.5 shrink-0" />
+                <span>Langkah Eksekusi ({turn.steps.length})</span>
+              </div>
+              <div className="flex items-center gap-1 text-[10px] text-zinc-400">
+                <span>{isStepsOpen ? 'Tutup' : 'Lihat'}</span>
+                {isStepsOpen ? (
+                  <ChevronUp className="w-3 h-3" />
+                ) : (
+                  <ChevronDown className="w-3 h-3" />
+                )}
+              </div>
+            </button>
+
+            {isStepsOpen && (
+              <div className="p-3.5 bg-black/40 border-t border-white/[0.08] space-y-2 font-mono text-[11px]">
+                {turn.steps.map((step, idx) => {
+                  const isObsOpen = openStepIdx === idx
+                  return (
+                    <div
+                      key={idx}
+                      className="space-y-1 bg-white/[0.02] p-2 rounded-lg border border-white/[0.05]"
+                    >
+                      <div
+                        onClick={() => step.observation && setOpenStepIdx(isObsOpen ? null : idx)}
+                        className={`flex items-start gap-1.5 py-0.5 ${step.observation ? 'cursor-pointer hover:text-info transition-colors' : ''}`}
+                      >
+                        <span className="text-amber-400/80 font-semibold shrink-0">{idx + 1}.</span>
+                        <span className="text-info font-semibold shrink-0">{step.tool}</span>
+                        <span className="text-zinc-500 shrink-0">:</span>
+                        <span
+                          className={`text-zinc-300 break-all flex-1 ${isObsOpen ? '' : 'truncate'}`}
+                        >
+                          {step.query || ''}
+                        </span>
+                        {step.observation &&
+                          (isObsOpen ? (
+                            <ChevronUp className="w-3 h-3" />
+                          ) : (
+                            <ChevronDown className="w-3 h-3" />
+                          ))}
+                      </div>
+
+                      {isObsOpen && step.observation && (
+                        <div className="p-2.5 bg-black/60 rounded-lg text-zinc-300 whitespace-pre-wrap break-all text-[10px] max-h-44 overflow-y-auto mt-1 border border-white/[0.08] font-mono">
+                          {step.observation.replace(/^\[OBSERVATION\]:\s*/, '')}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 3. Final Content / Answer or Loading */}
+        {turn.answer ? (
+          <div className="prose prose-invert prose-sm max-w-none text-xs leading-relaxed font-normal pt-1 text-zinc-200">
+            <Markdown remarkPlugins={[remarkGfm]} components={sharedMarkdownComponents}>
+              {String(stripAgentTags(String(turn.answer)))}
+            </Markdown>
+          </div>
+        ) : isRunning ? (
+          <div className="flex items-center gap-2 text-xs text-zinc-400 py-1 font-mono">
+            <MobiusLoader size={14} />
+            <span className="text-[11px]">Memproses langkah...</span>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+// Helper untuk mengelompokkan pesan mentah menjadi satu bubble per giliran
+function groupSubagentMessages(rawMessages: Array<Record<string, unknown>>): SubagentTurn[] {
+  const grouped: SubagentTurn[] = []
+  let currentSubTurn: SubagentTurn | null = null
+
+  for (const msg of rawMessages) {
+    if (msg.sender === 'user' || msg.sender === 'abelink') {
+      if (currentSubTurn) {
+        grouped.push(currentSubTurn)
+        currentSubTurn = null
+      }
+      grouped.push({
+        type: 'dialogue',
+        id: msg.id,
+        sender: msg.sender,
+        content: msg.content,
+        timestamp: msg.timestamp
+      })
+    } else if (msg.sender === 'subagent') {
+      let parsed: { thought?: string; action?: { tool?: string; query?: string } | Array<{ tool?: string; query?: string }> | null; answer?: string } = {}
+      try {
+        parsed =
+          typeof msg.content === 'object' && msg.content !== null
+            ? (msg.content as typeof parsed)
+            : JSON.parse(String(msg.content))
+      } catch {
+        parsed = { answer: msg.content as string }
+      }
+
+      const thought = (msg.thought as string | undefined) || parsed.thought
+      const action = (msg.action as typeof parsed.action) || parsed.action
+      const answer = parsed.answer || (action ? null : (msg.content as string))
+
+      if (!currentSubTurn) {
+        currentSubTurn = {
+          type: 'subagent_turn',
+          id: msg.id,
+          sender: 'subagent',
+          timestamp: msg.timestamp,
+          thoughts: [],
+          steps: [],
+          answer: null
+        }
+      }
+
+      if (thought && !(currentSubTurn.thoughts ?? []).includes(thought)) {
+        ;(currentSubTurn.thoughts ??= []).push(thought)
+      }
+
+      if (action) {
+        const acts = Array.isArray(action) ? action : [action]
+        const cur = currentSubTurn as SubagentTurn
+        acts.forEach((act) => {
+          if (act?.tool) {
+            ;(cur.steps ??= []).push({
+              tool: act.tool,
+              query: act.query || '',
+              observation: null
+            })
+          }
+        })
+      }
+
+      if (answer) {
+        currentSubTurn.answer = answer
+      }
+    } else if (msg.sender === 'tool') {
+      if (currentSubTurn && (currentSubTurn.steps ?? []).length > 0) {
+        const lastStepWithoutObs = [...(currentSubTurn.steps ?? [])].reverse().find((s) => !s.observation)
+        if (lastStepWithoutObs) {
+          lastStepWithoutObs.observation = msg.content as string
+        } else {
+          ;(currentSubTurn.steps ?? [])[((currentSubTurn.steps?.length ?? 1)) - 1].observation = msg.content as string
+        }
+      } else {
+        if (!currentSubTurn) {
+          currentSubTurn = {
+            type: 'subagent_turn',
+            id: msg.id,
+            sender: 'subagent',
+            timestamp: msg.timestamp,
+            thoughts: [],
+            steps: [{ tool: 'tool-execution', query: '', observation: String(msg.content ?? '') }],
+            answer: null
+          }
+        }
+      }
+    }
+  }
+
+  if (currentSubTurn) {
+    grouped.push(currentSubTurn)
+  }
+
+  return grouped
+}
+
+interface SubagentRecord {
+  id: unknown
+  name?: string
+  status?: string
+  goal?: string
+  [key: string]: unknown
+}
+
+interface SubagentMessageRecord {
+  id: unknown
+  sender: string
+  content: unknown
+  timestamp: unknown
+  thought?: string
+  action?: unknown
+  [key: string]: unknown
+}
+
+export default function SubagentIntercom({
+  subagentId,
+  onClose
+}: {
+  subagentId: unknown
+  onClose?: () => void
+}) {
+  const [subagent, setSubagent] = useState<SubagentRecord | null>(null)
+  const [messages, setMessages] = useState<SubagentMessageRecord[]>([])
+  const [config, setConfig] = useState<ConfigRow>({})
+  const [inputText, setInputText] = useState('')
+  const [isSending, setIsSending] = useState(false)
+  const [showScrollBottomBtn, setShowScrollBottomBtn] = useState(false)
+
+  const messagesEndRef = useRef<HTMLDivElement | null>(null)
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const isAutoScrollRef = useRef(true)
+  const prevMsgCountRef = useRef(0)
+
+  // useCallback agar efek polling stabil; dijalankan per subagentId.
+  const loadData = useCallback(async () => {
+    if (!subagentId) return
+    try {
+      const sub = (await subagentStore.getSubagent(subagentId)) as SubagentRecord | null | undefined
+      const msgs = (await subagentStore.getMessages(subagentId)) as unknown[]
+      setSubagent(sub ?? null)
+      setMessages((msgs || []) as unknown as SubagentMessageRecord[])
+    } catch (err) {
+      console.error('[SubagentIntercom] Load error:', err)
+    }
+  }, [subagentId])
+
+  const loadConfig = async () => {
+    try {
+      const data = await getAllConfig()
+      if (data && data.length > 0) setConfig(data[0] || {})
+    } catch (err) {
+      console.error('[SubagentIntercom] Config load error:', err)
+    }
+  }
+
+  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior })
+      isAutoScrollRef.current = true
+      setShowScrollBottomBtn(false)
+    }
+  }
+
+  const handleScroll = () => {
+    if (!containerRef.current) return
+    const { scrollTop, scrollHeight, clientHeight } = containerRef.current
+    const isAtBottom = scrollHeight - scrollTop - clientHeight < 60
+    isAutoScrollRef.current = isAtBottom
+    setShowScrollBottomBtn(!isAtBottom)
+  }
+
+  // Reset scroll dan muat data ketika subagentId berubah.
+  // Reset via microtask + load async agar lolos set-state-in-effect.
+  useEffect(() => {
+    prevMsgCountRef.current = 0
+    isAutoScrollRef.current = true
+    queueMicrotask(() => setShowScrollBottomBtn(false))
+    void (async () => {
+      await loadConfig()
+      await loadData()
+      setTimeout(() => scrollToBottom('auto'), 50)
+    })()
+    const interval = setInterval(loadData, 1000)
+    return () => clearInterval(interval)
+  }, [subagentId, loadData])
+
+  // Hanya auto-scroll jika ada pesan baru DAN user sedang berada di posisi bawah
+  useEffect(() => {
+    if (messages.length > prevMsgCountRef.current) {
+      if (isAutoScrollRef.current) {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+      }
+      prevMsgCountRef.current = messages.length
+    }
+  }, [messages.length])
+
+  const { confirm, ModalComponent } = useConfirm()
+
+  const handleSendMessage = async (e?: React.FormEvent) => {
+    e?.preventDefault()
+    if (!inputText.trim() || isSending) return
+
+    const textToSend = inputText.trim()
+    setInputText('')
+    setIsSending(true)
+    isAutoScrollRef.current = true
+    setShowScrollBottomBtn(false)
+
+    try {
+      await runSubagentTurn(subagentId as string, textToSend, 'user')
+      await loadData()
+      setTimeout(() => scrollToBottom('smooth'), 50)
+    } catch (err) {
+      console.error('[SubagentIntercom] Send error:', err)
+    } finally {
+      setIsSending(false)
+    }
+  }
+
+  const handleKill = async () => {
+    const result = await confirm({
+      title: 'Hentikan Eksekusi Sub-Agent',
+      message: 'Apakah kamu yakin ingin menghentikan eksekusi sub-agent ini secara paksa?',
+      isError: true,
+      confirmText: 'Hentikan',
+      cancelText: 'Batal'
+    })
+    if (result?.isConfirmed) {
+      killSubagentExecution(subagentId)
+      loadData()
+    }
+  }
+
+  if (!subagent) return null
+
+  const isRunning = subagent.status === 'running'
+  const groupedTurns = groupSubagentMessages(messages)
+
+  return (
+    <div className="flex flex-col h-full bg-[#0a0e0c]/90 rounded-xl overflow-hidden select-none border border-white/[0.08] relative">
+      {/* Header Intercom */}
+      <div className="p-3.5 bg-black/40 backdrop-blur-xl border-b border-white/[0.08] flex items-center justify-between flex-none z-10">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-primary/10 text-info rounded-xl border border-primary/20">
+            <Bot className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold text-xs tracking-wide text-white">{subagent.name}</h3>
+              <span
+                className={`text-[10px] px-2 py-0.5 rounded-full font-mono uppercase tracking-wider ${
+                  isRunning
+                    ? 'bg-primary/10 text-info border border-primary/30 animate-pulse'
+                    : subagent.status === 'idle'
+                      ? 'bg-white/[0.05] text-zinc-400 border border-white/[0.1]'
+                      : subagent.status === 'failed'
+                        ? 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
+                        : 'bg-info/10 text-info border border-info/30'
+                }`}
+              >
+                {String(subagent.status ?? '')}
+              </span>
+              <span className="text-[10px] text-zinc-500 font-mono">[{String(subagent.id)}]</span>
+            </div>
+            <p className="text-[11px] text-zinc-400">{String(subagent.role ?? '')}</p>
+          </div>
+        </div>
+
+        {/* Action Controls */}
+        <div className="flex items-center gap-2">
+          {isRunning && (
+            <button
+              onClick={handleKill}
+              className="px-2.5 py-1 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 text-xs flex items-center gap-1 transition-all"
+              title="Hentikan Paksa" aria-label="Hentikan Paksa"
+            >
+              <Square className="w-3 h-3" /> Stop
+            </button>
+          )}
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="w-7 h-7 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-zinc-400 hover:text-white flex items-center justify-center transition-all"
+              title="Tutup Panel" aria-label="Tutup Panel"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Goal & Mission Info Strip */}
+      <div className="px-4 py-2.5 bg-black/20 border-b border-white/[0.05] text-xs flex items-center justify-between gap-4 flex-none z-10">
+        <div className="flex items-center gap-2 truncate">
+          <span className="font-semibold text-info shrink-0 uppercase text-[10px] tracking-wider">
+            Mission Goal:
+          </span>
+          <span className="text-zinc-300 truncate font-normal">{String(subagent.goal ?? '')}</span>
+        </div>
+        <div className="flex items-center gap-1.5 text-[10px] text-zinc-500 font-mono shrink-0">
+          <Clock className="w-3 h-3" />
+          <span>Turns: {Number(subagent.turnCount ?? 0)}</span>
+        </div>
+      </div>
+
+      {/* Message Feed Container */}
+      <div
+        ref={containerRef}
+        onScroll={handleScroll}
+        className="flex-1 p-4 overflow-y-auto space-y-4 relative"
+      >
+        {groupedTurns.map((item, idx) => {
+          if (item.type === 'subagent_turn') {
+            const isLastTurn = idx === groupedTurns.length - 1
+            return (
+              <SubagentUnifiedBubble
+                key={String(item.id ?? idx)}
+                turn={item}
+                subagentName={String(subagent.name ?? 'Sub-Agent')}
+                isRunning={isRunning && isLastTurn}
+              />
+            )
+          }
+
+          const isUser = item.sender === 'user'
+
+          return (
+            <div key={String(item.id ?? idx)} className="chat chat-end animate-fade-in">
+              <div className="chat-image avatar placeholder">
+                <div
+                  className={`w-7 h-7 rounded-xl text-[10px] font-bold shadow-md flex items-center justify-center ${
+                    isUser
+                      ? 'bg-primary/20 text-white border border-primary/40 shadow-primary/10'
+                      : 'bg-info/20 text-info border border-info/40 shadow-info/10'
+                  }`}
+                >
+                  {isUser ? 'USER' : 'ABELINK'}
+                </div>
+              </div>
+              <div className="chat-header text-[11px] text-zinc-400 mb-1 flex items-center gap-1.5">
+                <span className="text-info font-medium">
+                  {isUser ? config.ownerName?.trim() || 'User' : 'Lead Agent (Abelink)'}
+                </span>
+                <span className="text-[10px] text-zinc-500 font-mono">
+                  {new Date(String(item.timestamp)).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </span>
+              </div>
+              <div
+                className={`chat-bubble text-xs leading-relaxed max-w-[85%] rounded-xl shadow-md p-3.5 ${
+                  isUser
+                    ? 'bg-primary/10 text-white border border-primary/30'
+                    : 'bg-info/10 text-info border border-info/30'
+                }`}
+              >
+                <div className="whitespace-pre-wrap leading-relaxed font-normal">
+                  {String(stripAgentTags(String(item.content ?? '')))}
+                </div>
+              </div>
+            </div>
+          )
+        })}
+
+        {/* Initial Loading State jika belum ada bubble giliran sub-agent yang aktif */}
+        {isRunning &&
+          (groupedTurns.length === 0 ||
+            groupedTurns[groupedTurns.length - 1]?.type !== 'subagent_turn') && (
+            <div className="chat chat-start animate-fade-in">
+              <div className="chat-image avatar placeholder">
+                <div className="w-7 h-7 rounded-xl text-[10px] font-bold shadow-md flex items-center justify-center bg-primary/10 text-info border border-primary/20">
+                  SUB
+                </div>
+              </div>
+              <div className="chat-header text-[11px] text-zinc-400 mb-1">
+                <span>{subagent.name}</span>
+              </div>
+              <div className="chat-bubble bg-white/[0.03] text-zinc-200 border border-white/[0.08] text-xs flex items-center gap-2.5 py-2.5 px-4 shadow-md rounded-xl">
+                <MobiusLoader size={14} />
+                <span className="font-mono text-[11px] text-zinc-400">
+                  Memproses langkah...
+                </span>
+              </div>
+            </div>
+          )}
+
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Floating Scroll-to-Bottom Button */}
+      {showScrollBottomBtn && (
+        <button
+          onClick={() => scrollToBottom('smooth')}
+          className="absolute bottom-16 right-5 w-8 h-8 rounded-full bg-primary text-white shadow-lg shadow-primary/30 flex items-center justify-center z-20 transition-all hover:bg-primary/80"
+          title="Scroll ke bawah" aria-label="Scroll ke bawah"
+        >
+          <ArrowDown className="w-4 h-4" />
+        </button>
+      )}
+
+      {/* User Intervention Whisper Input */}
+      <form
+        onSubmit={handleSendMessage}
+        className="p-3 bg-black/40 border-t border-white/[0.08] flex items-center gap-2 flex-none backdrop-blur-xl z-10"
+      >
+        <input
+          type="text"
+          value={inputText}
+          onChange={(e) => setInputText(e.target.value)}
+          placeholder={
+            config.ownerName?.trim()
+              ? `Ketik instruksi atau arahan langsung sebagai ${config.ownerName}...`
+              : 'Ketik instruksi atau arahan langsung sebagai User...'
+          }
+          disabled={isSending}
+          className="flex-1 px-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.1] focus:border-primary/50 text-xs text-zinc-200 outline-none transition-all placeholder:text-zinc-600"
+        />
+        <button
+          type="submit"
+          disabled={!inputText.trim() || isSending}
+          className="px-3.5 py-2 rounded-xl bg-primary text-white hover:bg-primary/80 disabled:opacity-50 text-xs font-medium shadow-sm shadow-primary/20 transition-all flex items-center gap-1.5 shrink-0"
+        >
+          {isSending ? (
+            <MobiusLoader size={14} />
+          ) : (
+            <>
+              <Send className="w-3.5 h-3.5" /> Kirim
+            </>
+          )}
+        </button>
+      </form>
+
+      {/* Confirmation Modal */}
+      <ModalComponent />
+    </div>
+  )
+}
