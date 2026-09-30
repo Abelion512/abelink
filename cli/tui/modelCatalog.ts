@@ -1,4 +1,4 @@
-// cli/tui/modelCatalog.mjs — S1: katalog model dinamis 9Router, pola opencode.
+// cli/tui/modelCatalog.ts — S1: katalog model dinamis 9Router, pola opencode.
 // - Discovery: GET /v1/models (via ai:list-models shape) -> capabilities live
 //   (reasoning, contextWindow, maxOutput, thinkingFormat, thinkingCanDisable).
 // - Cache: ~/.config/abelink/models-cache.json {fetchedAt, models}, TTL 5 mnt
@@ -18,9 +18,9 @@ export function modelsCachePath(homeDir = '') {
 }
 
 // Normalisasi satu entri /v1/models -> bentuk katalog (hanya field dipakai).
-export function normalizeCatalogEntry(m = {}) {
-  const cap = m?.capabilities && typeof m.capabilities === 'object' ? m.capabilities : {}
-  const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : null)
+export function normalizeCatalogEntry(m: any = {}) {
+  const cap: any = m?.capabilities && typeof m.capabilities === 'object' ? m.capabilities : {}
+  const num = (v: any) => (Number.isFinite(Number(v)) ? Number(v) : null)
   return {
     id: String(m?.id ?? ''),
     reasoning: cap.reasoning === true,
@@ -31,14 +31,14 @@ export function normalizeCatalogEntry(m = {}) {
   }
 }
 
-export function normalizeCatalogList(data = []) {
+export function normalizeCatalogList(data: any[] = []): any[] {
   if (!Array.isArray(data)) return []
   return data.map(normalizeCatalogEntry).filter((m) => m.id)
 }
 
 // Baca cache: { ok, models, fetchedAt, stale } — stale bila > TTL.
-export function readCatalogCache({ fsMod = null, homeDir = '', now = Date.now() } = {}) {
-  const fs = fsMod || defaultFs()
+export function readCatalogCache({ fsMod = null, homeDir = '', now = Date.now() }: Record<string, any> = {}) {
+  const fs: any = fsMod || defaultFs()
   try {
     const raw = fs.readFileSync(modelsCachePath(homeDir), 'utf8')
     const parsed = JSON.parse(raw)
@@ -51,9 +51,9 @@ export function readCatalogCache({ fsMod = null, homeDir = '', now = Date.now() 
 }
 
 // Tulis cache atomik (tmp + rename, pola opencode models-dev).
-export function writeCatalogCache(models = [], { fsMod = null, pathMod = null, homeDir = '', now = Date.now() } = {}) {
-  const fs = fsMod || defaultFs()
-  const path = pathMod || defaultPath()
+export function writeCatalogCache(models: any[] = [], { fsMod = null, pathMod = null, homeDir = '', now = Date.now() }: Record<string, any> = {}) {
+  const fs: any = fsMod || defaultFs()
+  const path: any = pathMod || defaultPath()
   const file = modelsCachePath(homeDir)
   const payload = JSON.stringify({ fetchedAt: now, models: normalizeCatalogList(models) }) + '\n'
   try {
@@ -62,7 +62,7 @@ export function writeCatalogCache(models = [], { fsMod = null, pathMod = null, h
     fs.writeFileSync(tmp, payload, 'utf8')
     fs.renameSync(tmp, file)
     return { ok: true, path: file }
-  } catch (err) {
+  } catch (err: any) {
     return { ok: false, error: String(err?.message || err) }
   }
 }
@@ -73,7 +73,7 @@ export function writeCatalogCache(models = [], { fsMod = null, pathMod = null, h
 // ketat dan memicu abort palsu). Jalur ini kini OPT-IN (/models --all|filter),
 // jadi timeout longgar tak memperlambat buka picker default.
 // Return { ok, models, error } — models sudah normalisasi.
-export async function fetchLiveCatalog({ fetchFn = null, endpoint = 'http://127.0.0.1:20128/v1', timeoutMs = 45000 } = {}) {
+export async function fetchLiveCatalog({ fetchFn = null, endpoint = 'http://127.0.0.1:20128/v1', timeoutMs = 45000 }: Record<string, any> = {}): Promise<any> {
   const doFetch = fetchFn || defaultFetch()
   const url = String(endpoint || '').replace(/\/+$/, '') + '/models'
   // Retry 1x khusus abort/timeout: server Next.js kadang menutup keep-alive
@@ -82,7 +82,7 @@ export async function fetchLiveCatalog({ fetchFn = null, endpoint = 'http://127.
     try {
       const ctrl = new AbortController()
       const timer = setTimeout(() => ctrl.abort(), timeoutMs)
-      let res
+      let res: any
       try {
         // Connection: close WAJIB: server Next.js 9Router keep-alive timeout 5s
         // membuat fetch Bun gantung pada body 581KB (curl OK, Bun hang —
@@ -95,7 +95,7 @@ export async function fetchLiveCatalog({ fetchFn = null, endpoint = 'http://127.
       const data = await res.json()
       const list = Array.isArray(data) ? data : data?.data
       return { ok: true, models: normalizeCatalogList(list) }
-    } catch (err) {
+    } catch (err: any) {
       const msg = String(err?.message || err)
       const retryable = /abort|timeout|aborted|network|fetch failed/i.test(msg)
       if (retryable && attempt === 0) continue
@@ -107,18 +107,18 @@ export async function fetchLiveCatalog({ fetchFn = null, endpoint = 'http://127.
 
 // Kurasi picker: Favorites -> Recent -> providers (filter query, cap tiap
 // seksi agar 1322 model tak ditumpahkan mentah).
-export function curatePicker({ models = [], favorites = [], recent = [], aliases = {}, query = '', perSection = 30 } = {}) {
+export function curatePicker({ models = [], favorites = [], recent = [], aliases = {}, query = '', perSection = 30 }: Record<string, any> = {}) {
   const q = String(query || '').toLowerCase()
-  const match = (id) => !q || String(id || '').toLowerCase().includes(q)
-  const byId = new Map(models.map((m) => [m.id, m]))
-  const fav = favorites.filter((id) => byId.has(id) && match(id)).slice(0, perSection)
-  const rec = recent.filter((id) => byId.has(id) && !fav.includes(id) && match(id)).slice(0, RECENT_CAP)
-  const rest = models.map((m) => m.id).filter((id) => !fav.includes(id) && !rec.includes(id) && match(id)).slice(0, perSection)
+  const match = (id: any) => !q || String(id || '').toLowerCase().includes(q)
+  const byId = new Map(models.map((m: any) => [m.id, m]))
+  const fav = favorites.filter((id: any) => byId.has(id) && match(id)).slice(0, perSection)
+  const rec = recent.filter((id: any) => byId.has(id) && !fav.includes(id) && match(id)).slice(0, RECENT_CAP)
+  const rest = models.map((m: any) => m.id).filter((id: any) => !fav.includes(id) && !rec.includes(id) && match(id)).slice(0, perSection)
   return { favorites: fav, recent: rec, models: rest, total: models.length }
 }
 
 // Recent: tambah id ke depan, dedup, cap 10 (opencode recentModels).
-export function pushRecent(recent = [], id = '') {
+export function pushRecent(recent: any[] = [], id = ''): any[] {
   const clean = String(id || '').trim()
   if (!clean) return Array.isArray(recent) ? [...recent] : []
   return [clean, ...(Array.isArray(recent) ? recent : []).filter((x) => x !== clean)].slice(0, RECENT_CAP)
@@ -128,21 +128,22 @@ export function pushRecent(recent = [], id = '') {
 // alias statis > katalog live/cache > ID langsung (passthrough + warning
 // bila tak ada di katalog). gemini-web di TUI = tolak eksplisit.
 // ID terlarang (FORBIDDEN_MODELS: claude-work training-data) = tolak.
-export function resolveCatalogModel(input = '', { models = [], aliases = {}, forbidden = ['claude-work'] } = {}) {
+export function resolveCatalogModel(input = '', { models = [], aliases = {}, forbidden = ['claude-work'] }: Record<string, any> = {}) {
   const raw = String(input ?? '').trim()
   if (!raw) return { ok: false, error: 'Pakai: /model [alias|id|pencarian].' }
   if (/gemini-web/i.test(raw)) {
     return { ok: false, error: 'gemini-web hanya jalan di GUI (butuh sesi browser Google). Di TUI pakai combo 9Router (mis. zen, qwen, mimo).' }
   }
   const low = raw.toLowerCase()
-  const banned = (forbidden || []).some((f) => low === String(f).toLowerCase())
+  const banned = (forbidden || []).some((f: any) => low === String(f).toLowerCase())
   if (banned) {
     return { ok: false, error: `"${raw}" dilarang (training-data). Pakai /models untuk ID gratis yang layak.` }
   }
-  if (aliases[raw]) return { ok: true, id: aliases[raw], via: 'alias', label: `${raw} -> ${aliases[raw]}` }
-  const aliasHit = Object.entries(aliases).find(([k]) => String(k).toLowerCase() === low)
+  const aliasTable: Record<string, any> = aliases
+  if (aliasTable[raw]) return { ok: true, id: aliasTable[raw], via: 'alias', label: `${raw} -> ${aliasTable[raw]}` }
+  const aliasHit = Object.entries(aliasTable).find(([k]) => String(k).toLowerCase() === low)
   if (aliasHit) return { ok: true, id: aliasHit[1], via: 'alias', label: `${aliasHit[0]} -> ${aliasHit[1]}` }
-  const exact = models.find((m) => m.id === raw || m.id.toLowerCase() === low)
+  const exact = models.find((m: any) => m.id === raw || m.id.toLowerCase() === low)
   if (exact) return { ok: true, id: exact.id, via: 'katalog', label: `${exact.id} (katalog live)` }
   return { ok: true, id: raw, via: 'langsung', label: `${raw} (ID langsung — tak ada di katalog, bisa gagal di provider)` }
 }
@@ -152,7 +153,7 @@ function defaultFs() {
 }
 
 function defaultPath() {
-  return { dirname: (p) => String(p).split('/').slice(0, -1).join('/') || '.' }
+  return { dirname: (p: any) => String(p).split('/').slice(0, -1).join('/') || '.' }
 }
 
 function defaultFetch() {

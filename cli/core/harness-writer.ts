@@ -1,4 +1,4 @@
-// cli/core/harness-writer.mjs — penulis JSONL harness untuk host headless
+// cli/core/harness-writer.ts — penulis JSONL harness untuk host headless
 // (PLAN-T1, M2c). CLI/TUI tidak punya Rust harness_append, jadi writer ini
 // menulis fs langsung ke root SAMA dengan GUI:
 //   $ABELINK_DATA_HOME|$XDG_DATA_HOME|~/.local/share + /abelink/harness/<date>/<kind>.jsonl
@@ -12,10 +12,10 @@
 //
 // Fail-closed jujur: TANPA rotasi generasi (beda dengan Rust 50MB×3) — file
 // aktif >50MB dilewati dengan counter skipped, bukan ditimpa. fs/path di-inject
-// untuk test hermetik (pola usageStats.mjs summarizeDir).
+// untuk test hermetik (pola usageStats.ts summarizeDir).
 import path from 'node:path'
 // Sumber TUNGGAL data-home (helper sidecar yang sudah ter-test oleh
-// dataHome.test.mjs / sttGuard.test.mjs): ABELINK_DATA_HOME (trim) > XDG >
+// dataHome.test.ts / sttGuard.test.ts): ABELINK_DATA_HOME (trim) > XDG >
 // ~/.local/share. harness-writer hanya menambah brand + subpath harness.
 import { resolveDataHome } from '../../sidecar/main/utils/dataHome.ts'
 
@@ -44,7 +44,7 @@ function rfc3339Localish(now = new Date()) {
 }
 
 // Validasi kind: mirror ketat Rust (anti path escape, [A-Za-z0-9_-], 1..=64).
-function validKind(kind) {
+function validKind(kind: any) {
   return typeof kind === 'string' && kind.length >= 1 && kind.length <= 64 &&
     /^[A-Za-z0-9_-]+$/.test(kind)
 }
@@ -54,8 +54,8 @@ function validKind(kind) {
  * @param {{ fsMod?: object, env?: object, root?: string, now?: () => Date }} [opts]
  * @returns {{ append: (kind: string, envelope: object) => boolean, stats: () => {written: number, skippedSize: number, disabled: boolean} }}
  */
-export function createHarnessWriter({ fsMod = null, env = process.env, root = null, now = null } = {}) {
-  const fs = fsMod
+export function createHarnessWriter({ fsMod = null, env = process.env, root = null, now = null }: Record<string, any> = {}) {
+  const fs: any = fsMod
   const clock = now || (() => new Date())
   const stats = { written: 0, skippedSize: 0, disabled: harnessDisabled(env) || !trajectoryHeadlessEnabled(env) }
   // Ts MONOTONIK KETAT per writer (kontrak skema: reader urut via ts; tanpa
@@ -63,7 +63,7 @@ export function createHarnessWriter({ fsMod = null, env = process.env, root = nu
   // arbitrer — berakhir salah urut di export/diagnose; flake terukur run6).
   let lastTsMs = 0
 
-  const append = (kind, envelope) => {
+  const append = (kind: any, envelope: any) => {
     if (stats.disabled) return false
     if (!fs || typeof fs.appendFileSync !== 'function') return false
     if (!validKind(kind)) return false
@@ -99,10 +99,10 @@ export function createHarnessWriter({ fsMod = null, env = process.env, root = nu
 // Merangkai harnessCore (bentuk event) + writer (I/O). sessionId dipakai
 // persis seperti yang disimpan sesi CLI/TUI (`session-...`) agar
 // harness:diagnose --session <id> dan /sessions menemukan yang sama.
-export function createHeadlessHarnessLogger({ writer, sessionId = null } = {}) {
+export function createHeadlessHarnessLogger({ writer, sessionId = null }: Record<string, any> = {}) {
   const sid = sessionId
   return {
-    logTurnStart: ({ turn, prompt = null, provider = null, model = null, effort = null } = {}) =>
+    logTurnStart: ({ turn, prompt = null, provider = null, model = null, effort = null }: Record<string, any> = {}) =>
       writer?.append('turn-start', {
         kind: 'turn-start',
         turn: turn ?? null,
@@ -112,7 +112,7 @@ export function createHeadlessHarnessLogger({ writer, sessionId = null } = {}) {
         model,
         effort
       }),
-    logToolCall: ({ tool, query, ok, rejected = false, resultSummary, turn = null, step = null, durationMs = null } = {}) =>
+    logToolCall: ({ tool, query, ok, rejected = false, resultSummary, turn = null, step = null, durationMs = null }: Record<string, any> = {}) =>
       writer?.append('tool-calls', {
         kind: 'tool-call',
         tool: String(tool || '?'),
@@ -129,7 +129,7 @@ export function createHeadlessHarnessLogger({ writer, sessionId = null } = {}) {
         step,
         durationMs
       }),
-    logTurnEnd: ({ turn = null, outcome = null, reason = null } = {}) =>
+    logTurnEnd: ({ turn = null, outcome = null, reason = null }: Record<string, any> = {}) =>
       writer?.append('turn-end', { kind: 'turn-end', turn, sessionId: sid, outcome, reason }),
     stats: () => writer?.stats?.() || { written: 0, skippedSize: 0, disabled: true }
   }

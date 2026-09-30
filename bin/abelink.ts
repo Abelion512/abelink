@@ -32,7 +32,7 @@ import {
   createToolAuditLogger,
   executeToolWithHooks,
   trajectoryHeadlessEnabled
-} from '../cli/core/index.mjs'
+} from '../cli/core/index.ts'
 
 const { runAgentLoop } = await import('../src/api/ai/agentRunner.ts')
 const { evaluateHeadlessSecurity } = await import('../src/api/ai/headlessSecurity.ts')
@@ -101,7 +101,7 @@ export function resolveNoArgsCommand({ stdinTTY = false, stdoutTTY = false } = {
   return stdinTTY && stdoutTTY ? 'tui' : 'help'
 }
 
-export function parseCliArgs(argv) {
+export function parseCliArgs(argv: any) {
   const args = argv.slice(2)
   // Bare `abelink` (tanpa arg): launch TUI interaktif bila TTY (ala opencode),
   // print help bila pipe/non-TTY (skrip aman, bukan hang nunggu stdin).
@@ -174,7 +174,7 @@ export function parseCliArgs(argv) {
     }
   }
 
-  const options = {
+  const options: any = {
     command: 'run',
     prompt: promptArg,
     // Headless default = custom (9Router/LM Studio di localhost:20128).
@@ -311,7 +311,7 @@ export function createSidecarClient() {
     }
   })
 
-  const rpc = (action, payload) =>
+  const rpc = (action: any, payload: any) =>
     new Promise((resolve, reject) => {
       const id = reqIdCounter++
       const timer = setTimeout(() => {
@@ -347,7 +347,7 @@ async function main() {
   try { fs.mkdirSync(cliOptions.workspace, { recursive: true }) } catch {}
 
   // Stream 3: headless helpers (pure module; engine stays untouched).
-  const headless = await import('../src/api/ai/headlessCli.ts').catch(() => ({}))
+  const headless: any = await import('../src/api/ai/headlessCli.ts').catch(() => ({}))
   const {
     resolveApprovalDecision = null,
     loadCliFileConfig = null,
@@ -431,7 +431,7 @@ async function main() {
         process.exit(1)
       }
     } else {
-      const all = listCliSessions().filter((s) => !s.workspace || s.workspace === cliOptions.workspace)
+      const all = listCliSessions().filter((s: any) => !s.workspace || s.workspace === cliOptions.workspace)
       resumeSession = all[0] || null
       if (!resumeSession) {
         console.error('[ERROR]: Belum ada sesi CLI untuk workspace ini. Jalankan prompt baru dulu.')
@@ -451,7 +451,7 @@ async function main() {
   // Patch sesi lewat store Fase-1 yang sama — harness:diagnose --session <id>
   // dan /usage menemukan jejak sesi CLI ini (akar masalah: sesi TUI/CLI lama
   // tidak pernah menulis harness, /usage selalu kosong).
-  let harnessAudit = null
+  let harnessAudit: any = null
   if (trajectoryHeadlessEnabled()) {
     const harnessWriter = createHarnessWriter({ fsMod: fs })
     const harnessLogger = createHeadlessHarnessLogger({ writer: harnessWriter, sessionId })
@@ -459,8 +459,8 @@ async function main() {
       logger: harnessLogger,
       sessionId,
       deps: {
-        loadFn: async (id) => (typeof loadCliSession === 'function' ? loadCliSession(id) : null),
-        saveFn: async (s) => { if (typeof saveCliSession === 'function') saveCliSession(s) }
+        loadFn: async (id: any) => (typeof loadCliSession === 'function' ? loadCliSession(id) : null),
+        saveFn: async (s: any) => { if (typeof saveCliSession === 'function') saveCliSession(s) }
       }
     })
   }
@@ -519,12 +519,12 @@ async function main() {
 
   try {
     // Construct environment adapter for agentRunner
-    const environment = {
+    const environment: any = {
       // Shape HARUS cocok dengan core.js fetchTransport call:
       //   fetchTransport({ messages, config, isSmallTask, jsonSchema, stream })
       // (satu objek). Bentuk positional lama (messages, config, ...) tetap
       // didukung sebagai fallback agar mock/test lama tidak pecah.
-      fetchAI: async (...callArgs) => {
+      fetchAI: async (...callArgs: any[]) => {
         let messages,
           config,
           isSmallTask,
@@ -563,29 +563,30 @@ async function main() {
           jsonSchema: jsonSchema || null
         }])
 
-        if (!resp || !resp.success) {
-          const msg = String(resp?.error?.message || resp?.error || 'AI fetch gagal di sidecar.')
+        const r2: any = resp
+        if (!r2 || !r2.success) {
+          const msg = String(r2?.error?.message || r2?.error || 'AI fetch gagal di sidecar.')
           // Tanpa fallback model (keputusan user): gagal = pesan jujur.
           throw new Error(msg)
         }
 
-        return resp.data
+        return r2.data
       },
 
-      coreExecuteTool: async (toolName, query, ctx = {}) => {
+      coreExecuteTool: async (toolName: any, query: any, ctx: any = {}) => {
         // 0. Subagent delegation (Stream 3): sequential, depth-capped, condensed.
         if (toolName === 'spawn_subagent' && typeof runHeadlessSubagent === 'function') {
           const sub = await runHeadlessSubagent({
             query,
             depth: Number(ctx.depth) || 0,
             state: subagentState,
-            runLoop: async ({ prompt, options, environment: subEnv }) =>
+            runLoop: async ({ prompt, options, environment: subEnv }: any) =>
               runAgentLoop({ prompt, options, environment: subEnv && Object.keys(subEnv).length ? subEnv : environment }),
             // Depth HARUS mengalir (MAX_SUBAGENT_DEPTH mati tanpanya):
             // runAgentLoop meneruskan options.depth -> executeTool ctx.depth.
-            createEnvironment: (d) => ({ ...environment, depth: d }),
+            createEnvironment: (d: any) => ({ ...environment, depth: d }),
             baseOptions: { maxTurns: cliOptions.maxTurns, workspace: cliOptions.workspace }
-          }).catch((e) => ({ ok: false, result: `[ERROR] Subagent gagal: ${e?.message || e}` }))
+          }).catch((e: any) => ({ ok: false, result: `[ERROR] Subagent gagal: ${e?.message || e}` }))
           return sub.ok
             ? { ok: true, result: sub.result }
             : { ok: false, result: sub.result || '[ERROR] Subagent ditolak.', error: { code: 'subagent-denied' } }
@@ -634,21 +635,21 @@ async function main() {
         const toolDef = NATIVE_TOOLS[toolName]
         if (!toolDef || typeof toolDef.handler !== 'function') {
           // Fallback to sidecar RPC native-tool:execute
-          const resp = await sidecar.rpc('native-tool:execute', [
+          const r3: any = await sidecar.rpc('native-tool:execute', [
             toolName,
             query,
             { workspaceRoot: cliOptions.workspace, turn: ctx.step }
           ])
-          if (!resp || !resp.success) {
+          if (!r3 || !r3.success) {
             return {
               ok: false,
-              result: `[ERROR] Eksekusi tool ${toolName} gagal: ${resp?.error || 'Unknown error'}`,
-              error: { code: 'tool-error', message: resp?.error }
+              result: `[ERROR] Eksekusi tool ${toolName} gagal: ${r3?.error || 'Unknown error'}`,
+              error: { code: 'tool-error', message: r3?.error }
             }
           }
           return {
             ok: true,
-            result: typeof resp.data === 'string' ? resp.data : JSON.stringify(resp.data)
+            result: typeof r3.data === 'string' ? r3.data : JSON.stringify(r3.data)
           }
         }
 
@@ -667,7 +668,7 @@ async function main() {
             result: isSuccess ? String(output) : `[ERROR] ${output}`,
             error: isSuccess ? null : { code: 'tool-error', message: output }
           }
-        } catch (err) {
+        } catch (err: any) {
           return {
             ok: false,
             result: `[ERROR] Tool melempar pengecualian: ${err.message}`,
@@ -676,13 +677,13 @@ async function main() {
         }
       },
 
-      onThought: (thought) => {
+      onThought: (thought: any) => {
         if (!cliOptions.json && thought) {
           process.stdout.write(`\x1b[36m[THOUGHT]:\x1b[0m ${thought}\n`)
         }
       },
 
-      onStep: (stepRecord) => {
+      onStep: (stepRecord: any) => {
         if (!cliOptions.json) {
           if (stepRecord.kind === 'decision') {
             const dec = stepRecord.decision
@@ -702,7 +703,7 @@ async function main() {
 
     // H5 (M2c): wrapper publik executeTool — pre/post hooks + audit JSONL.
     // coreExecuteTool diselesaikan saat call time (environment sudah utuh).
-    environment.executeTool = (toolName, query, ctx = {}) =>
+    environment.executeTool = (toolName: any, query: any, ctx = {}) =>
       executeToolWithHooks(environment.coreExecuteTool, hooks, toolName, query, ctx)
 
     // Run the agent loop (Fase 1: seed initialHistory dari sesi resume;
@@ -808,7 +809,7 @@ async function main() {
     } else {
       process.exit(1)
     }
-  } catch (err) {
+  } catch (err: any) {
     // PLAN-T1: crash path juga dapat turn-end (start tanpa end = red flag
     // interupsi di harness:diagnose — catat jujur sebagai kegagalan run).
     try { await harnessAudit?.finalize({ outcome: 'failed', terminalReason: 'fatal-exception', turn: null }) } catch { }

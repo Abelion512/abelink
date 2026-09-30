@@ -9,7 +9,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ADAPTER = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../evaluation/promptfoo/abelink-provider.mjs')
-const CLI = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../bin/abelink.mjs')
+const CLI = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../bin/abelink.ts')
 
 describe('abelink-provider (adapter Promptfoo)', () => {
   it('file ada dan bisa diimport default class', async () => {

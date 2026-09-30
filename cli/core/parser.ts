@@ -1,5 +1,5 @@
-// cli/core/parser.mjs — parsing input TUI: slash, shell, effort, flag CLI.
-// Dipindah dari bin/abelink-tui.mjs (M2b/B-9). Semua fungsi murni + testable.
+// cli/core/parser.ts — parsing input TUI: slash, shell, effort, flag CLI.
+// Dipindah dari bin/abelink-tui.ts (M2b/B-9). Semua fungsi murni + testable.
 import path from 'node:path'
 import {
   DEFAULT_TUI_MODEL,
@@ -7,10 +7,10 @@ import {
   TUI_HELP,
   TUI_STREAM_ENABLED,
   TUI_VERSION
-} from './constants.mjs'
+} from './constants.ts'
 
-export function buildAiFetchBody({ messages, config, isSmallTask = false, jsonSchema = null } = {}) {
-  const body = { messages, config, isSmallTask: Boolean(isSmallTask), jsonSchema: jsonSchema || null }
+export function buildAiFetchBody({ messages, config, isSmallTask = false, jsonSchema = null }: Record<string, any> = {}) {
+  const body: any = { messages, config, isSmallTask: Boolean(isSmallTask), jsonSchema: jsonSchema || null }
   if (TUI_STREAM_ENABLED) body.stream = true
   return body
 }
@@ -49,16 +49,16 @@ export function parseSlashCommand(line = '') {
   }
 }
 
-// Alias resolve: MODEL_ALIASES shape from headlessCli.js; unknown id passes through.
-export function resolveTuiModel(input, aliases = {}) {
+// Alias resolve: MODEL_ALIASES shape from headlessCli.ts; unknown id passes through.
+export function resolveTuiModel(input: any, aliases: any = {}) {
   const raw = String(input ?? '').trim()
   if (!raw) return { ok: false, error: 'Pakai: /model [alias|id].' }
-  const table = aliases && typeof aliases === 'object' ? aliases : {}
+  const table: any = aliases && typeof aliases === 'object' ? aliases : {}
   const id = table[raw] || raw
   return { ok: true, model: id, alias: table[raw] ? raw : null }
 }
 
-export function parseEffortLevel(input) {
+export function parseEffortLevel(input: any) {
   const v = String(input ?? '').trim().toLowerCase()
   if (EFFORT_LEVELS.includes(v)) return { ok: true, effort: v }
   return { ok: false, error: `Effort harus salah satu: ${EFFORT_LEVELS.join(' | ')}.` }
@@ -72,9 +72,9 @@ export function parseShellLine(line = '') {
   return trimmed.slice(1).trim()
 }
 
-export function parseTuiArgs(argv) {
+export function parseTuiArgs(argv: any) {
   const args = argv.slice(2)
-  const options = {
+  const options: any = {
     provider: 'custom',
     model: DEFAULT_TUI_MODEL,
     effort: 'low',

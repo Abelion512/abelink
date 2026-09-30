@@ -1,8 +1,8 @@
-// cli/core/sidecar-client.mjs — client JSON-over-stdio ke sidecar engine.
-// Dipindah dari bin/abelink-tui.mjs (M2b/B-9) agar host bin/ dan cli/tui
-// memakai satu implementasi (bentuk sama dengan createSidecarClient di bin/abelink.mjs).
+// cli/core/sidecar-client.ts — client JSON-over-stdio ke sidecar engine.
+// Dipindah dari bin/abelink-tui.ts (M2b/B-9) agar host bin/ dan cli/tui
+// memakai satu implementasi (bentuk sama dengan createSidecarClient di bin/abelink.ts).
 import { spawn } from 'node:child_process'
-import { BUN_BIN, ROOT, SIDECAR_ENTRY } from './paths.mjs'
+import { BUN_BIN, ROOT, SIDECAR_ENTRY } from './paths.ts'
 
 export function createSidecarClient() {
   const child = spawn(BUN_BIN, [SIDECAR_ENTRY], {
@@ -40,7 +40,7 @@ export function createSidecarClient() {
     }
   })
 
-  const rpc = (action, payload) =>
+  const rpc = (action: any, payload: any) =>
     new Promise((resolve, reject) => {
       const id = reqIdCounter++
       const timer = setTimeout(() => {

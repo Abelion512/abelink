@@ -18,8 +18,8 @@
     "typecheck": "tsc --noEmit",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
     "typecheck:renderer": "tsc --noEmit -p tsconfig.renderer.json",
-    "cron": "bun bin/abelink-cron.mjs",
-    "cron:daemon": "bun bin/abelink-cron.mjs daemon",
+    "cron": "bun bin/abelink-cron.ts",
+    "cron:daemon": "bun bin/abelink-cron.ts daemon",
     "test:known-issues": "vitest run tests/trading.*.test.js",
     "test:harness": "node tests/harness/stress-watermark.harness.mjs && node tests/harness/stress-watermark-v2.harness.mjs",
     "perf": "bun evaluation/perf-gate.mjs",
@@ -44,10 +44,10 @@
     "benchmark:run": "node evaluation/run.mjs",
     "benchmark:deepeval": "node evaluation/deepeval-runner.mjs",
     "benchmark:adapter": "node evaluation/abelink-adapter.mjs",
-    "cli:agent": "bun bin/abelink.mjs agent run"
+    "cli:agent": "bun bin/abelink.ts agent run"
   },
   "bin": {
-    "abelink": "bin/abelink.mjs"
+    "abelink": "bin/abelink.ts"
   },
   "type": "module",
   "overrides": {

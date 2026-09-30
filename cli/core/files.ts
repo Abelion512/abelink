@@ -1,9 +1,9 @@
-// cli/core/files.mjs — @file reference (ala opencode) + generator /init.
-// Dipindah dari bin/abelink-tui.mjs (M2b/B-9). Batas jujur: hanya di dalam
+// cli/core/files.ts — @file reference (ala opencode) + generator /init.
+// Dipindah dari bin/abelink-tui.ts (M2b/B-9). Batas jujur: hanya di dalam
 // workspace, maks TUI_FILE_REF_MAX_FILES file, TUI_FILE_REF_MAX_BYTES per file.
 import path from 'node:path'
 import fs from 'node:fs'
-import { TUI_FILE_REF_MAX_BYTES, TUI_FILE_REF_MAX_FILES } from './constants.mjs'
+import { TUI_FILE_REF_MAX_BYTES, TUI_FILE_REF_MAX_FILES } from './constants.ts'
 
 export function extractFileRefs(text = '') {
   const refs = []
@@ -48,20 +48,20 @@ export function resolveFileRefs(text = '', { workspace = process.cwd(), fsMod = 
 // fs shim agar testable tanpa I/O nyata (inject fsMod).
 function fsSyncShim() {
   return {
-    statSync: (p) => {
+    statSync: (p: any) => {
       const st = fs.statSync(p)
       return st
     },
-    readFileSync: (p, enc) => fs.readFileSync(p, enc)
+    readFileSync: (p: any, enc: any) => fs.readFileSync(p, enc)
   }
 }
 
 // /init generator (ala opencode /init): hasilkan draf AGENTS.md dari
 // struktur workspace. Pure + testable (inject listDir). Tidak menulis file
 // sendiri — handler yang menulis setelah konfirmasi implisit via perintah.
-export function buildAgentsMd({ workspace = '', entries = [] } = {}) {
+export function buildAgentsMd({ workspace = '', entries = [] }: { workspace?: string; entries?: any[] } = {}) {
   const names = entries.map((e) => String(e?.name || e)).filter(Boolean).slice(0, 40)
-  const has = (...keys) => names.filter((n) => keys.some((k) => n.toLowerCase().includes(k)))
+  const has = (...keys: string[]) => names.filter((n) => keys.some((k) => n.toLowerCase().includes(k)))
   const lines = [
     '# AGENTS.md',
     '',

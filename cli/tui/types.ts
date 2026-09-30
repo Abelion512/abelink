@@ -1,6 +1,6 @@
 // cli/tui/types.ts — kontrak tipe permukaan TUI (M2a).
 //
-// Kenapa terpisah: engine TUI (`cli/tui/engine.mjs`) masih JS (keputusan D3
+// Kenapa terpisah: engine TUI (`cli/tui/engine.ts`) masih JS (keputusan D3
 // berlaku untuk TUI; sidecar engine sudah `.ts` sejak W1-1), jadi tipe harus
 // tinggal di satu tempat yang bisa dirujuk komponen .tsx DAN entry
 // `bin/abelink-tui-v2.tsx`. Tanpa ini setiap berkas mendefinisikan bentuk
@@ -45,7 +45,7 @@ export interface PickerState {
   error?: string | null
 }
 
-/** State engine (`createTuiState` di cli/tui/engine.mjs). */
+/** State engine (`createTuiState` di cli/tui/engine.ts). */
 export interface TuiState {
   provider: string
   model: string
@@ -96,13 +96,13 @@ export interface TuiFileConfig {
   [key: string]: unknown
 }
 
-/** Client sidecar (dibuat oleh `createSidecarClient` di cli/core/sidecar-client.mjs). */
+/** Client sidecar (dibuat oleh `createSidecarClient` di cli/core/sidecar-client.ts). */
 export interface SidecarClient {
   dispose?: () => void
   [key: string]: unknown
 }
 
-/** Opsi CLI hasil `parseTuiArgs` (cli/core/parser.mjs — tetap JS, M2b). */
+/** Opsi CLI hasil `parseTuiArgs` (cli/core/parser.ts — tetap JS, M2b). */
 export interface TuiCliOptions {
   workspace: string
   provider?: string | null

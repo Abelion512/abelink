@@ -1,8 +1,8 @@
 import { runAgentLoop } from '../../src/api/ai/agentRunner.ts'
-import { ProviderRuntime } from './provider-runtime.mjs'
+import { ProviderRuntime } from './provider-runtime.ts'
 
-let defaultTaskStore = null
-async function resolveTaskStore(storeOption) {
+let defaultTaskStore: any = null
+async function resolveTaskStore(storeOption: any = null) {
   if (storeOption && typeof storeOption === 'object') return storeOption
   if (defaultTaskStore) return defaultTaskStore
   try {
@@ -14,6 +14,18 @@ async function resolveTaskStore(storeOption) {
 }
 
 export class EngineSession {
+  sessionId: any
+  baseEnvironment: any
+  providerRuntime: any
+  status: string
+  subscribers: Set<any>
+  checkpoint: any
+  abortController: any
+  stepCount: number
+  options: any
+  activePrompt: any
+  store: any
+
   constructor({
     sessionId = null,
     providerRuntime = null,
@@ -21,6 +33,13 @@ export class EngineSession {
     baseEnvironment = null,
     store = null,
     options = {}
+  }: {
+    sessionId?: string | null
+    providerRuntime?: any
+    environment?: any
+    baseEnvironment?: any
+    store?: any
+    options?: any
   } = {}) {
     this.sessionId = sessionId || `session-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
     const baseEnv = baseEnvironment || environment || {}
@@ -42,7 +61,7 @@ export class EngineSession {
   }
 
   // Mengakses store persistensi kanonikal (taskStore)
-  async getStore() {
+  async getStore(): Promise<any> {
     if (this.store) return this.store
     return resolveTaskStore()
   }
@@ -66,14 +85,14 @@ export class EngineSession {
   }
 
   // Mendaftarkan listener event stream
-  subscribe(listener) {
+  subscribe(listener: any) {
     if (typeof listener !== 'function') return () => {}
     this.subscribers.add(listener)
     return () => this.subscribers.delete(listener)
   }
 
   // Mengirim event terstruktur ke semua subscriber
-  emit(event) {
+  emit(event: any) {
     const enriched = {
       sessionId: this.sessionId,
       timestamp: Date.now(),
@@ -82,7 +101,7 @@ export class EngineSession {
     for (const sub of this.subscribers) {
       try {
         sub(enriched)
-      } catch (err) {
+      } catch (err: any) {
         console.error('[EngineSession] subscriber listener error:', err)
       }
     }
@@ -119,7 +138,7 @@ export class EngineSession {
           status: 'paused',
           checkpoint: candidateCheckpoint
         })
-      } catch (err) {
+      } catch (err: any) {
         this.emit({
           type: 'checkpoint.failed',
           error: err?.message || 'persistence-failed',
@@ -150,7 +169,7 @@ export class EngineSession {
   }
 
   // Mengirim input tambahan dari user ke sesi yang menunggu/jeda
-  async sendInput(input) {
+  async sendInput(input: any) {
     if (!input || typeof input !== 'string') {
       return { ok: false, error: 'Input wajib berupa string.' }
     }
@@ -166,7 +185,7 @@ export class EngineSession {
       if (store && typeof store.updateAgentTask === 'function') {
         try {
           await store.updateAgentTask(this.sessionId, { checkpoint: updatedCheckpoint })
-        } catch (err) {
+        } catch (err: any) {
           this.emit({
             type: 'checkpoint.failed',
             error: err?.message || 'persistence-failed',
@@ -183,7 +202,7 @@ export class EngineSession {
   }
 
   // Menjalankan tugas otonom baru
-  async runTask(prompt, taskOptions = {}) {
+  async runTask(prompt: any, taskOptions: any = {}) {
     if (!prompt || typeof prompt !== 'string') {
       throw new Error('EngineSession.runTask: prompt wajib berupa string non-kosong.')
     }
@@ -215,7 +234,7 @@ export class EngineSession {
     const sessionEnv = {
       ...this.baseEnvironment,
       // Transport terisolasi per sesi tanpa mutasi global
-      fetchAI: async (payload, opts) => {
+      fetchAI: async (payload: any, opts: any) => {
         if (typeof this.providerRuntime?.fetchAI === 'function') {
           return this.providerRuntime.fetchAI(payload, opts)
         }
@@ -224,14 +243,14 @@ export class EngineSession {
         }
         throw new Error('AI transport tidak tersedia di EngineSession.')
       },
-      executeTool: async (tool, query, meta) => {
+      executeTool: async (tool: any, query: any, meta: any) => {
         const stepNum = meta?.step || this.stepCount
         this.emit({ type: 'tool.started', tool, query, step: stepNum })
         const start = Date.now()
         let res
         try {
           res = await this.baseEnvironment.executeTool(tool, query, meta)
-        } catch (err) {
+        } catch (err: any) {
           res = {
             ok: false,
             result: `[ERROR] Tool ${tool} gagal: ${err.message}`,
@@ -254,11 +273,11 @@ export class EngineSession {
         })
         return res
       },
-      onThought: (text) => {
+      onThought: (text: any) => {
         this.emit({ type: 'assistant.delta', delta: text })
         this.baseEnvironment.onThought?.(text)
       },
-      onStep: (stepTrace) => {
+      onStep: (stepTrace: any) => {
         this.stepCount = stepTrace?.step || this.stepCount + 1
         if (stepTrace?.kind === 'decision') {
           this.emit({
@@ -322,7 +341,7 @@ export class EngineSession {
               status: 'paused',
               checkpoint: candidateCheckpoint
             })
-          } catch (err) {
+          } catch (err: any) {
             // Checkpoint persistence MUST fail closed: do NOT claim durable checkpoint
             this.status = 'failed'
             this.checkpoint = null
@@ -402,7 +421,7 @@ export class EngineSession {
         terminalReason: result.terminalReason
       })
       return result
-    } catch (err) {
+    } catch (err: any) {
       if (this.abortController.signal.aborted) {
         this.status = 'cancelled'
         if (store && typeof store.updateAgentTask === 'function') {
@@ -431,7 +450,7 @@ export class EngineSession {
   }
 
   // Melanjutkan sesi dari checkpoint yang tersimpan (in-memory atau persisted store)
-  async resumeSession(input = '', resumeOptions = {}) {
+  async resumeSession(input = '', resumeOptions: any = {}) {
     if (!this.checkpoint) {
       await this.loadPersistedCheckpoint()
     }
@@ -461,13 +480,13 @@ export class EngineSession {
   }
 
   // Dispatcher perintah generik
-  async dispatch(command) {
+  async dispatch(command: any) {
     return dispatchEngineCommand(this, command)
   }
 }
 
 // Handler pengirim perintah client ke engine session
-export async function dispatchEngineCommand(session, command) {
+export async function dispatchEngineCommand(session: any, command: any) {
   if (!session || typeof session.runTask !== 'function') {
     throw new Error('dispatchEngineCommand: session wajib instance dari EngineSession.')
   }

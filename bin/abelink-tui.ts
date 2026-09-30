@@ -42,13 +42,15 @@ import {
   saveTuiSession,
   sessionToInitialHistory,
   trajectoryHeadlessEnabled,
+  DEFAULT_TUI_MODEL,
+  TUI_STREAM_ENABLED,
   TUI_HELP,
   TUI_VERSION
-} from '../cli/core/index.mjs'
+} from '../cli/core/index.ts'
 
 // Permukaan lama dipertahankan: test (tests/cli-tui*.test.mjs) dan konsumen
 // lain masih mengimpor dari berkas ini.
-export * from '../cli/core/index.mjs'
+export * from '../cli/core/index.ts'
 
 async function main() {
   const cliOptions = parseTuiArgs(process.argv)
@@ -57,9 +59,9 @@ async function main() {
 
   // Piped-input race: kumpulkan stdin non-TTY sejak awal startup;
   // dikuras FIFO setelah loop siap (lihat bawah).
-  const earlyChunks = []
+  const earlyChunks: any = []
   let earlyEnded = false
-  const earlyCollector = (chunk) => {
+  const earlyCollector = (chunk: any) => {
     earlyChunks.push(String(chunk ?? ''))
   }
   const earlyEnd = () => {
@@ -73,10 +75,10 @@ async function main() {
     } catch {}
   }
 
-  const { runAgentLoop } = await import('../src/api/ai/agentRunner.js')
+  const { runAgentLoop } = await import('../src/api/ai/agentRunner.ts')
   const { evaluateHeadlessSecurity } = await import('../src/api/ai/headlessSecurity.ts')
   const { NATIVE_TOOLS } = await import('../sidecar/main/node-tools.ts')
-  const headless = await import('../src/api/ai/headlessCli.js').catch(() => ({}))
+  const headless: any = await import('../src/api/ai/headlessCli.ts').catch(() => ({}))
   const {
     resolveApprovalDecision = null,
     loadCliFileConfig = null,
@@ -93,7 +95,7 @@ async function main() {
   // Lazy sidecar: JANGAN spawn saat startup. Sidecar child menahan event
   // loop (pipe stdin) sehingga proses tak pernah mencapai prompt/loop —
   // terutama saat stdin pipe (E2E/script). Spawn on first model turn.
-  let sidecar = null
+  let sidecar: any = null
   const getSidecar = () => {
     if (!sidecar) sidecar = createSidecarClient()
     return sidecar
@@ -128,7 +130,7 @@ async function main() {
     process.exit(2)
   }
 
-  let headlessMemories = []
+  let headlessMemories: any[] = []
   try {
     if (typeof loadHeadlessMemories === 'function') {
       headlessMemories = await loadHeadlessMemories({ workspaceRoot: cliOptions.workspace })
@@ -141,14 +143,14 @@ async function main() {
     effort: cliOptions.effort,
     workspace: cliOptions.workspace,
     sessionId: `session-${Date.now()}`,
-    history: [],
+    history: [] as any[],
     showThinking: true,
     showDetails: false
   }
 
   // PLAN-T1: audit harness headless (flag-gated). Patch sesi lewat store
   // Fase-1 yang sama dipakai saveTuiSession — diagnose/usage menemukan sesi ini.
-  let harnessAudit = null
+  let harnessAudit: any = null
   if (trajectoryHeadlessEnabled()) {
     const harnessWriter = createHarnessWriter({ fsMod: fs })
     const harnessLogger = createHeadlessHarnessLogger({ writer: harnessWriter, sessionId: state.sessionId })
@@ -160,8 +162,8 @@ async function main() {
   }
   const hooks = { onBeforeTool: null, onAfterTool: null, audit: harnessAudit }
 
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout, prompt: 'abelink> ' })
-  let currentTurn = null
+  const rl: any = readline.createInterface({ input: process.stdin, output: process.stdout, prompt: 'abelink> ' })
+  let currentTurn: any = null
   rl.on('SIGINT', () => {
     if (currentTurn) {
       currentTurn.controller.abort()
@@ -171,9 +173,9 @@ async function main() {
     }
   })
 
-  const buildEnvironment = (signal) => {
-  const environment = {
-    fetchAI: async (...callArgs) => {
+  const buildEnvironment = (signal: any) => {
+  const environment: any = {
+    fetchAI: async (...callArgs: any[]) => {
       let messages, config, isSmallTask, jsonSchema
       if (callArgs.length === 1 && callArgs[0] && typeof callArgs[0] === 'object' && Array.isArray(callArgs[0].messages)) {
         ;({ messages, config, isSmallTask, jsonSchema } = callArgs[0])
@@ -193,17 +195,17 @@ async function main() {
         ...(config || {})
       }
       const body = buildAiFetchBody({ messages, config: combinedConfig, isSmallTask, jsonSchema })
-      const resp = await getSidecar().rpc('ai:fetch', [body])
-      if (!resp || !resp.success) {
-        const msg = String(resp?.error?.message || resp?.error || 'AI fetch gagal di sidecar.')
+      const r1: any = await getSidecar().rpc('ai:fetch', [body])
+      if (!r1 || !r1.success) {
+        const msg = String(r1?.error?.message || r1?.error || 'AI fetch gagal di sidecar.')
         // Tanpa fallback model (keputusan user): gagal = pesan jujur.
         throw new Error(msg)
       }
-      return resp.data
+      return r1.data
     },
 
     // H5 (M2c): core exec dipisah; executeTool publik = wrapper hooks + audit.
-    coreExecuteTool: async (toolName, query, ctx = {}) => {
+    coreExecuteTool: async (toolName: any, query: any, ctx: any = {}) => {
       const aborted = checkTurnAborted(signal, toolName)
       if (aborted) return aborted
       const secCheck = evaluateHeadlessSecurity(toolName, query, { workspaceRoot: state.workspace })
@@ -224,11 +226,11 @@ async function main() {
       }
       const toolDef = NATIVE_TOOLS[toolName]
       if (!toolDef || typeof toolDef.handler !== 'function') {
-        const resp = await getSidecar().rpc('native-tool:execute', [toolName, query, { workspaceRoot: state.workspace, turn: ctx.step }])
-        if (!resp || !resp.success) {
-          return { ok: false, result: `[ERROR] Eksekusi tool ${toolName} gagal: ${resp?.error || 'Unknown error'}`, error: { code: 'tool-error', message: resp?.error } }
+        const r2: any = await getSidecar().rpc('native-tool:execute', [toolName, query, { workspaceRoot: state.workspace, turn: ctx.step }])
+        if (!r2 || !r2.success) {
+          return { ok: false, result: `[ERROR] Eksekusi tool ${toolName} gagal: ${r2?.error || 'Unknown error'}`, error: { code: 'tool-error', message: r2?.error } }
         }
-        return { ok: true, result: typeof resp.data === 'string' ? resp.data : JSON.stringify(resp.data) }
+        return { ok: true, result: typeof r2.data === 'string' ? r2.data : JSON.stringify(r2.data) }
       }
       try {
         const res = await toolDef.handler(query, { workspaceRoot: state.workspace, turn: ctx.step })
@@ -237,23 +239,23 @@ async function main() {
           ? (res.output || res.data || res.content || res.message || JSON.stringify(res))
           : (res.error || res.message || 'Tool gagal tanpa rincian.')
         return { ok: isSuccess, result: isSuccess ? String(output) : `[ERROR] ${output}`, error: isSuccess ? null : { code: 'tool-error', message: output } }
-      } catch (err) {
+      } catch (err: any) {
         return { ok: false, result: `[ERROR] Tool melempar pengecualian: ${err.message}`, error: { code: 'execution-exception', message: err.message } }
       }
     },
 
     // H5: wrapper publik — coreExecuteTool diselesaikan saat call time
     // (objek environment sudah utuh; referensi closure, bukan nama host fn).
-    executeTool: (toolName, query, ctx = {}) =>
+    executeTool: (toolName: any, query: any, ctx = {}) =>
       executeToolWithHooks(environment.coreExecuteTool, hooks, toolName, query, ctx),
 
-    onThought: (thought) => {
+    onThought: (thought: any) => {
       if (state.showThinking === false) return
       const line = renderThoughtLine(thought)
       if (line) console.log(line)
     },
 
-    onStep: (stepRecord) => {
+    onStep: (stepRecord: any) => {
       if (state.showDetails === false && stepRecord?.kind === 'tool') return
       const line = renderStepLine(stepRecord)
       if (line) console.log(line)
@@ -262,7 +264,7 @@ async function main() {
   return environment
   }
 
-  async function runTurn(prompt) {
+  async function runTurn(prompt: any) {
     const turn = createTuiTurn()
     currentTurn = turn
     try {
@@ -291,8 +293,8 @@ async function main() {
       }
       // PLAN-T1: turn-end + patch outcome ke sesi sebelum save (satu tulisan).
       try { await harnessAudit?.finalize({ outcome: result.outcome, terminalReason: result.terminalReason, turn: result.stepCount }) } catch { }
-      state.history.push({ role: 'user', content: prompt })
-      if (result.reply) state.history.push({ role: 'assistant', content: result.reply })
+      state.history.push({ role: 'user', content: prompt } as any)
+      if (result.reply) state.history.push({ role: 'assistant', content: result.reply } as any)
       // Persist sesi via Fase-1 store (best-effort, never fatal).
       const saved = await saveTuiSession({
         v: 1,
@@ -311,7 +313,7 @@ async function main() {
       })
       if (saved.blockedOn) console.error(`[TUI] Persist sesi dilewati (${saved.blockedOn}): ${saved.reason}`)
       nextPromptAction(result) // always reprompt; never exits on turn end
-    } catch (err) {
+    } catch (err: any) {
       console.error(`[TUI ERROR]: ${err?.message || err}`)
       // PLAN-T1: crash path juga dapat turn-end (start tanpa end = red flag
       // interupsi di harness:diagnose — catat jujur sebagai kegagalan turn).
@@ -323,8 +325,8 @@ async function main() {
 
   // Eksekutor !shell (ala opencode): tanpa model turn, tanpa histori.
   // Batas jujur: read-only aman + tolak pola berbahaya; BUKAN sandbox.
-  async function runShellLine(command) {
-    const { validateHeadlessShellCommand } = await import('../src/api/ai/headlessSecurity.ts').catch(() => ({}))
+  async function runShellLine(command: any) {
+    const { validateHeadlessShellCommand } = await import('../src/api/ai/headlessSecurity.ts').catch(() => ({})) as any
     if (typeof validateHeadlessShellCommand === 'function') {
       const check = validateHeadlessShellCommand(command)
       if (!check.allowed) {
@@ -332,7 +334,7 @@ async function main() {
         return
       }
     }
-    await new Promise((resolve) => {
+    await new Promise<void>((resolve) => {
       execFile('/bin/sh', ['-c', command], { cwd: state.workspace, timeout: 30000, maxBuffer: 512 * 1024 }, (err, stdout, stderr) => {
         if (stdout) process.stdout.write(stdout.endsWith('\n') ? stdout : stdout + '\n')
         if (stderr) process.stderr.write(stderr.endsWith('\n') ? stderr : stderr + '\n')
@@ -342,7 +344,7 @@ async function main() {
     })
   }
 
-  async function handleSlash(cmd) {
+  async function handleSlash(cmd: any) {
     switch (cmd.kind) {
       case 'models': {
         const q = String(cmd.arg || '').toLowerCase()
@@ -461,7 +463,7 @@ async function main() {
           }
           console.log('[TUI] Teks editor dikirim sebagai prompt.')
           await runTurn(text)
-        } catch (err) {
+        } catch (err: any) {
           console.error(`[ERROR]: ${err?.message || err}`)
         } finally {
           try { fs.unlinkSync(tmpFile) } catch {}
@@ -475,7 +477,7 @@ async function main() {
         return
       }
       case 'init': {
-        let entries = []
+        let entries: any = []
         try {
           const fsMod = await import('node:fs')
           entries = fsMod.readdirSync(state.workspace, { withFileTypes: true }).map((e) => e.name)
@@ -493,7 +495,7 @@ async function main() {
         try {
           fs.writeFileSync(abs, draft + '\n', 'utf8')
           console.log(`[TUI] Draf AGENTS.md ditulis ke ${abs} — sunting manual sebelum dipakai.`)
-        } catch (err) {
+        } catch (err: any) {
           console.error(`[ERROR]: ${err?.message || err}`)
         }
         return
@@ -513,7 +515,7 @@ async function main() {
   console.log(`\n${TUI_HELP}\n`)
   rl.prompt()
   let busy = false
-  async function handleLine(line) {
+  async function handleLine(line: any) {
     // !shell dulu (ala opencode): tanpa model turn, tanpa histori.
     const shellCmd = parseShellLine(line)
     if (shellCmd !== null) {
@@ -523,7 +525,7 @@ async function main() {
     }
     const cmd = parseSlashCommand(line)
     if (cmd.kind === 'prompt') {
-      if (!cmd.text.trim()) {
+      if (!String(cmd.text ?? '').trim()) {
         rl.prompt()
         return
       }
@@ -540,8 +542,9 @@ async function main() {
           console.error(`[ERROR]: ${resolved.error}`)
           return
         }
-        if (resolved.attached.length) {
-          console.log(`[TUI] Lampirkan ${resolved.attached.length} file: ${resolved.attached.map((a) => `${a.ref} (${a.bytes}B)`).join(', ')}`)
+        const attached: any[] = resolved.attached || []
+        if (attached.length) {
+          console.log(`[TUI] Lampirkan ${attached.length} file: ${attached.map((a: any) => `${a.ref} (${a.bytes}B)`).join(', ')}`)
         }
         await runTurn(resolved.text)
       } finally {
@@ -582,7 +585,7 @@ async function main() {
   }
   // EOF langsung (printf tanpa interaksi): tutup agar proses keluar,
   // bukan hang menunggu stdin yang sudah habis.
-  if (earlyEnded && earlyQueue.every((t) => !String(t ?? '').trim())) {
+  if (earlyEnded && earlyQueue.every((t: any) => !String(t ?? '').trim())) {
     rl.close()
     return
   }

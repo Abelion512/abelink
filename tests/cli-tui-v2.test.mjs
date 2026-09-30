@@ -8,8 +8,8 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { ABELINK_THEME, TUI_COMMANDS, filterCompletions, shortModel, SIDEBAR_WIDTH, isWide, messageColor, messagePrefix, PROMPT_KEY_BINDINGS, autocompleteTrigger, applyCompletion, moveCompletionIndex, visibleWindow } from '../cli/tui/theme.ts'
-import { parseSlashCommand } from '../bin/abelink-tui.mjs'
-import { createTuiState, submitLine } from '../cli/tui/engine.mjs'
+import { parseSlashCommand } from '../bin/abelink-tui.ts'
+import { createTuiState, submitLine } from '../cli/tui/engine.ts'
 
 describe('shortModel (label opencode di dalam prompt box)', () => {
   it('potong prefix provider', () => {

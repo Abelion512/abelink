@@ -1,4 +1,4 @@
-// cli/tui/modelEffort.mjs — V2-2/V2-3: /model + /effort pola claude-code.
+// cli/tui/modelEffort.ts — V2-2/V2-3: /model + /effort pola claude-code.
 // - Alias keluarga (fable/sonnet/opus/haiku) -> MODEL_ALIASES (headlessCli).
 // - /model simpan permanen: tulis langsung ~/.config/abelink/cli.json (0600)
 //   via writeCliSetup yang ada. Tanpa mode sesi-saja (keputusan terkunci #2).
@@ -11,7 +11,7 @@ import { MODEL_ALIASES } from '../../src/api/ai/headlessCli.ts'
 
 export const EFFORT_LEVELS = Object.freeze(['low', 'medium', 'high', 'xhigh', 'max', 'ultra', 'auto'])
 
-// S1: FAMILY_ALIASES DIHAPUS (diganti katalog dinamis modelCatalog.mjs —
+// S1: FAMILY_ALIASES DIHAPUS (diganti katalog dinamis modelCatalog.ts —
 // ID keluarga claude-code tidak ada di 9Router; resolve via katalog live).
 // resolveFamilyAlias dipertahankan sebagai shim alias-statis agar test lama
 // tidak pecah mendadak — jangan pakai di kode baru.
@@ -19,7 +19,8 @@ export const EFFORT_LEVELS = Object.freeze(['low', 'medium', 'high', 'xhigh', 'm
 export function resolveFamilyAlias(input = '') {
   const raw = String(input ?? '').trim().toLowerCase()
   if (!raw) return null
-  if (MODEL_ALIASES[raw]) return { id: MODEL_ALIASES[raw], via: 'alias', name: raw }
+  const aliasTable = MODEL_ALIASES as Record<string, string>
+  if (aliasTable[raw]) return { id: aliasTable[raw], via: 'alias', name: raw }
   return null
 }
 
@@ -67,7 +68,7 @@ export const EFFORT_MAX_TOKENS = Object.freeze({
 export function maxTokensFor(effort = 'medium') {
   const e = String(effort || '').toLowerCase()
   if (e === 'auto') return EFFORT_MAX_TOKENS.medium
-  return EFFORT_MAX_TOKENS[e] ?? EFFORT_MAX_TOKENS.medium
+  return (EFFORT_MAX_TOKENS as Record<string, number>)[e] ?? EFFORT_MAX_TOKENS.medium
 }
 
 // Warning cache: ganti model/effort dengan history non-kosong = prompt cache
@@ -81,7 +82,7 @@ export function cacheSwitchWarning(history = []) {
 
 // Persist permanen: merge {model} / {effort} ke cli.json via writeCliSetup.
 // fsMod/homeDir di-inject untuk test. Return { ok, path, error }.
-export async function persistCliField(field, value, { writeCliSetup = null, homeDir = null } = {}) {
+export async function persistCliField(field: any, value: any, { writeCliSetup = null, homeDir = null } = {}) {
   if (!['model', 'effort'].includes(field)) return { ok: false, error: `Field ${field} tak dikenal.` }
   try {
     const headless = await import('../../src/api/ai/headlessCli.ts')
@@ -109,7 +110,7 @@ export async function persistCliField(field, value, { writeCliSetup = null, home
     fs.writeFileSync(file, JSON.stringify({ ...current, effort: String(value) }, null, 2) + '\n', { mode: 0o600 })
     try { fs.chmodSync(file, 0o600) } catch {}
     return { ok: true, path: file }
-  } catch (err) {
+  } catch (err: any) {
     return { ok: false, error: String(err?.message || err) }
   }
 }

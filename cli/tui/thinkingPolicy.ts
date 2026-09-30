@@ -1,4 +1,4 @@
-// cli/tui/thinkingPolicy.mjs — S2: thinking per-model dari capabilities live,
+// cli/tui/thinkingPolicy.ts — S2: thinking per-model dari capabilities live,
 // pola qwen (mapped & clamped per provider) + fallback claude-code
 // (level tak didukung -> tertinggi yang didukung di bawahnya).
 // - claude-adaptive -> thinking adaptive + output_config.effort, TANPA
@@ -63,8 +63,8 @@ export function thinkingPayload({ thinkFmt = null, reasoning = false, maxOut = n
 }
 
 // Capabilitas -> ringkasan satu baris untuk /models detail (opsional).
-export function capSummary(cap = {}) {
-  const bits = []
+export function capSummary(cap: any = {}) {
+  const bits: string[] = []
   bits.push(cap.reasoning ? 'reasoning' : 'no-reasoning')
   if (cap.ctx) bits.push(`${cap.ctx}ctx`)
   if (cap.maxOut) bits.push(`max${cap.maxOut}`)

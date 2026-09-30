@@ -7,7 +7,7 @@ import {
   clampEffort,
   thinkingPayload,
   capSummary,
-} from '../cli/tui/thinkingPolicy.mjs'
+} from '../cli/tui/thinkingPolicy.ts'
 
 describe('effortsFor (subset per profile)', () => {
   it('claude-adaptive full; claude-budget tanpa xhigh', () => {

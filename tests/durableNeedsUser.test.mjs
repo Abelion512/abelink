@@ -19,7 +19,7 @@
 
 import { describe, it, expect } from 'vitest'
 import 'fake-indexeddb/auto'
-import { createEngineSession, dispatchEngineCommand } from '../cli/core/engine-session.mjs'
+import { createEngineSession, dispatchEngineCommand } from '../cli/core/engine-session.ts'
 
 describe('Scenario E: Durable needs_user checkpoint & resume lifecycle', () => {
   it('Scenario E1 & E2: needs_user pauses session and records structured checkpoint', async () => {

@@ -52,7 +52,7 @@ export function locksDir(env = process.env) {
 
 // ---- schedule ----
 
-function parseCronField(field, min, max) {
+function parseCronField(field: any, min: any, max: any) {
   // Validasi bentuk saja; matching di cronFieldMatch(). Throw bila tak valid.
   if (field === '*') return true
   for (const part of String(field).split(',')) {
@@ -67,7 +67,7 @@ function parseCronField(field, min, max) {
   return true
 }
 
-export function parseSchedule(schedule = {}) {
+export function parseSchedule(schedule: any = {}) {
   if (!schedule || typeof schedule !== 'object') throw new Error('schedule harus objek.')
   if (schedule.kind === 'intervalSec') {
     const everySec = Number(schedule.everySec)
@@ -87,7 +87,7 @@ export function parseSchedule(schedule = {}) {
   throw new Error(`schedule.kind tak dikenal: "${schedule.kind}" (intervalSec|cron).`)
 }
 
-function cronValueMatch(value, field, min, max) {
+function cronValueMatch(value: any, field: any, min: any, max: any) {
   if (field === '*') return true
   const v = value === 7 && max === 7 ? 0 : value // dow: 7 = Sunday
   for (const part of String(field).split(',')) {
@@ -105,7 +105,7 @@ function cronValueMatch(value, field, min, max) {
   return false
 }
 
-function cronPartsInTz(dateMs, timezone) {
+function cronPartsInTz(dateMs: any, timezone: any) {
   // stdlib Intl — tanpa dep baru. Throw eksplisit bila timezone tak valid.
   let fmt
   try {
@@ -115,11 +115,11 @@ function cronPartsInTz(dateMs, timezone) {
       year: 'numeric', month: 'numeric', day: 'numeric',
       hour: 'numeric', minute: 'numeric', weekday: 'short'
     })
-  } catch (e) {
+  } catch (e: any) {
     throw new Error(`timezone tak valid: "${timezone}" (${e?.message || e})`)
   }
   const parts = Object.fromEntries(fmt.formatToParts(new Date(dateMs)).map((p) => [p.type, p.value]))
-  const dowMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }
+  const dowMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }
   return {
     minute: Number(parts.minute),
     hour: Number(parts.hour),
@@ -129,7 +129,7 @@ function cronPartsInTz(dateMs, timezone) {
   }
 }
 
-export function nextCronRun(expr, fromMs, timezone = null) {
+export function nextCronRun(expr: any, fromMs: any, timezone = null) {
   const fields = String(expr).trim().split(/\s+/)
   if (fields.length !== 5) throw new Error('cron.expr harus 5 field.')
   let cursor = Math.floor(Number(fromMs) / 60000) * 60000 + 60000
@@ -150,8 +150,8 @@ export function nextCronRun(expr, fromMs, timezone = null) {
   throw new Error(`cron "${expr}": tak ada kemunculan dalam 366 hari.`)
 }
 
-export function computeNextRun(job, fromMs) {
-  const sched = parseSchedule(job.schedule)
+export function computeNextRun(job: any, fromMs: any) {
+  const sched: any = parseSchedule(job.schedule)
   const from = Number(fromMs)
   if (sched.kind === 'intervalSec') return from + sched.everySec * 1000
   return nextCronRun(sched.expr, from, job.timezone || null)
@@ -160,12 +160,12 @@ export function computeNextRun(job, fromMs) {
 // Missed-occurrence contract (§5): due = nextRunAt<=now; catch-up = run
 // SEKALI, nextRunAt dihitung ulang dari now (periode terlewat dilewati),
 // missed:true dicatat di ledger + lastStatus.
-export function dueStatus(job, nowMs) {
+export function dueStatus(job: any, nowMs: any) {
   const now = Number(nowMs)
   const next = Number(job?.nextRunAt)
   if (!Number.isFinite(next)) return { due: true, missed: false }
   if (next > now) return { due: false, missed: false }
-  const sched = parseSchedule(job.schedule)
+  const sched: any = parseSchedule(job.schedule)
   const overdueBy = now - next
   const missed = sched.kind === 'intervalSec'
     ? overdueBy >= sched.everySec * 1000
@@ -179,7 +179,7 @@ export function blankStore() {
   return { version: CRON_VERSION, jobs: [] }
 }
 
-export function loadJobs({ env = process.env, file = null } = {}) {
+export function loadJobs({ env = process.env, file = null }: Record<string, any> = {}): any {
   const f = file || jobsFilePath(env)
   try {
     const raw = fs.readFileSync(f, 'utf8')
@@ -191,7 +191,7 @@ export function loadJobs({ env = process.env, file = null } = {}) {
   }
 }
 
-export function saveJobsAtomic(file, data) {
+export function saveJobsAtomic(file: any, data: any) {
   fs.mkdirSync(path.dirname(file), { recursive: true })
   const tmp = `${file}.${process.pid}.tmp`
   try {
@@ -208,7 +208,7 @@ export function makeJobId() {
   return `job_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
 }
 
-export function createJob(input = {}, nowMs = Date.now()) {
+export function createJob(input: any = {}, nowMs = Date.now()) {
   const sched = parseSchedule(input.schedule)
   const now = Number(nowMs)
   const delivery = input.delivery || { platform: 'log', target: null }
@@ -238,16 +238,16 @@ export function createJob(input = {}, nowMs = Date.now()) {
 
 // ---- locking (O_EXCL + stale-PID) ----
 
-export function lockPathFor(jobId, env = process.env) {
+export function lockPathFor(jobId: any, env = process.env) {
   const safe = String(jobId).replace(/[^a-zA-Z0-9_-]/g, '_')
   return path.join(locksDir(env), `${safe}.lock`)
 }
 
-export function isPidAlive(pid) {
+export function isPidAlive(pid: any) {
   try {
     process.kill(Number(pid), 0)
     return true
-  } catch (e) {
+  } catch (e: any) {
     if (e?.code === 'EPERM') return true // ada, tapi bukan milik kita
     return false // ESRCH / tak valid -> mati
   }
@@ -255,13 +255,13 @@ export function isPidAlive(pid) {
 
 // Sync (penting untuk at-most-once intra-proses: dua tick konkuren tak bisa
 // sama-sama menang). Return {acquired:true} atau throw Error('locked').
-export function acquireJobLock(lockPath) {
+export function acquireJobLock(lockPath: any) {
   fs.mkdirSync(path.dirname(lockPath), { recursive: true })
   const payload = JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() })
   try {
     fs.writeFileSync(lockPath, payload, { flag: 'wx', mode: 0o600 })
     return { acquired: true, stale: false }
-  } catch (e) {
+  } catch (e: any) {
     if (e?.code !== 'EEXIST') throw e
   }
   // Kontensi: cek stale-PID; stale -> reap sekali lalu coba lagi.
@@ -272,19 +272,19 @@ export function acquireJobLock(lockPath) {
       fs.writeFileSync(lockPath, payload, { flag: 'wx', mode: 0o600 })
       return { acquired: true, stale: true }
     }
-  } catch (e) {
+  } catch (e: any) {
     if (e?.code !== 'EEXIST') throw new Error(`locked: ${lockPath}`)
   }
   throw new Error(`locked: ${lockPath}`)
 }
 
-export function releaseJobLock(lockPath) {
+export function releaseJobLock(lockPath: any) {
   try { fs.unlinkSync(lockPath) } catch {}
 }
 
 // ---- ledger ----
 
-export function validateLedgerEnvelope(obj) {
+export function validateLedgerEnvelope(obj: any) {
   if (!obj || typeof obj !== 'object') return { ok: false, error: 'envelope harus objek.' }
   if (obj.v !== 1) return { ok: false, error: 'envelope.v harus 1.' }
   if (!obj.ts) return { ok: false, error: 'envelope.ts wajib.' }
@@ -293,7 +293,7 @@ export function validateLedgerEnvelope(obj) {
   return { ok: true, error: null }
 }
 
-export function appendLedger(ledgerFile, envelope) {
+export function appendLedger(ledgerFile: any, envelope: any) {
   const check = validateLedgerEnvelope(envelope)
   if (!check.ok) throw new Error(`ledger envelope tak valid: ${check.error}`)
   fs.mkdirSync(path.dirname(ledgerFile), { recursive: true })
@@ -303,8 +303,8 @@ export function appendLedger(ledgerFile, envelope) {
 
 // ---- fire ----
 
-function defaultSpawnFn({ argv, env }) {
-  return new Promise((resolve) => {
+function defaultSpawnFn({ argv, env }: { argv: string[]; env: any }) {
+  return new Promise<any>((resolve) => {
     const t0 = Date.now()
     const child = spawn(BUN_BIN, argv, { cwd: ROOT, env })
     let stdout = ''
@@ -319,7 +319,7 @@ function defaultSpawnFn({ argv, env }) {
 // Delivery: log dulu (selalu tercatat). Telegram dicoba via sender service
 // yang ada; bila bot tak terhubung / import gagal -> tetap log, jujur di
 // envelope (delivery:'log-fallback', deliveryError).
-async function defaultDeliverFn({ job, reply, outcome }) {
+async function defaultDeliverFn({ job, reply, outcome }: any) {
   if (job?.delivery?.platform === 'telegram' && job?.delivery?.target) {
     try {
       const svc = await import('../sidecar/main/telegram/telegram-service.ts')
@@ -328,14 +328,14 @@ async function defaultDeliverFn({ job, reply, outcome }) {
         if (res?.success) return { delivered: true, platform: 'telegram' }
         return { delivered: false, platform: 'log-fallback', deliveryError: res?.error || 'telegram send gagal' }
       }
-    } catch (e) {
+    } catch (e: any) {
       return { delivered: false, platform: 'log-fallback', deliveryError: `telegram tak terjangkau: ${e?.message || e}` }
     }
   }
   return { delivered: true, platform: 'log' }
 }
 
-function buildChildArgv(job) {
+function buildChildArgv(job: any) {
   const argv = [AGENT_BIN, String(job.prompt), '--json']
   if (job.workspace) argv.push('--workspace', String(job.workspace))
   if (job.effort) argv.push('--effort', String(job.effort))
@@ -343,10 +343,10 @@ function buildChildArgv(job) {
   return argv
 }
 
-export async function runJobOnce(jobId, { env = process.env, now = Date.now(), spawnFn = defaultSpawnFn, deliverFn = defaultDeliverFn, force = false } = {}) {
+export async function runJobOnce(jobId: any, { env = process.env, now = Date.now(), spawnFn = defaultSpawnFn, deliverFn = defaultDeliverFn, force = false }: Record<string, any> = {}) {
   const file = jobsFilePath(env)
-  const store = loadJobs({ env, file })
-  const job = store.jobs.find((j) => j.id === jobId)
+  const store: any = loadJobs({ env, file })
+  const job = store.jobs.find((j: any) => j.id === jobId)
   if (!job) return { fired: false, reason: 'job tak ditemukan' }
   if (!job.enabled && !force) return { fired: false, reason: 'job disabled' }
   if (inFlight.has(jobId)) return { fired: false, reason: 'single-flight: sudah berjalan' }
@@ -377,7 +377,7 @@ export async function runJobOnce(jobId, { env = process.env, now = Date.now(), s
     } catch {
       reply = String(res?.stdout || res?.stderr || '').slice(0, REPLY_CAP)
     }
-    const delivery = await deliverFn({ job, reply, outcome }).catch((e) => ({
+    const delivery: any = await deliverFn({ job, reply, outcome }).catch((e: any) => ({
       delivered: false, platform: 'log-fallback', deliveryError: String(e?.message || e)
     }))
     const envelope = {
@@ -395,7 +395,7 @@ export async function runJobOnce(jobId, { env = process.env, now = Date.now(), s
     }
     appendLedger(ledgerPath(env), envelope)
     const fresh = loadJobs({ env, file })
-    const idx = fresh.jobs.findIndex((j) => j.id === jobId)
+    const idx = fresh.jobs.findIndex((j: any) => j.id === jobId)
     if (idx >= 0) {
       fresh.jobs[idx].lastRunAt = new Date(nowMs).toISOString()
       fresh.jobs[idx].nextRunAt = computeNextRun(fresh.jobs[idx], nowMs) // catch-up dari now
@@ -409,10 +409,10 @@ export async function runJobOnce(jobId, { env = process.env, now = Date.now(), s
   }
 }
 
-export async function tickOnce({ env = process.env, now = Date.now(), spawnFn, deliverFn } = {}) {
+export async function tickOnce({ env = process.env, now = Date.now(), spawnFn, deliverFn }: Record<string, any> = {}) {
   const store = loadJobs({ env })
   const nowMs = Number(now)
-  const results = []
+  const results: any[] = []
   for (const job of store.jobs) {
     if (!job.enabled) continue
     let status
@@ -449,7 +449,7 @@ Daemon:
 `)
 }
 
-function takeFlag(args, ...names) {
+function takeFlag(args: any, ...names: string[]) {
   for (const n of names) {
     const i = args.indexOf(n)
     if (i >= 0 && args[i + 1] && !String(args[i + 1]).startsWith('-')) return args[i + 1]
@@ -457,7 +457,7 @@ function takeFlag(args, ...names) {
   return null
 }
 
-function hasFlag(args, ...names) {
+function hasFlag(args: any, ...names: string[]) {
   return names.some((n) => args.includes(n))
 }
 
@@ -479,7 +479,7 @@ async function main() {
         const res = await tickOnce({})
         const fired = res.filter((r) => r.fired)
         if (fired.length) console.log(`[cron] fired: ${JSON.stringify(fired)}`)
-      } catch (e) {
+      } catch (e: any) {
         console.error(`[cron] tick error: ${e?.message || e}`)
       }
     }
@@ -535,7 +535,7 @@ async function main() {
       saveJobsAtomic(file, store)
       console.log(JSON.stringify({ created: job.id, nextRunAt: new Date(job.nextRunAt).toISOString() }, null, 2))
       process.exit(0)
-    } catch (e) {
+    } catch (e: any) {
       console.error(`[ERROR] create gagal: ${e?.message || e}`)
       process.exit(3)
     }
@@ -553,7 +553,7 @@ async function main() {
       process.exit(res.fired ? 0 : 1)
     }
     const store = loadJobs({})
-    const idx = store.jobs.findIndex((j) => j.id === id)
+    const idx = store.jobs.findIndex((j: any) => j.id === id)
     if (idx < 0) {
       console.error(`[ERROR] job tak ditemukan: ${id}`)
       process.exit(1)

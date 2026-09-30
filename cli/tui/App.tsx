@@ -31,7 +31,7 @@ const PROMPT_CAP_BORDER = Object.freeze({
 })
 
 export function App(props: AppProps = {}) {
-  // Presentational: engine (cli/tui/engine.mjs) memiliku messages.
+  // Presentational: engine (cli/tui/engine.ts) memiliku messages.
   // `tick` = signal versi dari entry; dibaca agar For re-render saat
   // engine push (Solid tak tracking mutasi array luar).
   const [value, setValue] = createSignal('')

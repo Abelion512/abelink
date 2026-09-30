@@ -1,6 +1,6 @@
-// cli/tui/engine.mjs — TUI-v2 engine: state + submit routing + runTurn.
+// cli/tui/engine.ts — TUI-v2 engine: state + submit routing + runTurn.
 // Reuse (import, bukan copy): parseSlashCommand/parseShellLine/resolveFileRefs/
-// buildAgentsMd + session store dari cli/core (M2b — dulu dari bin/abelink-tui.mjs);
+// buildAgentsMd + session store dari cli/core (M2b — dulu dari bin/abelink-tui.ts);
 // auth + MODEL_ALIASES dari src/api/ai/headlessCli.ts; runAgentLoop dari
 // src/api/ai/agentRunner.ts.
 // UI (App.tsx) presentational: engine memiliku messages, App render via props.
@@ -27,7 +27,7 @@ import {
   executeToolWithHooks,
   trajectoryHeadlessEnabled,
   resolveHarnessRoot,
-} from '../core/index.mjs'
+} from '../core/index.ts'
 
 export { parseSlashCommand, parseShellLine, resolveFileRefs, buildAgentsMd }
 export { SESSION_MESSAGE_CAP }
@@ -51,8 +51,8 @@ export function createTuiState(overrides = {}) {
 // Baca katalog dari cache disk saja (tanpa network). Dipakai jalur /model dan
 // /models tanpa filter supaya tidak memicu GET /v1/models yang lambat
 // (5-26 dtk) hanya untuk menampilkan daftar.
-export async function readCachedCatalog(deps = {}) {
-  const { readCatalogCache } = await import('./modelCatalog.mjs')
+export async function readCachedCatalog(deps: any = {}) {
+  const { readCatalogCache } = await import('./modelCatalog.ts')
   const osMod = await import('node:os')
   const fsMod = deps.fsMod || await import('node:fs')
   const home = deps.homeDir || osMod.homedir?.() || process.env.HOME || ''
@@ -63,7 +63,7 @@ export async function readCachedCatalog(deps = {}) {
 // `state.onPush` = hook repaint (dipasang entry TUI). Tanpa ini pesan baru
 // (termasuk prompt user sendiri) baru terlihat saat event berikutnya tiba —
 // TUI tampak beku selama turn panjang (terukur PTY 2026-09-26).
-export function pushMessage(state, role, text) {
+export function pushMessage(state: any, role: any, text: any) {
   state.messages.push({ role, text: String(text ?? '') })
   try { state.onPush?.() } catch { /* repaint opsional, jangan gagalkan pesan */ }
   return state.messages.length
@@ -72,8 +72,8 @@ export function pushMessage(state, role, text) {
 // S1: katalog model (stale-while-revalidate, pola opencode models-dev).
 // Cache fresh -> pakai langsung. Stale/kosong -> coba live (timeout pendek);
 // live gagal -> cache stale + error jujur; tanpa cache -> alias statis saja.
-export async function loadModelCatalog(state, deps = {}, forceRefresh = false) {
-  const { readCatalogCache, writeCatalogCache, fetchLiveCatalog } = await import('./modelCatalog.mjs')
+export async function loadModelCatalog(state: any, deps: any = {}, forceRefresh = false) {
+  const { readCatalogCache, writeCatalogCache, fetchLiveCatalog } = await import('./modelCatalog.ts')
   const os = await import('node:os')
   const fsMod = deps.fsMod || await import('node:fs')
   const pathMod = deps.pathMod || await import('node:path')
@@ -106,11 +106,11 @@ export async function loadModelCatalog(state, deps = {}, forceRefresh = false) {
 // hanya saat deps.loadCatalog true. Recent tak difilter katalog: ID combo
 // 9Router (mis. oc/muse-spark-1.3-contributor-free) TIDAK muncul di GET
 // /v1/models tapi sah dipakai — menyembunyikannya justru bikin bingung.
-export async function modelPickerRows(state, deps = {}, query = '') {
-  const { curatePicker, readCatalogCache } = await import('./modelCatalog.mjs')
+export async function modelPickerRows(state: any, deps: any = {}, query = '') {
+  const { curatePicker, readCatalogCache } = await import('./modelCatalog.ts')
   const q = String(query || '').trim().toLowerCase()
-  const match = (id) => !q || String(id || '').toLowerCase().includes(q)
-  const rows = []
+  const match = (id: any) => !q || String(id || '').toLowerCase().includes(q)
+  const rows: any[] = []
   if (state.model && !q) rows.push({ id: state.model, section: 'Aktif', label: state.model })
   for (const id of (state.recentModels || deps.cliConfig?.recentModels || [])) {
     if (match(id) && id !== state.model) rows.push({ id, section: 'Recent', label: id })
@@ -123,10 +123,10 @@ export async function modelPickerRows(state, deps = {}, query = '') {
   }
   // Katalog: opt-in (/models --all) => live; selain itu cache disk saja
   // (tanpa network). Tanpa keduanya: tak ada section Katalog + hint.
-  let catalogModels = []
+  let catalogModels: any = []
   let catalogStale = false
-  let catalogTotal = 0
-  let catalogError = null
+  const catalogTotal = 0
+  let catalogError: any = null
   let catalogLoaded = false
   if (deps.loadCatalog === true) {
     const catalog = await loadModelCatalog(state, deps)
@@ -162,7 +162,7 @@ export async function modelPickerRows(state, deps = {}, query = '') {
 }
 
 // Recent models -> cli.json (merge, 0600). Best-effort, never throws.
-export async function saveRecentModels(recent = [], { homeDir = null } = {}) {
+export async function saveRecentModels(recent: any[] = [], { homeDir = null }: Record<string, any> = {}) {
   try {
     const os = await import('node:os')
     const path = await import('node:path')
@@ -178,7 +178,7 @@ export async function saveRecentModels(recent = [], { homeDir = null } = {}) {
     fs.writeFileSync(file, JSON.stringify({ ...current, recentModels: recent }, null, 2) + '\n', { mode: 0o600 })
     try { fs.chmodSync(file, 0o600) } catch {}
     return { ok: true, path: file }
-  } catch (err) {
+  } catch (err: any) {
     return { ok: false, error: String(err?.message || err) }
   }
 }
@@ -186,7 +186,7 @@ export async function saveRecentModels(recent = [], { homeDir = null } = {}) {
 // Routing satu baris submit (dipakai TTY submit + pipe E2E):
 // -> { kind:'exit' } | { kind:'message', role, text } (sudah push ke state)
 // Tidak melempar; error jadi pesan role 'error'.
-export async function submitLine(state, line, deps = {}) {
+export async function submitLine(state: any, line: any, deps: any = {}) {
   const text = String(line ?? '')
   const shellCmd = parseShellLine(text)
   if (shellCmd !== null) {
@@ -204,9 +204,9 @@ export async function submitLine(state, line, deps = {}) {
 
 // Guard ID terlarang (FORBIDDEN_MODELS) di choke point prompt: model bisa
 // datang dari cli.json lama, env ABELINK_MODEL, atau flag — bukan cuma /model.
-async function assertModelAllowed(state) {
+async function assertModelAllowed(state: any) {
   if (!state?.model) return null
-  const headless = await import('../../src/api/ai/headlessCli.ts').catch(() => ({}))
+  const headless: any = await import('../../src/api/ai/headlessCli.ts').catch(() => ({}))
   const banned = typeof headless.isForbiddenModel === 'function'
     ? headless.isForbiddenModel(state.model)
     : /^claude-work$/i.test(String(state.model))
@@ -216,7 +216,7 @@ async function assertModelAllowed(state) {
     : `Model "${state.model}" dilarang (training-data).`
 }
 
-async function runPrompt(state, text, deps) {
+async function runPrompt(state: any, text: any, deps: any) {
   const banned = await assertModelAllowed(state)
   if (banned) {
     pushMessage(state, 'error', banned)
@@ -242,7 +242,7 @@ async function runPrompt(state, text, deps) {
   return { kind: 'message', role: 'assistant' }
 }
 
-async function runSlash(state, cmd, deps) {
+async function runSlash(state: any, cmd: any, deps: any) {
   switch (cmd.kind) {
     case 'exit': return { kind: 'exit' }
     case 'help':
@@ -253,13 +253,13 @@ async function runSlash(state, cmd, deps) {
       return { kind: 'message', role: 'error' }
     case 'model': {
       if (!cmd.arg) {
-        const { modelSourceLabel } = await import('./modelEffort.mjs')
+        const { modelSourceLabel } = await import('./modelEffort.ts')
         pushMessage(state, 'info', `Model aktif: ${modelSourceLabel(state.model, state.provider)}`)
         return { kind: 'message', role: 'info' }
       }
-      const { resolveCatalogModel, pushRecent } = await import('./modelCatalog.mjs')
-      const { cacheSwitchWarning, persistCliField } = await import('./modelEffort.mjs')
-      const headless = await import('../../src/api/ai/headlessCli.ts').catch(() => ({}))
+      const { resolveCatalogModel, pushRecent } = await import('./modelCatalog.ts')
+      const { cacheSwitchWarning, persistCliField } = await import('./modelEffort.ts')
+      const headless: any = await import('../../src/api/ai/headlessCli.ts').catch(() => ({}))
       // Live hanya bila katalog sudah di-opt-in; selain itu cache disk saja
       // (alias/passthrough tetap jalan tanpa jaringan).
       const catalog = deps.loadCatalog === true
@@ -276,7 +276,7 @@ async function runSlash(state, cmd, deps) {
         return { kind: 'message', role: 'error' }
       }
       state.model = r.id
-      state.modelCapabilities = catalog.models.find((m) => m.id === r.id) || null
+      state.modelCapabilities = catalog.models.find((m: any) => m.id === r.id) || null
       const recent = pushRecent(deps.cliConfig?.recentModels || state.recentModels || [], r.id)
       state.recentModels = recent
       const warn = cacheSwitchWarning(state.history)
@@ -289,7 +289,7 @@ async function runSlash(state, cmd, deps) {
       return { kind: 'message', role: 'info' }
     }
     case 'models': {
-      const { curatePicker } = await import('./modelCatalog.mjs')
+      const { curatePicker } = await import('./modelCatalog.ts')
       // Default: hanya model yang pernah dipakai + alias. Katalog penuh = opt-in
       // (`/models --all`) atau saat user mencari dengan filter eksplisit.
       const flagAll = cmd.arg === '--refresh' || cmd.arg === '--all'
@@ -305,12 +305,12 @@ async function runSlash(state, cmd, deps) {
         aliases: deps.aliases || {},
         query: q,
       })
-      const out = []
-      if (picked.favorites.length) out.push('Favorites:\n' + picked.favorites.map((id) => `  ${id}`).join('\n'))
-      if (picked.recent.length) out.push('Recent:\n' + picked.recent.map((id) => `  ${id}`).join('\n'))
+      const out: string[] = []
+      if (picked.favorites.length) out.push('Favorites:\n' + picked.favorites.map((id: any) => `  ${id}`).join('\n'))
+      if (picked.recent.length) out.push('Recent:\n' + picked.recent.map((id: any) => `  ${id}`).join('\n'))
       const aliasRows = Object.entries(deps.aliases || {}).filter(([k]) => !q || k.toLowerCase().includes(q.toLowerCase()))
       if (aliasRows.length) out.push('Alias:\n' + aliasRows.map(([k, v]) => `  ${k} -> ${v}`).join('\n'))
-      if (picked.models.length) out.push(`Katalog (${picked.total} model${catalog.stale ? ', stale' : ''}):\n` + picked.models.map((id) => `  ${id}`).join('\n'))
+      if (picked.models.length) out.push(`Katalog (${picked.total} model${catalog.stale ? ', stale' : ''}):\n` + picked.models.map((id: any) => `  ${id}`).join('\n'))
       if (!wantCatalog && !catalog.models.length) {
         out.push('Katalog: belum dimuat. Default kini HANYA model yang pernah kamu pakai. Gunakan /models --all (atau /models <filter>) untuk memuat katalog penuh.')
       }
@@ -329,9 +329,9 @@ async function runSlash(state, cmd, deps) {
         pushMessage(state, 'error', r.error)
         return { kind: 'message', role: 'error' }
       }
-      const { effortForWire, resolveAutoEffort, maxTokensFor, cacheSwitchWarning, persistCliField } = await import('./modelEffort.mjs')
+      const { effortForWire, resolveAutoEffort, maxTokensFor, cacheSwitchWarning, persistCliField } = await import('./modelEffort.ts')
       const map = effortForWire(r.effort)
-      const resolved = map.needsResolve ? resolveAutoEffort(state.history.map((m) => m.content).join(' ')) : r.effort
+      const resolved = map.needsResolve ? resolveAutoEffort(state.history.map((m: any) => m.content).join(' ')) : r.effort
       state.effort = r.effort
       state.effortResolved = resolved
       state.ultraLocal = map.ultraLocal === true
@@ -351,13 +351,13 @@ async function runSlash(state, cmd, deps) {
       return { kind: 'message', role: 'info' }
     }
     case 'sessions': {
-      const r = await listTuiSessions(deps.store || null)
+      const r: any = await listTuiSessions(deps.store || null)
       if (r.blockedOn || !r.ok) {
         pushMessage(state, 'error', r.reason || r.error)
         return { kind: 'message', role: 'error' }
       }
       pushMessage(state, 'info', r.sessions.length
-        ? r.sessions.map((s) => `- ${s.id} | ${s.outcome || '?'} | ${s.updatedAt || ''}`).join('\n')
+        ?        r.sessions.map((s: any) => `- ${s.id} | ${s.outcome || '?'} | ${s.updatedAt || ''}`).join('\n')
         : 'Belum ada sesi tersimpan.')
       return { kind: 'message', role: 'info' }
     }
@@ -366,7 +366,7 @@ async function runSlash(state, cmd, deps) {
         pushMessage(state, 'error', 'Pakai: /continue <id> (lihat /sessions).')
         return { kind: 'message', role: 'error' }
       }
-      const r = await loadTuiSession(cmd.arg, deps.store || null)
+      const r: any = await loadTuiSession(cmd.arg, deps.store || null)
       if (r.blockedOn || !r.ok) {
         pushMessage(state, 'error', r.reason || r.error)
         return { kind: 'message', role: 'error' }
@@ -420,7 +420,7 @@ async function runSlash(state, cmd, deps) {
       return { kind: 'message', role: res.ok ? 'info' : 'error' }
     }
     case 'usage': {
-      const { summarizeDir, renderUsage } = await import('./usageStats.mjs')
+      const { summarizeDir, renderUsage } = await import('./usageStats.ts')
       const path = await import('node:path')
       const fsMod = deps.fsMod || await import('node:fs')
       // M2c: satu sumber rumus root harness (resolveHarnessRoot -> dataHome).
@@ -436,9 +436,9 @@ async function runSlash(state, cmd, deps) {
         const d = new Date(today.getTime() - i * 86400000)
         const label = d.toISOString().slice(0, 10)
         const sums = summarizeDir({ fsMod, dir: path.join(root, label) })
-        for (const [sid, s] of Object.entries(sums)) {
+        for (const [sid, s] of Object.entries(sums as Record<string, any>)) {
           const key = days > 1 ? `${label}#${sid}` : sid
-          perSession[key] = s
+          ;(perSession as Record<string, any>)[key] = s
         }
       }
       pushMessage(state, 'info', renderUsage({ perSession, label: days > 1 ? `Penggunaan 7 hari (${root}):` : `Penggunaan hari ini (${root}):` }))
@@ -453,7 +453,7 @@ async function runSlash(state, cmd, deps) {
   }
 }
 
-async function runShell(deps, state, command) {
+async function runShell(deps: any, state: any, command: any) {
   if (deps.runShell) return deps.runShell(state, command)
   const { execFile } = await import('node:child_process')
   return new Promise((resolve) => {
@@ -484,7 +484,7 @@ async function defaultRunEditor() {
   }
 }
 
-async function defaultWriteFile(workspace, target, draft) {
+async function defaultWriteFile(workspace: any, target: any, draft: any) {
   const path = await import('node:path')
   const fs = await import('node:fs')
   const abs = path.resolve(workspace, target)
@@ -495,7 +495,7 @@ async function defaultWriteFile(workspace, target, draft) {
   try {
     fs.writeFileSync(abs, draft + '\n', 'utf8')
     return { ok: true, path: abs }
-  } catch (err) {
+  } catch (err: any) {
     return { ok: false, error: String(err?.message || err) }
   }
 }
@@ -505,13 +505,13 @@ async function defaultWriteFile(workspace, target, draft) {
 // M2c: environment.executeTool dibungkus executeToolWithHooks (H5 pre/post +
 // audit harness JSONL via ABELINK_TRAJECTORY_HEADLESS=1) — choke point tunggal,
 // host tetap bisa override via deps.executeTool (tetap dibungkus hooks juga).
-export async function defaultRunTurn(state, prompt, deps = {}) {
+export async function defaultRunTurn(state: any, prompt: any, deps: any = {}) {
   const turn = createTuiTurn()
   state.currentTurn = turn
   try {
     const { runAgentLoop } = await import('../../src/api/ai/agentRunner.ts')
     const { evaluateHeadlessSecurity } = await import('../../src/api/ai/headlessSecurity.ts')
-    const headless = await import('../../src/api/ai/headlessCli.ts').catch(() => ({}))
+    const headless: any = await import('../../src/api/ai/headlessCli.ts').catch(() => ({}))
     const { NATIVE_TOOLS } = await import('../../sidecar/main/node-tools.ts')
     const sidecar = deps.sidecar || null
     const auth = deps.auth || {}
@@ -540,19 +540,19 @@ export async function defaultRunTurn(state, prompt, deps = {}) {
     const hooks = { onBeforeTool: deps.onBeforeTool || null, onAfterTool: deps.onAfterTool || null, audit }
 
     const environment = {
-      fetchAI: deps.fetchAI || (async (...callArgs) => {
+      fetchAI: deps.fetchAI || (async (...callArgs: any[]) => {
         let messages, config, isSmallTask, jsonSchema
         if (callArgs.length === 1 && callArgs[0]?.messages) {
           ;({ messages, config, isSmallTask, jsonSchema } = callArgs[0])
         } else {
           ;[messages, config, isSmallTask, jsonSchema] = callArgs
         }
-        const { effortForWire, resolveAutoEffort, maxTokensFor } = await import('./modelEffort.mjs')
+        const { effortForWire, resolveAutoEffort, maxTokensFor } = await import('./modelEffort.ts')
         // V2-3: effort resolve per turn (auto tak pernah ke wire; ultra =
         // flag lokal, provider terima xhigh + budget max).
         const map = effortForWire(state.effort)
         const resolved = map.needsResolve
-          ? resolveAutoEffort((messages || []).map((m) => typeof m?.content === 'string' ? m.content : '').join(' '))
+          ? resolveAutoEffort((messages || []).map((m: any) => typeof m?.content === 'string' ? m.content : '').join(' '))
           : state.effort
         state.effortResolved = resolved
         const combinedConfig = {
@@ -576,9 +576,9 @@ export async function defaultRunTurn(state, prompt, deps = {}) {
           maxOut: state.modelCapabilities?.maxOut || null,
           ...(config || {}),
         }
-        const { buildAiFetchBody } = await import('../core/parser.mjs')
-        const { classifyAiError } = await import('./modelEffort.mjs')
-        const fetchOnce = (cfg) => sidecar.rpc('ai:fetch', [buildAiFetchBody({ messages, config: cfg, isSmallTask, jsonSchema })])
+        const { buildAiFetchBody } = await import('../core/parser.ts')
+        const { classifyAiError } = await import('./modelEffort.ts')
+        const fetchOnce = (cfg: any) => sidecar.rpc('ai:fetch', [buildAiFetchBody({ messages, config: cfg, isSmallTask, jsonSchema })])
         const resp = await fetchOnce(combinedConfig)
         if (!resp || !resp.success) {
           const raw = String(resp?.error?.message || resp?.error || 'AI fetch gagal.')
@@ -589,7 +589,7 @@ export async function defaultRunTurn(state, prompt, deps = {}) {
         }
         return resp.data
       }),
-      coreExecuteTool: deps.executeTool || (async (toolName, query, ctx = {}) => {
+      coreExecuteTool: deps.executeTool || (async (toolName: any, query: any, ctx: any = {}) => {
         const aborted = checkTurnAborted(turn.signal, toolName)
         if (aborted) return aborted
         const secCheck = evaluateHeadlessSecurity(toolName, query, { workspaceRoot: state.workspace })
@@ -617,13 +617,13 @@ export async function defaultRunTurn(state, prompt, deps = {}) {
             ? (res.output || res.data || res.content || res.message || JSON.stringify(res))
             : (res.error || res.message || 'Tool gagal.')
           return { ok, result: ok ? String(output) : `[ERROR] ${output}`, error: ok ? null : { code: 'tool-error', message: output } }
-        } catch (err) {
+        } catch (err: any) {
           return { ok: false, result: `[ERROR] ${err.message}`, error: { code: 'execution-exception', message: err.message } }
         }
       }),
       // H5: choke point tunggal — pre/post hook + audit JSONL (M2c).
       // coreExecuteTool diselesaikan saat call time (environment sudah utuh).
-      executeTool: (toolName, query, ctx = {}) =>
+      executeTool: (toolName: any, query: any, ctx: any = {}) =>
         executeToolWithHooks(
           environment.coreExecuteTool,
           hooks,
@@ -631,12 +631,12 @@ export async function defaultRunTurn(state, prompt, deps = {}) {
           query,
           ctx,
         ),
-      onThought: (thought) => {
+      onThought: (thought: any) => {
         if (state.showThinking === false) return
         const line = renderThoughtLine(thought)
         if (line && deps.onEvent) deps.onEvent({ type: 'thought', line })
       },
-      onStep: (stepRecord) => {
+      onStep: (stepRecord: any) => {
         if (state.showDetails === false && stepRecord?.kind === 'tool') return
         const line = renderStepLine(stepRecord)
         if (line && deps.onEvent) deps.onEvent({ type: 'step', line })

@@ -45,8 +45,8 @@ if [[ ! -f "$TEMPLATE" ]]; then
   echo "[cron] ERROR: template tak ada: $TEMPLATE" >&2
   exit 1
 fi
-if [[ ! -f "$ROOT/bin/abelink-cron.mjs" ]]; then
-  echo "[cron] ERROR: bin/abelink-cron.mjs tak ada di $ROOT" >&2
+if [[ ! -f "$ROOT/bin/abelink-cron.ts" ]]; then
+  echo "[cron] ERROR: bin/abelink-cron.ts tak ada di $ROOT" >&2
   exit 1
 fi
 

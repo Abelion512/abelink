@@ -1,16 +1,22 @@
-// cli/core/provider-runtime.mjs — Session-scoped provider runtime (Phase A1).
+// cli/core/provider-runtime.ts — Session-scoped provider runtime (Phase A1).
 // Mengisolasi konfigurasi model dan transport fetch per sesi tanpa global mutable state.
 
 import { fetchAI } from '../../src/api/ai/core.ts'
 
 export class ProviderRuntime {
+  provider: any
+  model: any
+  customEndpoint: any
+  apiKey: any
+  fetchTransport: any
+
   constructor({
     provider = null,
     model = null,
     customEndpoint = null,
     apiKey = null,
     fetchTransport = null
-  } = {}) {
+  }: Record<string, any> = {}) {
     this.provider = provider
     this.model = model
     this.customEndpoint = customEndpoint
@@ -19,7 +25,7 @@ export class ProviderRuntime {
   }
 
   // Session-scoped fetch execution yang tidak memutasi globalThis.__ABELINK_AI_FETCH__
-  async fetchAI(messagesOrPayload, options = {}) {
+  async fetchAI(messagesOrPayload: any, options: any = {}) {
     // Jika fetchTransport kustom disuntikkan langsung ke runtime ini, pakai langsung
     if (this.fetchTransport) {
       if (Array.isArray(messagesOrPayload)) {
@@ -59,6 +65,6 @@ export class ProviderRuntime {
   }
 }
 
-export function createProviderRuntime(config = {}) {
+export function createProviderRuntime(config: Record<string, any> = {}) {
   return new ProviderRuntime(config)
 }

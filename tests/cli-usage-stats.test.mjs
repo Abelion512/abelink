@@ -9,8 +9,8 @@ import {
   parseHarnessRow,
   summarizeDir,
   renderUsage,
-} from '../cli/tui/usageStats.mjs'
-import { createTuiState, submitLine } from '../cli/tui/engine.mjs'
+} from '../cli/tui/usageStats.ts'
+import { createTuiState, submitLine } from '../cli/tui/engine.ts'
 
 const row = (kind, line) => JSON.stringify({ kind, line: JSON.stringify(line), ts: '2026-09-25T00:00:00Z' })
 
@@ -104,7 +104,7 @@ describe('/usage di engine (stub HOME + harness)', () => {
     mkHarness(d.homeDir)
     // harnessRoot baca ABELINK_DATA_HOME/XDG/HOME — set XDG ke tmp via harnessRoot override
     const s = createTuiState()
-    const { summarizeDir: sd, renderUsage: ru } = await import('../cli/tui/usageStats.mjs')
+    const { summarizeDir: sd, renderUsage: ru } = await import('../cli/tui/usageStats.ts')
     const sums = sd({ fsMod: fs, dir: path.join(d.homeDir, '.local', 'share', 'abelink', 'harness', new Date().toISOString().slice(0, 10)) })
     expect(sums['9'].outcomes.completed).toBe(1)
     expect(ru({ perSession: sums })).toContain('sesi 9')

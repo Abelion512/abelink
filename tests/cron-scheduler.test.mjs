@@ -25,7 +25,7 @@ import {
   jobsFilePath,
   ledgerPath,
   locksDir
-} from '../bin/abelink-cron.mjs'
+} from '../bin/abelink-cron.ts'
 import { checkCronRecursionGuard } from '../src/api/ai/headlessCli.ts'
 
 let tmp = null

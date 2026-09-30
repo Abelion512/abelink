@@ -1,5 +1,5 @@
-// cli/core/turn.mjs — siklus hidup satu turn TUI (abort per-turn, routing akhir).
-// Dipindah dari bin/abelink-tui.mjs (M2b/B-9).
+// cli/core/turn.ts — siklus hidup satu turn TUI (abort per-turn, routing akhir).
+// Dipindah dari bin/abelink-tui.ts (M2b/B-9).
 
 // Per-turn AbortController: Ctrl-C aborts the current turn only, session persists.
 export function createTuiTurn() {
@@ -15,7 +15,7 @@ export function makeAbortedToolResult(toolName = '?') {
   }
 }
 
-export function checkTurnAborted(signal, toolName) {
+export function checkTurnAborted(signal: any, toolName: any) {
   if (signal?.aborted) return makeAbortedToolResult(toolName)
   return null
 }

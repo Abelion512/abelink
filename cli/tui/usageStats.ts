@@ -1,18 +1,18 @@
-// cli/tui/usageStats.mjs — S3: agregat /usage dari harness JSONL lokal.
-// Reuse pola baca harness-export.mjs (envelope line, sessionId coercion).
+// cli/tui/usageStats.ts — S3: agregat /usage dari harness JSONL lokal.
+// Reuse pola baca harness-export.ts (envelope line, sessionId coercion).
 // Scope: terminal saja (pola gemini /stats + codex /usage).
 // JUJUR: token = estimasi chars/2.5 (skema harness), BUKAN billing.
 // Angka $ DILARANG (aturan anti-fabrikasi PR46 — data tak ada).
 // Murni + testable: fs/dir di-inject.
 
 // Satu sesi -> ringkasan.
-export function summarizeSession(events = []) {
+export function summarizeSession(events: any[] = []) {
   if (!Array.isArray(events)) events = []
   const turns = new Set()
   let toolCalls = 0
   let toolOk = 0
-  const tools = {}
-  const outcomes = {}
+  const tools: Record<string, number> = {}
+  const outcomes: Record<string, number> = {}
   let lastOutcome = null
   let chars = 0
   for (const e of events) {
@@ -49,7 +49,7 @@ export function summarizeSession(events = []) {
 }
 
 // Baris JSONL harness -> envelope (cermin readSessionEvents).
-export function parseHarnessRow(raw = '') {
+export function parseHarnessRow(raw = ''): any {
   try {
     const row = JSON.parse(raw)
     const env = typeof row.line === 'string' ? JSON.parse(row.line) : (row.line || row)
@@ -60,10 +60,10 @@ export function parseHarnessRow(raw = '') {
 }
 
 // Semua sesi dalam dir tanggal -> { sessionId: summary }.
-export function summarizeDir({ fsMod = null, dir = '', kinds = null } = {}) {
-  const fs = fsMod || defaultFs()
-  const out = {}
-  let files = []
+export function summarizeDir({ fsMod = null, dir = '', kinds = null }: Record<string, any> = {}) {
+  const fs: any = fsMod || defaultFs()
+  const out: Record<string, any[]> = {}
+  let files: string[] = []
   try {
     files = fs.readdirSync(dir)
   } catch {
@@ -89,13 +89,13 @@ export function summarizeDir({ fsMod = null, dir = '', kinds = null } = {}) {
       out[sid].push(env)
     }
   }
-  const sums = {}
-  for (const [sid, events] of Object.entries(out)) sums[sid] = summarizeSession(events)
+  const sums: Record<string, any> = {}
+  for (const [sid, events] of Object.entries(out)) sums[sid] = summarizeSession(events as any[])
   return sums
 }
 
 // Render teks terminal: sesi (+ harian bila multi-hari digabung caller).
-export function renderUsage({ perSession = {}, label = '' } = {}) {
+export function renderUsage({ perSession = {}, label = '' }: Record<string, any> = {}) {
   const ids = Object.keys(perSession)
   if (!ids.length) return 'Belum ada aktivitas tercatat di harness.'
   const lines = [label || 'Penggunaan Abelink (harness lokal, estimasi — bukan billing):', '']
@@ -103,13 +103,13 @@ export function renderUsage({ perSession = {}, label = '' } = {}) {
   let tTools = 0
   let tTokens = 0
   for (const sid of ids) {
-    const s = perSession[sid]
+    const s: any = perSession[sid]
     tTurns += s.turns
     tTools += s.toolCalls
     tTokens += s.tokensEst
-    const top = Object.entries(s.tools).sort((a, b) => b[1] - a[1]).slice(0, 5)
+    const top = Object.entries(s.tools as Record<string, number>).sort((a, b) => b[1] - a[1]).slice(0, 5)
       .map(([t, n]) => `${t}×${n}`).join(', ') || '-'
-    const outs = Object.entries(s.outcomes).map(([o, n]) => `${o}×${n}`).join(', ') || '-'
+    const outs = Object.entries(s.outcomes as Record<string, number>).map(([o, n]) => `${o}×${n}`).join(', ') || '-'
     lines.push(`sesi ${sid}: ${s.turns} turn, ${s.toolCalls} tool (ok ${s.toolOk}/gagal ${s.toolFail}), ~${s.tokensEst} token`)
     lines.push(`  tools: ${top}`)
     lines.push(`  outcome: ${outs}`)

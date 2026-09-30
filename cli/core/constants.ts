@@ -1,10 +1,10 @@
-// cli/core/constants.mjs — konstanta TUI (v1 readline + v2 OpenTUI) satu sumber.
-// Dipindah dari bin/abelink-tui.mjs (M2b/B-9) supaya cli/tui tidak mengimpor bin/.
+// cli/core/constants.ts — konstanta TUI (v1 readline + v2 OpenTUI) satu sumber.
+// Dipindah dari bin/abelink-tui.ts (M2b/B-9) supaya cli/tui tidak mengimpor bin/.
 import fs from 'node:fs'
 import path from 'node:path'
-import { ROOT } from './paths.mjs'
+import { ROOT } from './paths.ts'
 
-// Versi TIDAK hardcoded: dari package.json (di-sync sync-version.mjs dari
+// Versi TIDAK hardcoded: dari package.json (di-sync sync-version.ts dari
 // src-tauri/tauri.conf.json) agar bump alpha ikut otomatis.
 export const TUI_VERSION = (() => {
   try {

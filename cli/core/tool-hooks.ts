@@ -1,4 +1,4 @@
-// cli/core/tool-hooks.mjs — H5 tool gateway hooks (pre/post tool).
+// cli/core/tool-hooks.ts — H5 tool gateway hooks (pre/post tool).
 // Hermes H5: registry tool ada, tapi TANPA pre/post hook (bukti: grep
 // preTool|postTool|onToolCall di node-tools.ts = kosong). Middleware ini
 // choke point SATU untuk semua host headless (CLI + TUI v1 + TUI v2):
@@ -17,13 +17,13 @@
 // Urutan audit: logToolCall dipanggil SEBELUM onAfterTool user-hook, jadi
 // redaksi hasil oleh hook tidak mengubah jejak audit (jejak = kenyataan).
 
-const errShape = (toolName, message, code = 'tool-error') => ({
+const errShape = (toolName: any, message: any, code = 'tool-error') => ({
   ok: false,
   result: `[ERROR] Tool ${toolName} gagal: ${message}`,
   error: { code, message }
 })
 
-const isHookBlock = (v) => Boolean(v && typeof v === 'object' && v.ok === false)
+const isHookBlock = (v: any) => Boolean(v && typeof v === 'object' && v.ok === false)
 
 /**
  * Bungkus satu eksekusi tool dengan pre/post hooks + audit.
@@ -33,7 +33,7 @@ const isHookBlock = (v) => Boolean(v && typeof v === 'object' && v.ok === false)
  * @param {string} query
  * @param {object} [ctx]
  */
-export async function executeToolWithHooks(core, hooks, tool, query, ctx = {}) {
+export async function executeToolWithHooks(core: any, hooks: any, tool: any, query: any, ctx: any = {}) {
   const h = hooks || {}
   const name = String(tool || '?')
 
@@ -58,7 +58,7 @@ export async function executeToolWithHooks(core, hooks, tool, query, ctx = {}) {
   let result
   try {
     result = await core(name, query, ctx)
-  } catch (err) {
+  } catch (err: any) {
     result = errShape(name, String(err?.message || err), 'execution-exception')
   }
   const ms = Date.now() - t0
@@ -100,7 +100,7 @@ export async function executeToolWithHooks(core, hooks, tool, query, ctx = {}) {
  *
  * @param {{ logger: object, sessionId: string, deps?: { loadFn?: Function, saveFn?: Function } }} opts
  */
-export function createToolAuditLogger({ logger, sessionId, deps = {} } = {}) {
+export function createToolAuditLogger({ logger, sessionId, deps = {} }: Record<string, any> = {}) {
   let auditCount = 0
   // Semantik turn headless: SATU RUN PROMPT = SATU TURN harness (start/end
   // selalu berpasangan dengan nomor yang sama — bebas red-flag palsu di
@@ -108,7 +108,7 @@ export function createToolAuditLogger({ logger, sessionId, deps = {} } = {}) {
   // record tool, bukan di nomor turn. runCount = akumulasi lintas run dalam
   // satu sesi (offset turn), direset saat audit dibuat ulang (/new, /continue).
   let runCount = 0
-  let pendingStart = null
+  let pendingStart: any = null
   return {
     // Kunci sesi: host membandingkan ini dengan sessionId aktif agar audit
     // di-recreate saat /new atau /continue (runCount turn harus reset).
@@ -118,7 +118,7 @@ export function createToolAuditLogger({ logger, sessionId, deps = {} } = {}) {
     // Meta (prompt efektif + provider/model/effort) = PLAN-T1 — inilah yang
     // dulu TIDAK pernah terekam sehingga bug "kadang input kosong" tak
     // bisa di-root-cause.
-    beginTurn: ({ prompt = null, provider = null, model = null, effort = null } = {}) => {
+    beginTurn: ({ prompt = null, provider = null, model = null, effort = null }: Record<string, any> = {}) => {
       pendingStart = runCount + 1
       try {
         logger?.logTurnStart?.({
@@ -130,7 +130,7 @@ export function createToolAuditLogger({ logger, sessionId, deps = {} } = {}) {
         })
       } catch { }
     },
-    logToolCall: (entry) => {
+    logToolCall: (entry: any) => {
       auditCount += 1
       try {
         logger?.logToolCall?.({

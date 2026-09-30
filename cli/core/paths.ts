@@ -1,4 +1,4 @@
-// cli/core/paths.mjs — lokasi runtime yang dipakai seluruh cli/core + host.
+// cli/core/paths.ts — lokasi runtime yang dipakai seluruh cli/core + host.
 // Dipisah supaya modul core tidak perlu tahu bahwa dulu ia hidup di bin/:
 // ROOT dihitung dari lokasi modul ini, bukan dari pemanggil.
 import path from 'node:path'
