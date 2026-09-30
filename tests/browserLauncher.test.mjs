@@ -1,5 +1,5 @@
 // Tests: browser auto-launch via OS (xdg-open) + tunggu handshake.
-// Target: sidecar/main/browser/launcher.mjs.
+// Target: sidecar/main/browser/launcher.ts.
 // Kontrak: opt-in (default mati), bounded wait, tidak pernah throw —
 // gagal -> reason eksplisit dan caller memakai fallback lama.
 
@@ -9,7 +9,7 @@ import {
   waitForConnected,
   ensureBrowserUp,
   __resetLaunchThrottleForTest
-} from '../sidecar/main/browser/launcher.mjs'
+} from '../sidecar/main/browser/launcher.ts'
 
 beforeEach(() => {
   __resetLaunchThrottleForTest()

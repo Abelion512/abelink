@@ -1,28 +1,27 @@
-// Tool Google Workspace (dipindah murni dari main/node-tools.js).
+// Tool Google Workspace (dipindah murni dari main/node-tools.ts).
 import {
   searchFiles, listFiles, readFile, uploadFile, createFile, moveFile, copyFile, getDriveInfo
 } from '../google/google-drive.ts'
 import { listEvents, createEvent, deleteEvent } from '../google/google-calendar.ts'
 import { searchEmails, readEmail, sendEmail, markAsRead } from '../google/google-gmail.ts'
-import { parsePagination } from './_shared.mjs'
+import { parsePagination } from './_shared.ts'
 
 export const googleTools = {
   'gdrive-info': {
     needsApproval: false,
-    handler: async (query, config) => {
+    handler: async (query: any, config: any) => {
       try {
         const clientId = config?.[0]?.googleClientId
         const clientSecret = config?.[0]?.googleClientSecret
         const result = await getDriveInfo(clientId, clientSecret)
-        return { success: true, data: result }
-      } catch (e) {
+        return { success: true, data: result }        } catch (e: any) {
         return { success: false, error: e.message }
       }
     }
   },
   'gdrive-search': {
     needsApproval: false,
-    handler: async (query, config) => {
+    handler: async (query: any, config: any) => {
       try {
         const parts = query.split('||')
         const q = parts[0].trim()
@@ -30,15 +29,14 @@ export const googleTools = {
         const clientId = config?.[0]?.googleClientId
         const clientSecret = config?.[0]?.googleClientSecret
         const rawResult = await searchFiles(clientId, clientSecret, q, fetchCount)
-        return { success: true, data: rawResult.slice(start, end) }
-      } catch (e) {
+        return { success: true, data: rawResult.slice(start, end) }        } catch (e: any) {
         return { success: false, error: e.message }
       }
     }
   },
   'gdrive-list': {
     needsApproval: false,
-    handler: async (query, config) => {
+    handler: async (query: any, config: any) => {
       try {
         const parts = query.split('||')
         const folderId = parts[0].trim() || null
@@ -46,30 +44,28 @@ export const googleTools = {
         const clientId = config?.[0]?.googleClientId
         const clientSecret = config?.[0]?.googleClientSecret
         const rawResult = await listFiles(clientId, clientSecret, folderId, fetchCount)
-        return { success: true, data: rawResult.slice(start, end) }
-      } catch (e) {
+        return { success: true, data: rawResult.slice(start, end) }        } catch (e: any) {
         return { success: false, error: e.message }
       }
     }
   },
   'gdrive-read': {
     needsApproval: false,
-    handler: async (query, config) => {
+    handler: async (query: any, config: any) => {
       try {
         const clientId = config?.[0]?.googleClientId
         const clientSecret = config?.[0]?.googleClientSecret
         const result = await readFile(clientId, clientSecret, query.trim())
-        return { success: true, data: result }
-      } catch (e) {
+        return { success: true, data: result }        } catch (e: any) {
         return { success: false, error: e.message }
       }
     }
   },
   'gdrive-upload': {
     needsApproval: true,
-    approvalMessage: (query) =>
+    approvalMessage: (query: any) =>
       `Abelink ingin mengunggah file ke Google Drive-mu:\n${query.split('||')[0]}`,
-    handler: async (query, config) => {
+    handler: async (query: any, config: any) => {
       try {
         const parts = query.split('||')
         const name = parts[0].trim()
@@ -77,19 +73,18 @@ export const googleTools = {
         const clientId = config?.[0]?.googleClientId
         const clientSecret = config?.[0]?.googleClientSecret
         const result = await uploadFile(clientId, clientSecret, name, content)
-        return { success: true, data: result }
-      } catch (e) {
+        return { success: true, data: result }        } catch (e: any) {
         return { success: false, error: e.message }
       }
     }
   },
   'gdrive-create': {
     needsApproval: true,
-    approvalMessage: (query) => {
+    approvalMessage: (query: any) => {
       const parts = query.split('||')
       return `Abelink ingin membuat dokumen kosong baru di Google Drive:\nNama: ${parts[0]}\nTipe: ${parts[1] || 'doc'}`
     },
-    handler: async (query, config) => {
+    handler: async (query: any, config: any) => {
       try {
         const parts = query.split('||')
         const name = parts[0].trim()
@@ -97,17 +92,16 @@ export const googleTools = {
         const clientId = config?.[0]?.googleClientId
         const clientSecret = config?.[0]?.googleClientSecret
         const result = await createFile(clientId, clientSecret, name, type)
-        return { success: true, data: result }
-      } catch (e) {
+        return { success: true, data: result }        } catch (e: any) {
         return { success: false, error: e.message }
       }
     }
   },
   'gdrive-move': {
     needsApproval: true,
-    approvalMessage: (query) =>
+    approvalMessage: (query: any) =>
       `Abelink ingin memindahkan file di Google Drive.\nFile ID: ${query.split('||')[0]}\nFolder Tujuan ID: ${query.split('||')[1]}`,
-    handler: async (query, config) => {
+    handler: async (query: any, config: any) => {
       try {
         const parts = query.split('||')
         const fileId = parts[0].trim()
@@ -115,17 +109,16 @@ export const googleTools = {
         const clientId = config?.[0]?.googleClientId
         const clientSecret = config?.[0]?.googleClientSecret
         const result = await moveFile(clientId, clientSecret, fileId, folderId)
-        return { success: true, data: result }
-      } catch (e) {
+        return { success: true, data: result }        } catch (e: any) {
         return { success: false, error: e.message }
       }
     }
   },
   'gdrive-copy': {
     needsApproval: true,
-    approvalMessage: (query) =>
+    approvalMessage: (query: any) =>
       `Abelink ingin menduplikasi file di Google Drive.\nFile ID: ${query.split('||')[0]}\nNama Baru: ${query.split('||')[1]}`,
-    handler: async (query, config) => {
+    handler: async (query: any, config: any) => {
       try {
         const parts = query.split('||')
         const fileId = parts[0].trim()
@@ -133,15 +126,14 @@ export const googleTools = {
         const clientId = config?.[0]?.googleClientId
         const clientSecret = config?.[0]?.googleClientSecret
         const result = await copyFile(clientId, clientSecret, fileId, newName)
-        return { success: true, data: result }
-      } catch (e) {
+        return { success: true, data: result }        } catch (e: any) {
         return { success: false, error: e.message }
       }
     }
   },
   'gcalendar-list': {
     needsApproval: false,
-    handler: async (query, config) => {
+    handler: async (query: any, config: any) => {
       try {
         const parts = query.split('||')
         const { start, end, fetchCount } = parsePagination(parts[0])
@@ -149,19 +141,18 @@ export const googleTools = {
         const clientId = config?.[0]?.googleClientId
         const clientSecret = config?.[0]?.googleClientSecret
         const rawResult = await listEvents(clientId, clientSecret, fetchCount, timeMin)
-        return { success: true, data: rawResult.slice(start, end) }
-      } catch (e) {
+        return { success: true, data: rawResult.slice(start, end) }        } catch (e: any) {
         return { success: false, error: e.message }
       }
     }
   },
   'gcalendar-create': {
     needsApproval: true,
-    approvalMessage: (query) => {
+    approvalMessage: (query: any) => {
       const parts = query.split('||')
       return `Abelink ingin membuat jadwal baru di kalendermu:\nJudul: ${parts[0]}\nWaktu Mulai: ${parts[2]}`
     },
-    handler: async (query, config) => {
+    handler: async (query: any, config: any) => {
       try {
         const parts = query.split('||')
         const summary = parts[0].trim()
@@ -178,29 +169,27 @@ export const googleTools = {
           startTime,
           endTime
         )
-        return { success: true, data: result }
-      } catch (e) {
+        return { success: true, data: result }        } catch (e: any) {
         return { success: false, error: e.message }
       }
     }
   },
   'gcalendar-delete': {
     needsApproval: true,
-    approvalMessage: (query) => `Abelink ingin MENGHAPUS jadwal/event ini:\nEvent ID: ${query}`,
-    handler: async (query, config) => {
+    approvalMessage: (query: any) => `Abelink ingin MENGHAPUS jadwal/event ini:\nEvent ID: ${query}`,
+    handler: async (query: any, config: any) => {
       try {
         const clientId = config?.[0]?.googleClientId
         const clientSecret = config?.[0]?.googleClientSecret
         const result = await deleteEvent(clientId, clientSecret, query.trim())
-        return { success: true, data: result }
-      } catch (e) {
+        return { success: true, data: result }        } catch (e: any) {
         return { success: false, error: e.message }
       }
     }
   },
   'gmail-search': {
     needsApproval: false,
-    handler: async (query, config) => {
+    handler: async (query: any, config: any) => {
       try {
         const parts = query.split('||')
         const q = parts[0].trim() || 'is:unread'
@@ -208,46 +197,43 @@ export const googleTools = {
         const clientId = config?.[0]?.googleClientId
         const clientSecret = config?.[0]?.googleClientSecret
         const rawResult = await searchEmails(clientId, clientSecret, q, fetchCount)
-        return { success: true, data: rawResult.slice(start, end) }
-      } catch (e) {
+        return { success: true, data: rawResult.slice(start, end) }        } catch (e: any) {
         return { success: false, error: e.message }
       }
     }
   },
   'gmail-list': {
     needsApproval: false,
-    handler: async (query, config) => {
+    handler: async (query: any, config: any) => {
       try {
         const { start, end, fetchCount } = parsePagination(query)
         const clientId = config?.[0]?.googleClientId
         const clientSecret = config?.[0]?.googleClientSecret
         const rawResult = await searchEmails(clientId, clientSecret, 'is:unread', fetchCount)
-        return { success: true, data: rawResult.slice(start, end) }
-      } catch (e) {
+        return { success: true, data: rawResult.slice(start, end) }        } catch (e: any) {
         return { success: false, error: e.message }
       }
     }
   },
   'gmail-read': {
     needsApproval: false,
-    handler: async (query, config) => {
+    handler: async (query: any, config: any) => {
       try {
         const clientId = config?.[0]?.googleClientId
         const clientSecret = config?.[0]?.googleClientSecret
         const result = await readEmail(clientId, clientSecret, query.trim())
-        return { success: true, data: result }
-      } catch (e) {
+        return { success: true, data: result }        } catch (e: any) {
         return { success: false, error: e.message }
       }
     }
   },
   'gmail-send': {
     needsApproval: true,
-    approvalMessage: (query) => {
+    approvalMessage: (query: any) => {
       const parts = query.split('||')
       return `Abelink ingin MENGIRIM EMAIL baru.\nTujuan: ${parts[0]}\nSubjek: ${parts[1]}\nIsi Pesan:\n${parts[2].slice(0, 100)}...`
     },
-    handler: async (query, config) => {
+    handler: async (query: any, config: any) => {
       try {
         const parts = query.split('||')
         const to = parts[0].trim()
@@ -256,21 +242,19 @@ export const googleTools = {
         const clientId = config?.[0]?.googleClientId
         const clientSecret = config?.[0]?.googleClientSecret
         const result = await sendEmail(clientId, clientSecret, to, subject, bodyText)
-        return { success: true, data: result }
-      } catch (e) {
+        return { success: true, data: result }        } catch (e: any) {
         return { success: false, error: e.message }
       }
     }
   },
   'gmail-abelink-read': {
     needsApproval: false,
-    handler: async (query, config) => {
+    handler: async (query: any, config: any) => {
       try {
         const clientId = config?.[0]?.googleClientId
         const clientSecret = config?.[0]?.googleClientSecret
         const result = await markAsRead(clientId, clientSecret, query.trim())
-        return { success: true, data: result }
-      } catch (e) {
+        return { success: true, data: result }        } catch (e: any) {
         return { success: false, error: e.message }
       }
     }

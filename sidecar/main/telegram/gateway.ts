@@ -15,14 +15,14 @@ const MAX_SEEN = 500
 const DEFAULT_QUEUE_CAP = 3
 const DEFAULT_OFFLINE_CAP = 50
 
-const lazyService = () => import('./telegram-service.js')
+const lazyService = () => import('./telegram-service.ts')
 
-const defaultSender = async (chatId, text) => {
+const defaultSender = async (chatId: any, text: any) => {
   const m = await lazyService()
   return m.sendTelegramMessage(chatId, text)
 }
 
-const defaultAsker = async (chatId, question, options, timeoutMs) => {
+const defaultAsker = async (chatId: any, question: any, options: any, timeoutMs: any) => {
   const m = await lazyService()
   const sent = await m.sendInlineKeyboard(chatId, question, options)
   if (!sent?.success) return null
@@ -30,7 +30,7 @@ const defaultAsker = async (chatId, question, options, timeoutMs) => {
 }
 
 // Update Bot API -> MessageEvent; non-message (callback_query dsb) -> null.
-export const normalizeTelegramUpdate = (update) => {
+export const normalizeTelegramUpdate = (update: any) => {
   const msg = update?.message
   if (!msg) return null
   const chat = msg.chat || {}
@@ -58,17 +58,20 @@ export const normalizeTelegramUpdate = (update) => {
   }
 }
 
-export const sessionKeyForEvent = (evt) =>
+export const sessionKeyForEvent = (evt: any) =>
   `${SESSION_PREFIX}:${evt.chatKind}:${evt.chatId}`
 
 // '111, @bosz;333' -> ['111','bosz','333'] (mirip splitTgAdminIds renderer).
-export const parseAdminList = (raw) =>
+export const parseAdminList = (raw: any) =>
   String(raw ?? '')
     .split(/[\s,;]+/)
     .map((s) => s.trim().toLowerCase().replace(/^@/, ''))
     .filter(Boolean)
 
-export const isAllowed = (evt, { adminSet, pendingSet, allowAll } = {}) => {
+export const isAllowed = (
+  evt: any,
+  { adminSet, pendingSet, allowAll }: { adminSet?: Set<string>; pendingSet?: Set<string>; allowAll?: boolean } = {}
+) => {
   if (allowAll) return { allowed: true, reason: 'allow-all' }
   const uid = String(evt?.userId || '').toLowerCase()
   const uname = String(evt?.username || '').toLowerCase().replace(/^@/, '')
@@ -94,7 +97,7 @@ export const resolveHeadlessTelegramEnabled = (env = process.env) => {
   return v === '1' || v === 'true'
 }
 
-export const createTelegramGateway = (opts = {}) => {
+export const createTelegramGateway = (opts: Record<string, any> = {}) => {
   const {
     tgAdminIds = '',
     allowAll = envAllowAll(),
@@ -113,10 +116,10 @@ export const createTelegramGateway = (opts = {}) => {
   const seen = new Set()
   const running = new Map()
   const queues = new Map()
-  const offlineQueue = []
+  const offlineQueue: any = []
   let droppedOffline = 0
 
-  const markSeen = (key) => {
+  const markSeen = (key: any) => {
     if (seen.has(key)) return false
     seen.add(key)
     if (seen.size > MAX_SEEN) seen.delete(seen.values().next().value)
@@ -124,7 +127,7 @@ export const createTelegramGateway = (opts = {}) => {
   }
 
   // Gagal kirim (offline/belum connected) -> antre jujur, buang terlama bila penuh.
-  const deliver = async (chatId, text) => {
+  const deliver = async (chatId: any, text: any) => {
     const res = await sender(chatId, text)
     if (res?.success) return res
     offlineQueue.push({ chatId, text })
@@ -136,15 +139,15 @@ export const createTelegramGateway = (opts = {}) => {
     return { success: false, queued: true }
   }
 
-  const requestApproval = (chatId, question, options, timeoutMs) =>
+  const requestApproval = (chatId: any, question: any, options: any, timeoutMs: any) =>
     asker(chatId, question, options, timeoutMs)
 
-  const processEvent = async (evt) => {
+  const processEvent = async (evt: any) => {
     const answer = await runAgent(evt)
     await deliver(evt.chatId, answer?.answer ?? 'Selesai diproses.')
   }
 
-  const pump = async (sessionKey) => {
+  const pump = async (sessionKey: any) => {
     for (;;) {
       const q = queues.get(sessionKey)
       const next = q?.shift()
@@ -157,7 +160,7 @@ export const createTelegramGateway = (opts = {}) => {
     }
   }
 
-  const handleMessageEvent = async (evt) => {
+  const handleMessageEvent = async (evt: any) => {
     if (!evt) return { status: 'ignored' }
     if (!markSeen(`${evt.chatId}:${evt.messageId}`)) return { status: 'duplicate' }
     const auth = isAllowed(evt, { adminSet, pendingSet, allowAll })
@@ -182,7 +185,7 @@ export const createTelegramGateway = (opts = {}) => {
     return { status: 'replied', sessionKey }
   }
 
-  const handleUpdate = (update) => handleMessageEvent(normalizeTelegramUpdate(update))
+  const handleUpdate = (update: any) => handleMessageEvent(normalizeTelegramUpdate(update))
 
   const flushOffline = async () => {
     const batch = offlineQueue.splice(0, offlineQueue.length)

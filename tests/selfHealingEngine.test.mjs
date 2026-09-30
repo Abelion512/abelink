@@ -10,10 +10,10 @@ import {
 describe('selfHealingEngine', () => {
   it('getErrorSignature menormalkan error stack', () => {
     const err = new Error('Socket disconnected')
-    err.stack = 'Error: Socket disconnected\n    at fetch (ai-bridge.js:120:15)\n    at Object.run (planning.js:45:10)'
+    err.stack = 'Error: Socket disconnected\n    at fetch (ai-bridge.ts:120:15)\n    at Object.run (planning.js:45:10)'
     const sig = getErrorSignature(err)
     expect(sig).toContain('Socket disconnected')
-    expect(sig).toContain('ai-bridge.js')
+    expect(sig).toContain('ai-bridge.ts')
   })
 
   it('circuit breaker membatasi percobaan maksimal 2x per signature', () => {

@@ -27,36 +27,36 @@ export const LAUNCH_MAX_PER_WINDOW = 3
 // budget per-sesi saja tidak menghentikan tab-storm (3N xdg-open/menit).
 // Lewat batas global -> reason eksplisit tanpa memanggil xdg-open.
 export const LAUNCH_GLOBAL_MAX_PER_WINDOW = 6
-const launchState = new Map()
-const globalLaunchAttempts = []
+const launchState = new Map<string, any>()
+const globalLaunchAttempts: number[] = []
 export const __resetLaunchThrottleForTest = () => {
   launchState.clear()
   globalLaunchAttempts.length = 0
 }
-const nowMs = (deps) => (typeof deps?.now === 'function' ? deps.now() : Date.now())
+const nowMs = (deps: any) => (typeof deps?.now === 'function' ? deps.now() : Date.now())
 
 // Jalankan perintah OS dan kembalikan { ok, stdout, error }. Default memakai
 // execFile Node; test meng-inject versi palsu.
-export async function runOs(cmd, args, { execFile } = {}) {
+export async function runOs(cmd: any, args: any, { execFile }: { execFile?: any } = {}) {
   try {
-    let ef = execFile
+    let ef: any = execFile
     if (typeof ef !== 'function') {
       const cp = await import('node:child_process')
       ef = cp.execFile
     }
-    const out = await new Promise((resolve, reject) => {
-      ef(cmd, args, { timeout: 15000 }, (err, stdout, stderr) =>
+    const out = await new Promise<string>((resolve, reject) => {
+      ef(cmd, args, { timeout: 15000 }, (err: any, stdout: any, stderr: any) =>
         err ? reject(err) : resolve(String(stdout || stderr || ''))
       )
     })
     return { ok: true, stdout: out.trim() }
-  } catch (e) {
+  } catch (e: any) {
     return { ok: false, error: e?.message || String(e) }
   }
 }
 
 // Bukakan URL (atau blank) di browser default OS. Best-effort, tidak throw.
-export async function openInOsBrowser(url, deps = {}) {
+export async function openInOsBrowser(url: any, deps: any = {}) {
   const target = String(url || 'about:blank').trim() || 'about:blank'
   const r = await runOs('xdg-open', [target], deps)
   return r.ok ? { ok: true } : { ok: false, error: r.error || 'xdg-open gagal' }
@@ -66,12 +66,24 @@ export async function openInOsBrowser(url, deps = {}) {
 // Transparansi 20s: onStatus dipanggil tiap ~5s agar user melihat progres
 // ("Menunggu handshake extension (n/20s)…") alih-alih diam lalu gagal.
 export async function waitForConnected(
-  listSessions,
-  { timeoutMs = LAUNCH_WAIT_MS, intervalMs = LAUNCH_POLL_MS, sessionId = 'default', sleep, onStatus } = {}
-) {
-  const wait = typeof sleep === 'function' ? sleep : (ms) => new Promise((r) => setTimeout(r, ms))
+  listSessions: any,
+  {
+    timeoutMs = LAUNCH_WAIT_MS,
+    intervalMs = LAUNCH_POLL_MS,
+    sessionId = 'default',
+    sleep,
+    onStatus
+  }: {
+    timeoutMs?: number
+    intervalMs?: number
+    sessionId?: string
+    sleep?: (ms: number) => Promise<void>
+    onStatus?: ((msg: string) => unknown) | null
+  } = {}
+): Promise<any> {
+  const wait = typeof sleep === 'function' ? sleep : (ms: any) => new Promise((r) => setTimeout(r, ms))
   const tell = typeof onStatus === 'function' ? onStatus : null
-  const pick = (sessions = []) =>
+  const pick = (sessions: any[] = []): any =>
     sessions.find((s) => s.id === sessionId && s.connected) ||
     sessions.find((s) => s.id === 'default' && s.connected) ||
     sessions.find((s) => s.connected) ||
@@ -80,7 +92,7 @@ export async function waitForConnected(
   const totalS = Math.max(1, Math.round(timeoutMs / 1000))
   let lastTick = -1
   for (;;) {
-    let sessions = []
+    let sessions: any[] = []
     try {
       sessions = (await listSessions()) || []
     } catch {
@@ -114,7 +126,15 @@ export async function ensureBrowserUp({
   timeoutMs = LAUNCH_WAIT_MS,
   deps = {},
   onStatus = null
-} = {}) {
+}: {
+  url?: string | null
+  sessionId?: string
+  autoLaunch?: boolean
+  listSessions?: any
+  timeoutMs?: number
+  deps?: any
+  onStatus?: ((msg: string) => unknown) | null
+} = {}): Promise<any> {
   try {
     const now = await waitForConnected(listSessions, { timeoutMs: 0, sessionId, onStatus })
     if (now) return { ok: true, reused: true, session: now }
@@ -129,14 +149,28 @@ export async function ensureBrowserUp({
 }
 
 // Peluncuran ber-rem: gabung in-flight, batasi budget per jendela cooldown.
-async function throttledLaunch({ url, sessionId, listSessions, timeoutMs, deps, onStatus = null }) {
+async function throttledLaunch({
+  url,
+  sessionId,
+  listSessions,
+  timeoutMs,
+  deps,
+  onStatus = null
+}: {
+  url?: string | null
+  sessionId: string
+  listSessions: any
+  timeoutMs: number
+  deps: any
+  onStatus?: ((msg: string) => unknown) | null
+}): Promise<any> {
   const t = nowMs(deps)
   let st = launchState.get(sessionId)
   if (!st) {
     st = { attempts: [], inflight: null }
     launchState.set(sessionId, st)
   }
-  st.attempts = st.attempts.filter((ts) => t - ts < LAUNCH_COOLDOWN_MS)
+  st.attempts = st.attempts.filter((ts: any) => t - ts < LAUNCH_COOLDOWN_MS)
   const freshGlobal = globalLaunchAttempts.filter((ts) => t - ts < LAUNCH_COOLDOWN_MS)
   globalLaunchAttempts.length = 0
   globalLaunchAttempts.push(...freshGlobal)

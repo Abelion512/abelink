@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { pluginToDescriptors } from '../sidecar/main/plugins/plugin-loader.js'
+import { pluginToDescriptors } from '../sidecar/main/plugins/plugin-loader.ts'
 
 describe('pluginToDescriptors', () => {
   it('projects parameters to inputSchema properties', () => {

@@ -260,7 +260,7 @@ interface PluginManifestLike {
 
 async function executePluginAction({ actionId, args, sessionId }: { actionId: string; args?: unknown; sessionId?: string }) {
   const { getLoadedPlugins, getPluginHandlers, loadPlugins, pluginToDescriptors } = await import(
-    '../plugins/plugin-loader.js'
+    '../plugins/plugin-loader.ts'
   )
   await loadPlugins()
   const manifests = getLoadedPlugins()

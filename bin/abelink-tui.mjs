@@ -75,7 +75,7 @@ async function main() {
 
   const { runAgentLoop } = await import('../src/api/ai/agentRunner.js')
   const { evaluateHeadlessSecurity } = await import('../src/api/ai/headlessSecurity.ts')
-  const { NATIVE_TOOLS } = await import('../sidecar/main/node-tools.js')
+  const { NATIVE_TOOLS } = await import('../sidecar/main/node-tools.ts')
   const headless = await import('../src/api/ai/headlessCli.js').catch(() => ({}))
   const {
     resolveApprovalDecision = null,

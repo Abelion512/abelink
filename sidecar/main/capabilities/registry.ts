@@ -107,7 +107,7 @@ export async function listRegistry(): Promise<CapabilityDescriptor[]> {
 
   // ---- plugins (satu deskriptor per action via pluginToDescriptors) ----
   try {
-    const { loadPlugins, pluginToDescriptors } = await import('../plugins/plugin-loader.js')
+    const { loadPlugins, pluginToDescriptors } = await import('../plugins/plugin-loader.ts')
     const manifests = ((await loadPlugins()) || []) as Record<string, unknown>[]
     for (const m of manifests) {
       for (const d of pluginToDescriptors(m) || []) pushValid(out, d)

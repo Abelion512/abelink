@@ -4,8 +4,8 @@
 // sidecar (browser-snapshot/wait-for terdaftar, extract jalan tanpa query).
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { handlers } from '../sidecar/engine/registry.ts'
-import { browserTools } from '../sidecar/main/tools/browserTools.mjs'
-import { setBrowserConfig } from '../sidecar/main/browser/bridge-core.mjs'
+import { browserTools } from '../sidecar/main/tools/browserTools.ts'
+import { setBrowserConfig } from '../sidecar/main/browser/bridge-core.ts'
 import '../sidecar/engine/channels/browser.ts'
 
 // Matikan auto-launch: tanpa extension, handler harus gagal-cepat jujur

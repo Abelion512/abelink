@@ -6,7 +6,7 @@ import { resolveChatEndpoint, suggestProtocol, presetEndpoint, normalizeLegacyPr
 // Sebelumnya: endpoint apapun yang mati selalu dilaporkan sebagai
 // "LM Studio mati ... port 1234" — menyesatkan saat user memakai 9Router
 // atau Custom API. Fungsi murni agar bisa di-unit-test.
-export const providerOfflineMessage = (aiProvider, endpoint) => {
+export const providerOfflineMessage = (aiProvider: any, endpoint: any) => {
   const ep = String(endpoint || '').replace(/\/v1\/chat\/completions\/?$/, '')
   // Endpoint remote (custom/gateway) vs lokal (komposit 9Router) — generic:
   // pesan menyebut endpoint yang DIPAKAI, bukan nama vendor hardcoded.
@@ -23,14 +23,17 @@ export const providerOfflineMessage = (aiProvider, endpoint) => {
   )
 }
 
-const createLMStudioOfflineError = (cause, conf) => {
-  const error = new Error(providerOfflineMessage(conf?.aiProvider, conf?.__endpoint))
+const createLMStudioOfflineError = (cause: unknown, conf: any) => {
+  const error = new Error(providerOfflineMessage(conf?.aiProvider, conf?.__endpoint)) as Error & {
+    code?: string
+    cause?: unknown
+  }
   error.code = 'LM_STUDIO_OFFLINE'
   if (cause) error.cause = cause
   return error
 }
 
-const isLMStudioOfflineError = (error) => {
+const isLMStudioOfflineError = (error: any) => {
   const code = String(error?.code || error?.cause?.code || '')
   if (/ECONNREFUSED|ENOTFOUND|EHOSTUNREACH|ConnectionRefused/i.test(code)) return true
   return (
@@ -46,25 +49,25 @@ let lastCloudFetchTime = 0
 const CLOUD_DELAY_MS = 3000 // 3 seconds delay biar aman dari rate limit (Gemini/Groq/Custom)
 let abortGeneration = 0
 
-let globalConfig = {}
+let globalConfig: Record<string, any> = {}
 
 // Log debug AI mati secara default supaya isi prompt/response tidak ikut tercetak ke log.
 // Aktifkan hanya saat debugging dengan env ABELINK_DEBUG_AI=1.
 const DEBUG_AI_LOG = process.env.ABELINK_DEBUG_AI === '1'
 
 // Buang pola rahasia (api key gaya sk-... / header Authorization) sebelum pesan dicetak.
-const redactSecrets = (message) =>
+const redactSecrets = (message: any) =>
   String(message ?? '').replace(/(sk-[A-Za-z0-9_-]{8,}|Bearer\s+\S+)/g, '[REDACTED]')
 
 // Logger metadata AI: satu baris, tanpa isi prompt/response, tanpa header Authorization.
-const logAi = (message) => {
+const logAi = (message: any) => {
   if (DEBUG_AI_LOG) console.log(redactSecrets(message))
 }
 
 // Serialisasi body request AI; hasilnya dipakai untuk fetch dan hitung byte,
 // TIDAK PERNAH dicetak utuh ke log.
-const serializeAiBody = (payload) => JSON.stringify(payload)
-export const activeAbortControllers = new Set()
+const serializeAiBody = (payload: any) => JSON.stringify(payload)
+export const activeAbortControllers = new Set<AbortController>()
 export const abortAllFetches = () => {
   // Naikkan generation supaya request yang masih menunggu rate-limit ikut batal.
   abortGeneration += 1
@@ -75,7 +78,7 @@ export const abortAllFetches = () => {
   })
 }
 
-export const setGlobalConfig = (config) => {
+export const setGlobalConfig = (config: any) => {
   globalConfig = config || {}
 }
 
@@ -84,7 +87,11 @@ export const getGlobalConfig = () => globalConfig
 // Murni (unit-testable): rakit chunk OpenAI SSE `data:` jadi teks penuh.
 // Satu-satunya sumber kebenaran perakitan stream; jalur network di bawah
 // memakai ini per baris, test memakai ini per urutan chunk simulasi.
-export const assembleStreamChunks = (lines, onToken = null) => {
+type StreamTokenEvent = { text: string; done: boolean }
+export const assembleStreamChunks = (
+  lines: string[] | string,
+  onToken: ((evt: StreamTokenEvent) => void) | null = null
+) => {
   let fullContent = ''
   let fullReasoning = ''
   for (const line of lines) {
@@ -111,7 +118,10 @@ export const __aiBridgeTest = { assembleStreamChunks, providerOfflineMessage }
 // Incremental body reader: garis SSE lengkap di-emit langsung via onToken;
 // body JSON biasa menumpuk diam sampai selesai (tanpa token parsial).
 // Mengembalikan body mentah utuh agar parse akhir identik dengan jalur blocking.
-const readBodyIncremental = async (response, onToken) => {
+const readBodyIncremental = async (
+  response: any,
+  onToken: ((evt: StreamTokenEvent) => void) | null
+) => {
   // Tanpa body stream (respons kosong) = fallback buffer biasa.
   if (!response.body?.getReader) return response.text()
   const reader = response.body.getReader()
@@ -127,7 +137,7 @@ const readBodyIncremental = async (response, onToken) => {
     }
     if (buf.includes('data:')) {
       const lines = buf.split('\n')
-      buf = done ? '' : lines.pop()
+      buf = done ? '' : lines.pop() ?? ''
       assembleStreamChunks(lines, onToken)
     }
     if (done) break
@@ -137,21 +147,21 @@ const readBodyIncremental = async (response, onToken) => {
 }
 
 export const fetchAI = async (
-  inputMessages,
-  config,
+  inputMessages: any[],
+  config: any,
   isSmallTask = false,
-  jsonSchema = null,
-  onStatus = null,
-  onToken = null
-) => {
+  jsonSchema: Record<string, unknown> | null = null,
+  onStatus: ((msg: string) => void) | null = null,
+  onToken: ((evt: StreamTokenEvent) => void) | null = null
+): Promise<{ content: string; reasoning: string | null }> => {
   // Endpoint aktif dicatat di scope fungsi agar blok catch tetap bisa
   // menyebutkannya di pesan error provider-aware.
   let activeEndpoint = ''
   try {
     // Legacy provider (groq/cerebras pra-registry) dinormalisasi SEKALI di
     // sini ke jalur custom generik — semua kode di bawah vendor-agnostic.
-    const conf = normalizeLegacyProviderConfig(config || globalConfig)
-    let messages = inputMessages.map((m) => ({ ...m }))
+    const conf: any = normalizeLegacyProviderConfig(config || globalConfig)
+    const messages = inputMessages.map((m: any) => ({ ...m }))
 
     if (conf.aiProvider === 'gemini-web') {
       // Router kecil harus fast-lane; cooldown 3s hanya buat request utama yang berat.
@@ -179,10 +189,10 @@ export const fetchAI = async (
         lastCloudFetchTime = Date.now()
       }
 
-      let workMessages = messages.map((m) => ({ ...m }))
+      const workMessages = messages.map((m: any) => ({ ...m }))
 
       if (jsonSchema) {
-        let sysIdx = workMessages.findIndex((m) => m.role === 'system')
+        const sysIdx = workMessages.findIndex((m: any) => m.role === 'system')
         const instruction = `\n\n[CRITICAL] YOU MUST RETURN ONLY VALID JSON THAT STRICTLY MATCHES THIS EXACT SCHEMA:\n${JSON.stringify(jsonSchema)}\n`
         if (sysIdx >= 0) {
           workMessages[sysIdx].content += instruction
@@ -244,7 +254,7 @@ export const fetchAI = async (
 
         console.log(`[GEMINI WEB SUCCESS] Content length: ${answer.length}`)
         return { content: answer, reasoning }
-      } catch (err) {
+      } catch (err: any) {
         console.error('[Gemini Web Error]', err)
         const sessionBroken =
           err.code === 'GEMINI_WEB_LIMITED' ||
@@ -272,7 +282,7 @@ export const fetchAI = async (
         }
         if (err.message?.includes('Session') || err.message?.includes('BardErrorInfo')) {
           onStatus?.('⚠️ Session Gemini Web bermasalah, mencoba fallback ke gemini-flash-lite...')
-          let answer = await generateGeminiResponse(fullPrompt, 'gemini-flash-lite', '', undefined, onToken)
+          const answer = await generateGeminiResponse(fullPrompt, 'gemini-flash-lite', '', undefined, onToken)
           return { content: answer, reasoning: null }
         }
         throw err
@@ -280,20 +290,20 @@ export const fetchAI = async (
     }
 
     let endpoint = `http://127.0.0.1:20128/v1/chat/completions` // 9Router composite
-    let headers = {
+    let headers: Record<string, string> = {
       'Content-Type': 'application/json'
     }
     let customProtocol = 'openai' // 'openai' | 'anthropic'
 
-    let body = {
+    let body: any = {
       temperature: Number(conf.temperature) || 0,
-      messages: messages.map((m, index) => {
+      messages: messages.map((m: any, index: any) => {
         let sanitizedContent = m.content
         if (Array.isArray(m.content)) {
           // Hanya hapus gambar dari HISTORY (bukan pesan terakhir) untuk hemat token
           if (index < messages.length - 1) {
             sanitizedContent =
-              m.content.find((c) => c.type === 'text')?.text || '[Gambar terlampir]'
+              m.content.find((c: any) => c.type === 'text')?.text || '[Gambar terlampir]'
           } else {
             sanitizedContent = m.content // Biarkan gambar tetap utuh untuk dianalisis AI
           }
@@ -364,9 +374,9 @@ export const fetchAI = async (
     // - format lain / tanpa reasoning: reasoning_effort saja atau strip.
     const thinkFmt = conf.thinkFmt || null
     const thinkReasoning = conf.thinkReasoning !== false
-    const supportedByProfile = { 'claude-adaptive': ['low', 'medium', 'high', 'xhigh', 'max'], 'claude-budget': ['low', 'medium', 'high', 'max'] }
+    const supportedByProfile: Record<string, string[]> = { 'claude-adaptive': ['low', 'medium', 'high', 'xhigh', 'max'], 'claude-budget': ['low', 'medium', 'high', 'max'] }
     const profileEfforts = (thinkFmt && supportedByProfile[thinkFmt]) || ['low', 'medium', 'high']
-    const clampToProfile = (e) => {
+    const clampToProfile = (e: any) => {
       const order = ['low', 'medium', 'high', 'xhigh', 'max']
       const i = order.indexOf(e)
       if (i >= 0) {
@@ -383,7 +393,7 @@ export const fetchAI = async (
     // budget_tokens tetap max untuk ultra (model lama saja).
     // Gemini RPC / LM-Studio / generik: tanpa effort fields samasekali
     // (di-strip di bawah); budget_tokens hanya endpoint Anthropic tulen.
-    const effortAnthropicBudget = { low: 1024, medium: 4096, high: 16384, xhigh: 32768, max: 65536, ultra: 65536 }
+    const effortAnthropicBudget: Record<string, number> = { low: 1024, medium: 4096, high: 16384, xhigh: 32768, max: 65536, ultra: 65536 }
     const effortForWire = effort
     const noThinking = thinkFmt === null || thinkReasoning === false
     // Provider tanpa dukungan effort terdokumentasi: 9Router composite
@@ -405,7 +415,7 @@ export const fetchAI = async (
     // caller (TUI) menang; fallback peta effort. OpenAI-compatible generik
     // menghormati max_tokens; batas server tetap otoritatif bila lebih kecil.
     if (body.max_tokens == null) {
-      const effortMaxTokens = { low: 4096, medium: 8192, high: 16384, xhigh: 32768, max: 65536, ultra: 65536 }
+      const effortMaxTokens: Record<string, number> = { low: 4096, medium: 8192, high: 16384, xhigh: 32768, max: 65536, ultra: 65536 }
       body.max_tokens = Number(conf.customMaxTokens) || effortMaxTokens[effort] || 4096
     }
     // S2: clamp ke maxOutput live bila dikenal (free tier dsb).
@@ -416,7 +426,7 @@ export const fetchAI = async (
     const parentAbortController = new AbortController()
     activeAbortControllers.add(parentAbortController)
 
-    const executeFetch = async (currentBody, isRetry = false, trafficRetryCount = 0) => {
+    const executeFetch = async (currentBody: any, isRetry = false, trafficRetryCount = 0): Promise<any> => {
       if (parentAbortController.signal.aborted) {
         throw new Error('AbortError')
       }
@@ -445,7 +455,7 @@ export const fetchAI = async (
           signal: abortController.signal
         })
         clearTimeout(timeoutId)
-      } catch (err) {
+      } catch (err: any) {
         clearTimeout(timeoutId)
         if (parentAbortController.signal.aborted) {
           throw new Error('AbortError')
@@ -485,7 +495,7 @@ export const fetchAI = async (
         const causeStr = err.cause ? ` (${err.cause.message || err.cause.code || err.cause})` : ''
         const enrichedError = new Error(
           redactSecrets(`Gagal menghubungi server AI di ${endpoint}: ${err.message}${causeStr}`)
-        )
+        ) as Error & { code?: string; cause?: unknown }
         enrichedError.code = err.code || err.cause?.code || 'FETCH_FAILED'
         enrichedError.cause = err
         throw enrichedError
@@ -520,12 +530,12 @@ export const fetchAI = async (
         ) {
           console.log('[Auto-Retry] Model tidak support json_schema, fallback ke json_object...')
 
-          let fallbackBody = { ...currentBody }
+          const fallbackBody = { ...currentBody }
           fallbackBody.response_format = { type: 'json_object' }
 
           // Inject schema ke prompt
-          let fallbackMessages = fallbackBody.messages.map((m) => ({ ...m }))
-          const sysIdx = fallbackMessages.findIndex((m) => m.role === 'system')
+          const fallbackMessages = fallbackBody.messages.map((m: any) => ({ ...m }))
+          const sysIdx = fallbackMessages.findIndex((m: any) => m.role === 'system')
           const instruction = `\n\n[CRITICAL] YOU MUST RETURN ONLY VALID JSON THAT STRICTLY MATCHES THIS EXACT SCHEMA:\n${JSON.stringify(jsonSchema)}\n`
 
           if (sysIdx >= 0) {
@@ -551,13 +561,13 @@ export const fetchAI = async (
             '[Auto-Retry] Model gagal menghasilkan JSON murni (strict JSON), fallback tanpa constraint response_format...'
           )
 
-          let fallbackBody = { ...currentBody }
+          const fallbackBody = { ...currentBody }
           delete fallbackBody.response_format
 
           // Jika awalnya tidak dari json_schema (isRetry === false), kita belum inject schema manual
           if (!isRetry && jsonSchema) {
-            let fallbackMessages = fallbackBody.messages.map((m) => ({ ...m }))
-            const sysIdx = fallbackMessages.findIndex((m) => m.role === 'system')
+            const fallbackMessages = fallbackBody.messages.map((m: any) => ({ ...m }))
+            const sysIdx = fallbackMessages.findIndex((m: any) => m.role === 'system')
             const instruction = `\n\n[CRITICAL] YOU MUST RETURN ONLY VALID JSON THAT STRICTLY MATCHES THIS EXACT SCHEMA:\n${JSON.stringify(jsonSchema)}\n`
 
             if (sysIdx >= 0) {
@@ -575,12 +585,12 @@ export const fetchAI = async (
           conf.aiProvider === 'custom'
             ? 'Custom API'
             : '9Router/LM Studio'
-        let finalErrorMessage = typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg)
+        const finalErrorMessage = typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg)
 
         // Auto-retry: sebagian endpoint (mis. DeepSeek) menolak payload gambar
         // dengan 400. Ulangi SEKALI tanpa bagian gambar agar chat tetap jalan.
         const bodyHasImage = currentBody.messages?.some(
-          (m) => Array.isArray(m.content) && m.content.some((p) => p.type === 'image_url')
+          (m: any) => Array.isArray(m.content) && m.content.some((p: any) => p.type === 'image_url')
         )
         if (
           !isRetry &&
@@ -591,11 +601,11 @@ export const fetchAI = async (
         ) {
           onStatus?.('Endpoint menolak payload gambar; mencoba ulang tanpa gambar...')
           logAi('[Auto-Retry] Endpoint menolak gambar; strip image_url lalu ulang.')
-          const strippedMessages = currentBody.messages.map((m) => {
+          const strippedMessages = currentBody.messages.map((m: any) => {
             if (!Array.isArray(m.content)) return m
             const texts = m.content
-              .filter((p) => p.type === 'text')
-              .map((p) => p.text)
+              .filter((p: any) => p.type === 'text')
+              .map((p: any) => p.text)
               .join('\n')
             return { ...m, content: texts }
           })
@@ -623,8 +633,8 @@ export const fetchAI = async (
         }
 
         if (isHighTraffic && trafficRetryCount < 10) {
-          let backoffDelay = Math.min(30000, (trafficRetryCount + 1) * 2000)
-          let retryBody = { ...currentBody }
+          const backoffDelay = Math.min(30000, (trafficRetryCount + 1) * 2000)
+          const retryBody = { ...currentBody }
 
           // Pilar II: Model Pool Resilience & Multi-Provider Rotation
           if (trafficRetryCount >= 2) {
@@ -667,7 +677,7 @@ export const fetchAI = async (
 
         const err = new Error(
           redactSecrets(`Gagal memuat AI (${errorProvider}): ${finalErrorMessage}`)
-        )
+        ) as Error & { status?: number }
         err.status = response.status
         throw err
       }
@@ -704,7 +714,7 @@ export const fetchAI = async (
 
       try {
         return JSON.parse(cleanText)
-      } catch (parseError) {
+      } catch (parseError: any) {
         console.error('[FetchAI] Gagal mem-parsing response body JSON:', parseError.message)
         throw new Error(
           redactSecrets(
@@ -717,8 +727,8 @@ export const fetchAI = async (
     if (jsonSchema) {
     if (conf.aiProvider === 'custom') {
       // Inject schema instructions manually for Custom API
-      body.messages = body.messages.map((m) => ({ ...m }))
-        let sysIdx = body.messages.findIndex((m) => m.role === 'system')
+      body.messages = body.messages.map((m: any) => ({ ...m }))
+        const sysIdx = body.messages.findIndex((m: any) => m.role === 'system')
         const instruction = `\n\n[CRITICAL] YOU MUST RETURN ONLY VALID JSON THAT STRICTLY MATCHES THIS EXACT SCHEMA:\n${JSON.stringify(jsonSchema)}\n`
         if (sysIdx >= 0) {
           body.messages[sysIdx].content += instruction
@@ -739,11 +749,11 @@ export const fetchAI = async (
 
     // Normalisasi array messages untuk Custom API (terutama NaraRouter/Gemini)
     if (conf.aiProvider === 'custom') {
-      let normalizedMessages = []
+      const normalizedMessages = []
       const isMistralModel = body.model && body.model.toLowerCase().includes('mistral')
 
-      for (let m of body.messages) {
-        let currentRole = m.role
+      for (const m of body.messages) {
+        const currentRole = m.role
         let currentContent = m.content
 
         // Adaptasi Vision Payload Khusus Mistral (Mistral mengharapkan image_url sebagai string, bukan object)
@@ -772,7 +782,7 @@ export const fetchAI = async (
             ? m.content
             : Array.isArray(m.content)
               ? m.content
-                  .map((c) => (c.type === 'text' ? c.text : ''))
+                  .map((c: any) => (c.type === 'text' ? c.text : ''))
                   .filter(Boolean)
                   .join('\n')
               : String(m.content || '')
@@ -834,12 +844,12 @@ export const fetchAI = async (
     if (customProtocol === 'anthropic') {
       const blocks = Array.isArray(data.content) ? data.content : []
       const text = blocks
-        .filter((b) => b.type === 'text')
-        .map((b) => b.text)
+        .filter((b: any) => b.type === 'text')
+        .map((b: any) => b.text)
         .join('')
       const thinking = blocks
-        .filter((b) => b.type === 'thinking')
-        .map((b) => b.thinking)
+        .filter((b: any) => b.type === 'thinking')
+        .map((b: any) => b.thinking)
         .join('')
       message = { content: text, reasoning: thinking || null }
     } else {
@@ -895,7 +905,7 @@ export const fetchAI = async (
 
     logAi(`[ai] final content chars=${content.length}`)
     return { content, reasoning }
-  } catch (error) {
+  } catch (error: any) {
     const conf = config || {}
     if (conf.aiProvider !== 'custom' && isLMStudioOfflineError(error)) {
       if (
@@ -918,7 +928,7 @@ export const fetchAI = async (
 // Paritas dengan src/api/ai/core.ts (renderer): think-strip, ekstraksi
 // brace/bracket, control-char clean, lalu jsonrepair. Dua salinan wajib
 // berperilaku sama — tests/core.parse.test.js mengunci paritasnya.
-export const cleanAndParse = (rawResponse) => {
+export const cleanAndParse = (rawResponse: any) => {
   try {
     if (!rawResponse) return null
 
@@ -960,7 +970,7 @@ export const cleanAndParse = (rawResponse) => {
       rawResponse = String(rawResponse || '')
     }
 
-    let text = String(rawResponse)
+    const text = String(rawResponse)
       .replace(/```json\s*/gi, '')
       .replace(/```\s*/g, '')
       .replace(/^\xEF\xBB\xBF/, '')
@@ -1004,7 +1014,7 @@ export const cleanAndParse = (rawResponse) => {
     } catch (_) {}
     const repaired = jsonrepair(jsonStr)
     return JSON.parse(repaired)
-  } catch (error) {
+  } catch (error: any) {
     console.error(
       'Gagal Parse JSON menggunakan jsonrepair:',
       redactSecrets(error?.message || String(error))
@@ -1015,7 +1025,7 @@ export const cleanAndParse = (rawResponse) => {
 
 // Deteksi daftar model dari endpoint custom (GET {base}/models).
 // Mendukung protokol OpenAI-Compatible maupun Anthropic; cukup base /v1.
-export const listCustomModels = async (rawEndpoint, apiKey, protocolConf) => {
+export const listCustomModels = async (rawEndpoint: any, apiKey: any, protocolConf: any) => {
   const base = (rawEndpoint || '').trim().replace(/\/+$/, '')
   if (!/^https?:\/\//i.test(base)) {
     throw new Error('URL endpoint tidak valid. Harus diawali http:// atau https://')
@@ -1033,7 +1043,7 @@ export const listCustomModels = async (rawEndpoint, apiKey, protocolConf) => {
       : base.endsWith('/models')
         ? base
         : `${base}/models`
-  const headers = { 'Content-Type': 'application/json' }
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (preferAnthropic) {
     headers['x-api-key'] = apiKey || ''
     headers['anthropic-version'] = '2023-06-01'
@@ -1050,18 +1060,18 @@ export const listCustomModels = async (rawEndpoint, apiKey, protocolConf) => {
     controller.abort(timeoutErr())
   }, DETECT_TIMEOUT_MS)
   try {
-    const res = await Promise.race([
+    const res = (await Promise.race([
       fetch(url, { method: 'GET', headers, signal: controller.signal }),
       new Promise((_, reject) => setTimeout(() => reject(timeoutErr()), DETECT_TIMEOUT_MS))
-    ])
+    ])) as Response
     if (!res.ok) {
       const text = await res.text().catch(() => '')
       throw new Error(redactSecrets(`HTTP ${res.status} dari ${url}: ${text.slice(0, 160)}`))
     }
     const data = await res.json()
     const ids =
-      (Array.isArray(data?.data) && data.data.map((m) => m.id || m.name)) ||
-      (Array.isArray(data?.models) && data.models.map((m) => m.id || m.name)) ||
+      (Array.isArray(data?.data) && data.data.map((m: any) => m.id || m.name)) ||
+      (Array.isArray(data?.models) && data.models.map((m: any) => m.id || m.name)) ||
       (Array.isArray(data) && data.map((m) => m.id || m.name)) ||
       []
     return orderModelsPreferFree(ids)
@@ -1074,21 +1084,21 @@ export const listCustomModels = async (rawEndpoint, apiKey, protocolConf) => {
 // (mis. abelink, claude-work, ...). Di dalamnya, yang gratis (:free ala
 // OpenRouter atau segmen path `free`) naik duluan — stabil, sisanya tetap
 // pada posisi relatif server.
-export const isFreeModelId = (id) => {
+export const isFreeModelId = (id: any) => {
   const s = String(id || '')
-  const tail = s.split('/').pop()
+  const tail = s.split('/').pop() ?? ''
   return tail.toLowerCase() === 'free' || /:free$/i.test(s)
 }
 
-export const orderModelsPreferFree = (ids) => {
-  const uniq = [...new Set((ids || []).filter(Boolean))]
-  const free = []
-  const paid = []
+export const orderModelsPreferFree = (ids: any) => {
+  const uniq = [...new Set((ids || []).filter(Boolean))] as string[]
+  const free: string[] = []
+  const paid: string[] = []
   for (const id of uniq) (isFreeModelId(id) ? free : paid).push(id)
   return [...free, ...paid]
 }
 
-export const selectNextModelInPool = (currentModel, { fallbackModel = 'gemini-2.5-flash', modelPool = [] } = {}) => {
+export const selectNextModelInPool = (currentModel: any, { fallbackModel = 'gemini-2.5-flash', modelPool }: { fallbackModel?: string; modelPool?: string[] } = {}) => {
   if (Array.isArray(modelPool) && modelPool.length > 1) {
     const idx = modelPool.indexOf(currentModel)
     if (idx !== -1) {

@@ -9,7 +9,7 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import { canonicalizeEndpointUrl } from '../../../src/api/ai/providerRegistry.ts'
-import { getGlobalConfig } from '../../main/ai-bridge.js'
+import { getGlobalConfig } from '../../main/ai-bridge.ts'
 import type { MsEdgeTTS } from 'msedge-tts'
 
 const getYt = lazy(async () => {

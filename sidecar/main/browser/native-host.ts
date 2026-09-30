@@ -23,19 +23,19 @@ export function resolveDataHome(env = process.env) {
   return env?.XDG_DATA_HOME || `${env?.HOME ?? ''}/.local/share`
 }
 
-export function hostNameForFlavor(flavor) {
+export function hostNameForFlavor(flavor: any) {
   return flavor === 'dev' ? NATIVE_HOST_NAME_DEV : NATIVE_HOST_NAME
 }
 
 // destDir flavor-aware: dataHome .../abelink (+'/native-host'), dataHome
 // .../abelink-dev langsung +'/native-host' (anti double-brand
 // .../abelink-dev/abelink). dataHome polos (XDG base/tmp uji) -> +brand/flavor.
-export function hostDirFor(dataHome, flavor = 'prod') {
+export function hostDirFor(dataHome: any, flavor = 'prod') {
   if (/(^|\/)abelink(-dev)?$/.test(dataHome)) return path.join(dataHome, 'native-host')
   return path.join(dataHome, flavor === 'dev' ? 'abelink-dev' : 'abelink', 'native-host')
 }
 
-const MANIFEST_BODY = (hostPath, name = NATIVE_HOST_NAME) =>
+const MANIFEST_BODY = (hostPath: any, name = NATIVE_HOST_NAME) =>
   JSON.stringify(
     {
       name,
@@ -62,6 +62,12 @@ export async function ensureNativeHost({
     'BraveSoftware/Brave-Browser'
   ],
   flavor = 'prod'
+}: {
+  configHome?: string
+  dataHome?: string
+  sourceFile?: { pathname?: string } | string | null
+  browsers?: string[]
+  flavor?: string
 } = {}) {
   // Migrasi sekali-jalan brand lama (best-effort, silent): XDG/abelink -> XDG/abelink.
   // Migrasi utama di Rust setup (lib.rs); penjaga ini menutup ras headless-sidecar.
@@ -76,7 +82,7 @@ export async function ensureNativeHost({
   fs.mkdirSync(destDir, { recursive: true })
 
   const destMjs = path.join(destDir, 'abelink-bridge-host.mjs')
-  const src = sourceFile?.pathname ?? String(sourceFile ?? '')
+  const src = typeof sourceFile === 'string' ? sourceFile : sourceFile?.pathname ?? ''
   if (src && fs.existsSync(src)) {
     try {
       fs.copyFileSync(src, destMjs)

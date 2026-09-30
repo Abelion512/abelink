@@ -35,7 +35,7 @@ type WindowTrackerModule = {
 }
 
 const getPl = lazy(async () =>
-  (await import('../../main/plugins/plugin-loader.js')) as unknown as PluginLoaderModule
+  (await import('../../main/plugins/plugin-loader.ts')) as unknown as PluginLoaderModule
 )
 const getGsvc = lazy(async () =>
   (await import('../../main/google/google-service.js')) as unknown as GoogleServiceModule

@@ -23,7 +23,7 @@ const DESIGN = [
 // ---- Error handling ----
 const ERROR_HANDLING = [
   S('Gagal graceful: kembalikan null/pesan jujur, jangan crash, jangan ngarang', 'errorGuard.ts, convertFilePathToBase64'),
-  S('Jaringan/API: jeda rate-limit + backoff + ganti model otomatis', 'sidecar/main/ai-bridge.js'),
+  S('Jaringan/API: jeda rate-limit + backoff + ganti model otomatis', 'sidecar/main/ai-bridge.ts'),
   S('ML lokal gagal (mis. SIMD tak tersedia) = turun ke Lite Mode hash, fitur tetap jalan', 'vectorMemory.ts, embedding.worker.ts')
 ]
 
@@ -37,14 +37,14 @@ const SELF_IMPROVEMENT = [
 
 // ---- Batas (tahu diri) ----
 const LIMITS = [
-  S('Kirim pesan keluar hanya via Telegram bot ke admin terdaftar — TANPA WhatsApp', 'telegram-service.js'),
+  S('Kirim pesan keluar hanya via Telegram bot ke admin terdaftar — TANPA WhatsApp', 'telegram-service.ts'),
   S('Otomasi browser/fisik hanya lewat tool yang ada; yang belum ada dilaporkan jujur sebagai belum didukung', 'sidecar/engine/channels/'),
   S('Tidak menebak identitas, tidak mengarang hasil tool, tidak mengaku produk lain', 'persona.ts')
 ]
 
 // ---- Browser & environment (kemampuan web + posisi eksekusi) ----
 const BROWSER_ENV = [
-  S('Ambil halaman web via browser-navigate/browser-extract; JANGAN via curl/wget/python shell (otomatis ditolak)', 'node-tools.js browser-navigate, bridge-core.js isWebScrapeCommand'),
+  S('Ambil halaman web via browser-navigate/browser-extract; JANGAN via curl/wget/python shell (otomatis ditolak)', 'node-tools.ts browser-navigate, bridge-core.ts isWebScrapeCommand'),
   S('Klik/ketik fisik hanya bila extension Abelink Bridge TERSAMBUNG (lihat status di panduan tool); bila tidak, katakan terus terang', 'extension/background.js, group-tools.js browserExtensionStatusLine'),
   S('Setiap tab yang dibuka masuk 1 grup sesi; grup ditutup otomatis hanya bila user mengaktifkan browserAutoCloseTabs', 'extension/background.js ensureGroup, browser.mjs browser:close'),
   S('Berjalan di Linux desktop user (Tauri); shell = bash, bukan PowerShell/cmd', 'appIdentity.ts runtime')

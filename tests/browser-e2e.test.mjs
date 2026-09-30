@@ -1,6 +1,6 @@
 // E2E lapisan HTTP bridge browser (tanpa browser sungguhan).
 //
-// Menjalankan server HTTP nyata (server.mjs + bridge-core.mjs) di port uji,
+// Menjalankan server HTTP nyata (server.mjs + bridge-core.ts) di port uji,
 // lalu berperan sebagai "ekstensi palsu" lewat fetch: handshake -> poll ->
 // result. Jalur negatif (401/403/404/400/timeout) + satu round-trip positif.
 // Extension JS (background.js, butuh API chrome) tetap dicover runbook manual
@@ -17,14 +17,14 @@ import {
   writeTokenFile,
   readTokenRecord,
   tokenPathFor,
-} from '../sidecar/main/browser/bridge-core.mjs'
+} from '../sidecar/main/browser/bridge-core.ts'
 import {
   ensureNativeHost,
   NATIVE_HOST_NAME,
   NATIVE_HOST_NAME_DEV,
   EXTENSION_ID,
-} from '../sidecar/main/browser/native-host.mjs'
-import { startBrowserBridge, stopBrowserBridge } from '../sidecar/main/browser/server.mjs'
+} from '../sidecar/main/browser/native-host.ts'
+import { startBrowserBridge, stopBrowserBridge } from '../sidecar/main/browser/server.ts'
 import { handlers } from '../sidecar/engine/registry.ts'
 import '../sidecar/engine/channels/browser.ts'
 

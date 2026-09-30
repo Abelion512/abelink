@@ -1,10 +1,10 @@
 // Regression tests: pesan offline sesuai provider yang dipakai.
-// Target: providerOfflineMessage di sidecar/main/ai-bridge.js.
+// Target: providerOfflineMessage di sidecar/main/ai-bridge.ts.
 // Kasus asal: 9Router dimatikan tapi user diberitahu "LM Studio mati ...
 // port 1234" — provider salah, port salah, tidak bisa ditindaklanjuti.
 
 import { describe, it, expect } from 'vitest'
-import { providerOfflineMessage } from '../sidecar/main/ai-bridge.js'
+import { providerOfflineMessage } from '../sidecar/main/ai-bridge.ts'
 
 describe('providerOfflineMessage', () => {
   it('jalur default menyebut 9Router + port 20128, bukan LM Studio port 1234', () => {

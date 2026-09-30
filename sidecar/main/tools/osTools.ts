@@ -1,87 +1,87 @@
-// Tool OS automation Linux (dipindah murni dari main/node-tools.js).
+// Tool OS automation Linux (dipindah murni dari main/node-tools.ts).
 import fs from 'fs'
 import {
   readDesktop, executeClick, executeDoubleClick, executeType, executeKey,
   executeScroll, openApp, listWindows, focusWindow, askUserPC,
   openPCSession, closePCSession, isPCSessionOpen
-} from '../pc-agent.js'
-import { isDangerousKeyCombo } from './_shared.mjs'
+} from '../pc-agent.ts'
+import { isDangerousKeyCombo } from './_shared.ts'
 
 export const osTools = {
   'os-read': {
     needsApproval: false,
-    handler: async (query) => {
+    handler: async (query: any) => {
       try {
         const result = await readDesktop({}, (query || '').trim())
         if (result?.error && result?.window === 'error') {
           return { success: false, error: result.error }
         }
         return { success: true, data: result }
-      } catch (e) {
+      } catch (e: any) {
         return { success: false, error: e.message }
       }
     }
   },
   'os-click': {
     needsApproval: false,
-    handler: async (query) => {
+    handler: async (query: any) => {
       try {
         const message = await executeClick((query || '').trim())
         return { success: !/ERROR/i.test(message), data: message }
-      } catch (e) {
+      } catch (e: any) {
         return { success: false, error: e.message }
       }
     }
   },
   'os-double-click': {
     needsApproval: false,
-    handler: async (query) => {
+    handler: async (query: any) => {
       try {
         const message = await executeDoubleClick((query || '').trim())
         return { success: !/ERROR/i.test(message), data: message }
-      } catch (e) {
+      } catch (e: any) {
         return { success: false, error: e.message }
       }
     }
   },
   'os-type': {
     needsApproval: false,
-    handler: async (query) => {
+    handler: async (query: any) => {
       try {
         const message = await executeType(query || '')
         return { success: !/ERROR/i.test(message), data: message }
-      } catch (e) {
+      } catch (e: any) {
         return { success: false, error: e.message }
       }
     }
   },
   'os-key': {
-    needsApproval: (query) => isDangerousKeyCombo(query),
-    approvalMessage: (query) =>
+    needsApproval: (query: any) => isDangerousKeyCombo(query),
+    approvalMessage: (query: any) =>
       `Abelink ingin menekan shortcut keyboard yang berpotensi BERBAHAYA:\n\n${query}`,
-    handler: async (query) => {
+    handler: async (query: any) => {
       try {
         const message = await executeKey((query || '').trim())
         return { success: !/ERROR/i.test(message), data: message }
-      } catch (e) {
+      } catch (e: any) {
         return { success: false, error: e.message }
       }
     }
   },
   'os-scroll': {
     needsApproval: false,
-    handler: async (query) => {
+    handler: async (query: any) => {
       try {
         const message = await executeScroll(query || '')
         return { success: !/ERROR/i.test(message), data: message }
-      } catch (e) {
+      } catch (e: any) {
         return { success: false, error: e.message }
       }
     }
   },
   'os-delay': {
     needsApproval: false,
-    handler: async (query) => {
+    handler: async (query: any) => {
       const ms = Math.min(Math.max(parseInt(query, 10) || 500, 50), 30000)
       await new Promise((r) => setTimeout(r, ms))
       return { success: true, data: `Delay ${ms}ms selesai.` }
@@ -91,21 +91,21 @@ export const osTools = {
     // Buka overview/launcher GNOME lalu ketik query. Pola katalog:
     // os-search -> os-delay(1000) -> os-key(enter).
     needsApproval: false,
-    handler: async (query) => {
+    handler: async (query: any) => {
       try {
         const openRes = await executeKey('super')
         if (/ERROR/i.test(openRes)) return { success: false, error: openRes }
         await new Promise((r) => setTimeout(r, 700))
         const typeRes = await executeType(query || '')
         return { success: !/ERROR/i.test(typeRes), data: `${openRes} ${typeRes}` }
-      } catch (e) {
+      } catch (e: any) {
         return { success: false, error: e.message }
       }
     }
   },
   'os-open': {
     needsApproval: false,
-    handler: async (query) => {
+    handler: async (query: any) => {
       try {
         if (isPCSessionOpen()) {
           const message = await openApp((query || '').trim())
@@ -137,7 +137,7 @@ export const osTools = {
           return { success: true, data: `Membuka ${target}` }
         }
         return { success: false, error: 'File/tautan tidak ditemukan' }
-      } catch (e) {
+      } catch (e: any) {
         return { success: false, error: e.message }
       }
     }
@@ -148,25 +148,25 @@ export const osTools = {
       try {
         const result = await listWindows()
         return { success: result?.status === 'success', data: result }
-      } catch (e) {
+      } catch (e: any) {
         return { success: false, error: e.message }
       }
     }
   },
   'os-focus-window': {
     needsApproval: false,
-    handler: async (query) => {
+    handler: async (query: any) => {
       try {
         const message = await focusWindow((query || '').trim())
         return { success: !/ERROR/i.test(message), data: message }
-      } catch (e) {
+      } catch (e: any) {
         return { success: false, error: e.message }
       }
     }
   },
   'os-ask': {
     needsApproval: false,
-    handler: async (query) => {
+    handler: async (query: any) => {
       if (isPCSessionOpen()) {
         try {
           const raw = await askUserPC(query || '')
@@ -176,9 +176,9 @@ export const osTools = {
               parsed = JSON.parse(raw)
             } catch {}
           }
-          const status = parsed?.status
+          const status = (parsed as any)?.status
           return { success: status !== 'error', data: parsed }
-        } catch (e) {
+        } catch (e: any) {
           return { success: false, error: e.message }
         }
       }
@@ -193,7 +193,7 @@ export const osTools = {
       try {
         const result = await openPCSession()
         return { success: true, data: result }
-      } catch (e) {
+      } catch (e: any) {
         return { success: false, error: e.message }
       }
     }
@@ -204,7 +204,7 @@ export const osTools = {
       try {
         const result = await closePCSession()
         return { success: true, data: result }
-      } catch (e) {
+      } catch (e: any) {
         return { success: false, error: e.message }
       }
     }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getNativeToolsDefinition } from '../sidecar/main/node-tools.js'
+import { getNativeToolsDefinition } from '../sidecar/main/node-tools.ts'
 
 describe('Human-in-the-Loop browser-ask tool', () => {
   const tools = getNativeToolsDefinition()

@@ -1,9 +1,9 @@
 // Kontrak query browser-extract (murni, unit-testable).
 // Kebijakan jujur: query kosong tanpa sesi extension dan tanpa URL terakhir
 // = error eksplisit (bukan fetch buta yang berujung 403 + klaim halu).
-import { extractUrl } from '../browser/bridge-core.mjs'
+import { extractUrl } from '../browser/bridge-core.ts'
 
-export function resolveExtractQuery(query, { hasSession = false, lastUrl = null } = {}) {
+export function resolveExtractQuery(query: any, { hasSession = false, lastUrl = null } = {}) {
   const q = String(query ?? '').trim()
   const url = extractUrl(q)
   if (url) return { ok: true, url }

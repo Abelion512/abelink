@@ -4,7 +4,7 @@
 // dan tutup sesi dibaca dari sini (capabilities:list/inspect/guide).
 // Aksi di sini hanya membaca state lokal + drop sesi; tidak menyentuh tab
 // user (tutup tab = perintah extension via channel browser:*, bukan sini).
-import { listSessions, dropSession, getBrowserConfig } from '../browser/bridge-core.mjs'
+import { listSessions, dropSession, getBrowserConfig } from '../browser/bridge-core.ts'
 
 export async function runBrowserExtension(actionId: string, args: { sessionId?: string } = {}) {
   switch (String(actionId || '')) {

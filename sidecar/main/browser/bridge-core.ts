@@ -44,13 +44,13 @@ export const BROWSER_BRIDGE = {
 //   waiting: [{resolve, timer}],           // long-poll resolvers
 //   groups: { [task]: { status, task, color, lastUpdate } }  // browser-use grouping
 // }
-const sessions = new Map()
+const sessions = new Map<string, any>()
 
 // Group colors cycle (sesuai Chrome tabGroup.color enum: grey/blue/red/yellow/green/pink/purple/cyan)
 export const GROUP_COLORS = ['grey', 'blue', 'yellow', 'green', 'pink', 'purple', 'cyan', 'red']
 
 // Status ikon untuk group tab. UI menampilkan icon ini di nama group.
-export const STATUS_ICON = {
+export const STATUS_ICON: Record<string, string> = {
   loading: '⏳',
   reading: '📖',
   acting: '🖱️',
@@ -62,7 +62,7 @@ export const STATUS_ICON = {
 // Konvensi penamaan group: "{icon} ({status}) — {task}"
 // (Kontrak lama, dipakai test + status mirror sidecar. Judul grup Chrome
 // yang tampil ke user memakai format "(icon) <task>" di extension/.)
-export function deriveGroupName(status, task) {
+export function deriveGroupName(status: any, task: any) {
   const icon = STATUS_ICON[status] || STATUS_ICON.idle
   const safeTask = String(task || 'untitled').slice(0, 32)
   return `${icon} (${status}) — ${safeTask}`
@@ -73,9 +73,9 @@ export function deriveGroupName(status, task) {
 // auto-close (user masih butuh lihat hasil kerja); auto-launch AKTIF
 // (kehendak owner: agen harus otomatis — user mematikan via toggle bila
 // tidak mau browsernya dibukakan).
-const browserConfig = { autoCloseTabs: false, autoLaunch: true }
+const browserConfig: Record<string, any> = { autoCloseTabs: false, autoLaunch: true }
 
-export function setBrowserConfig(partial = {}) {
+export function setBrowserConfig(partial: Record<string, any> = {}) {
   if (typeof partial.autoCloseTabs === 'boolean') {
     browserConfig.autoCloseTabs = partial.autoCloseTabs
   }
@@ -90,7 +90,7 @@ export function getBrowserConfig() {
 }
 
 // Normalisasi ID elemen: "3" -> "ak3" (format data-abelink-id); "ak3" tetap.
-export function normalizeAbelinkId(q) {
+export function normalizeAbelinkId(q: any) {
   const t = String(q ?? '').trim()
   if (/^ak\d+$/i.test(t)) return t.toLowerCase()
   if (/^\d+$/.test(t)) return `ak${t}`
@@ -102,7 +102,7 @@ export function normalizeAbelinkId(q) {
 // (pola spiral observasi nyata: curl|grep|sed berulang → gagal → ulangi).
 // curl polos (cek API), curl -o (download), dan localhost tanpa parse
 // tetap diizinkan — yang ditolak hanya fetch-lalu-parse HTML.
-export function isWebScrapeCommand(query) {
+export function isWebScrapeCommand(query: any) {
   const q = String(query ?? '')
   if (!/https?:\/\//i.test(q)) return false
   if (/\b(curl|wget)\b[^|]*\|\s*(grep|sed|awk|perl|python|node|php|ruby|cut|sort|head|tail)\b/i.test(q)) return true
@@ -114,7 +114,7 @@ export function isWebScrapeCommand(query) {
 }
 
 // File .py yang isinya crawler web (dipakai write-file guard sisi renderer).
-export function looksLikeCrawlerSource(content) {
+export function looksLikeCrawlerSource(content: any) {
   const c = String(content ?? '')
   if (!/https?:\/\//i.test(c)) return false
   return /\b(urllib|requests|urlopen|BeautifulSoup|htmlparser|selenium|playwright)\b/i.test(c)
@@ -125,7 +125,7 @@ export function looksLikeCrawlerSource(content) {
 // Model sering mengembalikan URL berbalut markdown "[label](url)" atau tanpa
 // skema. Bersihkan sebelum fetch/dispatch agar satu format aneh tidak
 // menggagalkan seluruh sesi (kasus nyata: 20 turn retry → give up).
-export function extractUrl(query) {
+export function extractUrl(query: any) {
   const text = String(query ?? '')
   const m = text.match(/https?:\/\/[^\s)\]>"]+/)
   if (m) return m[0].replace(/[.,;:!?]+$/, '')
@@ -149,7 +149,7 @@ export function getSession(sessionId = 'default') {
 
 // URL terakhir yang sukses di-navigate per sesi — untuk recovery tab yang
 // ditutup user (buka ulang otomatis, bukan menyerah). Bukan persistensi.
-export function setLastUrl(sessionId = 'default', url) {
+export function setLastUrl(sessionId = 'default', url: any) {
   if (!url) return
   ensureSession(sessionId).lastUrl = String(url)
 }
@@ -160,7 +160,7 @@ export function getLastUrl(sessionId = 'default') {
 
 // Tab fokus per sesi — identitas tab milik sesi ini (tabId + url), dicatat
 // tiap navigate sukses. Dipakai recovery jujur + observasi _tab.
-export function setFocusedTab(sessionId = 'default', tab) {
+export function setFocusedTab(sessionId = 'default', tab: any) {
   if (!tab || tab.tabId == null) return
   ensureSession(sessionId).focusedTab = {
     tabId: tab.tabId,
@@ -204,7 +204,7 @@ export function ensureSession(sessionId = 'default') {
   return s
 }
 
-export function dropSession(sessionId) {
+export function dropSession(sessionId: any) {
   const s = sessions.get(sessionId)
   if (!s) return false
   for (const w of s.waiting) {
@@ -239,7 +239,7 @@ export function listSessions() {
 // -------------------------------------------------------- group-session command
 // Update group status untuk task tertentu. Ekstensi akan
 // membuat/memindahkan tab ke group dengan nama yang diturunkan.
-export function groupSession(sessionId, { task, status, color, groupId }) {
+export function groupSession(sessionId: any, { task, status, color, groupId }: { task?: string; status?: string; color?: number | string; groupId?: number | string | null } = {}) {
   const s = sessions.get(sessionId)
   if (!s) return { ok: false, error: 'Sesi tidak dikenal.' }
   if (!task) return { ok: false, error: 'task wajib.' }
@@ -257,7 +257,7 @@ export function groupSession(sessionId, { task, status, color, groupId }) {
 }
 
 // Get group info for a specific task (or all tasks)
-export function getSessionGroups(sessionId) {
+export function getSessionGroups(sessionId: any) {
   const s = sessions.get(sessionId)
   if (!s) return { ok: false, error: 'Sesi tidak dikenal.' }
   return { ok: true, groups: s.groups }
@@ -265,11 +265,11 @@ export function getSessionGroups(sessionId) {
 
 // --------------------------------------------------------------- handshake
 // Dipanggil server.mjs saat ekstensi GET /handshake dengan token valid.
-export function handshake(sessionId, token) {
+export function handshake(sessionId: any, token: any) {
   const s = ensureSession(sessionId)
   if (!tokenOk(s, token)) return { ok: false, error: 'Token tidak cocok.' }
   s.lastSeenAt = now()
-  const out = { ok: true, pollTimeoutMs: BROWSER_BRIDGE.POLL_TIMEOUT_MS }
+  const out: Record<string, any> = { ok: true, pollTimeoutMs: BROWSER_BRIDGE.POLL_TIMEOUT_MS }
   // Rotasi hanya dari handshake VALID dengan token aktif (bukan grace).
   if (s.token === token) {
     const rotated = maybeRotate(s)
@@ -286,7 +286,7 @@ export function handshake(sessionId, token) {
 // lagi; penuntasan dilakukan lewat peta `inflight` agar reconnect ekstensi
 // tidak menggugurkan state session.
 
-function wake(s) {
+function wake(s: any) {
   // Bangunkan semua long-poll yang menggantung; mereka akan mengambil
   // perintah dari antrean lewat takeNext().
   const waiters = s.waiting.splice(0, s.waiting.length)
@@ -299,7 +299,7 @@ function wake(s) {
 // ------------------------------------------------------------- long-polling
 // Dipanggil server.mjs saat ekstensi GET /poll. Mengembalikan satu perintah
 // atau null (timeout tanpa pekerjaan). sidecarToken diverifikasi dulu.
-export function takeNext(sessionId, token) {
+export function takeNext(sessionId: any, token: any) {
   const s = sessions.get(sessionId)
   if (!s || !tokenOk(s, token))
     return Promise.reject(new Error('Sesi tidak dikenal atau token salah.'))
@@ -311,20 +311,20 @@ export function takeNext(sessionId, token) {
   if (existing) return Promise.resolve(serializeCommand(existing, s))
 
   return new Promise((resolve) => {
-    const w = { resolve: null, timer: null }
-    w.resolve = (cmd) => {
+    const w: { resolve: ((cmd: any) => void) | null; timer: any } = { resolve: null, timer: null }
+    w.resolve = (cmd: any) => {
       const i = s.waiting.indexOf(w)
       if (i >= 0) s.waiting.splice(i, 1)
       const next = s.pending[0]
       if (next) return resolve(serializeCommand(next, s))
       resolve(cmd)
     }
-    w.timer = setTimeout(() => w.resolve(null), BROWSER_BRIDGE.POLL_TIMEOUT_MS)
+    w.timer = setTimeout(() => w.resolve?.(null), BROWSER_BRIDGE.POLL_TIMEOUT_MS)
     s.waiting.push(w)
   })
 }
 
-function serializeCommand(entry, s) {
+function serializeCommand(entry: any, s: any) {
   // Hapus dari antrean saat diserahkan; hasilnya yang akan menutup promise.
   const i = s.pending.indexOf(entry)
   if (i >= 0) s.pending.splice(i, 1)
@@ -335,7 +335,7 @@ function serializeCommand(entry, s) {
 // ------------------------------------------------------------------ hasil
 // Dipanggil server.mjs saat ekstensi POST /result. Menuntaskan promise
 // dispatch() yang sesuai. sidecarToken + commandId wajib.
-export function resolveCommand(sessionId, token, commandId, result) {
+export function resolveCommand(sessionId: any, token: any, commandId: any, result: any) {
   const s = sessions.get(sessionId)
   if (!s || !tokenOk(s, token)) return { ok: false, error: 'Sesi tidak dikenal atau token salah.' }
   s.lastSeenAt = now()
@@ -377,7 +377,7 @@ export function resolveCommand(sessionId, token, commandId, result) {
 const inflight = new Map()
 
 // Varian dispatch yang memakai inflight map (dipakai channel browser:*).
-export function dispatchCommand(sessionId, type, payload) {
+export function dispatchCommand(sessionId: any, type: any, payload: any) {
   const s = ensureSession(sessionId)
   // Fail-fast watchdog: sesi dikenal tapi basi (extension mati > TTL) dan
   // tidak ada perintah tertunda -> tolak langsung tanpa menunggu
@@ -398,7 +398,7 @@ export function dispatchCommand(sessionId, type, payload) {
     const commandId = prng()
     const timer = setTimeout(() => {
       inflight.delete(commandId)
-      const i = s.pending.findIndex((e) => e.id === commandId)
+      const i = s.pending.findIndex((e: any) => e.id === commandId)
       if (i >= 0) s.pending.splice(i, 1)
       reject(
         new Error(
@@ -433,8 +433,8 @@ const TOKEN_GRACE_MS = 24 * 3600 * 1000
 // `base` = resolveDataHome()/brandDir/XDG base/tmp uji. Normalisasi dulu
 // (strip brand + trailing slash), lalu satu cabang prod/dev — idempoten.
 const TOKEN_FILE = 'browser-bridge-token'
-const nonEmpty = (v) => (typeof v === 'string' && v.trim() ? v.trim() : null)
-export function tokenPathFor({ base, flavor = 'prod', env = process.env } = {}) {
+const nonEmpty = (v: any) => (typeof v === 'string' && v.trim() ? v.trim() : null)
+export function tokenPathFor({ base, flavor = 'prod', env = process.env }: { base?: string | null; flavor?: string; env?: any } = {}) {
   const isDev = flavor === 'dev' || flavor === '49713'
   const over = nonEmpty(env?.ABELINK_DATA_HOME)
   if (isDev && over) return path.join(over, TOKEN_FILE)
@@ -445,16 +445,16 @@ export function tokenPathFor({ base, flavor = 'prod', env = process.env } = {}) 
   return path.join(root, isDev ? 'abelink-dev' : 'abelink', TOKEN_FILE)
 }
 
-export function flavorFromPort(port) {
+export function flavorFromPort(port: any) {
   return String(port ?? '') === '49713' ? 'dev' : 'prod'
 }
 
 // Legacy: satu arg = brandDir prod. Flavor default 'prod' agar kompatibel.
-export function tokenFilePath(xdgDataDir, flavor = 'prod', env = process.env) {
+export function tokenFilePath(xdgDataDir: any, flavor = 'prod', env = process.env) {
   return tokenPathFor({ base: xdgDataDir, flavor, env })
 }
 
-export function readTokenRecord(xdgDataDir, flavor = 'prod', env = process.env) {
+export function readTokenRecord(xdgDataDir: any, flavor = 'prod', env = process.env) {
   try {
     const raw = fs.readFileSync(tokenFilePath(xdgDataDir, flavor, env), 'utf8').trim()
     if (!raw) return null
@@ -480,14 +480,14 @@ export function readTokenRecord(xdgDataDir, flavor = 'prod', env = process.env) 
   return null
 }
 
-function persistTokenRecord(xdgDataDir, rec, flavor = 'prod', env = process.env) {
+function persistTokenRecord(xdgDataDir: any, rec: any, flavor = 'prod', env = process.env) {
   const file = tokenFilePath(xdgDataDir, flavor, env)
   fs.mkdirSync(path.dirname(file), { recursive: true })
   fs.writeFileSync(file, JSON.stringify(rec), { mode: 0o600 })
   return file
 }
 
-export function writeTokenFile(xdgDataDir, flavor = 'prod', env = process.env) {
+export function writeTokenFile(xdgDataDir: any, flavor = 'prod', env = process.env) {
   let rec = readTokenRecord(xdgDataDir, flavor, env)
   if (!rec) {
     rec = { token: prng(), createdAt: Date.now(), prevToken: null, prevExpiresAt: 0 }
@@ -510,7 +510,7 @@ export function writeTokenFile(xdgDataDir, flavor = 'prod', env = process.env) {
   return { file: tokenFilePath(xdgDataDir, flavor, env), token: s.token }
 }
 
-function safeTokenCompare(a, b) {
+function safeTokenCompare(a: any, b: any) {
   if (typeof a !== 'string' || typeof b !== 'string') return false
   const bufA = Buffer.from(a, 'utf8')
   const bufB = Buffer.from(b, 'utf8')
@@ -519,7 +519,7 @@ function safeTokenCompare(a, b) {
 }
 
 // Token cocok: token aktif ATAU token lama dalam masa grace.
-export function tokenOk(s, token) {
+export function tokenOk(s: any, token: any) {
   if (!s || !token) return false
   if (safeTokenCompare(s.token, token)) return true
   return !!(s.prevToken && safeTokenCompare(s.prevToken, token) && Date.now() < (s.prevExpiresAt || 0))
@@ -534,7 +534,7 @@ export const TOKEN_REJECT_STALE = 'token-stale'
 export const TOKEN_REJECT_UNKNOWN = 'token-unknown'
 export const TOKEN_REJECT_NO_SESSION = 'session-unknown'
 
-export function tokenRejectReason(sessionId, token) {
+export function tokenRejectReason(sessionId: any, token: any) {
   const s = sessions.get(sessionId)
   if (!s) return TOKEN_REJECT_NO_SESSION
   if (safeTokenCompare(s.token, token)) return null
@@ -544,7 +544,7 @@ export function tokenRejectReason(sessionId, token) {
 
 // Rotasi bila kedaluwarsa. Dipanggil HANYA dari handshake valid (jalur
 // terautentikasi) — tidak pernah dari jalur gagal.
-function maybeRotate(s) {
+function maybeRotate(s: any) {
   if (Date.now() - (s.tokenCreatedAt || Date.now()) < rotateMs()) return null
   const rotated = {
     token: prng(),

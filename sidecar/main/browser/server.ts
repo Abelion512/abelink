@@ -5,7 +5,7 @@
 //   GET  /abelink-bridge/poll?session=&token=       -> long-poll, 1 perintah atau null
 //   POST /abelink-bridge/result?session=&token=     -> hasil eksekusi perintah
 //
-// Semua logika antrean ada di bridge-core.mjs; file ini murni transport HTTP:
+// Semua logika antrean ada di bridge-core.ts; file ini murni transport HTTP:
 // verifikasi token, batas ukuran body, dan JSON-safe response. Tanpa token
 // valid semuanya 401; origin selain chrome-extension://*/moz-extension://
 // ditolak 403 (mencegah halaman web mana pun memanggil bridge lokal).
@@ -25,16 +25,16 @@ import {
   TOKEN_REJECT_STALE,
   sweepSessions,
   flavorFromPort
-} from './bridge-core.mjs'
-import { EXTENSION_ID } from './native-host.mjs'
+} from './bridge-core.ts'
+import { EXTENSION_ID } from './native-host.ts'
 import { brandDir } from '../utils/dataHome.ts'
 
 const MAX_BODY = 1024 * 1024 // 1MB — hasil read-dom jauh di bawah ini (dipotong di core)
 
-let server = null
+let server: any = null
 let listening = false
 let startError = null
-let sweepTimer = null
+let sweepTimer: any = null
 // Watchdog: sapu sesi mati tiap 60 detik agar `connected` tidak basi.
 // Hanya di prod/dev nyata — test (VITEST/NODE_ENV=test) dikecualikan agar
 // tidak ada timer menggantung di suite vitest.
@@ -58,7 +58,7 @@ function disarmSweepTimer() {
   }
 }
 
-function json(res, code, obj) {
+function json(res: any, code: any, obj: any) {
   const body = JSON.stringify(obj)
   res.writeHead(code, {
     'Content-Type': 'application/json; charset=utf-8',
@@ -68,11 +68,11 @@ function json(res, code, obj) {
   res.end(body)
 }
 
-function readBody(req) {
-  return new Promise((resolve, reject) => {
+function readBody(req: any): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
     let size = 0
-    const chunks = []
-    req.on('data', (c) => {
+    const chunks: any = []
+    req.on('data', (c: any) => {
       size += c.length
       if (size > MAX_BODY) {
         reject(new Error('Body terlalu besar.'))
@@ -86,13 +86,13 @@ function readBody(req) {
   })
 }
 
-function checkHost(req) {
+function checkHost(req: any) {
   const host = req.headers.host || ''
   const hostname = host.split(':')[0].toLowerCase()
   return hostname === '127.0.0.1' || hostname === 'localhost'
 }
 
-function checkOrigin(req) {
+function checkOrigin(req: any) {
   const origin = req.headers.origin || ''
   if (origin) {
     return origin === `chrome-extension://${EXTENSION_ID}`
@@ -105,7 +105,7 @@ function checkOrigin(req) {
   return true
 }
 
-async function route(req, res) {
+async function route(req: any, res: any) {
   const url = new URL(req.url, `http://${BROWSER_BRIDGE.HOST}`)
   if (!url.pathname.startsWith('/abelink-bridge/')) {
     return json(res, 404, { error: 'Not found.' })
@@ -133,7 +133,7 @@ async function route(req, res) {
     try {
       const cmd = await takeNext(sessionId, token) // null = idle timeout
       return json(res, 200, { command: cmd })
-    } catch (e) {
+    } catch (e: any) {
       return json(res, 401, { error: e.message, reason: tokenRejectReason(sessionId, token) })
     }
   }
@@ -142,10 +142,10 @@ async function route(req, res) {
     const s = getSession(sessionId)
     if (!tokenOk(s, token))
       return json(res, 401, { error: 'Token tidak cocok.', reason: tokenRejectReason(sessionId, token) })
-    let parsed
+    let parsed: any
     try {
       parsed = JSON.parse(await readBody(req))
-    } catch (e) {
+    } catch (e: any) {
       return json(res, 400, { error: `Body JSON tidak valid: ${e.message}` })
     }
     const r = groupSession(sessionId, parsed || {})
@@ -161,10 +161,10 @@ async function route(req, res) {
   }
 
   if (endpoint === 'result' && req.method === 'POST') {
-    let parsed
+    let parsed: any
     try {
       parsed = JSON.parse(await readBody(req))
-    } catch (e) {
+    } catch (e: any) {
       return json(res, 400, { error: `Body JSON tidak valid: ${e.message}` })
     }
     const r = resolveCommand(sessionId, token, parsed?.commandId, {
@@ -195,8 +195,8 @@ async function route(req, res) {
 //   - Selalu mengembalikan Promise: pemanggil `.startBrowserBridge().catch()"
 //     di engine/channels/browser.mjs valid di SEMUA jalur (dulu jalur sync
 //     listening/latch mengembalikan object polos -> TypeError laten).
-let startPromise = null
-let startResolve = null // resolver attempt in-flight (dipakai stop() batal-kan)
+let startPromise: any = null
+let startResolve: any = null // resolver attempt in-flight (dipakai stop() batal-kan)
 export function startBrowserBridge() {
   if (listening) return Promise.resolve({ ok: true, port: BROWSER_BRIDGE.PORT })
   if (startPromise) return startPromise
@@ -204,7 +204,7 @@ export function startBrowserBridge() {
   const attempt = new Promise((resolve) => {
     startResolve = resolve
     const thisServer = http.createServer((req, res) => {
-      route(req, res).catch((e) => {
+      route(req, res).catch((e: any) => {
         try {
           json(res, 500, { error: e.message })
         } catch {
@@ -222,7 +222,7 @@ export function startBrowserBridge() {
       // meng-clobber state attempt baru.
       if (listening || server !== thisServer) return
       startError =
-        e.code === 'EADDRINUSE'
+        (e as Error & { code?: string }).code === 'EADDRINUSE'
           ? `Port bridge ${BROWSER_BRIDGE.PORT} sudah dipakai (instansi Abelink lain berjalan?).`
           : `Bridge gagal start: ${e.message}`
       listening = false
@@ -249,12 +249,12 @@ export function startBrowserBridge() {
         console.log(
           `[BrowserBridge] listening on ${BROWSER_BRIDGE.HOST}:${BROWSER_BRIDGE.PORT} (flavor: ${flavor}, token: ${file})`
         )
-      } catch (e) {
+      } catch (e: any) {
         console.warn('[BrowserBridge] token file gagal ditulis:', e.message)
       }
       // Helper token tanpa copas (best-effort; tidak menggagalkan bridge).
       // Teruskan flavor dari port (49713=dev) agar hanya file flavor-nya ditulis.
-      import('./native-host.mjs')
+      import('./native-host.ts')
         .then((m) => m.ensureNativeHost({ flavor }))
         .then((r) => {
           if (r?.ok) console.log('[BrowserBridge] native host siap:', JSON.stringify(r.installed))

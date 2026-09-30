@@ -5,9 +5,9 @@
 export const SKIP_NO_KEY = 'ROUTER_SKIP_NO_KEY'
 export const DEFAULT_ROUTER_ENDPOINT = 'http://127.0.0.1:20128'
 
-const post = async (url, apiKey, body, timeoutMs) => {
+const post = async (url: any, apiKey: any, body: any, timeoutMs: any) => {
   if (!apiKey) {
-    const err = new Error('9Router API key kosong — lewati ke layer berikutnya.')
+    const err = new Error('9Router API key kosong — lewati ke layer berikutnya.') as Error & { code?: string }
     err.code = SKIP_NO_KEY
     throw err
   }
@@ -22,7 +22,7 @@ const post = async (url, apiKey, body, timeoutMs) => {
     })
     if (!res.ok) throw new Error(`9Router ${res.status} ${res.statusText || ''}`.trim())
     return await res.json()
-  } catch (err) {
+  } catch (err: any) {
     if (err?.name === 'AbortError') throw new Error(`9Router timeout ${timeoutMs}ms: ${url}`)
     throw err
   } finally {
@@ -31,7 +31,10 @@ const post = async (url, apiKey, body, timeoutMs) => {
 }
 
 // POST {endpoint}/v1/search {model:'search-combo',query,...} -> [{title,url,snippet}]
-export const searchViaRouter = async (query, { endpoint, apiKey, timeoutMs = 30000 } = {}) => {
+export const searchViaRouter = async (
+  query: any,
+  { endpoint, apiKey, timeoutMs = 30000 }: { endpoint?: string; apiKey?: string; timeoutMs?: number } = {}
+) => {
   const base = String(endpoint || DEFAULT_ROUTER_ENDPOINT).replace(/\/+$/, '')
   const data = await post(
     `${base}/v1/search`,
@@ -49,7 +52,10 @@ export const searchViaRouter = async (query, { endpoint, apiKey, timeoutMs = 300
 }
 
 // POST {endpoint}/v1/web/fetch {model:'fetch-combo',url,...} -> markdown string
-export const fetchViaRouter = async (url, { endpoint, apiKey, timeoutMs = 30000 } = {}) => {
+export const fetchViaRouter = async (
+  url: any,
+  { endpoint, apiKey, timeoutMs = 30000 }: { endpoint?: string; apiKey?: string; timeoutMs?: number } = {}
+) => {
   const base = String(endpoint || DEFAULT_ROUTER_ENDPOINT).replace(/\/+$/, '')
   const data = await post(
     `${base}/v1/web/fetch`,

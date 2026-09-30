@@ -152,7 +152,7 @@ const shellToolConnector: Connector = {
   // TANPA requiresApproval blanket di level connector: jalur Tauri sudah
   // menggate `capabilities:execute` lewat APPROVAL_ACTIONS (dialog rfd native
   // + preview payload), dan connector melakukan dynamic per-command check
-  // (dangerous keyword dari node-tools.js) saat runtime — persis pola
+  // (dangerous keyword dari node-tools.ts) saat runtime — persis pola
   // `native-tool:execute`. Perintah berbahaya fail-fast dengan pesan tool asli.
   actions: {
     exec: {

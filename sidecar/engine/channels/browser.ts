@@ -2,7 +2,7 @@
 //
 // Lima channel lama (`browser:navigate/read-dom/action/close/show`) kini
 // benar-benar dieksekusi: perintah diantrekan ke ekstensi Abelink yang terpasang
-// di Chrome/Chromium user lewat `main/browser/server.mjs` (long-poll HTTP
+// di Chrome/Chromium user lewat `main/browser/server.ts` (long-poll HTTP
 // lokal, token auth). Tanpa ekstensi -> error eksplisit berisi petunjuk
 // pemasangan (fail-fast, bukan sukses palsu).
 //
@@ -18,9 +18,9 @@
 // port 49712/49713) BEKU; fail-fast + hint pemasangan tidak berubah.
 
 import { on, emit } from '../registry.ts'
-import * as server from '../../main/browser/server.mjs'
-import * as bridgeCore from '../../main/browser/bridge-core.mjs'
-import { BROWSER_BRIDGE } from '../../main/browser/bridge-core.mjs'
+import * as server from '../../main/browser/server.ts'
+import * as bridgeCore from '../../main/browser/bridge-core.ts'
+import { BROWSER_BRIDGE } from '../../main/browser/bridge-core.ts'
 
 // Modul bridge ber-JSDoc minimal: kontrak dipertahankan sebagai tipe lokal,
 // pemakaian di file ini melalui namespace cast type-only (terhapus saat
@@ -219,7 +219,7 @@ on('browser:reconnect', async () => {
         onStatus?: (m: unknown) => void
       }) => Promise<{ ok: boolean; reused?: boolean; session?: { id: string }; reason?: string }>
     }
-    const launcher = (await import('../../main/browser/launcher.mjs')) as unknown as LauncherModule
+    const launcher = (await import('../../main/browser/launcher.ts')) as unknown as LauncherModule
     const r = await launcher.ensureBrowserUp({
       url: core.getLastUrl('default'),
       sessionId: 'default',

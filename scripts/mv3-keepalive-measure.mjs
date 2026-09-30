@@ -717,7 +717,7 @@ main()
     try {
       // Pemulihan manifest native host ke data home ASLI (env parent masih
       // menunjuk TMP_XDG — kirim eksplisit; pola afterAll browserAuditVerify).
-      const { ensureNativeHost } = await import('../sidecar/main/browser/native-host.mjs')
+      const { ensureNativeHost } = await import('../sidecar/main/browser/native-host.ts')
       await ensureNativeHost({ dataHome: REAL_DATA_HOME, flavor: 'prod' })
       await ensureNativeHost({ dataHome: REAL_DATA_HOME, flavor: 'dev' })
       ev('NATIVE_HOST_RESTORED', 'manifest prod+dev menunjuk data home asli')

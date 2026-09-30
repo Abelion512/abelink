@@ -1,15 +1,15 @@
-// Tool file/workspace (dipindah murni dari main/node-tools.js).
+// Tool file/workspace (dipindah murni dari main/node-tools.ts).
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
 import { validateFileSyntax } from '../syntax-validator.ts'
 import { assertContained } from '../utils/fsGuard.ts'
-import { getWorkspaceDir } from './_shared.mjs'
+import { getWorkspaceDir, getSkillsDir } from './_shared.ts'
 
-export const fsTools = {
+export const fsTools: Record<string, any> = {
   'read-skill': {
     needsApproval: false,
-    handler: async (query) => {
+    handler: async (query: any) => {
       const skillName = (query || '').trim()
       if (!skillName) return { success: false, error: 'Nama skill kosong' }
       const skillDir = getSkillsDir()
@@ -43,7 +43,7 @@ export const fsTools = {
   },
   'read-file': {
     needsApproval: false,
-    handler: async (query, config) => {
+    handler: async (query: any, config: any) => {
       try {
         const parts = query.split('||')
         const filePath = parts[0].trim()
@@ -99,14 +99,14 @@ export const fsTools = {
               ? 'File panjang. Hanya menampilkan 400 baris awal. Gunakan read-file dengan argumen startLine||endLine untuk melihat sisa baris.'
               : ''
         }
-      } catch (e) {
+      } catch (e: any) {
         return { success: false, error: e.message }
       }
     }
   },
   'file-outline': {
     needsApproval: false,
-    handler: async (query, config) => {
+    handler: async (query: any, config: any) => {
       try {
         let filePath = query.trim()
         const activeRoot = config?.workspaceRoot || getWorkspaceDir()
@@ -124,7 +124,7 @@ export const fsTools = {
         const structuralRegex =
           /^(?:\s*)(?:export\s+|async\s+|function\s+|class\s+|const\s+\w+\s*=\s*(?:async\s*)?\(|let\s+\w+\s*=\s*(?:async\s*)?\(|var\s+\w+\s*=\s*(?:async\s*)?\(|def\s+|type\s+|interface\s+|struct\s+|#+\s+|ipcMain\.|window\.api\.|return\s+\()/i
 
-        const outlineItems = []
+        const outlineItems: string[] = []
         lines.forEach((line, index) => {
           if (structuralRegex.test(line)) {
             const trimmed = line.trim()
@@ -150,14 +150,14 @@ export const fsTools = {
           outlineCount: outlineItems.length,
           outline: outlineItems.join('\n')
         }
-      } catch (e) {
+      } catch (e: any) {
         return { success: false, error: e.message }
       }
     }
   },
   'read-document': {
     needsApproval: false,
-    handler: async (query) => {
+    handler: async (query: any) => {
       try {
         const parts = query.split('||')
         const filePath = parts[0].trim()
@@ -173,7 +173,7 @@ export const fsTools = {
         if (ext === '.pdf') {
           const buffer = fs.readFileSync(filePath)
           try {
-            const pdfParseNs = await import('pdf-parse')
+            const pdfParseNs: any = await import('pdf-parse')
             const pdfParseModule = pdfParseNs.default ?? pdfParseNs
             if (typeof pdfParseModule === 'function') {
               const res = await pdfParseModule(buffer)
@@ -183,7 +183,7 @@ export const fsTools = {
               const res = await parser.getText()
               rawText = res.text
             }
-          } catch (pdfErr) {
+          } catch (pdfErr: any) {
             return { success: false, error: `Gagal membaca PDF: ${pdfErr.message}` }
           }
         } else if (ext === '.docx') {
@@ -193,7 +193,7 @@ export const fsTools = {
             const mammoth = mammothNs.default ?? mammothNs
             const result = await mammoth.extractRawText({ buffer })
             rawText = result.value
-          } catch (docxErr) {
+          } catch (docxErr: any) {
             return { success: false, error: `Gagal membaca DOCX: ${docxErr.message}` }
           }
         } else {
@@ -234,8 +234,8 @@ export const fsTools = {
         // MODE 2: Keyword / Semantic Search (path||searchQuery)
         const searchQuery = param2
         if (searchQuery) {
-          let resultsHeader = `[PENCARIAN PADA DOKUMEN: "${searchQuery}"]\n`
-          let matchedSections = []
+          const resultsHeader = `[PENCARIAN PADA DOKUMEN: "${searchQuery}"]\n`
+          const matchedSections = []
 
           // 2a. Direct Line / Keyword Matching
           const searchLower = searchQuery.toLowerCase()
@@ -374,15 +374,15 @@ export const fsTools = {
           totalChars,
           content: allLines.map((l, idx) => `${idx + 1}: ${l}`).join('\n')
         }
-      } catch (e) {
+      } catch (e: any) {
         return { success: false, error: e.message }
       }
     }
   },
   'write-file': {
     needsApproval: true,
-    approvalMessage: (query) => `Abelink ingin menulis/membuat file:\n${query.split('||')[0].trim()}`,
-    handler: async (query, config) => {
+    approvalMessage: (query: any) => `Abelink ingin menulis/membuat file:\n${query.split('||')[0].trim()}`,
+    handler: async (query: any, config: any) => {
       try {
         const parts = query.split('||')
         if (parts.length < 2)
@@ -396,7 +396,7 @@ export const fsTools = {
         // Pagar crawler: jangan tulis skrip scraper web (pola kabur observasi
         // nyata: tulis fetch_webinar.py lalu eksekusi via shell). Arahkan ke
         // browser-navigate/browser-extract.
-        const { looksLikeCrawlerSource } = await import('../browser/bridge-core.mjs')
+        const { looksLikeCrawlerSource } = await import('../browser/bridge-core.ts')
         if (looksLikeCrawlerSource(content)) {
           return {
             success: false,
@@ -407,11 +407,11 @@ export const fsTools = {
         }
 
         const activeRoot = config?.workspaceRoot || getWorkspaceDir()
-        const guarded = assertContained(activeRoot, parts[0]?.trim())
-        if (!guarded.ok) {
+        const guarded = assertContained(activeRoot, parts[0]?.trim() || '')
+        if (!guarded.ok || !guarded.path) {
           return { success: false, message: 'Akses ditolak: path di luar workspace.' }
         }
-        const filePath = guarded.path
+        const filePath: string = guarded.path
 
         const dir = path.dirname(filePath)
         if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
@@ -430,18 +430,18 @@ export const fsTools = {
         }
 
         return { success: true, message: `Berhasil menyimpan file ke ${filePath} tanpa error sintaks.` }
-      } catch (e) {
+      } catch (e: any) {
         return { success: false, error: e.message }
       }
     }
   },
   'replace-content': {
     needsApproval: true,
-    approvalMessage: (query) => {
+    approvalMessage: (query: any) => {
       const parts = query.split('||')
       return `Abelink ingin mengedit isi kode pada berkas:\n${parts[0]?.trim()}`
     },
-    handler: async (query, config) => {
+    handler: async (query: any, config: any) => {
       try {
         const parts = query.split('||')
         if (parts.length < 3) {
@@ -464,7 +464,7 @@ export const fsTools = {
           return { success: false, message: `File tidak ditemukan di path: ${filePath}` }
         }
 
-        let fileContent = await fs.promises.readFile(filePath, 'utf8')
+        const fileContent = await fs.promises.readFile(filePath, 'utf8')
 
         const occurrences = fileContent.split(targetContent).length - 1
         if (occurrences === 0) {
@@ -499,18 +499,18 @@ export const fsTools = {
           success: true,
           message: `Berhasil mengganti konten pada ${path.basename(filePath)} tanpa error sintaks.`
         }
-      } catch (e) {
+      } catch (e: any) {
         return { success: false, error: e.message }
       }
     }
   },
   'replace-lines': {
     needsApproval: true,
-    approvalMessage: (query) => {
+    approvalMessage: (query: any) => {
       const parts = query.split('||')
       return `Abelink ingin mengganti baris ${parts[1]} hingga ${parts[2]} di file:\n${parts[0].trim()}`
     },
-    handler: async (query, config) => {
+    handler: async (query: any, config: any) => {
       try {
         const parts = query.split('||')
         if (parts.length < 4)
@@ -520,14 +520,14 @@ export const fsTools = {
           }
 
         const activeRoot = config?.workspaceRoot || getWorkspaceDir()
-        const guarded = assertContained(activeRoot, parts[0]?.trim())
-        if (!guarded.ok) {
+        const guarded = assertContained(activeRoot, parts[0]?.trim() || '')
+        if (!guarded.ok || !guarded.path) {
           return { success: false, message: 'Akses ditolak: path di luar workspace.' }
         }
-        const filePath = guarded.path
+        const filePath: string = guarded.path
 
-        const startLine = parseInt(parts[1].trim(), 10)
-        const endLine = parseInt(parts[2].trim(), 10)
+        const startLine = parseInt(parts[1]?.trim() ?? '', 10)
+        const endLine = parseInt(parts[2]?.trim() ?? '', 10)
         const newContent = parts.slice(3).join('||')
 
         if (!fs.existsSync(filePath))
@@ -547,34 +547,34 @@ export const fsTools = {
           success: true,
           message: `Berhasil mengganti baris ${startLine}-${endLine} di ${filePath}`
         }
-      } catch (e) {
+      } catch (e: any) {
         return { success: false, error: e.message }
       }
     }
   },
   'delete-file': {
     needsApproval: true,
-    approvalMessage: (query) => `Abelink ingin MENGHAPUS file secara permanen:\n${query}`,
-    handler: async (query, config) => {
+    approvalMessage: (query: any) => `Abelink ingin MENGHAPUS file secara permanen:\n${query}`,
+    handler: async (query: any, config: any) => {
       try {
         const activeRoot = config?.workspaceRoot || getWorkspaceDir()
         const guarded = assertContained(activeRoot, query.trim())
-        if (!guarded.ok) {
+        if (!guarded.ok || !guarded.path) {
           return { success: false, message: 'Akses ditolak: path di luar workspace.' }
         }
-        const filePath = guarded.path
+        const filePath: string = guarded.path
         if (!fs.existsSync(filePath))
           return { success: false, message: `File tidak ditemukan di path: ${filePath}` }
         fs.unlinkSync(filePath)
         return { success: true, message: `Berhasil menghapus file ${filePath}` }
-      } catch (e) {
+      } catch (e: any) {
         return { success: false, error: e.message }
       }
     }
   },
   'list-dir': {
     needsApproval: false,
-    handler: async (query, config) => {
+    handler: async (query: any, config: any) => {
       try {
         const activeRoot = config?.workspaceRoot || getWorkspaceDir()
         const rawTarget = query?.trim() || ''
@@ -591,14 +591,14 @@ export const fsTools = {
           return { success: false, message: `Folder tidak ditemukan di path: ${targetDir}` }
         const files = fs.readdirSync(targetDir)
         return { success: true, total_files: files.length, contents: files.join('\n') }
-      } catch (e) {
+      } catch (e: any) {
         return { success: false, error: e.message }
       }
     }
   },
   'find-files': {
     needsApproval: false,
-    handler: async (query, config) => {
+    handler: async (query: any, config: any) => {
       try {
         const parts = query ? query.split('||') : []
         const pattern = parts[0]?.trim() || '*'
@@ -626,10 +626,10 @@ export const fsTools = {
           'vendor'
         ])
 
-        const matchedFiles = []
+        const matchedFiles: any = []
         const MAX_MATCHES = 80
 
-        function scan(dir, relativePrefix = '') {
+        function scan(dir: any, relativePrefix = '') {
           if (matchedFiles.length >= MAX_MATCHES) return
 
           let entries = []
@@ -665,17 +665,17 @@ export const fsTools = {
           files: matchedFiles,
           result:
             matchedFiles.length > 0
-              ? `Ditemukan ${matchedFiles.length} berkas di '${path.basename(targetDir)}':\n${matchedFiles.map((f) => `- ${f}`).join('\n')}`
+              ? `Ditemukan ${matchedFiles.length} berkas di '${path.basename(targetDir)}':\n${matchedFiles.map((f: string) => `- ${f}`).join('\n')}`
               : `Tidak ditemukan berkas yang cocok dengan pola "${pattern}" di folder tersebut.`,
         }
-      } catch (e) {
+      } catch (e: any) {
         return { success: false, error: e.message }
       }
     }
   },
   'grep-search': {
     needsApproval: false,
-    handler: async (query, config) => {
+    handler: async (query: any, config: any) => {
       try {
         const parts = query.split('||')
         if (parts.length < 2)
@@ -733,10 +733,10 @@ export const fsTools = {
           '.env', '.sql', '.toml', '.ini', '.cfg', '.vue', '.svelte'
         ])
 
-        const matches = []
+        const matches: any = []
         const lowerKeyword = keyword.toLowerCase()
 
-        async function walk(dir) {
+        async function walk(dir: any) {
           if (matches.length >= 50) return
 
           let entries
@@ -790,7 +790,7 @@ export const fsTools = {
           result: matches.join('\n'),
           total_matches: matches.length
         }
-      } catch (e) {
+      } catch (e: any) {
         return { success: false, error: e.message }
       }
     }

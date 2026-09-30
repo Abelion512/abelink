@@ -27,7 +27,7 @@ export const getSkillsDir = () => {
   return path.join(brandDir(), 'skills')
 }
 
-export const parsePagination = (str) => {
+export const parsePagination = (str: any) => {
   let start = 0,
     end = 10
   if (!str) return { start, end, fetchCount: end }
@@ -48,7 +48,7 @@ export const parsePagination = (str) => {
 
 // Helper: Cek apakah command shell berbahaya (bash/zsh, Linux Debian/Ubuntu).
 // Linux-only: keyword era Windows (Remove-Item/taskkill/del/dsb) DIBUANG —
-// alias kompat `run-powershell` tetap hidup sebagai alias di node-tools.js.
+// alias kompat `run-powershell` tetap hidup sebagai alias di node-tools.ts.
 //
 // Model 3-tier ala Hermes guardian (approval_detection.py):
 // - HARDLINE: tidak bisa di-approve, auto-deny selalu (wipe root/home,
@@ -149,7 +149,7 @@ export const SENSITIVE_TARGET_MARKERS = [
 const SHELL_CARRIERS_RE = /\b(sh|bash|zsh|dash|eval|source|\.)\s+(-c\s+)?['"]/i
 
 // Hapus teks dalam quote tunggal/ganda (bukan untuk shell carrier).
-const maskQuoted = (cmd) => String(cmd || '').replace(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"/g, '""')
+const maskQuoted = (cmd: any) => String(cmd || '').replace(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"/g, '""')
 
 // Pola operasi tulis/mutasi/hapus (rm, mv, cp, redirect >, tee, chmod, chown, sed -i, dd of=).
 const SENSITIVE_WRITE_OPS_RE = /(rm|rmdir|unlink|mv\s+\S+\s+|cp\s+\S+\s+|install\s+|>+|tee\s+|chmod|chown|dd\s+[^;|&]*of=|sed\s+-[^\s]*i|sed\s+--in-place|perl\s+-[^\s]*i|ruby\s+-[^\s]*i)/i
@@ -170,7 +170,7 @@ export const isHardlineCommand = (cmd = '') => {
   return HARDLINE_PATTERNS.some((re) => re.test(scan))
 }
 
-export const isDangerousCommand = (cmd) => {
+export const isDangerousCommand = (cmd: any) => {
   const raw = String(cmd || '')
   if (!raw.trim()) return false
   if (isHardlineCommand(raw)) return true

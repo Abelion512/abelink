@@ -2,7 +2,7 @@
 // Simulasi urutan chunk SSE -> teks penuh + urutan emit onToken.
 
 import { describe, it, expect } from 'vitest'
-import { assembleStreamChunks, __aiBridgeTest } from '../sidecar/main/ai-bridge.js'
+import { assembleStreamChunks, __aiBridgeTest } from '../sidecar/main/ai-bridge.ts'
 import { __geminiWebTest } from '../sidecar/main/services/gemini-web.ts'
 
 const { extractGeminiText, diffStreamText } = __geminiWebTest

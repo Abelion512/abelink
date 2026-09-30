@@ -15,7 +15,7 @@ import {
   isHardlineCommand,
   isDangerousCommand,
   SENSITIVE_TARGET_MARKERS
-} from '../../../sidecar/main/tools/_shared.mjs'
+} from '../../../sidecar/main/tools/_shared.ts'
 
 // Actions requiring interactive approval in GUI (APPROVAL_ACTIONS from cmd_node_bridge.rs)
 export const HEADLESS_BLOCKED_TOOLS = Object.freeze(new Set([
@@ -258,7 +258,7 @@ export function validateHeadlessPath(
   const isSelfTarget = SELF_SEGS.some(
     (m) => filename === m || filename.startsWith(m) || segMatch(lowerResolved, m) || segMatch(lowerOriginal, m)
   )
-  const isSensitive = SENSITIVE_TARGET_MARKERS.some((marker) => {
+  const isSensitive = SENSITIVE_TARGET_MARKERS.some((marker: any) => {
     const m = marker.toLowerCase()
     if (m === '/abelink') {
       // Direct repo / app root marker should only match exact path segments, not substrings like /tmp/abelink-test

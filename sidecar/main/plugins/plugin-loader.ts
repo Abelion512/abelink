@@ -8,8 +8,8 @@ import { isDev } from '../utils/dataHome.ts'
 
 const execFilePromise = util.promisify(execFile)
 
-let loadedPlugins = []
-let pluginHandlers = {}
+let loadedPlugins: any = []
+let pluginHandlers: Record<string, any> = {}
 
 // Folder plugin: XDG documents (tanpa Electron). Bisa dioverride lewat env.
 // Namespace dev/prod: dev memakai 'Abelink Plugins-dev' agar plugin
@@ -25,7 +25,7 @@ export const getPluginsDir = () => {
 }
 
 // Cegah path traversal: nama plugin hanya boleh resolve di dalam folder plugins.
-const resolveContainedPluginPath = (name) => {
+const resolveContainedPluginPath = (name: any) => {
   const root = getPluginsDir()
   const p = path.resolve(root, String(name || ''))
   if (p !== root && !p.startsWith(root + path.sep)) return null
@@ -34,12 +34,12 @@ const resolveContainedPluginPath = (name) => {
 
 // Nama package npm yang diizinkan (opsional scope @org/pkg dan range versi),
 // plus blok karakter shell berbahaya sebagai lapisan kedua.
-const isValidNpmDependency = (d) =>
+const isValidNpmDependency = (d: any) =>
   /^(@[a-zA-Z0-9][a-zA-Z0-9._-]*\/)?[a-zA-Z0-9][a-zA-Z0-9._-]*(@[a-zA-Z0-9^~><=*,.\s|-]+)?$/.test(d) &&
   !/[;&|`$()<>"'\\]/.test(d)
 
 // Buka path di file manager: execFile TANPA shell, path sudah ter-kontinemen.
-const openInFileManager = (targetPath) => {
+const openInFileManager = (targetPath: any) => {
   const contained = resolveContainedPluginPath(targetPath || '.')
   if (!contained) return { success: false, message: 'Path plugin tidak valid.' }
   execFile('xdg-open', [contained], (err) => {
@@ -78,9 +78,10 @@ export const loadPlugins = async () => {
 
         // Daftarkan semua action ke dictionary global HANYA JIKA plugin diaktifkan.
         if (manifest.isEnabled !== false && manifest.actions && Array.isArray(manifest.actions)) {
-          manifest.actions.forEach((act) => {
+          manifest.actions.forEach((act: any) => {
             // asumsikan handler di-export secara default
-            if (handler.default && handler.default[act.name]) {
+            const defaultHandlers = handler.default as Record<string, any> | undefined
+            if (defaultHandlers && defaultHandlers[act.name]) {
               pluginHandlers[act.name] = handler.default[act.name]
             }
 
@@ -110,7 +111,7 @@ export const loadPlugins = async () => {
                 }
               }
 
-              let rawCode = indexContent.substring(startIdx + len, i)
+              const rawCode = indexContent.substring(startIdx + len, i)
               // remove 4 spaces indentation if present
               act.code = rawCode
                 .split('\n')
@@ -122,7 +123,7 @@ export const loadPlugins = async () => {
         }
 
         loadedPlugins.push(manifest)
-      } catch (err) {
+      } catch (err: any) {
         console.error(`Gagal load plugin ${folder}:`, err)
       }
     }
@@ -136,16 +137,16 @@ export const getPluginHandlers = () => pluginHandlers
 // Proyeksi manifes plugin ke CapabilityDescriptor (satu per action).
 // Pure + additive: tidak menyentuh loadPlugins/pluginExecute. Invalid -> [].
 const KNOWN_SCHEMA_TYPES = new Set(['string', 'number', 'integer', 'boolean', 'array', 'object', 'null'])
-const sanitizeDescriptorPart = (s) => String(s ?? '').toLowerCase().replace(/[^a-z0-9_-]/g, '-') || 'unnamed'
+const sanitizeDescriptorPart = (s: any) => String(s ?? '').toLowerCase().replace(/[^a-z0-9_-]/g, '-') || 'unnamed'
 
-export const pluginToDescriptors = (manifest) => {
+export const pluginToDescriptors = (manifest: any) => {
   try {
     if (!manifest || typeof manifest !== 'object' || !manifest.name || !Array.isArray(manifest.actions)) return []
     const plugin = sanitizeDescriptorPart(manifest.name)
     const enabled = manifest.isEnabled !== false
     return manifest.actions
-      .filter((act) => act && typeof act === 'object')
-      .map((act) => {
+      .filter((act: any) => act && typeof act === 'object')
+      .map((act: any) => {
         const params = act.parameters && typeof act.parameters === 'object' ? Object.keys(act.parameters) : []
         const properties = params.length
           ? Object.fromEntries(params.map((k) => {
@@ -172,12 +173,12 @@ export const pluginToDescriptors = (manifest) => {
 
 // ---- Fungsi channel (didaftarkan engine.mjs; tanpa Electron IPC) ----
 
-export const pluginExecute = async (action, query) => {
+export const pluginExecute = async (action: any, query: any) => {
   if (pluginHandlers[action]) {
     try {
       const result = await pluginHandlers[action]({ query })
       return { success: true, data: result }
-    } catch (err) {
+    } catch (err: any) {
       return { success: false, error: err.message }
     }
   }
@@ -186,9 +187,9 @@ export const pluginExecute = async (action, query) => {
 
 export const pluginOpenFolder = () => openInFileManager('.')
 
-export const pluginOpenSpecificFolder = (targetPath) => openInFileManager(targetPath)
+export const pluginOpenSpecificFolder = (targetPath: any) => openInFileManager(targetPath)
 
-export const pluginToggle = async (pluginName, isEnabled) => {
+export const pluginToggle = async (pluginName: any, isEnabled: any) => {
   const pluginPath = resolveContainedPluginPath(pluginName)
   if (!pluginPath) return { success: false, message: 'Nama plugin tidak valid.' }
   const manifestPath = path.join(pluginPath, 'plugin.json')
@@ -204,7 +205,7 @@ export const pluginToggle = async (pluginName, isEnabled) => {
 
 export const pluginReload = async () => await loadPlugins()
 
-export const pluginCreate = async (payload) => {
+export const pluginCreate = async (payload: any) => {
   try {
     const { name, description, actions, isEdit } = payload
     const kebabPluginName = name.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()
@@ -218,7 +219,7 @@ export const pluginCreate = async (payload) => {
 
     fs.mkdirSync(newPluginDir, { recursive: true })
 
-    const manifestActions = actions.map((act) => ({
+    const manifestActions = actions.map((act: any) => ({
       name: act.name.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase(),
       description: act.description,
       triggerHint: act.triggerHint,
@@ -229,16 +230,16 @@ export const pluginCreate = async (payload) => {
       name: kebabPluginName,
       version: '1.0.0',
       description: description,
-      dependencies: payload.dependencies ? payload.dependencies.split(',').map((d) => d.trim()).filter((d) => d) : [],
+      dependencies: payload.dependencies ? payload.dependencies.split(',').map((d: any) => d.trim()).filter((d: any) => d) : [],
       actions: manifestActions,
     }
 
     fs.writeFileSync(path.join(newPluginDir, 'plugin.json'), JSON.stringify(manifest, null, 2))
 
     let codeTemplate = `module.exports = {\n`
-    actions.forEach((act, index) => {
+    actions.forEach((act: any, index: any) => {
       const actionKebabName = act.name.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()
-      codeTemplate += `  '${actionKebabName}': async ({ query }) => {\n${act.code.split('\n').map((line) => '    ' + line).join('\n')}\n  }`
+      codeTemplate += `  '${actionKebabName}': async ({ query }) => {\n${act.code.split('\n').map((line: any) => '    ' + line).join('\n')}\n  }`
       if (index < actions.length - 1) codeTemplate += `,\n`
       else codeTemplate += `\n`
     })
@@ -250,7 +251,7 @@ export const pluginCreate = async (payload) => {
     if (manifest.dependencies.length > 0) {
       try {
         // Tolak seluruh instalasi bila satu saja dependency tidak lolos validasi.
-        const invalidDeps = manifest.dependencies.filter((d) => !isValidNpmDependency(d))
+        const invalidDeps = manifest.dependencies.filter((d: any) => !isValidNpmDependency(d))
         if (invalidDeps.length > 0) {
           return { success: false, error: 'Dependency npm tidak valid: ' + invalidDeps.join(', ') }
         }
@@ -262,7 +263,7 @@ export const pluginCreate = async (payload) => {
           ['install', '--no-audit', '--no-fund', ...manifest.dependencies],
           { cwd: newPluginDir, timeout: 120000 }
         )
-      } catch (npmErr) {
+      } catch (npmErr: any) {
         console.error('Gagal install dependencies:', npmErr)
         return { success: false, error: 'Gagal menginstall dependencies npm: ' + npmErr.message }
       }
@@ -270,12 +271,12 @@ export const pluginCreate = async (payload) => {
 
     await loadPlugins()
     return { success: true }
-  } catch (err) {
+  } catch (err: any) {
     return { success: false, error: err.message }
   }
 }
 
-export const pluginInstallFromGit = async (rawUrlOrShorthand) => {
+export const pluginInstallFromGit = async (rawUrlOrShorthand: any) => {
   let targetDir = null
   try {
     const input = String(rawUrlOrShorthand || '').trim()
@@ -327,27 +328,27 @@ export const pluginInstallFromGit = async (rawUrlOrShorthand) => {
           cwd: targetDir,
           timeout: 180000
         })
-      } catch (npmErr) {
+      } catch (npmErr: any) {
         console.warn('[plugins] npm install warning:', npmErr.message)
       }
     }
 
     await loadPlugins()
     // Jejak audit install plugin (fire-and-forget; audit tak boleh menggagalkan install).
-    import('../capabilities/connections.mjs')
+    import('../capabilities/connections.ts')
       .then(({ appendAudit }) =>
         appendAudit({ op: 'plugin.install-git', plugin: sanitizedName, url: cloneUrl, status: 'ok' })
       )
       .catch(() => {})
     return { success: true, name: sanitizedName }
-  } catch (err) {
+  } catch (err: any) {
     console.error('[plugins] pluginInstallFromGit gagal:', err)
     if (targetDir) fs.rmSync(targetDir, { recursive: true, force: true })
     return { success: false, error: err.message }
   }
 }
 
-export const pluginDelete = async (pluginName) => {
+export const pluginDelete = async (pluginName: any) => {
   try {
     const pluginPath = resolveContainedPluginPath(pluginName)
     if (!pluginPath) return { success: false, message: 'Nama plugin tidak valid.' }
@@ -357,7 +358,7 @@ export const pluginDelete = async (pluginName) => {
       return { success: true }
     }
     return { success: false, error: 'Plugin tidak ditemukan' }
-  } catch (err) {
+  } catch (err: any) {
     return { success: false, error: err.message }
   }
 }

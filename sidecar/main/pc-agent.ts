@@ -1,28 +1,29 @@
-// src/main/pc-agent.js
+// src/main/pc-agent.ts
 // ABELINK PC Automation Engine - Zero Vision Cost Desktop Controller
 // Linux-only (Debian/Ubuntu): JSON-over-stdio daemon (linux-daemon.py) utama,
 // fallback bash scripts (linux-action.sh / read-ui.sh / ocr-region.sh, xdotool+OCR).
 
 import { spawn } from 'child_process'
 import { join } from 'path'
-import { BrowserWindow, globalShortcut, screen } from 'electron'
+// Electron-era import dihapus: runtime bun sidecar tidak memuat electron
+// (window/shortcut ditangani Rust shell; overlay via xdotool). Sesuai arsitektur AGENTS.md.
 import fs from 'fs'
 
 
-let lastReadResult = null
+let lastReadResult: any = null
 let lastReadTimestamp = 0
 let stateChanged = false  // Set to true after click/type/key/scroll/open actions
 const CACHE_TTL = 10000   // 10 seconds
-let daemonProcess = null
+let daemonProcess: any = null
 let daemonReady = false
-let pendingResolve = null
+let pendingResolve: any = null
 let daemonBuffer = ''
-let overlayWindow = null
-let activeChildProcess = null
+let overlayWindow: any = null
+let activeChildProcess: any = null
 let isStoppedByUser = false
-let lastStopReason = null
-let overlayHideTimeout = null
-let pendingAskResolve = null
+let lastStopReason: any = null
+let overlayHideTimeout: any = null
+let pendingAskResolve: any = null
 let isSessionOpen = false
 
 export function isPCSessionOpen() {
@@ -205,7 +206,7 @@ function getOverlayHTML() {
 </html>`
 }
 
-function showPCOverlay() {
+async function showPCOverlay() {
   if (overlayHideTimeout) {
     clearTimeout(overlayHideTimeout)
     overlayHideTimeout = null
@@ -226,16 +227,28 @@ function showPCOverlay() {
       return
     }
   } catch (err) {
-    console.warn('[PC-Agent] Overlay window update warning (non-fatal):', err?.message || err)
+    console.warn('[PC-Agent] Overlay window update warning (non-fatal):', (err as Error)?.message || err)
     return
   }
 
   try {
-    const display = screen.getPrimaryDisplay()
+    // Electron overlay hanya bila runtime electron (tidak ada di bun sidecar —
+    // fallback silent: overlay HTML tetap tersedia via daemon path).
+    // Specifier via variabel: TS tidak mencoba resolve tipe 'electron' (tidak dipasang
+    // di sidecar) dan runtime non-electron jatuh ke fallback silent.
+    const electronSpecifier = 'electron'
+    let electronMod: any = null
+    try {
+      electronMod = await import(electronSpecifier)
+    } catch {
+      electronMod = null
+    }
+    if (!electronMod || !electronMod.BrowserWindow) throw new Error('electron unavailable in sidecar runtime')
+    const display = electronMod.screen.getPrimaryDisplay()
     const { width } = display.workAreaSize
     const winWidth = 340
     const winHeight = 72
-    overlayWindow = new BrowserWindow({
+    overlayWindow = new electronMod.BrowserWindow({
       width: winWidth,
       height: winHeight,
       x: Math.floor((width - winWidth) / 2),
@@ -254,7 +267,7 @@ function showPCOverlay() {
     overlayWindow.setAlwaysOnTop(true, 'screen-saver')
     overlayWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(getOverlayHTML())}`)
 
-    overlayWindow.on('page-title-updated', (event, title) => {
+    overlayWindow.on('page-title-updated', (event: any, title: any) => {
       if (title.startsWith('ABELINK_PC_STOP_CLICKED:')) {
         triggerEmergencyStop()
       } else if (title.startsWith('ABELINK_PC_STOP_REASON:')) {
@@ -277,15 +290,18 @@ function showPCOverlay() {
     })
 
     try {
-      globalShortcut.unregister('CommandOrControl+Shift+S')
-      globalShortcut.register('CommandOrControl+Shift+S', () => {
-        triggerEmergencyStop()
-      })
+      const gs: any = (globalThis as any).__abelinkGlobalShortcut
+      if (gs) {
+        gs.unregister('CommandOrControl+Shift+S')
+        gs.register('CommandOrControl+Shift+S', () => {
+          triggerEmergencyStop()
+        })
+      }
     } catch (err) {
-      console.warn('[PC-Agent] Could not register Ctrl+Shift+S global shortcut:', err.message)
+      console.warn('[PC-Agent] Could not register Ctrl+Shift+S global shortcut:', (err as Error).message)
     }
   } catch (err) {
-    console.warn('[PC-Agent] Could not create overlay window:', err.message)
+    console.warn('[PC-Agent] Could not create overlay window:', (err as Error).message)
   }
 }
 
@@ -315,7 +331,8 @@ function hidePCOverlay() {
   }
   overlayWindow = null
   try {
-    globalShortcut.unregister('CommandOrControl+Shift+S')
+    const gs: any = (globalThis as any).__abelinkGlobalShortcut
+    if (gs) gs.unregister('CommandOrControl+Shift+S')
   } catch {}
 }
 
@@ -371,7 +388,7 @@ export async function openPCSession() {
   isSessionOpen = true
   // Sesi otomasi baru dimulai: titik reset stop darurat antar-sesi.
   resetEmergencyStop()
-  showPCOverlay()
+  void showPCOverlay()
   try {
     await startDaemon()
   } catch (err) {
@@ -411,9 +428,9 @@ export async function askUserPC(_query = '') {
   }
   // Lanjutan sesi berjalan (alur os-ask setelah stop): reset eksplisat lewat helper.
   resetEmergencyStop()
-  showPCOverlay()
+  void showPCOverlay()
   const comment = await new Promise((resolve) => {
-    pendingAskResolve = (val) => resolve(val)
+    pendingAskResolve = (val: any) => resolve(val)
   })
   
   return JSON.stringify({
@@ -426,17 +443,17 @@ const DAEMON_SCRIPT = 'linux-daemon.py'
 
 // import.meta.dir (bun) menunjuk direktori file ini — tetap benar saat
 // dibundel single-file. ABELINK_RESOURCE_DIR di-set Rust spawner saat produksi.
-const SCRIPT_DIRS = [
+const SCRIPT_DIRS: string[] = [
   process.env.ABELINK_RESOURCE_DIR
     ? join(process.env.ABELINK_RESOURCE_DIR, 'pc-agent-scripts')
     : null,
-  join(import.meta.dir ?? process.cwd(), 'pc-agent-scripts'),
+  join((import.meta as any).dir ?? process.cwd(), 'pc-agent-scripts'),
   join(process.cwd(), 'sidecar', 'main', 'pc-agent-scripts')
-].filter(Boolean)
+].filter(Boolean) as string[]
 
-function resolveScript(name) {
-  return SCRIPT_DIRS.map((d) => join(d, name)).find((p) => fs.existsSync(p))
-    ?? join(SCRIPT_DIRS[0], name)
+function resolveScript(name: any) {
+  return SCRIPT_DIRS.map((d: string) => join(d, name)).find((p: string) => fs.existsSync(p))
+    ?? join(SCRIPT_DIRS[0] ?? process.cwd(), name)
 }
 
 function getDaemonScriptPath() {
@@ -444,7 +461,7 @@ function getDaemonScriptPath() {
 }
 
 function startDaemon() {
-  return new Promise((resolve, reject) => {
+  return new Promise<void>((resolve, reject) => {
     if (daemonProcess && !daemonProcess.killed) {
       resolve()
       return
@@ -456,7 +473,7 @@ function startDaemon() {
     daemonReady = false
     
     // Handle daemon stdout - accumulate until ---ABELINK_DONE--- delimiter
-    daemonProcess.stdout.on('data', (chunk) => {
+    daemonProcess.stdout.on('data', (chunk: Buffer) => {
       daemonBuffer += chunk.toString()
       
       let delimiterIndex;
@@ -480,20 +497,20 @@ function startDaemon() {
       }
     })
     
-    daemonProcess.stderr.on('data', (data) => {
+    daemonProcess.stderr.on('data', (data: Buffer) => {
       // Saring noise: DeprecationWarning python bukan error operasional.
       // Baris selain itu tetap warn agar error daemon asli tidak hilang.
       const text = data.toString()
       const lines = text.split('\n')
-      const noisy = lines.filter((l) => /DeprecationWarning|warnings\.warn/.test(l))
-      const rest = lines.filter((l) => !/DeprecationWarning|warnings\.warn/.test(l)).join('\n').trim()
+      const noisy = lines.filter((l: any) => /DeprecationWarning|warnings\.warn/.test(l))
+      const rest = lines.filter((l: any) => !/DeprecationWarning|warnings\.warn/.test(l)).join('\n').trim()
       for (const l of noisy) {
         if (l.trim()) console.debug('[PC-Agent] Daemon warning:', l.trim())
       }
       if (rest) console.warn('[PC-Agent] Daemon stderr:', rest)
     })
     
-    daemonProcess.on('close', (code) => {
+    daemonProcess.on('close', (code: number | null) => {
       console.log('[PC-Agent] Daemon process exited with code', code)
       daemonProcess = null
       daemonReady = false
@@ -504,7 +521,7 @@ function startDaemon() {
       }
     })
     
-    daemonProcess.on('error', (err) => {
+    daemonProcess.on('error', (err: Error) => {
       console.error('[PC-Agent] Daemon spawn error:', err)
       daemonProcess = null
       reject(err)
@@ -537,9 +554,9 @@ function stopDaemon() {
 // Slot pendingResolve hanya satu, jadi perintah WAJIB diserialisasi: kalau ada dua
 // sendCommand bersamaan, yang kedua menimpa pendingResolve dan promise pertama tidak
 // pernah settle (hang). Rantai promise di bawah memastikan satu perintah in-flight.
-let commandChain = Promise.resolve()
+let commandChain: Promise<void> = Promise.resolve()
 
-function dispatchDaemonCommand(cmd) {
+function dispatchDaemonCommand(cmd: Record<string, unknown>): Promise<string> {
   return new Promise((resolve, _reject) => {
     if (!daemonProcess || daemonProcess.killed || !daemonReady) {
       resolve(JSON.stringify({ status: 'error', message: 'Daemon not running' }))
@@ -561,7 +578,7 @@ function dispatchDaemonCommand(cmd) {
       daemonProcess.stdin.write(JSON.stringify(cmd) + '\n')
     } catch (err) {
       pendingResolve = null
-      resolve(JSON.stringify({ status: 'error', message: 'Failed to write to daemon: ' + err.message }))
+      resolve(JSON.stringify({ status: 'error', message: 'Failed to write to daemon: ' + (err as Error).message }))
     }
 
     // Timeout: 30s per command; selalu men-settle promise milik invokasi ini sendiri
@@ -575,7 +592,7 @@ function dispatchDaemonCommand(cmd) {
   })
 }
 
-function sendCommand(cmd) {
+function sendCommand(cmd: Record<string, unknown>): Promise<string> {
   // Antrekan eksekusi di ujung rantai; rantai tetap maju walau run-nya reject.
   const run = commandChain.then(() => dispatchDaemonCommand(cmd))
   commandChain = run.then(
@@ -593,8 +610,8 @@ function isDaemonAlive() {
  * Run a bash script from pc-agent-scripts as fallback.
  * Nama script HARUS sudah berformat .sh — tidak ada lagi alias .ps1 era Windows.
  */
-function runScriptFallback(scriptName, args = []) {
-  return new Promise((resolve) => {
+function runScriptFallback(scriptName: string, args: string[] = []): Promise<string> {
+  return new Promise<string>((resolve) => {
     if (!scriptName.endsWith('.sh')) {
       scriptName = scriptName.replace(/\.(ps1|psm1)$/, '.sh')
     }
@@ -648,7 +665,7 @@ function runScriptFallback(scriptName, args = []) {
 /**
  * Read the active desktop GUI elements (UIAutomation with OCR fallback)
  */
-export async function readDesktop(options = {}, query = '') {
+export async function readDesktop(options: { maxElements?: number; roles?: unknown } = {}, query = '') {
   if (!isSessionOpen) {
     return {
       window: 'error',
@@ -663,7 +680,7 @@ export async function readDesktop(options = {}, query = '') {
     // Alur pemulihan eksplisit: os-read setelah stop menghapus tanda stop lewat helper.
     resetEmergencyStop()
   }
-  showPCOverlay()
+  void showPCOverlay()
   
   const isFocus = (query === 'focus')
   if (!isFocus && !stateChanged && lastReadResult && (Date.now() - lastReadTimestamp < CACHE_TTL)) {
@@ -672,7 +689,7 @@ export async function readDesktop(options = {}, query = '') {
   }
 
   try {
-    let uiText = ''
+    let uiText: string = ''
     if (isDaemonAlive()) {
       if (isFocus) {
         uiText = await sendCommand({ cmd: 'read-focus' })
@@ -683,7 +700,7 @@ export async function readDesktop(options = {}, query = '') {
       uiText = await runScriptFallback('read-ui.sh')
     }
 
-    let parsed = null
+    let parsed: any = null
     if (uiText) {
       try {
         parsed = JSON.parse(uiText)
@@ -697,7 +714,7 @@ export async function readDesktop(options = {}, query = '') {
       console.log(
         '[PC-Agent] UIAutomation returned 0 elements. Executing local WinRT OCR fallback...'
       )
-      let ocrText = ''
+      let ocrText: string = ''
       if (isDaemonAlive()) {
         ocrText = await sendCommand({ cmd: 'ocr' })
       } else {
@@ -731,7 +748,7 @@ export async function readDesktop(options = {}, query = '') {
  * Pure: cocokkan teks jangkar ke field teks elemen (substring, case-insensitive).
  * Expected kosong = tidak ada jangkar -> selalu true.
  */
-export function matchElementText(el, expected) {
+export function matchElementText(el: any, expected: any) {
   if (!expected || !String(expected).trim()) return true
   if (!el || typeof el !== 'object') return false
   const needle = String(expected).toLowerCase()
@@ -745,7 +762,7 @@ export function matchElementText(el, expected) {
  *   "7" | "100||200" (lama, tanpa jangkar)
  *   "7||teks" | "100||200||teks" (baru, dengan expected-text opsional)
  */
-export function parseClickQuery(query) {
+export function parseClickQuery(query: any) {
   if (typeof query !== 'string') return null
   const raw = query.trim()
   if (!raw) return null
@@ -770,7 +787,7 @@ export function parseClickQuery(query) {
   return null
 }
 
-function centerOf(el) {
+function centerOf(el: any) {
   if (!el || !el.rect || el.rect.length !== 4) return null
   return { x: Math.round(el.rect[0] + el.rect[2] / 2), y: Math.round(el.rect[1] + el.rect[3] / 2) }
 }
@@ -778,12 +795,12 @@ function centerOf(el) {
 /**
  * Helper: Find coordinates from element ID or x||y string
  */
-function resolveCoordinates(query) {
+function resolveCoordinates(query: any) {
   if (!query) return null
 
   // If query is "x||y"
   if (query.includes('||')) {
-    const parts = query.split('||').map((p) => parseInt(p.trim(), 10))
+    const parts = query.split('||').map((p: any) => parseInt(p.trim(), 10))
     if (!isNaN(parts[0]) && !isNaN(parts[1])) {
       return { x: parts[0], y: parts[1] }
     }
@@ -792,7 +809,7 @@ function resolveCoordinates(query) {
   // If query is element ID (number)
   const id = parseInt(query.trim(), 10)
   if (!isNaN(id) && lastReadResult && lastReadResult.elements) {
-    const el = lastReadResult.elements.find((item) => item.id === id)
+    const el = lastReadResult.elements.find((item: any) => item.id === id)
     if (el && el.rect && el.rect.length === 4) {
       const centerX = Math.round(el.rect[0] + el.rect[2] / 2)
       const centerY = Math.round(el.rect[1] + el.rect[3] / 2)
@@ -806,14 +823,14 @@ function resolveCoordinates(query) {
 /**
  * Click an element by ID or coordinates
  */
-export async function executeClick(query) {
+export async function executeClick(query: any) {
   if (!isSessionOpen) {
     return '[PC-Agent] ERROR: OS Control belum dibuka! Kamu WAJIB mengeksekusi tool "os-control-open" terlebih dahulu sebelum menggunakan tool PC automation.'
   }
   if (isStopActive()) {
     return `[PC-Agent] Stopped by user: ${lastStopReason || 'User pressed Ctrl+Shift+S'}`
   }
-  showPCOverlay()
+  void showPCOverlay()
   const parsed = parseClickQuery(query)
   if (parsed?.expected) {
     // Jangkar teks: paksa read fresh (lewati cache), validasi ulang teks target.
@@ -824,7 +841,7 @@ export async function executeClick(query) {
       return `[PC-Agent] Error: target berubah/pindah (diharapkan "${parsed.expected}") — lakukan os-read ulang.`
     }
     if (parsed.kind === 'id') {
-      const el = fresh.elements.find((item) => item.id === parsed.id)
+      const el = fresh.elements.find((item: any) => item.id === parsed.id)
       if (!el || !matchElementText(el, parsed.expected)) {
         scheduleHidePCOverlay()
         return `[PC-Agent] Error: target berubah/pindah (diharapkan "${parsed.expected}") — lakukan os-read ulang.`
@@ -839,7 +856,7 @@ export async function executeClick(query) {
       return `[PC-Agent] Clicked at (${c.x}, ${c.y}). ${result}`
     }
     // kind coords: jangkar = ada elemen di fresh read yang teksnya cocok.
-    const anchor = fresh.elements.some((item) => matchElementText(item, parsed.expected))
+    const anchor = fresh.elements.some((item: any) => matchElementText(item, parsed.expected))
     if (!anchor) {
       scheduleHidePCOverlay()
       return `[PC-Agent] Error: target berubah/pindah (diharapkan "${parsed.expected}") — lakukan os-read ulang.`
@@ -859,7 +876,7 @@ export async function executeClick(query) {
   return `[PC-Agent] Clicked at (${coords.x}, ${coords.y}). ${clicked}`
 }
 
-async function clickAt(coords) {
+async function clickAt(coords: any) {
   let result = ''
   if (isDaemonAlive()) {
     if (coords.id !== undefined) {
@@ -884,14 +901,14 @@ async function clickAt(coords) {
 /**
  * Double Click an element by ID or coordinates
  */
-export async function executeDoubleClick(query) {
+export async function executeDoubleClick(query: any) {
   if (!isSessionOpen) {
     return '[PC-Agent] ERROR: OS Control belum dibuka! Kamu WAJIB mengeksekusi tool "os-control-open" terlebih dahulu sebelum menggunakan tool PC automation.'
   }
   if (isStopActive()) {
     return `[PC-Agent] Stopped by user: ${lastStopReason || 'User pressed Ctrl+Shift+S'}`
   }
-  showPCOverlay()
+  void showPCOverlay()
   const coords = resolveCoordinates(query)
   if (!coords) {
     scheduleHidePCOverlay()
@@ -919,14 +936,14 @@ export async function executeDoubleClick(query) {
 /**
  * Type text into an element by ID or directly
  */
-export async function executeType(query) {
+export async function executeType(query: any) {
   if (!isSessionOpen) {
     return '[PC-Agent] ERROR: OS Control belum dibuka! Kamu WAJIB mengeksekusi tool "os-control-open" terlebih dahulu sebelum menggunakan tool PC automation.'
   }
   if (isStopActive()) {
     return `[PC-Agent] Stopped by user: ${lastStopReason || 'User pressed Ctrl+Shift+S'}`
   }
-  showPCOverlay()
+  void showPCOverlay()
   let text = query
   let coords = null
 
@@ -967,14 +984,14 @@ export async function executeType(query) {
 /**
  * Press a keyboard shortcut combo
  */
-export async function executeKey(combo) {
+export async function executeKey(combo: any) {
   if (!isSessionOpen) {
     return '[PC-Agent] ERROR: OS Control belum dibuka! Kamu WAJIB mengeksekusi tool "os-control-open" terlebih dahulu sebelum menggunakan tool PC automation.'
   }
   if (isStopActive()) {
     return `[PC-Agent] Stopped by user: ${lastStopReason || 'User pressed Ctrl+Shift+S'}`
   }
-  showPCOverlay()
+  void showPCOverlay()
   let result = ''
   if (isDaemonAlive()) {
     result = await sendCommand({ cmd: 'key', combo })
@@ -989,14 +1006,14 @@ export async function executeKey(combo) {
 /**
  * Scroll mouse wheel
  */
-export async function executeScroll(query) {
+export async function executeScroll(query: any) {
   if (!isSessionOpen) {
     return '[PC-Agent] ERROR: OS Control belum dibuka! Kamu WAJIB mengeksekusi tool "os-control-open" terlebih dahulu sebelum menggunakan tool PC automation.'
   }
   if (isStopActive()) {
     return `[PC-Agent] Stopped by user: ${lastStopReason || 'User pressed Ctrl+Shift+S'}`
   }
-  showPCOverlay()
+  void showPCOverlay()
   let direction = 'down'
   let amount = 5
   if (query && query.includes('||')) {
@@ -1029,14 +1046,14 @@ export async function executeScroll(query) {
 /**
  * Open an application
  */
-export async function openApp(target) {
+export async function openApp(target: any) {
   if (!isSessionOpen) {
     return '[PC-Agent] ERROR: OS Control belum dibuka! Kamu WAJIB mengeksekusi tool "os-control-open" terlebih dahulu sebelum menggunakan tool PC automation.'
   }
   if (isStopActive()) {
     return `[PC-Agent] Stopped by user: ${lastStopReason || 'User pressed Ctrl+Shift+S'}`
   }
-  showPCOverlay()
+  void showPCOverlay()
   let result = ''
   if (isDaemonAlive()) {
     result = await sendCommand({ cmd: 'open', target })
@@ -1064,7 +1081,7 @@ export async function listWindows() {
   if (isStopActive()) {
     return { status: 'stopped_by_user', windows: [], count: 0, message: lastStopReason }
   }
-  showPCOverlay()
+  void showPCOverlay()
   let result = ''
   if (isDaemonAlive()) {
     result = await sendCommand({ cmd: 'list-windows' })
@@ -1083,14 +1100,14 @@ export async function listWindows() {
 /**
  * Focus window by title substring
  */
-export async function focusWindow(title) {
+export async function focusWindow(title: any) {
   if (!isSessionOpen) {
     return '[PC-Agent] ERROR: OS Control belum dibuka! Kamu WAJIB mengeksekusi tool "os-control-open" terlebih dahulu sebelum menggunakan tool PC automation.'
   }
   if (isStopActive()) {
     return `[PC-Agent] Stopped by user: ${lastStopReason || 'User pressed Ctrl+Shift+S'}`
   }
-  showPCOverlay()
+  void showPCOverlay()
   let result = ''
   if (isDaemonAlive()) {
     result = await sendCommand({ cmd: 'focus-window', title })

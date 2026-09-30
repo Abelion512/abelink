@@ -1,5 +1,5 @@
 // Channel: OS automation namespace colon (Fase B6) — ALIAS ke implementasi
-// dash yang sudah LIVE di NATIVE_TOOLS (node-tools.js -> pc-agent.js +
+// dash yang sudah LIVE di NATIVE_TOOLS (node-tools.ts -> pc-agent.ts +
 // primitif Linux). Satu sumber kebenaran, tanpa duplikasi handler.
 //
 // Sebelumnya stub `unsupported` sukses-semu; kini eksekusi nyata dan
@@ -16,7 +16,9 @@ type NativeTool = { handler: (query: string) => Promise<{ success?: boolean; err
 type NativeTools = Record<string, NativeTool>
 let ntPromise: Promise<NativeTools> | null = null
 const getTools = (): Promise<NativeTools> =>
-  (ntPromise ??= import('../../main/node-tools.js').then((m) => m.NATIVE_TOOLS as NativeTools))
+  (ntPromise ??= import('../../main/node-tools.ts').then(
+    (m) => m.NATIVE_TOOLS as unknown as NativeTools
+  ))
 
 // os:X -> os-Y (os:ask-user -> os-ask)
 const COLON_TO_DASH: Record<string, string> = {

@@ -1,10 +1,10 @@
-// Tool komunikasi/Telegram (dipindah murni dari main/node-tools.js).
-import { sendTelegramMessage, sendTelegramFile, getConnectionStatus, sendInlineKeyboard, waitForAskUserAnswer } from '../telegram/telegram-service.js'
+// Tool komunikasi/Telegram (dipindah murni dari main/node-tools.ts).
+import { sendTelegramMessage, sendTelegramFile, getConnectionStatus, sendInlineKeyboard, waitForAskUserAnswer } from '../telegram/telegram-service.ts'
 
 export const commsTools = {
   'tg-send': {
     needsApproval: false,
-    handler: async (query) => {
+    handler: async (query: any) => {
       try {
         const parts = query.split(/\|+/)
         if (parts.length < 2) return { success: false, error: 'Format: chatId||tipe(text/file)||konten' }
@@ -18,8 +18,7 @@ export const commsTools = {
         } else {
           const result = await sendTelegramMessage(chatId, content)
           return { success: result.success, data: result.success ? `Berhasil mengirim pesan ke Telegram.` : `Gagal: ${result.error}` }
-        }
-      } catch (e) {
+        }        } catch (e: any) {
         return { success: false, error: e.message }
       }
     }

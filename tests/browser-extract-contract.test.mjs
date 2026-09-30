@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { resolveExtractQuery } from '../sidecar/main/tools/extract-query.mjs'
+import { resolveExtractQuery } from '../sidecar/main/tools/extract-query.ts'
 
 describe('resolveExtractQuery', () => {
   it('query kosong tanpa sesi/lastUrl = error eksplisit', () => {

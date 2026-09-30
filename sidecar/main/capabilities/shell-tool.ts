@@ -1,5 +1,5 @@
 // Connector plugin: shell via tool `run-shell` yang sudah ada.
-// Catatan penting: handler run-shell di node-tools.js punya gate approval
+// Catatan penting: handler run-shell di node-tools.ts punya gate approval
 // DINAMIS (dangerous-keyword check). Agar satu sumber kebenaran, plugin ini
 // memanggil NATIVE_TOOLS['run-shell'].needsApproval(command) sendiri untuk
 // menentukan policy — TANPA menduplikasi daftar keyword berbahaya.
@@ -22,7 +22,7 @@ interface ShellToolEntry {
 }
 
 async function getRunShell(): Promise<ShellToolEntry | undefined> {
-  const { shellTools } = await import('../tools/shellTools.mjs')
+  const { shellTools } = await import('../tools/shellTools.ts')
   return (shellTools as Record<string, ShellToolEntry>)['run-shell']
 }
 

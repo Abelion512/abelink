@@ -27,8 +27,8 @@ import {
   tokenOk,
   tokenRejectReason,
   writeTokenFile,
-} from '../sidecar/main/browser/bridge-core.mjs'
-import { startBrowserBridge, stopBrowserBridge } from '../sidecar/main/browser/server.mjs'
+} from '../sidecar/main/browser/bridge-core.ts'
+import { startBrowserBridge, stopBrowserBridge } from '../sidecar/main/browser/server.ts'
 
 const TEST_PORT = 49798
 

@@ -4,8 +4,8 @@ import {
   fetchViaRouter,
   SKIP_NO_KEY,
   DEFAULT_ROUTER_ENDPOINT
-} from '../sidecar/main/tools/routerSearch.mjs'
-import { extractGoogleResults } from '../sidecar/main/tools/browserTools.mjs'
+} from '../sidecar/main/tools/routerSearch.ts'
+import { extractGoogleResults } from '../sidecar/main/tools/browserTools.ts'
 
 const realFetch = globalThis.fetch
 

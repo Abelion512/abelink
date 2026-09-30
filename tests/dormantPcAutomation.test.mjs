@@ -67,7 +67,7 @@ describe('pc_automation dorman (keputusan owner 2026-09-27)', () => {
     expect(DEFERRED_GROUP_SPECS.pc_automation).toBeTruthy()
     // Kode mesin tidak dihapus (diimport node-tools):
     const { readFileSync } = await import('node:fs')
-    const nt = readFileSync('sidecar/main/node-tools.js', 'utf8')
-    expect(nt).toMatch(/from '\.\/tools\/osTools\.mjs'/)
+    const nt = readFileSync('sidecar/main/node-tools.ts', 'utf8')
+    expect(nt).toMatch(/from '\.\/tools\/osTools\.ts'/)
   })
 })
