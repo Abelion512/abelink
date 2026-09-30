@@ -331,7 +331,9 @@ const ChatStudio = () => {
 
   const activeSessionObj: SessionRow = sessions.find((s) => s.id === activeSessionId) || {
     id: 1,
-    title: 'Main Thread'
+    title: 'Main Thread',
+    data: [],
+    timestamp: 0
   }
 
   return (
@@ -455,7 +457,7 @@ const ChatStudio = () => {
                     tabIndex={0}
                     onClick={() => s.id !== undefined && setActiveSessionId(s.id)}
                     onKeyDown={(e: ReactKeyboardEvent<HTMLDivElement>) => {
-                      if (e.key === 'Enter' || e.key === ' ') s.id !== undefined && setActiveSessionId(s.id)
+                      if ((e.key === 'Enter' || e.key === ' ') && s.id !== undefined) setActiveSessionId(s.id)
                     }}
                     className={`w-full p-2.5 rounded-xl text-left transition-all flex items-center justify-between group/item cursor-pointer ${
                       isActive

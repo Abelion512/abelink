@@ -15,7 +15,7 @@ const SentientCyberEyes = ({
 
   // Otomatis berkedip secara natural setiap 3.5 - 6 detik
   useEffect(() => {
-    let blinkTimeout
+    let blinkTimeout: ReturnType<typeof setTimeout> | undefined
     const triggerBlink = () => {
       setIsBlinking(true)
       setTimeout(() => {
@@ -354,10 +354,10 @@ const SentientCyberEyes = ({
   )
 }
 
-const CubeVisualizer = ({ status = 'idle', intensity = 0, mood = 'neutral', size = 'normal' }) => {
+const CubeVisualizer = ({ status = 'idle', intensity = 0, mood = 'neutral', size = 'normal' }: { status?: string; intensity?: number; mood?: string; size?: string }) => {
   // Warna murni derivasi status/mood — hitung saat render, tanpa effect
   // (menghapus set-state-in-effect; perilaku identik).
-  const moodPalette = {
+  const moodPalette: Record<string, [string, string]> = {
     joy: ['bg-yellow-400/40', '#facc15'],
     sadness: ['bg-blue-500/40', '#3b82f6'],
     fear: ['bg-purple-500/40', '#a855f7'],

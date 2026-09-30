@@ -16,14 +16,32 @@ import { MobiusLoader } from '../core/MobiusLoader'
 const PRIMARY = '#0071e3'
 const WHITE = '#ffffff'
 
+interface TopologyAgent {
+  id: string
+  name?: string
+  status?: string
+  role?: string
+  goal?: string
+  turnCount?: number
+  createdAt?: string | number
+  finalAnswer?: string | null
+  [key: string]: unknown
+}
+
 export default function SubagentTopologyMap({
   subagents = [],
   selectedId = null,
   onSelectAgent = () => {},
   onOpenIntercom = () => {},
   onSendMessage = () => {}
+}: {
+  subagents?: TopologyAgent[]
+  selectedId?: string | null
+  onSelectAgent?: (id: string) => void
+  onOpenIntercom?: (id: string) => void
+  onSendMessage?: (id: string, text: string) => void
 }) {
-  const [hoveredId, setHoveredId] = useState(null)
+  const [hoveredId, setHoveredId] = useState<string | null>(null)
   const [quickInput, setQuickInput] = useState('')
   const [isSending, setIsSending] = useState(false)
 
@@ -68,8 +86,8 @@ export default function SubagentTopologyMap({
   const completedCount = subagents.filter((a) => a.status === 'completed').length
   const failedCount = subagents.filter((a) => a.status === 'failed' || a.status === 'killed').length
 
-  const handleQuickSend = async (e) => {
-    e?.preventDefault()
+  const handleQuickSend = async (e?: { preventDefault?: () => void }) => {
+    e?.preventDefault?.()
     if (!quickInput.trim() || !selectedAgent || isSending) return
     setIsSending(true)
     try {
@@ -295,7 +313,7 @@ export default function SubagentTopologyMap({
                       fill={isFailed ? '#fca5a5' : WHITE}
                       className="text-[9px] font-medium tracking-tight"
                     >
-                      {node.name.length > 14 ? node.name.slice(0, 12) + '..' : node.name}
+                      {(node.name ?? '').length > 14 ? (node.name ?? '').slice(0, 12) + '..' : (node.name ?? '')}
                     </text>
                   </g>
                 )
@@ -331,7 +349,7 @@ export default function SubagentTopologyMap({
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
                   <div className="w-7 h-7 rounded-lg bg-primary/15 text-primary flex items-center justify-center font-bold text-xs flex-none">
-                    {selectedAgent.name.slice(0, 2).toUpperCase()}
+                    {(selectedAgent.name ?? '').slice(0, 2).toUpperCase()}
                   </div>
                   <div className="min-w-0">
                     <h4 className="font-semibold text-xs truncate">{selectedAgent.name}</h4>

@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getRelationship, saveRelationship } from '../api/db'
+import type { RelationshipRow } from '../api/db'
+import type { LucideIcon } from 'lucide-react'
 import { useConfirm } from '../hooks/useConfirm'
 import { MobiusLoader } from '../components/core/MobiusLoader'
 import { UsageHeatmap } from '../components/core/UsageHeatmap'
@@ -19,7 +21,24 @@ import {
   Bot
 } from 'lucide-react'
 
-const TRAIT_META = [
+interface TraitRingProps {
+  value: number
+  color: string
+  icon: LucideIcon
+  label: string
+  desc: string
+  ring: string
+}
+
+interface StatItem {
+  label: string
+  value: string | number
+  icon: LucideIcon
+  sub: string
+  iconColor: string
+}
+
+const TRAIT_META: { key: string; label: string; desc: string; color: string; bg: string; ring: string; icon: LucideIcon }[] = [
   {
     key: 'warmth',
     label: 'Kehangatan',
@@ -67,7 +86,7 @@ const TRAIT_META = [
   }
 ]
 
-function describeLevel(val) {
+function describeLevel(val: number) {
   if (val >= 0.85) return 'Sangat Tinggi'
   if (val >= 0.7) return 'Tinggi'
   if (val >= 0.55) return 'Agak Tinggi'
@@ -77,7 +96,7 @@ function describeLevel(val) {
   return 'Sangat Rendah'
 }
 
-function describePersonality(traits) {
+function describePersonality(traits: RelationshipRow | null) {
   if (!traits) return 'Memuat...'
   const { warmth, sarcasm_level, trust, energy, obedience } = traits
   const parts = []
@@ -104,7 +123,7 @@ function describePersonality(traits) {
   return `Abelink saat ini bersikap ${parts.join(', ')}.`
 }
 
-const TraitRing = ({ value, color, icon: Icon, label, desc, ring }) => {
+const TraitRing = ({ value, color, icon: Icon, label, desc, ring }: TraitRingProps) => {
   const pct = value * 100
   const r = 42
   const circ = 2 * Math.PI * r
@@ -143,7 +162,7 @@ const TraitRing = ({ value, color, icon: Icon, label, desc, ring }) => {
 
 const RelationalGrowth = () => {
   const navigate = useNavigate()
-  const [traits, setTraits] = useState(null)
+  const [traits, setTraits] = useState<RelationshipRow | null>(null)
   const [loading, setLoading] = useState(true)
   const { confirm, ModalComponent } = useConfirm()
 
@@ -233,7 +252,7 @@ const RelationalGrowth = () => {
               <div className="p-5 rounded-2xl bg-gradient-to-br from-base-200/80 to-base-300/50 border border-white/5 backdrop-blur-sm">
                 <p className="text-sm font-semibold text-primary mb-2 flex items-center gap-2"><Brain className="text-primary" /> Kepribadian Saat Ini</p>
                 <p className="text-base-content/80 text-sm leading-relaxed">{describePersonality(traits)}</p>
-                {traits?.evalCount > 0 && (
+                {traits != null && traits.evalCount > 0 && (
                   <div className="flex items-center gap-4 mt-3 text-xs text-base-content/40">
                     <span className="flex items-center gap-1"><ChartColumn className="text-base-content/40" /> Evaluasi ke-{traits.evalCount}</span>
                     {traits.lastEvaluation && (
@@ -250,12 +269,11 @@ const RelationalGrowth = () => {
                   {TRAIT_META.map(t => (
                     <TraitRing
                       key={t.key}
-                      value={traits?.[t.key] ?? 0.5}
+                      value={(traits?.[t.key] as number | undefined) ?? 0.5}
                       color={t.color}
                       icon={t.icon}
                       label={t.label}
                       desc={t.desc}
-                      text={t.text}
                       ring={t.ring}
                     />
                   ))}
@@ -284,13 +302,13 @@ const RelationalGrowth = () => {
               <div>
                 <p className="text-sm font-semibold text-base-content/70 mb-4 flex items-center gap-2"><Boxes className="text-primary/70" /> Statistik Hubungan</p>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                  {[
+                  {([
                     { label: 'Evaluasi Sifat', value: traits?.evalCount || 0, icon: ChartColumn, sub: 'Total drift evaluation', iconColor: 'text-primary' },
                     { label: 'Kehangatan', value: ((traits?.warmth || 0.5) * 100).toFixed(0) + '%', icon: Flame, sub: describeLevel(traits?.warmth || 0.5), iconColor: 'text-error' },
                     { label: 'Kepercayaan', value: ((traits?.trust || 0.5) * 100).toFixed(0) + '%', icon: Shield, sub: describeLevel(traits?.trust || 0.5), iconColor: 'text-info' },
                     { label: 'Sarkasme', value: ((traits?.sarcasm_level || 0.5) * 100).toFixed(0) + '%', icon: Drama, sub: describeLevel(traits?.sarcasm_level || 0.5), iconColor: 'text-warning' },
                     { label: 'Kepatuhan', value: ((traits?.obedience || 0.5) * 100).toFixed(0) + '%', icon: Bot, sub: describeLevel(traits?.obedience || 0.5), iconColor: 'text-secondary' }
-                  ].map((stat, i) => {
+                  ] as StatItem[]).map((stat, i) => {
                     const StatIcon = stat.icon
                     return (
                       <div key={i} className="p-3 rounded-xl bg-base-200/40 border border-white/5 hover:bg-base-200/60 transition-colors">

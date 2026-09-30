@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent } from 'react'
+import { useState } from 'react'
 import { DEFAULT_STT_MODEL } from '../../api/sttGuard'
 import { t } from '../../api/locale'
 import type { ConfigRow, SttConnection } from '../../api/db'

@@ -9,9 +9,13 @@ export default function WindowControls({ className = '' }) {
   const [isMax, setIsMax] = useState(false)
 
   useEffect(() => {
-    if (window.api?.onWindowState) {
-      const unsub = window.api.onWindowState((s) => setIsMax(!!s?.isMaximized))
-      window.api.getWindowState?.().then((s) => setIsMax(!!s?.isMaximized)).catch(() => {})
+    const api = window.api as unknown as {
+      onWindowState?: (cb: (s: { isMaximized?: boolean } | null) => void) => () => void
+      getWindowState?: () => Promise<{ isMaximized?: boolean } | null>
+    } | undefined
+    if (api?.onWindowState) {
+      const unsub = api.onWindowState((s) => setIsMax(!!s?.isMaximized))
+      api.getWindowState?.().then((s) => setIsMax(!!s?.isMaximized)).catch(() => {})
       return unsub
     }
   }, [])

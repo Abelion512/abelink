@@ -26,12 +26,12 @@
 | P-13 | `evaluation/bench/boundary-abelink.mjs` | clamp trace 4k (di bawah bridge clamp 20k) | Bila trace pendek dibutuhkan penuh |
 | P-14 | `evaluation/effort-fixtures.mjs` | Loop topologis sekuensial (batch terbatas) | Bila eval node punya async I/O nyata |
 | P-15 | `src/assets/main.css` | Keyframes hello-draw sederhana (pengganti motion pathLength, tanpa dep) | Bila animasi boot butuh path drawing asli |
-| P-16 | `src/components/Chat/CodeBlock.jsx` | pre/code + CSS (react-syntax-highlighter dep dihapus) | Bila highlight baris-per-baris dibutuhkan di jalur chat |
-| P-17 | `src/components/WhatNew.jsx` | Satu komponen timeline tanpa lib baru | Bila kebutuhan visualisasi rilis melampaui chip+search |
-| P-18 | `src/components/core/AppleHello.jsx` + `ElasticSlider.jsx` | CSS draw/elastic (motion dep dihapus) | Bila animasi butuh physics asli |
-| P-19 | `src/components/core/JarvisOrb.jsx` | Wrapper tipis ke OrbVisualizer CSS (three.js dep dihapus) | Bila orb butuh render 3D nyata |
-| P-20 | `src/components/core/MemoryVisualizer.jsx` | LiteGraphView satu-satunya (force-graph dep dihapus) | Bila navigasi memori butuh graph penuh |
-| P-21 | `src/pages/AbelinkHome.jsx` | Satu guard home-only untuk semua fixed chrome | Bila chrome dipakai di halaman lain |
+| P-16 | `src/components/Chat/CodeBlock.tsx` | pre/code + CSS (react-syntax-highlighter dep dihapus) | Bila highlight baris-per-baris dibutuhkan di jalur chat |
+| P-17 | `src/components/WhatNew.tsx` | Satu komponen timeline tanpa lib baru | Bila kebutuhan visualisasi rilis melampaui chip+search |
+| P-18 | `src/components/core/AppleHello.tsx` + `ElasticSlider.tsx` | CSS draw/elastic (motion dep dihapus) | Bila animasi butuh physics asli |
+| P-19 | `src/components/core/JarvisOrb.tsx` | Wrapper tipis ke OrbVisualizer CSS (three.js dep dihapus) | Bila orb butuh render 3D nyata |
+| P-20 | `src/components/core/MemoryVisualizer.tsx` | LiteGraphView satu-satunya (force-graph dep dihapus) | Bila navigasi memori butuh graph penuh |
+| P-21 | `src/pages/AbelinkHome.tsx` | Satu guard home-only untuk semua fixed chrome | Bila chrome dipakai di halaman lain |
 
 ## GAIN (perbaikan terukur, dari log sesi 2026-09-27)
 

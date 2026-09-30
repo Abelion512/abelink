@@ -104,7 +104,7 @@ describe('formatToolDocumentation & formatGroupDocumentation', () => {
     expect(formatted).toContain('[TOOL: replace-content]')
     expect(formatted).toContain('Format Query:')
     expect(formatted).toContain('Contoh Pemakaian Nyata:')
-    expect(formatted).toContain('src/components/Header.jsx')
+    expect(formatted).toContain('src/components/Header.tsx')
   })
 
   it('formatGroupDocumentation menyajikan seluruh tools dalam grup beserta contohnya', () => {

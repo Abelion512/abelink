@@ -15,11 +15,21 @@ import { subagentStore } from '../api/subagent/subagentStore'
 import { MobiusLoader } from '../components/core/MobiusLoader'
 import { useConfirm } from '../hooks/useConfirm'
 
+interface SubagentRow {
+  id: string
+  name?: string
+  status?: string
+  role?: string
+  goal?: string
+  turnCount?: number
+  [key: string]: unknown
+}
+
 export default function Subagents() {
-  const [selectedSubagentId, setSelectedSubagentId] = useState(null)
+  const [selectedSubagentId, setSelectedSubagentId] = useState<string | null>(null)
   const [filterStatus, setFilterStatus] = useState('all')
-  const [subagents, setSubagents] = useState([])
-  const [viewMode, setViewMode] = useState('topology') // 'topology' | 'intercom'
+  const [subagents, setSubagents] = useState<SubagentRow[]>([])
+  const [viewMode, setViewMode] = useState<'topology' | 'intercom'>('topology')
 
   // Modal State untuk Spawn Manual
   const [isSpawnModalOpen, setIsSpawnModalOpen] = useState(false)
@@ -32,7 +42,7 @@ export default function Subagents() {
   // membuat re-run aman (tanpa reset pilihan user yang sudah ada).
   const loadSubagents = useCallback(async () => {
     try {
-      const list = await subagentStore.listSubagents(filterStatus)
+      const list = (await subagentStore.listSubagents(filterStatus as never)) as SubagentRow[]
       setSubagents(list || [])
       if (!selectedSubagentId && list && list.length > 0) {
         setSelectedSubagentId(list[0].id)
@@ -52,7 +62,7 @@ export default function Subagents() {
 
   const activeCount = subagents?.filter((s) => s.status === 'running').length || 0
 
-  const handleSendMessageFromTopology = async (id, messageText) => {
+  const handleSendMessageFromTopology = async (id: string, messageText: string) => {
     try {
       await runSubagentTurn(id, messageText)
       await loadSubagents()
@@ -61,13 +71,13 @@ export default function Subagents() {
     }
   }
 
-  const handleSpawnManual = async (e) => {
+  const handleSpawnManual = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!newAgentName.trim() || !newAgentGoal.trim() || isSpawning) return
 
     setIsSpawning(true)
     try {
-      const sub = await subagentStore.createSubagent({
+      const sub = await (subagentStore.createSubagent as (input: Record<string, unknown>) => Promise<SubagentRow>)({
         name: newAgentName.trim(),
         role: newAgentRole.trim() || 'Technical Specialist',
         goal: newAgentGoal.trim(),
@@ -94,7 +104,7 @@ export default function Subagents() {
 
   const { confirm, ModalComponent } = useConfirm()
 
-  const handleDeleteSubagent = async (id, e) => {
+  const handleDeleteSubagent = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
     const result = await confirm({
       title: 'Hapus Sub-Agent?',
@@ -301,7 +311,7 @@ export default function Subagents() {
                             <div className={`flex items-center justify-between text-[10px] font-mono pl-4 ${isSelected ? 'text-white/70' : 'text-white/40'}`}>
                               <span>Langkah: {agent.turnCount || 0}</span>
                               <span>
-                                {new Date(agent.createdAt).toLocaleTimeString([], {
+                                {new Date(agent.createdAt as string | number).toLocaleTimeString([], {
                                   hour: '2-digit',
                                   minute: '2-digit'
                                 })}

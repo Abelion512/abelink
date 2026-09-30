@@ -1,5 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
+import type { ReactNode, MouseEvent as ReactMouseEvent } from 'react';
 import { HoloChrome } from './HoloChrome';
+
+interface DraggableHoloCardProps {
+  children: ReactNode
+  title?: ReactNode
+  id?: string | number
+  defaultPosition?: { x: number; y: number }
+  onClose?: () => void
+  isVisible?: boolean
+}
 
 const DraggableHoloCard = ({ 
   children, 
@@ -8,11 +18,12 @@ const DraggableHoloCard = ({
   defaultPosition = { x: window.innerWidth - 400, y: 80 }, 
   onClose, 
   isVisible = true 
-}) => {
+}: DraggableHoloCardProps) => {
   const [pos, setPos] = useState(defaultPosition);
   const [isDragging, setIsDragging] = useState(false);
-  const [animState, setAnimState] = useState(isVisible ? 'entering' : 'hidden');
+  const [animState, setAnimState] = useState<'entering' | 'visible' | 'exiting' | 'hidden'>(isVisible ? 'entering' : 'hidden');
   const dragRef = useRef({ offsetX: 0, offsetY: 0 });
+  void _id
 
   useEffect(() => {
     // Animasi enter/exit: kickoff via microtask agar lolos
@@ -31,7 +42,7 @@ const DraggableHoloCard = ({
   }, [isVisible]);
 
   useEffect(() => {
-    const handleMouseMove = (e) => {
+    const handleMouseMove = (e: MouseEvent) => {
       if (!isDragging) return;
       
       let newX = e.clientX - dragRef.current.offsetX;
@@ -62,7 +73,7 @@ const DraggableHoloCard = ({
     };
   }, [isDragging]);
 
-  const handleMouseDown = (e) => {
+  const handleMouseDown = (e: ReactMouseEvent<HTMLDivElement>) => {
     setIsDragging(true);
     dragRef.current = {
       offsetX: e.clientX - pos.x,

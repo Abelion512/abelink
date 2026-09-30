@@ -3,13 +3,19 @@ import { Square } from 'lucide-react'
 import { MobiusLoader } from './MobiusLoader'
 import { useChat } from '../../contexts/useChat'
 
+interface ActiveAutomation {
+  action?: unknown
+  [key: string]: unknown
+}
+
 export default function AutomationHUD() {
-  const { handleStop } = useChat() || {}
-  const [activeAutomation, setActiveAutomation] = useState(null)
+  const chat = (useChat() ?? {}) as { handleStop?: () => void }
+  const { handleStop } = chat
+  const [activeAutomation, setActiveAutomation] = useState<ActiveAutomation | null>(null)
 
   useEffect(() => {
-    const handleStart = (e) => {
-      setActiveAutomation(e.detail || { action: 'Otomasi aktif' })
+    const handleStart = (e: Event) => {
+      setActiveAutomation((e as CustomEvent).detail || { action: 'Otomasi aktif' })
     }
     const handleEnd = () => {
       setActiveAutomation(null)

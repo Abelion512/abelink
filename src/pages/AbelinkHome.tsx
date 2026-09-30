@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback, type ChangeEvent, type MouseEvent as ReactMouseEvent } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useChat } from '../contexts/useChat'
 import OrbVisualizer from '../components/core/OrbVisualizer'
@@ -6,11 +6,15 @@ import JarvisOrb from '../components/core/JarvisOrb'
 import InputBar from '../components/core/InputBar'
 import { useManualCompaction } from '../hooks/useManualCompaction'
 import ResponseArea from '../components/core/ResponseArea'
+import type { ResponseData } from '../components/core/ResponseArea'
 import { mapChatItemToResponse } from '../api/choiceBus'
 import StatusIndicator from '../components/core/StatusIndicator'
+import type { StatusNotification } from '../components/core/StatusIndicator'
 import HistoryDrawer from '../components/core/HistoryDrawer'
 import ProcessPanel from '../components/core/ProcessPanel'
+import type { ProcessItem } from '../components/core/ProcessPanel'
 import ThoughtNeuralFlow from '../components/core/ThoughtNeuralFlow'
+import type { FlowProcess } from '../components/core/ThoughtNeuralFlow'
 import MemoryVisualizer from '../components/core/MemoryVisualizer'
 import { ChatStudioModal } from '../components/core/ChatStudioModal'
 import WindowControls from '../components/core/WindowControls'
@@ -233,7 +237,7 @@ const AbelinkHome = () => {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const [isChatStudioOpen, setIsChatStudioOpen] = useState(false)
   const [isMemoryMapOpen, setIsMemoryMapOpen] = useState(false)
-  const [currentResponse, setCurrentResponse] = useState<unknown>(null)
+  const [currentResponse, setCurrentResponse] = useState<ResponseData | null>(null)
   const [showMusicWidget, setShowMusicWidget] = useState(false)
   const [, setIsMusicAnimatingOut] = useState(false)
   const [isMaxWindow, setIsMaxWindow] = useState(false)
@@ -744,7 +748,7 @@ const AbelinkHome = () => {
       if (chatData && chatData.length > 0) {
         const lastItem = chatData[chatData.length - 1]
         if (lastItem.role === 'ai') {
-          setCurrentResponse(mapChatItemToResponse(lastItem))
+          setCurrentResponse(mapChatItemToResponse(lastItem) as unknown as ResponseData)
         } else {
           if (isLoading) {
             setCurrentResponse({
@@ -807,8 +811,8 @@ const AbelinkHome = () => {
       )}
 
       {/* Floating System Menus (nav moved to persistent AppSidebar in MainLayout) */}
-      <StatusIndicator notifications={notifications} />
-      <ProcessPanel processes={activeProcesses} onDismiss={dismissProcess} />
+      <StatusIndicator notifications={notifications as StatusNotification[] | undefined} />
+      <ProcessPanel processes={(activeProcesses ?? []) as ProcessItem[]} onDismiss={dismissProcess} />
       <LiteBadge />
 
       {toastMessage && (
@@ -906,7 +910,7 @@ const AbelinkHome = () => {
               style={{
                 transform: showRichCardInVoice ? 'scale(0.68)' : 'scale(1)'
               }}
-              title="Tekan tombol panah (Arrow Left / Right), geser kursor, atau klik indikator di bawah untuk beralih gaya Orb"
+              title={"Tekan tombol panah (Arrow Left / Right), geser kursor, atau klik indikator di bawah untuk beralih gaya Orb" as string | undefined}
             >
               {orbStyle === 'abelink' ? (
                 <OrbVisualizer
@@ -940,7 +944,7 @@ const AbelinkHome = () => {
                 </button>
               </div>
               <div className="flex-1 overflow-y-auto no-scrollbar pr-1 text-sm text-white/90 leading-relaxed font-sans">
-                <ResponseArea currentResponse={currentResponse} />
+                <ResponseArea currentResponse={currentResponse as ResponseData} />
               </div>
             </div>
           )}
@@ -1027,7 +1031,7 @@ const AbelinkHome = () => {
                 transition: 'transform 0.7s cubic-bezier(0.4, 0, 0.2, 1)'
               }}
             >
-              <ThoughtNeuralFlow processes={activeProcesses} />
+              <ThoughtNeuralFlow processes={(activeProcesses ?? []) as FlowProcess[]} />
               <div className="z-10 relative">
                 <OrbVisualizer
                   status={orbStatus}
@@ -1050,7 +1054,7 @@ const AbelinkHome = () => {
           >
             <div className="w-full max-w-2xl mx-auto flex flex-col items-center justify-start pt-4 pb-20 min-h-full">
               {currentResponse ? (
-                <ResponseArea currentResponse={currentResponse} />
+                <ResponseArea currentResponse={currentResponse as ResponseData} />
               ) : (
                 <div className="text-center opacity-40 font-mono text-sm mt-20">
                   Abelink siap menerima instruksi atau percakapan.

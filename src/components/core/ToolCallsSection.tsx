@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import type { LucideIcon } from 'lucide-react'
 import {
   Search,
   Mail,
@@ -27,9 +28,9 @@ const CATEGORY_RULES = [
   [/handoff|subagent|spawn|delegate/, Users],
 ]
 
-function iconComponentFor(call) {
+function iconComponentFor(call: { tool_category?: string; tool_name?: string }) {
   const src = `${call.tool_category || ''} ${call.tool_name || ''}`.toLowerCase()
-  for (const [re, Icon] of CATEGORY_RULES) {
+  for (const [re, Icon] of CATEGORY_RULES as Array<[RegExp, LucideIcon]>) {
     if (re.test(src)) return Icon
   }
   return Wrench
@@ -37,11 +38,11 @@ function iconComponentFor(call) {
 
 // Static wrapper: Icon arrives via props (never created in render scope),
 // satisfying react-hooks/static-components.
-function ToolCallIcon({ Icon, className }) {
+function ToolCallIcon({ Icon, className }: { Icon: LucideIcon; className?: string }) {
   return <Icon className={className} style={{ color: ACCENT }} />
 }
 
-function formatValue(value) {
+function formatValue(value: unknown): string | null {
   if (value === undefined || value === null || value === '') return null
   if (typeof value === 'string') return value
   try {
@@ -51,7 +52,7 @@ function formatValue(value) {
   }
 }
 
-function ToolCallRow({ call }) {
+function ToolCallRow({ call }: { call: ToolCallRow }) {
   const [open, setOpen] = useState(false)
   const Icon = iconComponentFor(call)
   const inputsText = formatValue(call.inputs)

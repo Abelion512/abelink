@@ -1,5 +1,18 @@
 import { useEffect, useRef } from 'react';
+import type { MouseEvent as ReactMouseEvent } from 'react';
 import { createPortal } from 'react-dom';
+
+interface ConfirmModalProps {
+  isOpen: boolean
+  title?: string
+  message?: string
+  onConfirm?: () => void
+  onCancel?: () => void
+  confirmText?: string
+  cancelText?: string
+  isError?: boolean
+  hideCancel?: boolean
+}
 
 const ConfirmModal = ({ 
   isOpen,
@@ -11,11 +24,11 @@ const ConfirmModal = ({
   cancelText = "Batal", 
   isError = false,
   hideCancel = false
-}) => {
-  const confirmRef = useRef(null);
+}: ConfirmModalProps) => {
+  const confirmRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
-    const handleKeyDown = (e) => {
+    const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
         onCancel?.();
       }
@@ -42,7 +55,7 @@ const ConfirmModal = ({
             <button 
               type="button"
               className="btn btn-ghost btn-sm" 
-              onClick={(e) => {
+              onClick={(e: ReactMouseEvent<HTMLButtonElement>) => {
                 e.preventDefault();
                 e.stopPropagation();
                 onCancel?.();
@@ -55,7 +68,7 @@ const ConfirmModal = ({
             ref={confirmRef}
             type="button"
             className={`btn ${isError ? 'btn-error' : 'btn-primary'} btn-sm shadow-md`}
-            onClick={(e) => {
+            onClick={(e: ReactMouseEvent<HTMLButtonElement>) => {
               e.preventDefault();
               e.stopPropagation();
               onConfirm?.();

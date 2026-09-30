@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
+import type { MouseEvent as ReactMouseEvent } from 'react';
 
-function parseRgba(color) {
+function parseRgba(color: string) {
   const m = /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*([\d.]+))?\s*\)/.exec(color);
   if (!m) return null;
   return { r: Number(m[1]), g: Number(m[2]), b: Number(m[3]), a: m[4] === undefined ? 1 : Number(m[4]) };
@@ -16,8 +17,18 @@ export function DotGridSpotlight({
   activeMaxAlpha = 1.0,
   activeMinAlpha = 0.5,
   className = '',
+}: {
+  dotColor?: string
+  activeDotColor?: string
+  spacing?: number
+  baseRadius?: number
+  activeRadius?: number
+  interactionRadius?: number
+  activeMaxAlpha?: number
+  activeMinAlpha?: number
+  className?: string
 }) {
-  const canvasRef = useRef(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const mouseRef = useRef({ x: -9999, y: -9999, active: false });
   const rafRef = useRef(0);
   const propsRef = useRef({ dotColor, activeDotColor, spacing, baseRadius, activeRadius, interactionRadius, activeMaxAlpha, activeMinAlpha });
@@ -84,7 +95,7 @@ export function DotGridSpotlight({
       rafRef.current = requestAnimationFrame(draw);
     };
 
-    const onMouseMove = (e) => {
+    const onMouseMove = (e: ReactMouseEvent | globalThis.MouseEvent) => {
       const rect = canvas.getBoundingClientRect();
       mouseRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top, active: true };
       schedule();

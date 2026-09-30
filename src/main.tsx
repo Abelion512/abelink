@@ -6,7 +6,8 @@ import { createRoot } from 'react-dom/client'
 import App from './App'
 import { LiteModeProvider } from './contexts/LiteModeContext'
 
-createRoot(document.getElementById('root')).render(
+const rootEl = document.getElementById('root')
+createRoot(rootEl as HTMLElement).render(
   <StrictMode>
     <LiteModeProvider>
       <App />

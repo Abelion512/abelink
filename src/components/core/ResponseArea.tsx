@@ -8,9 +8,24 @@ import { ChoiceButtons } from '../Chat/ChoiceButtons'
 import { sharedMarkdownComponents } from '../Chat/SharedMarkdown'
 import PluginExecutionBubble from '../Chat/PluginExecutionBubble'
 
-const ResponseArea = ({ currentResponse }) => {
-  const [animState, setAnimState] = useState('idle') // 'fade-out', 'fade-in', 'idle'
-  const [displayResponse, setDisplayResponse] = useState(currentResponse)
+export interface ResponseData {
+  text?: string
+  type?: 'long' | 'short'
+  isThinking?: boolean
+  pluginResult?: unknown
+  choice?: unknown
+  sources?: unknown[]
+  reasoning?: string
+  [key: string]: unknown
+}
+
+interface ResponseAreaProps {
+  currentResponse: ResponseData | null
+}
+
+const ResponseArea = ({ currentResponse }: ResponseAreaProps) => {
+  const [animState, setAnimState] = useState<'idle' | 'fade-out' | 'fade-in'>('idle') // 'fade-out', 'fade-in', 'idle'
+  const [displayResponse, setDisplayResponse] = useState<ResponseData | null>(currentResponse)
 
   useEffect(() => {
     if (currentResponse !== displayResponse) {
@@ -38,8 +53,10 @@ const ResponseArea = ({ currentResponse }) => {
 
   if (!displayResponse) return null
 
-  const { text, type, pluginResult, choice } =
-    displayResponse
+  const text: string = displayResponse.text ?? ''
+  const type = displayResponse.type
+  const pluginResult: unknown = displayResponse.pluginResult
+  const choice: unknown = displayResponse.choice
 
   const animationClass =
     animState === 'fade-out'
@@ -51,9 +68,9 @@ const ResponseArea = ({ currentResponse }) => {
   const renderContent = () => {
     const markdownComponents = sharedMarkdownComponents
 
-    const cleanText = (raw) => {
+    const cleanText = (raw: unknown) => {
       if (!raw || typeof raw !== 'string') return ''
-      let res = raw
+      let res: string = raw
       res = res.replace(/<(?:Image|img)\s+[^>]*src="([^"]+)"[^>]*alt="([^"]*)"[^>]*\/?>/gi, '![$2]($1)')
       res = res.replace(/<(?:Image|img)\s+[^>]*alt="([^"]*)"[^>]*src="([^"]+)"[^>]*\/?>/gi, '![$1]($2)')
       res = res.replace(/<(?:Image|img)\s+[^>]*$/gim, '')
@@ -70,7 +87,7 @@ const ResponseArea = ({ currentResponse }) => {
 
       if (firstNewlineMatch) {
         // Potong di enter pertama
-        const index = firstNewlineMatch.index
+        const index = firstNewlineMatch.index ?? 0
         tldr = safeText.substring(0, index).trim()
         restText = cleanText(safeText.substring(index).trim())
       } else {
@@ -169,13 +186,15 @@ const ResponseArea = ({ currentResponse }) => {
 
       {/* Tombol opsi ask-choice (klik lanjutkan loop — sama seperti di chat) */}
       <div className="w-full max-w-2xl">
-        <ChoiceButtons choice={choice} />
+        {choice != null ? (
+          <ChoiceButtons choice={(choice as { text?: string }[] | undefined) ?? undefined} />
+        ) : null}
       </div>
 
       {/* Plugin Execution Result Chip */}
-      {pluginResult && (
+      {pluginResult != null && (
         <div className="mt-2 w-full flex justify-center">
-          <PluginExecutionBubble pluginExecution={pluginResult} />
+          <PluginExecutionBubble pluginExecution={(pluginResult ?? null) as { name?: string; [key: string]: unknown } | null} />
         </div>
       )}
     </div>

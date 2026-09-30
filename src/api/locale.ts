@@ -836,5 +836,5 @@ export function tx(langOrConfig: LangInput, key: string): LocaleValue {
  */
 export function t(langOrConfig: LangInput, key: string, ...args: unknown[]): string {
   const v = tx(langOrConfig, key)
-  return typeof v === 'function' ? String(v(args[0], args[1])) : v
+  return typeof v === 'function' ? String((v as (a?: unknown, b?: unknown) => unknown)(args[0], args[1])) : v
 }

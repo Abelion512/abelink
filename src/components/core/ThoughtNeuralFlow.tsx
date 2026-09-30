@@ -1,14 +1,26 @@
 import { Check } from 'lucide-react';
 import { MobiusLoader } from './MobiusLoader';
 
-const ThoughtNeuralFlow = ({ processes }) => {
+export interface FlowProcess {
+  type?: string
+  status?: string
+  data?: {
+    plan?: string[]
+    currentStep?: number
+    reasoning?: string
+    [key: string]: unknown
+  }
+  [key: string]: unknown
+}
+
+const ThoughtNeuralFlow = ({ processes }: { processes?: FlowProcess[] }) => {
   // Plan aktif murni derivasi processes saat render — tanpa effect/state
   // (menghapus set-state-in-effect; perilaku identik).
-  const findActivePlan = (list) => {
-    let activePlan = list.find(p => p.type === 'planning');
+  const findActivePlan = (list: FlowProcess[]) => {
+    let activePlan = list.find((p: FlowProcess) => p.type === 'planning');
 
     if (!activePlan && list.length > 0) {
-      const runningProc = list.find(p => p.status !== 'done');
+      const runningProc = list.find((p: FlowProcess) => p.status !== 'done');
       if (runningProc) {
         const taskName = runningProc.type === 'web-search' ? 'Mencari Data...' :
                        runningProc.type === 'plugin-execution' ? 'Eksekusi Plugin...' :
@@ -20,14 +32,14 @@ const ThoughtNeuralFlow = ({ processes }) => {
             currentStep: 1,
             reasoning: 'Fast Track Execution'
           }
-        };
+        } as FlowProcess;
       }
     }
 
     return activePlan ?? null
   }
 
-  const displayedPlan = findActivePlan(processes)
+  const displayedPlan = findActivePlan(processes ?? [])
   const isVisible = displayedPlan != null
 
   const plan = displayedPlan?.data?.plan || [];
@@ -55,7 +67,7 @@ const ThoughtNeuralFlow = ({ processes }) => {
       {/* Reasoning text removed as per user request */}
 
       {/* Nodes around the Orb */}
-      {plan.map((step, idx) => {
+      {plan.map((step: string, idx: number) => {
         const isCompleted = idx < currentStep;
         const isActive = idx === currentStep && !isDone;
         const isPending = idx > currentStep;

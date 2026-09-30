@@ -261,7 +261,9 @@ const Configuration = ({
         setSaveStatus({ state: 'error' })
       }
     }, 700)
-    return () => clearTimeout(autosaveTimerRef.current)
+    return () => {
+      if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current)
+    }
   }, [config, isFirstSetup, chatSetConfig])
 
   // useCallback agar efek legacy-import di bawah stabil; one-shot dijaga
@@ -390,7 +392,7 @@ const Configuration = ({
     }))
   const handleRtkCompressChange = (e: ChangeEvent<HTMLInputElement>) =>
     setConfig((prev) => ({ ...prev, rtkCompress: e.target.checked }))
-  const handlePersonalityChange = (e: ChangeEvent<HTMLInputElement>) =>
+  const handlePersonalityChange = (e: ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) =>
     setConfig((prev) => ({ ...prev, personality: e.target.value }))
 
   return (

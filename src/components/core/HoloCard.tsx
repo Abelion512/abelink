@@ -1,10 +1,17 @@
 import { useState, useRef, useEffect } from 'react';
+import type { ReactNode } from 'react';
 import { HoloChrome } from './HoloChrome';
 
-const HoloCard = ({ children, title, defaultExpanded = false }) => {
+interface HoloCardProps {
+  children: ReactNode
+  title?: string
+  defaultExpanded?: boolean
+}
+
+const HoloCard = ({ children, title, defaultExpanded = false }: HoloCardProps) => {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [isOverflowing, setIsOverflowing] = useState(false);
-  const contentRef = useRef(null);
+  const contentRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (contentRef.current) {

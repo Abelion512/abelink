@@ -6,9 +6,16 @@
 import { useEffect, useState } from 'react'
 import { UploadCloud } from 'lucide-react'
 import { listen } from '@tauri-apps/api/event'
+import type { UnlistenFn } from '@tauri-apps/api/event'
 import { extractDroppedItems, extractClipboardFiles } from '../../utils/attachments'
+import type { AttachmentItem } from '../../utils/attachments'
 
-export default function DropAnywhere({ onFilesDropped, enabled = true }) {
+interface DropAnywhereProps {
+  onFilesDropped?: (items: AttachmentItem[]) => void
+  enabled?: boolean
+}
+
+export default function DropAnywhere({ onFilesDropped, enabled = true }: DropAnywhereProps) {
   const [isDragging, setIsDragging] = useState(false)
 
   useEffect(() => {
@@ -17,19 +24,19 @@ export default function DropAnywhere({ onFilesDropped, enabled = true }) {
     // Drop native Tauri (file manager OS → webview): HTML5 dataTransfer kosong
     // di kasus ini, Tauri mengirim event 'tauri://drag-drop' berisi filePaths.
     // Disatukan ke pintu yang sama (onFilesDropped) agar area mana pun tetap bisa.
-    let unlistenNativeDrop = null
-    let unlistenNativeEnter = null
-    let unlistenNativeOver = null
-    let unlistenNativeLeave = null
+    let unlistenNativeDrop: UnlistenFn | null = null
+    let unlistenNativeEnter: UnlistenFn | null = null
+    let unlistenNativeOver: UnlistenFn | null = null
+    let unlistenNativeLeave: UnlistenFn | null = null
     ;(async () => {
       try {
         unlistenNativeDrop = await listen('tauri://drag-drop', async (event) => {
           setIsDragging(false)
-          const paths = event?.payload?.paths ?? []
+          const paths = (event?.payload as { paths?: string[] } | undefined)?.paths ?? []
           if (!Array.isArray(paths) || paths.length === 0) return
           const items = await Promise.all(
             paths.map(async (p) => {
-              const item = { name: String(p).split(/[/\\]/).pop(), path: p, size: 0, type: '' }
+              const item: AttachmentItem = { name: String(p).split(/[/\\]/).pop() ?? '', path: p, size: 0, type: '' }
               try {
                 const [size, isDir] = await window.api.statPath(p)
                 item.size = Number(size) || 0
@@ -58,7 +65,7 @@ export default function DropAnywhere({ onFilesDropped, enabled = true }) {
     })()
 
     let depth = 0
-    const hasDropData = (e) => {
+    const hasDropData = (e: DragEvent) => {
       if (!e.dataTransfer) return false
       const types = Array.from(e.dataTransfer.types || [])
       return (
@@ -69,7 +76,7 @@ export default function DropAnywhere({ onFilesDropped, enabled = true }) {
       )
     }
 
-    const onEnter = (e) => {
+    const onEnter = (e: DragEvent) => {
       if (!hasDropData(e)) return
       depth += 1
       setIsDragging(true)
@@ -78,10 +85,10 @@ export default function DropAnywhere({ onFilesDropped, enabled = true }) {
       depth = Math.max(0, depth - 1)
       if (depth === 0) setIsDragging(false)
     }
-    const onOver = (e) => {
+    const onOver = (e: DragEvent) => {
       if (hasDropData(e)) e.preventDefault()
     }
-    const onDrop = async (e) => {
+    const onDrop = async (e: DragEvent) => {
       if (!hasDropData(e)) return
       e.preventDefault()
       depth = 0
@@ -95,7 +102,7 @@ export default function DropAnywhere({ onFilesDropped, enabled = true }) {
     }
 
     // Global Paste (Ctrl+V) listener: tangkap gambar dari clipboard / screenshot / text/uri-list / text/html
-    const onPaste = async (e) => {
+    const onPaste = async (e: ClipboardEvent) => {
       const items = Array.from(e.clipboardData?.items || [])
       const types = Array.from(e.clipboardData?.types || [])
       const hasFile = items.some((it) => it.kind === 'file')

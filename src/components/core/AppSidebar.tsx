@@ -17,7 +17,11 @@ import {
 } from 'lucide-react'
 import whatsNewData from '../../data/whats-new.json'
 
-const AppSidebar = ({ onOpenHistory }) => {
+interface AppSidebarProps {
+  onOpenHistory?: () => void
+}
+
+const AppSidebar = ({ onOpenHistory }: AppSidebarProps) => {
   const navigate = useNavigate()
   const location = useLocation()
   const [isOpen, setIsOpen] = useState(false)
@@ -39,19 +43,20 @@ const AppSidebar = ({ onOpenHistory }) => {
       if (v !== hasNew) setHasNew(v)
     } catch (_) {}
   }
-  const drawerRef = useRef(null)
+  const drawerRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     let alive = true
     try {
       window.api?.tgGetStatus?.().then((res) => {
-        if (alive && res?.status) setTgLive(res.status)
+        const status = (res as { status?: string } | undefined)?.status
+        if (alive && status) setTgLive(status)
       }).catch(() => {})
     } catch (_) {}
     let unlisten = null
     try {
       unlisten = window.api?.onTgConnection?.((s) => {
-        if (alive && s) setTgLive(s)
+        if (alive && typeof s === 'string') setTgLive(s)
       })
     } catch (_) {}
     return () => {
@@ -67,7 +72,7 @@ const AppSidebar = ({ onOpenHistory }) => {
   }, [])
 
   useEffect(() => {
-    const onKey = (e) => {
+    const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && (e.key === 'b' || e.key === 'B')) {
         e.preventDefault()
         toggle()
@@ -83,8 +88,8 @@ const AppSidebar = ({ onOpenHistory }) => {
   // Close when clicking outside
   useEffect(() => {
     if (!isOpen) return
-    const handleClickOutside = (e) => {
-      if (drawerRef.current && !drawerRef.current.contains(e.target)) {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (drawerRef.current && !drawerRef.current.contains(e.target as Node)) {
         setIsOpen(false)
       }
     }
@@ -92,14 +97,14 @@ const AppSidebar = ({ onOpenHistory }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [isOpen])
 
-  const handleNav = (path) => {
+  const handleNav = (path: string) => {
     navigate(path)
     setIsOpen(false)
   }
 
-  const isActive = (path) => location.pathname === path
+  const isActive = (path: string) => location.pathname === path
 
-  const navItemClass = (path) =>
+  const navItemClass = (path: string) =>
     `flex items-center gap-3 w-full h-[36px] px-3 rounded-xl text-xs font-medium transition-all text-left select-none cursor-pointer ${
       isActive(path)
         ? 'bg-[#0a84ff] text-white shadow-sm font-semibold'

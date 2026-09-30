@@ -11,26 +11,26 @@ const CATS = [
   { key: 'SECURITY', label: 'Keamanan', icon: Shield, active: 'bg-error/20 text-error border-error/40', dot: 'bg-error' },
 ]
 
-const norm = (t) => String(t || '').toUpperCase()
+const norm = (t: unknown) => String(t || '').toUpperCase()
 
-const WhatNew = ({ onClose }) => {
+const WhatNew = ({ onClose }: { onClose?: () => void }) => {
   // Module-level static: identitas stabil agar useMemo di bawah tidak
   // re-hitung tiap render (aturan exhaustive-deps: jangan baca `X || []`
   // inline bila X statis).
   const changes = useMemo(() => whatsNewData.changes || [], [])
   const [filter, setFilter] = useState('ALL')
   const [query, setQuery] = useState('')
-  const closeRef = useRef(null)
+  const closeRef = useRef<HTMLButtonElement | null>(null)
 
   useEffect(() => {
     closeRef.current?.focus()
-    const onKey = (e) => e.key === 'Escape' && onClose?.()
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose?.()
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  const counts = useMemo(() => {
-    const c = { ALL: changes.length }
+  const counts = useMemo<Record<string, number>>(() => {
+    const c: Record<string, number> = { ALL: changes.length }
     for (const { key } of CATS) c[key] = changes.filter((x) => norm(x.type) === key || (key === 'FIX' && norm(x.type) === 'FIX')).length
     return c
   }, [changes])
@@ -40,7 +40,7 @@ const WhatNew = ({ onClose }) => {
     return !query || c.msg.toLowerCase().includes(query.toLowerCase())
   })
 
-  const catOf = (t) => CATS.find((c) => c.key === norm(t)) || CATS[1]
+  const catOf = (t: unknown) => CATS.find((c) => c.key === norm(t)) || CATS[1]
 
   const markSeen = () => {
     try { localStorage.setItem('abelink:last-seen-whats-new', whatsNewData.version) } catch (_) {}

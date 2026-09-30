@@ -77,7 +77,7 @@ export const MessageBubble = React.memo(function MessageBubble({
       }
       if (rec.type === 'image_url') {
         const imgUrl =
-          rec.image_url?.url ||
+          (rec.image_url && typeof rec.image_url === 'object' ? rec.image_url.url : null) ||
           rec.url ||
           (typeof rec.image_url === 'string' ? rec.image_url : null)
         if (imgUrl) return { text: '', images: [imgUrl] }

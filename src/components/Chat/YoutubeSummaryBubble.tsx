@@ -1,14 +1,15 @@
 
 
-export const YoutubeSummaryBubble = ({ youtubeLink }) => {
-  const getYouTubeID = (text) => {
+export const YoutubeSummaryBubble = ({ youtubeLink }: { youtubeLink: unknown }) => {
+  const getYouTubeID = (text: string) => {
     const ytRegex =
       /(?:https?:\/\/)?(?:www\.|m\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/
     const match = text.match(ytRegex)
     return match ? match[1] : null
   }
 
-  const youtubeVideoId = getYouTubeID(youtubeLink)
+  const linkStr = typeof youtubeLink === 'string' ? youtubeLink : ''
+  const youtubeVideoId = getYouTubeID(linkStr)
   const youtubeEmbedUrl = youtubeVideoId
     ? `https://www.youtube.com/embed/${youtubeVideoId}?rel=0&origin=${encodeURIComponent(window.location.origin)}`
     : null
@@ -32,7 +33,7 @@ export const YoutubeSummaryBubble = ({ youtubeLink }) => {
       )}
       <button
         type="button"
-        onClick={() => window.api.openExternal(youtubeLink)}
+        onClick={() => window.api.openExternal(linkStr)}
         className="btn btn-sm btn-neutral w-full normal-case"
       >
         Watch on YouTube

@@ -21,21 +21,21 @@ const PITCH = CELL + GAP
 const LABEL_H = 18
 const MONTHS_ID = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']
 
-function dayKey(d) {
+function dayKey(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-function formatId(dateStr) {
+function formatId(dateStr: string) {
   const [y, m, d] = dateStr.split('-').map(Number)
   return new Date(y, m - 1, d).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 // Agregasi lokal Dexie: chatTurns.timestamp (pesan) + agentTasks.createdAt (task)
-async function aggregateUsage() {
-  const counts = {}
-  const bump = (ts) => {
+async function aggregateUsage(): Promise<Record<string, number>> {
+  const counts: Record<string, number> = {}
+  const bump = (ts: unknown) => {
     if (!ts) return
-    const k = dayKey(new Date(ts))
+    const k = dayKey(new Date(ts as string | number))
     counts[k] = (counts[k] || 0) + 1
   }
   const [turns, tasks] = await Promise.all([
@@ -51,19 +51,19 @@ async function aggregateUsage() {
   return counts
 }
 
-function loadCache() {
+function loadCache(): Record<string, number> | null {
   try {
     const raw = localStorage.getItem(CACHE_KEY)
     if (!raw) return null
-    const { savedAt, counts } = JSON.parse(raw)
+    const { savedAt, counts } = JSON.parse(raw) as { savedAt?: number; counts?: Record<string, number> | null }
     if (!savedAt || Date.now() - savedAt > CACHE_TTL) return null
-    return counts
+    return counts ?? null
   } catch {
     return null
   }
 }
 
-function saveCache(counts) {
+function saveCache(counts: Record<string, number>) {
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify({ savedAt: Date.now(), counts }))
   } catch {
@@ -72,14 +72,14 @@ function saveCache(counts) {
 }
 
 // Level 0-4 via kuartil dari hitungan harian non-nol
-function quantileThresholds(counts) {
+function quantileThresholds(counts: Record<string, number>): [number, number, number] {
   const vals = Object.values(counts).filter(Boolean).sort((a, b) => a - b)
   if (vals.length === 0) return [0, 0, 0]
-  const q = (p) => vals[Math.min(vals.length - 1, Math.floor(p * vals.length))]
+  const q = (p: number) => vals[Math.min(vals.length - 1, Math.floor(p * vals.length))]
   return [q(0.25), q(0.5), q(0.75)]
 }
 
-function levelFor(count, thresholds) {
+function levelFor(count: number, thresholds: number[]) {
   if (count <= 0) return 0
   let level = 1
   for (const t of thresholds) if (count > t) level += 1
@@ -87,7 +87,7 @@ function levelFor(count, thresholds) {
 }
 
 export function UsageHeatmap() {
-  const [counts, setCounts] = useState(loadCache)
+  const [counts, setCounts] = useState<Record<string, number> | null>(loadCache)
 
   const handleRefresh = () => {
     try {
@@ -121,7 +121,7 @@ export function UsageHeatmap() {
     )
   }
 
-  const total = Object.values(counts).reduce((a, b) => a + b, 0)
+  const total = Object.values(counts).reduce((a: number, b: number) => a + b, 0)
 
   if (total === 0) {
     return (

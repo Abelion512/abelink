@@ -157,11 +157,22 @@ const ChatList = ({
             />
           ) : (
             <div className="flex flex-col gap-3">
-              {isYoutubeSummary && <YoutubeSummaryBubble youtubeLink={youtubeLink} />}
+              {isYoutubeSummary && <YoutubeSummaryBubble youtubeLink={typeof youtubeLink === 'string' ? youtubeLink : ''} />}
               {isYoutubeSearch && (
-                <YoutubeSearchBubble queryYoutube={queryYoutube} youtubeLink={youtubeLink} />
+                <YoutubeSearchBubble
+                  queryYoutube={queryYoutube}
+                  youtubeLink={
+                    Array.isArray(youtubeLink)
+                      ? (youtubeLink as Array<string | { videoId?: string }>)
+                      : typeof youtubeLink === 'string' && youtubeLink
+                        ? [youtubeLink]
+                        : []
+                  }
+                />
               )}
-              {pluginExecution && <PluginExecutionBubble pluginExecution={pluginExecution} />}
+              {pluginExecution != null && (
+                <PluginExecutionBubble pluginExecution={pluginExecution as { name?: string; action?: string; query?: string; result?: string; [key: string]: unknown }} />
+              )}
               <MessageBubble
                 isUser={isUser}
                 content={typeof content === 'string' ? content : ''}

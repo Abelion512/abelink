@@ -3,7 +3,29 @@ import { getMainThread } from '../../api/db';
 import { X, MessageSquare } from 'lucide-react';
 import ResponseArea from './ResponseArea';
 
-const formatHistoryContent = (content) => {
+interface HistoryTurn {
+  id: number
+  user: string
+  ai: {
+    content?: unknown
+    sources?: unknown[]
+    reasoning?: string
+    pluginExecution?: unknown
+    mood?: string
+    [key: string]: unknown
+  } | null
+}
+
+type HistoryPreviewData = {
+  text: string
+  type: 'long' | 'short'
+  sources?: unknown[]
+  reasoning?: string
+  pluginResult?: unknown
+  mood?: string
+}
+
+const formatHistoryContent = (content: unknown) => {
   if (typeof content === 'string') return content;
   if (content == null) return '';
 
@@ -22,10 +44,15 @@ const formatHistoryContent = (content) => {
   return JSON.stringify(content);
 };
 
-const HistoryDrawer = ({ isOpen, onClose }) => {
-  const [historyTurns, setHistoryTurns] = useState([]);
-  const [selectedTurnId, setSelectedTurnId] = useState(null);
-  const [previewData, setPreviewData] = useState(null);
+interface HistoryDrawerProps {
+  isOpen: boolean
+  onClose: () => void
+}
+
+const HistoryDrawer = ({ isOpen, onClose }: HistoryDrawerProps) => {
+  const [historyTurns, setHistoryTurns] = useState<HistoryTurn[]>([]);
+  const [selectedTurnId, setSelectedTurnId] = useState<number | null>(null);
+  const [previewData, setPreviewData] = useState<HistoryPreviewData | null>(null);
 
   const loadHistory = useCallback(async () => {
     const data = await getMainThread();
@@ -35,11 +62,11 @@ const HistoryDrawer = ({ isOpen, onClose }) => {
     }
     
     // Parse linear chatData into turns (user msg + subsequent ai msg, or standalone ai)
-    const turns = [];
-    let currentTurn = null;
+    const turns: HistoryTurn[] = [];
+    let currentTurn: HistoryTurn | null = null;
     
     for (let i = 0; i < data.length; i++) {
-      const msg = data[i];
+      const msg = data[i] as { role?: string; content?: unknown };
       if (msg.role === 'user') {
         if (currentTurn) turns.push(currentTurn);
         currentTurn = { id: i, user: formatHistoryContent(msg.content), ai: null };
@@ -71,7 +98,7 @@ const HistoryDrawer = ({ isOpen, onClose }) => {
     }
   }, [isOpen, loadHistory]);
 
-  const loadPreview = (turn) => {
+  const loadPreview = (turn: HistoryTurn) => {
     setSelectedTurnId(turn.id);
     if (turn.ai) {
       const aiText = formatHistoryContent(turn.ai.content);

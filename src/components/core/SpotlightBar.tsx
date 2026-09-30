@@ -3,10 +3,26 @@ import { Mic, MicOff, Send, Maximize2, X } from 'lucide-react'
 import { useChat } from '../../contexts/useChat'
 import { useVAD } from '../../hooks/useVAD'
 
-export default function SpotlightBar({ onExpandDashboard }) {
-  const { handlePlanningCommand, isLoading, isAgentBusy, chatData = [] } = useChat()
+interface SpotlightBarProps {
+  onExpandDashboard?: () => void
+}
+
+interface ChatMsg {
+  role?: string
+  content?: unknown
+  [key: string]: unknown
+}
+
+export default function SpotlightBar({ onExpandDashboard }: SpotlightBarProps) {
+  const chat = useChat() as unknown as {
+    handlePlanningCommand: (q: string) => Promise<void>
+    isLoading: boolean
+    isAgentBusy: boolean
+    chatData?: ChatMsg[]
+  }
+  const { handlePlanningCommand, isLoading, isAgentBusy, chatData = [] } = chat
   const [text, setText] = useState('')
-  const inputRef = useRef(null)
+  const inputRef = useRef<HTMLInputElement | null>(null)
 
   // Voice VAD handler
   const {
@@ -41,7 +57,7 @@ export default function SpotlightBar({ onExpandDashboard }) {
 
   // Keyboard shortcut handler (Escape to hide / return to dashboard)
   useEffect(() => {
-    const handleKeyDown = (e) => {
+    const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault()
         cancelRecording()
@@ -57,13 +73,14 @@ export default function SpotlightBar({ onExpandDashboard }) {
 
   // Ambil respons asisten terbaru untuk mini ticker — derivasi murni dari
   // chatData saat render, tanpa effect (menghapus set-state-in-effect).
-  const lastChat = chatData && chatData.length > 0 ? chatData[chatData.length - 1] : null
-  const lastAnswer = lastChat && (lastChat.role === 'assistant' || lastChat.role === 'model') && lastChat.content
-    ? lastChat.content.replace(/\[.*?\]/g, '').trim()
-    : ''
+  const lastChat: ChatMsg | null = chatData && chatData.length > 0 ? chatData[chatData.length - 1] : null
+  const lastAnswer =
+    lastChat && (lastChat.role === 'assistant' || lastChat.role === 'model') && typeof lastChat.content === 'string'
+      ? lastChat.content.replace(/\[.*?\]/g, '').trim()
+      : ''
 
   // Interupsi cerdas: saat user mengetik, matikan mic agar tidak bentrok suara ketikan
-  const handleInputChange = (e) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value
     setText(val)
     if (isRecording) {
@@ -71,7 +88,7 @@ export default function SpotlightBar({ onExpandDashboard }) {
     }
   }
 
-  const handleSend = async (contentToSend) => {
+  const handleSend = async (contentToSend?: string) => {
     const query = (contentToSend || text).trim()
     if (!query) return
 
@@ -85,7 +102,7 @@ export default function SpotlightBar({ onExpandDashboard }) {
     }
   }
 
-  const handleFormSubmit = (e) => {
+  const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     handleSend()
   }

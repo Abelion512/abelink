@@ -145,7 +145,7 @@ export interface ChatTurnRow {
   sessionId: number
   timestamp?: number
   vector?: number[]
-  vectorModel?: 'minilm' | 'hash' | 'none'
+  vectorModel?: 'minilm' | 'minilm-q8' | 'hash' | 'none'
   [key: string]: unknown
 }
 /** Baris store sessionCompacts (pointer ringkasan compactor). */

@@ -5,8 +5,8 @@ const PATH2_D =
 
 const STROKE_STYLE = {
   strokeWidth: 14.8883,
-  strokeLinecap: 'round',
-  strokeLinejoin: 'round',
+  strokeLinecap: 'round' as const,
+  strokeLinejoin: 'round' as const,
   fill: 'none',
   // ponytail: pathLength=1 normalisasi dash utk draw animation CSS (tanpa motion dep).
   pathLength: 1,

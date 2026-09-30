@@ -1,7 +1,17 @@
 
 import { Check, ChevronRight } from 'lucide-react'
 
-export const PluginExecutionBubble = ({ pluginExecution }) => {
+interface PluginExecutionBubbleProps {
+  pluginExecution: {
+    name?: string
+    action?: string
+    query?: string
+    result?: string
+    [key: string]: unknown
+  } | null
+}
+
+export const PluginExecutionBubble = ({ pluginExecution }: PluginExecutionBubbleProps) => {
   if (!pluginExecution) return null
   
   return (

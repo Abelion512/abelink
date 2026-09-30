@@ -1,11 +1,14 @@
+import type { MouseEvent as ReactMouseEvent } from 'react'
 
+type ResizeDirection = 'North' | 'South' | 'West' | 'East' | 'NorthWest' | 'NorthEast' | 'SouthWest' | 'SouthEast'
 
 export const WindowResizeFrame = () => {
-  const handleResize = (direction) => (e) => {
+  const handleResize = (direction: ResizeDirection) => (e: ReactMouseEvent<HTMLDivElement>) => {
     if (e.button !== 0) return
     e.preventDefault()
     e.stopPropagation()
-    window.api?.startResizeDragging?.(direction)
+    const api = window.api as unknown as { startResizeDragging?: (dir: ResizeDirection) => void } | undefined
+    api?.startResizeDragging?.(direction)
   }
 
   return (

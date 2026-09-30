@@ -2,19 +2,19 @@ import { useEffect, useRef } from 'react'
 import { Check, Music, Brain, ChevronRight, ListOrdered, SquarePlay } from 'lucide-react'
 
 export const ThinkingBubble = ({
-  _isThinking = false,
+  isThinking: _isThinking = false,
   isSummarizing = false,
   isSearchingMusic = false,
   content = '',
-  _youtubeLink = '',
+  youtubeLink: _youtubeLink = '',
   reasoning = null,
   executedTools = []
 }: {
-  _isThinking?: boolean
+  isThinking?: boolean
   isSummarizing?: boolean
   isSearchingMusic?: boolean
   content?: string
-  _youtubeLink?: string
+  youtubeLink?: string
   reasoning?: string | null
   executedTools?: Array<{ tool?: string; task?: string; status?: string; query?: unknown; fullResult?: string; resultSummary?: string; [key: string]: unknown }>
 }) => {

@@ -2,6 +2,15 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { Camera } from 'lucide-react'
 import { MobiusLoader } from '../core/MobiusLoader'
 
+interface CameraPreviewProps {
+  isOpen: boolean
+  onCapture: (data: string | null) => void
+  onClose: () => void
+  deviceId?: string | null
+  countdown?: number
+  isAutonomous?: boolean
+}
+
 export const CameraPreview = ({
   isOpen,
   onCapture,
@@ -9,12 +18,12 @@ export const CameraPreview = ({
   deviceId = null,
   countdown = 5,
   isAutonomous = false
-}) => {
-  const videoRef = useRef(null)
-  const streamRef = useRef(null)
-  const canvasRef = useRef(null)
-  const [timeLeft, setTimeLeft] = useState(countdown)
-  const [error, setError] = useState(null)
+}: CameraPreviewProps) => {
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const [timeLeft, setTimeLeft] = useState<number>(countdown)
+  const [error, setError] = useState<string | null>(null)
   const [isReady, setIsReady] = useState(false)
   const hasCapturedRef = useRef(false)
 
@@ -33,10 +42,13 @@ export const CameraPreview = ({
     }
     hasCapturedRef.current = true
 
+    const video = videoRef.current
+    const canvas = canvasRef.current
+
     try {
-      const video = videoRef.current
-      const canvas = canvasRef.current
+      if (!video || !canvas) return
       const ctx = canvas.getContext('2d')
+      if (!ctx) return
 
       // Maintain aspect ratio, max 1280x720
       let width = video.videoWidth || 1280
@@ -117,11 +129,12 @@ export const CameraPreview = ({
           videoRef.current.srcObject = stream
           
           // Wait for video to actually start playing
-          videoRef.current.onloadedmetadata = () => {
-            console.log('[CameraPreview] Video metadata loaded, dimensions:', videoRef.current.videoWidth, 'x', videoRef.current.videoHeight)
+          const videoEl = videoRef.current
+          videoEl.onloadedmetadata = () => {
+            console.log('[CameraPreview] Video metadata loaded, dimensions:', videoRef.current?.videoWidth, 'x', videoRef.current?.videoHeight)
             if (!isMounted) return
             
-            videoRef.current.play().then(() => {
+            videoEl.play().then(() => {
               console.log('[CameraPreview] Video playing. isAutonomous prop value:', isAutonomous)
               if (!isMounted) return
               setIsReady(true)
@@ -139,9 +152,10 @@ export const CameraPreview = ({
           }
         }
       } catch (err) {
-        console.error('[CameraPreview] Camera access error:', err.name, (err instanceof Error ? err.message : String(err)))
+        const msg = err instanceof Error ? err.message : String(err)
+        console.error('[CameraPreview] Camera access error:', (err as { name?: string }).name, msg)
         if (isMounted) {
-          setError(err instanceof Error ? err.message : String(err))
+          setError(msg)
           stopStream()
           // Delay onClose slightly so error is visible
           setTimeout(() => {
@@ -169,7 +183,7 @@ export const CameraPreview = ({
     }
 
     const timer = setTimeout(() => {
-      setTimeLeft(prev => prev - 1)
+      setTimeLeft((prev: number) => prev - 1)
     }, 1000)
 
     return () => clearTimeout(timer)

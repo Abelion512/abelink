@@ -4,7 +4,7 @@ import { ToolCallsSection, type ToolCallRow } from './ToolCallsSection';
 
 import { CheckCircle2, List, Zap, Check, ChevronRight } from 'lucide-react';
 
-interface ProcessItem {
+export interface ProcessItem {
   id: string | number
   type?: string
   status?: string

@@ -1,19 +1,32 @@
 import { useEffect, useRef, useState } from 'react';
+import type { LucideIcon } from 'lucide-react';
 import { CheckCircle2, Info, TriangleAlert, XCircle } from 'lucide-react';
 
-const StatusIndicator = ({ notifications }) => {
-  const [activeToasts, setActiveToasts] = useState([]);
+export interface StatusNotification {
+  id: string | number
+  type: string
+  message?: string
+  [key: string]: unknown
+}
+
+interface ActiveToast extends StatusNotification {
+  alertType: string
+  Icon: LucideIcon
+}
+
+const StatusIndicator = ({ notifications }: { notifications?: StatusNotification[] | null }) => {
+  const [activeToasts, setActiveToasts] = useState<ActiveToast[]>([]);
   // ID yang sudah dijadwalkan — ditulis di dalam efek (legal), dibaca untuk
   // dedup, jadi efek tidak perlu dep activeToasts (dep = loop karena efek
   // sendiri memanggil setActiveToasts).
-  const seenIdsRef = useRef(new Set());
+  const seenIdsRef = useRef<Set<string | number>>(new Set());
 
   useEffect(() => {
     if (notifications && notifications.length > 0) {
-      const newNotifs = notifications.filter(n => !seenIdsRef.current.has(n.id));
+      const newNotifs = notifications.filter((n: StatusNotification) => !seenIdsRef.current.has(n.id));
       if (newNotifs.length > 0) {
         // Prepare toasts with types
-        const enhancedNotifs = newNotifs.map(notif => {
+        const enhancedNotifs = newNotifs.map((notif: StatusNotification) => {
           let alertType = 'alert-info';
           let Icon = Info;
 
@@ -34,7 +47,7 @@ const StatusIndicator = ({ notifications }) => {
         for (const n of newNotifs) seenIdsRef.current.add(n.id)
         setActiveToasts((prev) => [...prev, ...enhancedNotifs]);
 
-        enhancedNotifs.forEach(notif => {
+        enhancedNotifs.forEach((notif: ActiveToast) => {
           setTimeout(() => {
             seenIdsRef.current.delete(notif.id)
             setActiveToasts(prev => prev.filter(t => t.id !== notif.id));

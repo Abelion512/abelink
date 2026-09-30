@@ -40,7 +40,7 @@ const GlobalListener = () => {
   const navigate = useNavigate()
 
   useEffect(() => {
-    const handleShortcut = (_event, _action) => {
+    const handleShortcut = () => {
       // Navigate to Home (AbelinkHome) and trigger microphone auto-toggle
       navigate('/', { state: { autoToggleMic: Date.now() } })
     }
@@ -73,7 +73,7 @@ const GlobalListener = () => {
   return null
 }
 
-const MainLayout = ({ isStandalone = false }) => {
+const MainLayout = ({ isStandalone = false }: { isStandalone?: boolean }) => {
   const location = useLocation()
   const isHome = location.pathname === '/'
   const [windowMode, setWindowMode] = useState('dashboard')
@@ -93,7 +93,7 @@ const MainLayout = ({ isStandalone = false }) => {
 
   // Drop global satu titik: event 'abelink:files-dropped' (detail = array item
   // {name,path,size,type}) bisa dikonsumsi InputBar/komponen lain mana pun.
-  const handleGlobalDrop = useCallback((items) => {
+  const handleGlobalDrop = useCallback((items: unknown[]) => {
     if (items && items.length > 0) {
       window.dispatchEvent(new CustomEvent('abelink:files-dropped', { detail: items }))
     }
@@ -185,7 +185,13 @@ const MainLayout = ({ isStandalone = false }) => {
 // Muncul sebagai modal overlay HANYA sekali (flag localStorage) saat legacy
 // profiles Electron lama terdeteksi. Restore = alur export/import JSON
 // (engine beda: Chromium LevelDB tak bisa dibaca langsung oleh WebKit).
-const FirstBootChoiceScreen = ({ profiles, onFresh, onRestore }) => (
+interface FirstBootChoiceScreenProps {
+  profiles: unknown[]
+  onFresh: () => void
+  onRestore: () => void
+}
+
+const FirstBootChoiceScreen = ({ profiles, onFresh, onRestore }: FirstBootChoiceScreenProps) => (
   <div className="fixed inset-0 z-40 bg-black/80 backdrop-blur-sm flex items-center justify-center p-6">
       <div className="max-w-md w-full bg-base-200/95 border border-white/10 rounded-xl shadow-2xl p-7 space-y-4 animate-fade-in">
       <h2 className="text-xl font-bold">Data Abelink versi lama terdeteksi</h2>
@@ -215,14 +221,16 @@ function App() {
   const [isChecking, setIsChecking] = useState(true)
   const [showRecovery, setShowRecovery] = useState(false)
   const [showWhatsNew, setShowWhatsNew] = useState(false)
-  const [legacyProfiles, setLegacyProfiles] = useState(null) // null = belum dicek
+  const [legacyProfiles, setLegacyProfiles] = useState<string[] | null>(null) // null = belum dicek
   const [wizardAutoImport] = useState(false)
 
   // Deteksi profil era Electron hanya saat wizard aktif (first boot tanpa config).
   useEffect(() => {
-    if (isChecking || hasConfig || !window.api?.legacyDetectProfiles) return
+    if (isChecking || hasConfig) return
+    const api = window.api as unknown as { legacyDetectProfiles?: () => Promise<string[]> } | undefined
+    if (!api?.legacyDetectProfiles) return
     let alive = true
-    window.api
+    api
       .legacyDetectProfiles()
       .then((paths) => {
         if (alive) setLegacyProfiles(paths || [])
@@ -325,7 +333,7 @@ function App() {
       // (pilihan tersimpan; diubah via Configuration).
       ;(async () => {
         try {
-          if (fullMode === null && lm?.totalRAMGB > 16 && window.api?.nativeConfirm) {
+          if (fullMode === null && (lm?.totalRAMGB ?? 0) > 16 && window.api?.nativeConfirm) {
             try {
               const yes = await window.api.nativeConfirm(
                 'RAM di atas 16GB terdeteksi. Aktifkan Mode Penuh (coba fitur berat dulu, degradasi hanya bila benar-benar gagal)?'
@@ -390,7 +398,7 @@ function App() {
     }
   }, [])
 
-  const settleChoice = useCallback(async (value) => {
+  const settleChoice = useCallback(async (value: string) => {
     localStorage.setItem('abelink:first-boot-choice', value)
     const defaultConfig = {
       id: 1,

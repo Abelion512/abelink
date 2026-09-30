@@ -3,16 +3,18 @@ import { useChat } from '../contexts/useChat'
 import { CameraPreview } from './camera/CameraPreview'
 
 export const GlobalCameraManager = () => {
-  const { requestCameraCaptureRef } = useChat() || {}
+  const { requestCameraCaptureRef } = (useChat() ?? {}) as {
+    requestCameraCaptureRef?: { current: ((opts: { isAutonomous?: boolean; deviceId?: string | null }) => Promise<string | null>) | null }
+  }
   const [isCameraOpen, setIsCameraOpen] = useState(false)
   const [cameraIsAutonomous, setCameraIsAutonomous] = useState(false)
-  const [cameraDeviceId, setCameraDeviceId] = useState(null)
-  const cameraResolverRef = useRef(null)
+  const [cameraDeviceId, setCameraDeviceId] = useState<string | null>(null)
+  const cameraResolverRef = useRef<((data: string | null) => void) | null>(null)
 
   useEffect(() => {
     if (requestCameraCaptureRef) {
       console.log('[GlobalCameraManager] Setting requestCameraCaptureRef.current callback')
-      requestCameraCaptureRef.current = ({ isAutonomous, deviceId }) => {
+      requestCameraCaptureRef.current = ({ isAutonomous, deviceId }: { isAutonomous?: boolean; deviceId?: string | null }) => {
         console.log(
           '[GlobalCameraManager] Camera capture requested! isAutonomous:',
           isAutonomous,
@@ -39,7 +41,7 @@ export const GlobalCameraManager = () => {
     }
   }, [requestCameraCaptureRef])
 
-  const handleCameraCapture = (base64) => {
+  const handleCameraCapture = (base64: string | null) => {
     if (cameraResolverRef.current) {
       cameraResolverRef.current(base64)
       cameraResolverRef.current = null

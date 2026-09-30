@@ -1,6 +1,11 @@
 
 
-export const YoutubeSearchBubble = ({ queryYoutube, youtubeLink }) => {
+interface YoutubeSearchBubbleProps {
+  queryYoutube: string
+  youtubeLink: Array<string | { videoId?: string }>
+}
+
+export const YoutubeSearchBubble = ({ queryYoutube, youtubeLink }: YoutubeSearchBubbleProps) => {
   return (
     <>
       <h1 className="text-xs font-bold mt-2 flex items-center gap-1 uppercase tracking-wider">
@@ -22,7 +27,7 @@ export const YoutubeSearchBubble = ({ queryYoutube, youtubeLink }) => {
         {queryYoutube.length > 40 ? '...' : ''}
       </h1>
       <div className="p-3 bg-base-300 flex flex-wrap rounded-xl mt-2">
-        {youtubeLink.map((item, idx) => {
+        {youtubeLink.map((item: string | { videoId?: string }, idx: number) => {
           const id = typeof item === 'object' ? item.videoId : item
           return (
             <iframe

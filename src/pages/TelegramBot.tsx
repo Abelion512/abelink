@@ -14,13 +14,24 @@ import { CodeBlock } from '../components/Chat/CodeBlock'
 import { MobiusLoader } from '../components/core/MobiusLoader'
 import { getAllConfig, saveConfiguration } from '../api/db'
 
+interface BotMessage {
+  type?: string
+  sender?: string
+  text?: string
+  reply?: string
+  time?: string
+  toolsUsed?: string[]
+  [key: string]: unknown
+}
+
 const TelegramBot = () => {
-  const { status, messages, isThinking, currentSender, startBot, stopBot } = useTelegramBot()
+  const { status, messages: rawMessages, isThinking, currentSender, startBot, stopBot } = useTelegramBot()
+  const messages = rawMessages as BotMessage[]
 
   const [tokenInput, setTokenInput] = useState('')
   const [adminIdsInput, setAdminIdsInput] = useState('')
   const [showConfigModal, setShowConfigModal] = useState(false)
-  const messagesEndRef = useRef(null)
+  const messagesEndRef = useRef<HTMLDivElement | null>(null)
   const hasAutoConnectedRef = useRef(false)
 
   const loadConfigData = async () => {
@@ -46,7 +57,8 @@ const TelegramBot = () => {
       if (config.tgBotToken && !hasAutoConnectedRef.current) {
         hasAutoConnectedRef.current = true
         const res = await window.api?.tgGetStatus()
-        if (!res || res.status === 'disconnected') {
+        const st = (res as { status?: string } | undefined)?.status
+        if (!st || st === 'disconnected') {
           await startBot(config.tgBotToken)
         }
       }
@@ -239,7 +251,7 @@ const TelegramBot = () => {
                       code: CodeBlock
                     }}
                   >
-                    {isOutgoing ? msg.reply : msg.text}
+                    {String((isOutgoing ? msg.reply : msg.text) ?? '')}
                   </Markdown>
                   {isOutgoing && msg.toolsUsed && msg.toolsUsed.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-2">

@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent, type KeyboardEvent } from 'react'
+import { useState, type KeyboardEvent } from 'react'
 import { t } from '../../api/locale'
 import type { ConfigRow } from '../../api/db'
 
