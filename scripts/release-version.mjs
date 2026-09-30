@@ -7,7 +7,7 @@
 // Kanal alpha: basis ikut jenis commit, counter alpha GLOBAL MONOTON
 // (tidak reset) — pola semantic-release/changesets prerelease:
 // feat di 1.0.0-alpha.4 -> 1.1.0-alpha.5; fix berikut -> 1.0.1-alpha.6.
-import { parse as semverParse, valid as semverValid } from './semver-lite.mjs'
+import { parse as semverParse, valid as semverValid, rcompare as semverRcompare } from './semver-lite.mjs'
 
 export const RELEASE_CHANNEL_ALPHA = 'alpha'
 
@@ -45,17 +45,7 @@ export function selectReleaseBaseline(lastTagVersion, releases = []) {
   const validReleases = (releases || [])
     .map((release) => release?.version)
     .filter((version) => semverValid(version))
-    .sort((a, b) => {
-      const aParsed = semverParse(a)
-      const bParsed = semverParse(b)
-      if (!aParsed || !bParsed) return 0
-      return (
-        bParsed.major - aParsed.major ||
-        bParsed.minor - aParsed.minor ||
-        bParsed.patch - aParsed.patch ||
-        String(bParsed.prerelease).localeCompare(String(aParsed.prerelease))
-      )
-    })
+    .sort((a, b) => semverRcompare(a, b))
 
   return validReleases[0] || null
 }
