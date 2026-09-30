@@ -2,9 +2,16 @@ import React, { useState } from 'react'
 // ponytail: <pre><code> + CSS (react-syntax-highlighter dep dihapus);
 // highlight baris-per-baris tidak dibutuhkan di jalur chat.
 
-export const CodeBlock = React.memo(function CodeBlock({ _node, inline, className, children, ...props }) {
-  const match = /language-(\w+)/.exec(className || '')
+export const CodeBlock = React.memo(function CodeBlock({
+  className,
+  children
+}: {
+  className?: string
+  children?: React.ReactNode
+}): React.ReactElement {
   const [isCopied, setIsCopied] = useState(false)
+  const match = /language-(\w+)/.exec(className || '')
+  const props = {} as React.HTMLAttributes<HTMLElement>
 
   const handleCopy = () => {
     navigator.clipboard.writeText(String(children).replace(/\n$/, ''))
@@ -12,7 +19,7 @@ export const CodeBlock = React.memo(function CodeBlock({ _node, inline, classNam
     setTimeout(() => setIsCopied(false), 2000)
   }
 
-  if (!inline && match) {
+  if (match) {
     return (
       <div className="relative group my-4 rounded-xl overflow-hidden border border-base-300 shadow-sm bg-base-200/50">
         <div className="flex items-center justify-between px-4 py-1.5 bg-base-300/50 text-[10px] uppercase tracking-wider font-bold text-white/60 border-b border-base-300">

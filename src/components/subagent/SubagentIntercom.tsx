@@ -18,14 +18,39 @@ import {
 import { MobiusLoader } from '../core/MobiusLoader'
 import { runSubagentTurn, killSubagentExecution } from '../../api/subagent/subagentExecutor'
 import { useConfirm } from '../../hooks/useConfirm'
-import { getAllConfig } from '../../api/db'
+import { getAllConfig, type ConfigRow } from '../../api/db'
 import { stripAgentTags } from '../../utils/messageTags'
 
+interface SubagentStep {
+  tool: string
+  query?: string
+  observation?: string | null
+}
+
+interface SubagentTurn {
+  type: 'subagent_turn' | 'dialogue'
+  id: unknown
+  sender: string
+  content?: unknown
+  timestamp: unknown
+  thoughts?: string[]
+  steps?: SubagentStep[]
+  answer?: string | null
+}
+
 // Komponen Single Unified Bubble untuk Sub-Agent
-function SubagentUnifiedBubble({ turn, subagentName, isRunning }) {
+function SubagentUnifiedBubble({
+  turn,
+  subagentName,
+  isRunning
+}: {
+  turn: SubagentTurn
+  subagentName: string
+  isRunning?: boolean
+}) {
   const [isThoughtOpen, setIsThoughtOpen] = useState(false)
   const [isStepsOpen, setIsStepsOpen] = useState(false)
-  const [openStepIdx, setOpenStepIdx] = useState(null)
+  const [openStepIdx, setOpenStepIdx] = useState<number | null>(null)
 
   return (
     <div className="chat chat-start animate-fade-in">
@@ -37,7 +62,7 @@ function SubagentUnifiedBubble({ turn, subagentName, isRunning }) {
       <div className="chat-header text-[11px] text-zinc-400 mb-1 flex items-center gap-1.5">
         <span>{subagentName}</span>
         <span className="text-[10px] text-zinc-500 font-mono">
-          {new Date(turn.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          {new Date(String(turn.timestamp)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </span>
       </div>
 
@@ -141,7 +166,7 @@ function SubagentUnifiedBubble({ turn, subagentName, isRunning }) {
         {turn.answer ? (
           <div className="prose prose-invert prose-sm max-w-none text-xs leading-relaxed font-normal pt-1 text-zinc-200">
             <Markdown remarkPlugins={[remarkGfm]} components={sharedMarkdownComponents}>
-              {stripAgentTags(turn.answer)}
+              {String(stripAgentTags(String(turn.answer)))}
             </Markdown>
           </div>
         ) : isRunning ? (
@@ -156,9 +181,9 @@ function SubagentUnifiedBubble({ turn, subagentName, isRunning }) {
 }
 
 // Helper untuk mengelompokkan pesan mentah menjadi satu bubble per giliran
-function groupSubagentMessages(rawMessages) {
-  const grouped = []
-  let currentSubTurn = null
+function groupSubagentMessages(rawMessages: Array<Record<string, unknown>>): SubagentTurn[] {
+  const grouped: SubagentTurn[] = []
+  let currentSubTurn: SubagentTurn | null = null
 
   for (const msg of rawMessages) {
     if (msg.sender === 'user' || msg.sender === 'abelink') {
@@ -174,16 +199,19 @@ function groupSubagentMessages(rawMessages) {
         timestamp: msg.timestamp
       })
     } else if (msg.sender === 'subagent') {
-      let parsed = {}
+      let parsed: { thought?: string; action?: { tool?: string; query?: string } | Array<{ tool?: string; query?: string }> | null; answer?: string } = {}
       try {
-        parsed = typeof msg.content === 'object' ? msg.content : JSON.parse(msg.content)
+        parsed =
+          typeof msg.content === 'object' && msg.content !== null
+            ? (msg.content as typeof parsed)
+            : JSON.parse(String(msg.content))
       } catch {
-        parsed = { answer: msg.content }
+        parsed = { answer: msg.content as string }
       }
 
-      const thought = msg.thought || parsed.thought
-      const action = msg.action || parsed.action
-      const answer = parsed.answer || (action ? null : msg.content)
+      const thought = (msg.thought as string | undefined) || parsed.thought
+      const action = (msg.action as typeof parsed.action) || parsed.action
+      const answer = parsed.answer || (action ? null : (msg.content as string))
 
       if (!currentSubTurn) {
         currentSubTurn = {
@@ -197,15 +225,16 @@ function groupSubagentMessages(rawMessages) {
         }
       }
 
-      if (thought && !currentSubTurn.thoughts.includes(thought)) {
-        currentSubTurn.thoughts.push(thought)
+      if (thought && !(currentSubTurn.thoughts ?? []).includes(thought)) {
+        ;(currentSubTurn.thoughts ??= []).push(thought)
       }
 
       if (action) {
         const acts = Array.isArray(action) ? action : [action]
+        const cur = currentSubTurn as SubagentTurn
         acts.forEach((act) => {
           if (act?.tool) {
-            currentSubTurn.steps.push({
+            ;(cur.steps ??= []).push({
               tool: act.tool,
               query: act.query || '',
               observation: null
@@ -218,12 +247,12 @@ function groupSubagentMessages(rawMessages) {
         currentSubTurn.answer = answer
       }
     } else if (msg.sender === 'tool') {
-      if (currentSubTurn && currentSubTurn.steps.length > 0) {
-        const lastStepWithoutObs = [...currentSubTurn.steps].reverse().find((s) => !s.observation)
+      if (currentSubTurn && (currentSubTurn.steps ?? []).length > 0) {
+        const lastStepWithoutObs = [...(currentSubTurn.steps ?? [])].reverse().find((s) => !s.observation)
         if (lastStepWithoutObs) {
-          lastStepWithoutObs.observation = msg.content
+          lastStepWithoutObs.observation = msg.content as string
         } else {
-          currentSubTurn.steps[currentSubTurn.steps.length - 1].observation = msg.content
+          ;(currentSubTurn.steps ?? [])[((currentSubTurn.steps?.length ?? 1)) - 1].observation = msg.content as string
         }
       } else {
         if (!currentSubTurn) {
@@ -233,7 +262,7 @@ function groupSubagentMessages(rawMessages) {
             sender: 'subagent',
             timestamp: msg.timestamp,
             thoughts: [],
-            steps: [{ tool: 'tool-execution', query: '', observation: msg.content }],
+            steps: [{ tool: 'tool-execution', query: '', observation: String(msg.content ?? '') }],
             answer: null
           }
         }
@@ -248,16 +277,40 @@ function groupSubagentMessages(rawMessages) {
   return grouped
 }
 
-export default function SubagentIntercom({ subagentId, onClose }) {
-  const [subagent, setSubagent] = useState(null)
-  const [messages, setMessages] = useState([])
-  const [config, setConfig] = useState({})
+interface SubagentRecord {
+  id: unknown
+  name?: string
+  status?: string
+  goal?: string
+  [key: string]: unknown
+}
+
+interface SubagentMessageRecord {
+  id: unknown
+  sender: string
+  content: unknown
+  timestamp: unknown
+  thought?: string
+  action?: unknown
+  [key: string]: unknown
+}
+
+export default function SubagentIntercom({
+  subagentId,
+  onClose
+}: {
+  subagentId: unknown
+  onClose?: () => void
+}) {
+  const [subagent, setSubagent] = useState<SubagentRecord | null>(null)
+  const [messages, setMessages] = useState<SubagentMessageRecord[]>([])
+  const [config, setConfig] = useState<ConfigRow>({})
   const [inputText, setInputText] = useState('')
   const [isSending, setIsSending] = useState(false)
   const [showScrollBottomBtn, setShowScrollBottomBtn] = useState(false)
 
-  const messagesEndRef = useRef(null)
-  const containerRef = useRef(null)
+  const messagesEndRef = useRef<HTMLDivElement | null>(null)
+  const containerRef = useRef<HTMLDivElement | null>(null)
   const isAutoScrollRef = useRef(true)
   const prevMsgCountRef = useRef(0)
 
@@ -265,10 +318,10 @@ export default function SubagentIntercom({ subagentId, onClose }) {
   const loadData = useCallback(async () => {
     if (!subagentId) return
     try {
-      const sub = await subagentStore.getSubagent(subagentId)
-      const msgs = await subagentStore.getMessages(subagentId)
-      setSubagent(sub)
-      setMessages(msgs || [])
+      const sub = (await subagentStore.getSubagent(subagentId)) as SubagentRecord | null | undefined
+      const msgs = (await subagentStore.getMessages(subagentId)) as unknown[]
+      setSubagent(sub ?? null)
+      setMessages((msgs || []) as unknown as SubagentMessageRecord[])
     } catch (err) {
       console.error('[SubagentIntercom] Load error:', err)
     }
@@ -283,7 +336,7 @@ export default function SubagentIntercom({ subagentId, onClose }) {
     }
   }
 
-  const scrollToBottom = (behavior = 'smooth') => {
+  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior })
       isAutoScrollRef.current = true
@@ -326,7 +379,7 @@ export default function SubagentIntercom({ subagentId, onClose }) {
 
   const { confirm, ModalComponent } = useConfirm()
 
-  const handleSendMessage = async (e) => {
+  const handleSendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault()
     if (!inputText.trim() || isSending) return
 
@@ -337,7 +390,7 @@ export default function SubagentIntercom({ subagentId, onClose }) {
     setShowScrollBottomBtn(false)
 
     try {
-      await runSubagentTurn(subagentId, textToSend, 'user')
+      await runSubagentTurn(subagentId as string, textToSend, 'user')
       await loadData()
       setTimeout(() => scrollToBottom('smooth'), 50)
     } catch (err) {
@@ -388,11 +441,11 @@ export default function SubagentIntercom({ subagentId, onClose }) {
                         : 'bg-info/10 text-info border border-info/30'
                 }`}
               >
-                {subagent.status}
+                {String(subagent.status ?? '')}
               </span>
-              <span className="text-[10px] text-zinc-500 font-mono">[{subagent.id}]</span>
+              <span className="text-[10px] text-zinc-500 font-mono">[{String(subagent.id)}]</span>
             </div>
-            <p className="text-[11px] text-zinc-400">{subagent.role}</p>
+            <p className="text-[11px] text-zinc-400">{String(subagent.role ?? '')}</p>
           </div>
         </div>
 
@@ -425,11 +478,11 @@ export default function SubagentIntercom({ subagentId, onClose }) {
           <span className="font-semibold text-info shrink-0 uppercase text-[10px] tracking-wider">
             Mission Goal:
           </span>
-          <span className="text-zinc-300 truncate font-normal">{subagent.goal}</span>
+          <span className="text-zinc-300 truncate font-normal">{String(subagent.goal ?? '')}</span>
         </div>
         <div className="flex items-center gap-1.5 text-[10px] text-zinc-500 font-mono shrink-0">
           <Clock className="w-3 h-3" />
-          <span>Turns: {subagent.turnCount || 0}</span>
+          <span>Turns: {Number(subagent.turnCount ?? 0)}</span>
         </div>
       </div>
 
@@ -444,9 +497,9 @@ export default function SubagentIntercom({ subagentId, onClose }) {
             const isLastTurn = idx === groupedTurns.length - 1
             return (
               <SubagentUnifiedBubble
-                key={item.id}
+                key={String(item.id ?? idx)}
                 turn={item}
-                subagentName={subagent.name}
+                subagentName={String(subagent.name ?? 'Sub-Agent')}
                 isRunning={isRunning && isLastTurn}
               />
             )
@@ -455,7 +508,7 @@ export default function SubagentIntercom({ subagentId, onClose }) {
           const isUser = item.sender === 'user'
 
           return (
-            <div key={item.id} className="chat chat-end animate-fade-in">
+            <div key={String(item.id ?? idx)} className="chat chat-end animate-fade-in">
               <div className="chat-image avatar placeholder">
                 <div
                   className={`w-7 h-7 rounded-xl text-[10px] font-bold shadow-md flex items-center justify-center ${
@@ -472,7 +525,7 @@ export default function SubagentIntercom({ subagentId, onClose }) {
                   {isUser ? config.ownerName?.trim() || 'User' : 'Lead Agent (Abelink)'}
                 </span>
                 <span className="text-[10px] text-zinc-500 font-mono">
-                  {new Date(item.timestamp).toLocaleTimeString([], {
+                  {new Date(String(item.timestamp)).toLocaleTimeString([], {
                     hour: '2-digit',
                     minute: '2-digit'
                   })}
@@ -486,7 +539,7 @@ export default function SubagentIntercom({ subagentId, onClose }) {
                 }`}
               >
                 <div className="whitespace-pre-wrap leading-relaxed font-normal">
-                  {stripAgentTags(item.content)}
+                  {String(stripAgentTags(String(item.content ?? '')))}
                 </div>
               </div>
             </div>
