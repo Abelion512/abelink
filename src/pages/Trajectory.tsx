@@ -5,10 +5,11 @@ import {
   onTrajectoryUpdate,
   getTrajectoryBuffer,
   clearTrajectoryBuffer,
-  loadTrajectoryBuffer
+  loadTrajectoryBuffer,
+  type TrajectoryEntry
 } from '../api/trajectory'
 
-const formatTime = (iso) => {
+const formatTime = (iso: string) => {
   try {
     const date = new Date(iso)
     return date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
@@ -17,13 +18,13 @@ const formatTime = (iso) => {
   }
 }
 
-const formatDuration = (ms) => {
+const formatDuration = (ms: number) => {
   if (!ms) return ''
   if (ms < 1000) return `${ms}ms`
   return `${(ms / 1000).toFixed(1)}s`
 }
 
-const getKindColor = (kind) => {
+const getKindColor = (kind: string) => {
   switch (kind) {
     case 'reasoning': return 'bg-info/20 text-info'
     case 'tool-call': return 'bg-primary/20 text-primary'
@@ -38,7 +39,7 @@ const getKindColor = (kind) => {
 }
 
 // Label tanpa emoji — aturan repo: UI dilarang memakai emoji (lihat AGENTS.md).
-const getKindLabel = (kind) => {
+const getKindLabel = (kind: string) => {
   switch (kind) {
     case 'reasoning': return 'Reasoning'
     case 'tool-call': return 'Tool Call'
@@ -52,17 +53,37 @@ const getKindLabel = (kind) => {
   }
 }
 
+// Bentuk entry untuk rendering: field tampilan dianotasi eksplisit di atas
+// index-signature TrajectoryEntry agar JSX menerima ReactNode.
+type DisplayEntry = TrajectoryEntry & {
+  prompt?: string
+  tool?: string
+  args?: unknown
+  result?: unknown
+  observation?: unknown
+  answer?: unknown
+  outcome?: string
+  reason?: string
+  name?: string
+  parentAgentId?: string
+  turn?: number
+  step?: number
+  total?: number
+  duration?: number
+  description?: string
+}
+
 export default function Trajectory() {
   const navigate = useNavigate()
-  const [entries, setEntries] = useState(() => {
+  const [entries, setEntries] = useState<DisplayEntry[]>(() => {
     loadTrajectoryBuffer()
-    return getTrajectoryBuffer()
+    return getTrajectoryBuffer() as DisplayEntry[]
   })
-  const [selectedEntry, setSelectedEntry] = useState(null)
+  const [selectedEntry, setSelectedEntry] = useState<DisplayEntry | null>(null)
 
   useEffect(() => {
     const unsubscribe = onTrajectoryUpdate((newEntries) => {
-      setEntries(newEntries)
+      setEntries(newEntries as DisplayEntry[])
     })
 
     return () => unsubscribe()
@@ -196,43 +217,43 @@ export default function Trajectory() {
                     </div>
                   </div>
                 )}
-                {selectedEntry.args && (
+                {!!selectedEntry.args && (
                   <div>
                     <label className="text-xs uppercase tracking-wider opacity-50 mb-1 block">Args</label>
                     <pre className="text-xs whitespace-pre-wrap break-words font-mono bg-base-300 p-2 rounded max-h-32 overflow-y-auto">
                       {typeof selectedEntry.args === 'string'
                         ? selectedEntry.args
-                        : JSON.stringify(selectedEntry.args, null, 2)}
+                        : String(JSON.stringify(selectedEntry.args, null, 2))}
                     </pre>
                   </div>
                 )}
-                {selectedEntry.result && (
+                {!!selectedEntry.result && (
                   <div>
                     <label className="text-xs uppercase tracking-wider opacity-50 mb-1 block">Result</label>
                     <pre className="text-xs whitespace-pre-wrap break-words font-mono bg-base-300 p-2 rounded max-h-48 overflow-y-auto">
                       {typeof selectedEntry.result === 'string'
                         ? selectedEntry.result.slice(0, 2000)
-                        : JSON.stringify(selectedEntry.result, null, 2).slice(0, 2000)}
+                        : String(JSON.stringify(selectedEntry.result, null, 2)).slice(0, 2000)}
                     </pre>
                   </div>
                 )}
-                {selectedEntry.observation && (
+                {!!selectedEntry.observation && (
                   <div>
                     <label className="text-xs uppercase tracking-wider opacity-50 mb-1 block">Observation (apa yang model lihat)</label>
                     <pre className="text-xs whitespace-pre-wrap break-words font-mono bg-base-300 p-2 rounded max-h-48 overflow-y-auto">
                       {typeof selectedEntry.observation === 'string'
                         ? selectedEntry.observation
-                        : JSON.stringify(selectedEntry.observation, null, 2)}
+                        : String(JSON.stringify(selectedEntry.observation, null, 2))}
                     </pre>
                   </div>
                 )}
-                {selectedEntry.answer && (
+                {!!selectedEntry.answer && (
                   <div>
                     <label className="text-xs uppercase tracking-wider opacity-50 mb-1 block">Answer (jawaban final)</label>
                     <pre className="text-xs whitespace-pre-wrap break-words font-mono bg-base-300 p-2 rounded max-h-48 overflow-y-auto">
                       {typeof selectedEntry.answer === 'string'
                         ? selectedEntry.answer
-                        : JSON.stringify(selectedEntry.answer, null, 2)}
+                        : String(JSON.stringify(selectedEntry.answer, null, 2))}
                     </pre>
                   </div>
                 )}
@@ -268,7 +289,7 @@ export default function Trajectory() {
                     {selectedEntry.description && (
                       <div className="flex-1">
                         <label className="text-xs uppercase tracking-wider opacity-50 mb-1 block">Description</label>
-                        <div className="text-sm">{selectedEntry.description}</div>
+                        <div className="text-sm">{String(selectedEntry.description ?? '')}</div>
                       </div>
                     )}
                   </div>

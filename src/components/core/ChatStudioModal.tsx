@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from 'react'
 import {
   MessageSquare,
   Plus,
@@ -16,14 +16,47 @@ import {
   deleteSession,
   renameSession,
   getChatData,
-  setSessionWorkspace
+  setSessionWorkspace,
+  type SessionRow
 } from '../../api/db'
 import ChatList from '../ChatList'
 import InputBar from './InputBar'
 import { useConfirm } from '../../hooks/useConfirm'
 import { useManualCompaction } from '../../hooks/useManualCompaction'
 
-export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
+interface ModalChatItem {
+  id?: unknown
+  created_at?: unknown
+  role?: string
+  content?: unknown
+  isThinking?: boolean
+  [key: string]: unknown
+}
+
+export const ChatStudioModal = ({
+  isOpen,
+  onClose,
+  chatContext
+}: {
+  isOpen: boolean
+  onClose: () => void
+  chatContext: unknown
+}) => {
+  const ctx = (chatContext || {}) as {
+    chatData?: ModalChatItem[]
+    setChatData?: (updater: unknown) => void
+    handlePlanningCommand?: (...args: unknown[]) => void
+    isLoading?: boolean
+    isAgentBusy?: boolean
+    runningSessionIds?: Array<number | string>
+    handleStop?: (sessionId?: number) => void
+    isRecording?: boolean
+    isProcessing?: boolean
+    audioIntensity?: number
+    startRecording?: () => void
+    stopRecording?: () => void
+    inputSource?: string
+  }
   const {
     chatData: mainChatData,
     setChatData: setMainChatData,
@@ -38,19 +71,19 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
     startRecording,
     stopRecording,
     inputSource
-  } = chatContext || {}
+  } = ctx
 
-  const [sessions, setSessions] = useState([])
+  const [sessions, setSessions] = useState<SessionRow[]>([])
   const [activeSessionId, setActiveSessionId] = useState(1)
-  const [activeSessionData, setActiveSessionData] = useState([])
+  const [activeSessionData, setActiveSessionData] = useState<ModalChatItem[]>([])
   const [visibleMessageCount, setVisibleMessageCount] = useState(40)
   const [searchQuery, setSearchQuery] = useState('')
-  const [editingSessionId, setEditingSessionId] = useState(null)
+  const [editingSessionId, setEditingSessionId] = useState<number | null>(null)
   const [editingTitle, setEditingTitle] = useState('')
   const [, setIsLocalLoading] = useState(false)
 
-  const messagesContainerRef = useRef(null)
-  const messagesEndRef = useRef(null)
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null)
+  const messagesEndRef = useRef<HTMLDivElement | null>(null)
   const { confirm, ModalComponent } = useConfirm()
 
   const loadAllSessions = async () => {
@@ -75,10 +108,10 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
 
   // Kompaksi manual + tracker gauge (session compaction).
   useManualCompaction({
-    messages: currentDisplayMessages,
-    setMessages: (updater) => {
+    messages: currentDisplayMessages as never,
+    setMessages: (updater: unknown) => {
       if (Number(activeSessionId) === 1) setMainChatData?.(updater)
-      else setActiveSessionData(updater)
+      else setActiveSessionData(updater as ModalChatItem[])
     },
     sessionId: activeSessionId
   })
@@ -94,7 +127,7 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
     void (async () => {
       setVisibleMessageCount(30)
       if (!isOpen || activeSessionId === 1) return
-      const data = await getChatData(activeSessionId)
+      const data = (await getChatData(activeSessionId)) as ModalChatItem[] | null
       if (!isCancelled) {
         setActiveSessionData(data || [])
       }
@@ -106,9 +139,10 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
 
   // Real-time live background sync across sessions
   useEffect(() => {
-    const handleSessionUpdate = (e) => {
-      if (e.detail && e.detail.sessionId === activeSessionId) {
-        setActiveSessionData(e.detail.data || [])
+    const handleSessionUpdate = (e: Event) => {
+      const d = (e as CustomEvent<{ sessionId?: number; data?: ModalChatItem[] }>).detail
+      if (d && d.sessionId === activeSessionId) {
+        setActiveSessionData(d.data || [])
       }
     }
     window.addEventListener('session-updated', handleSessionUpdate)
@@ -130,7 +164,7 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
     isAutoScrollEnabledRef.current = scrollHeight - scrollTop - clientHeight < 80
   }
 
-  const scrollToBottom = (behavior = 'auto') => {
+  const scrollToBottom = (behavior: ScrollBehavior = 'auto') => {
     if (messagesContainerRef.current) {
       messagesContainerRef.current.scrollTo({
         top: messagesContainerRef.current.scrollHeight,
@@ -171,7 +205,7 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
     }
   }
 
-  const handleDeleteSessionClick = async (e, id) => {
+  const handleDeleteSessionClick = async (e: ReactMouseEvent, id: number) => {
     e.stopPropagation()
     if (id === 1) return
 
@@ -179,7 +213,7 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
       title: 'Hapus Sesi Obrolan',
       message: 'Apakah kamu yakin ingin menghapus sesi percakapan ini secara permanen?',
       confirmText: 'Hapus',
-      confirmColor: 'btn-error'
+      isError: true
     })
 
     if (confirmed?.isConfirmed) {
@@ -191,13 +225,13 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
     }
   }
 
-  const handleStartRename = (e, session) => {
+  const handleStartRename = (e: ReactMouseEvent, session: SessionRow) => {
     e.stopPropagation()
-    setEditingSessionId(session.id)
-    setEditingTitle(session.title)
+    setEditingSessionId(session.id ?? null)
+    setEditingTitle(session.title ?? '')
   }
 
-  const handleSaveRename = async (id) => {
+  const handleSaveRename = async (id: number) => {
     if (editingTitle.trim()) {
       await renameSession(id, editingTitle.trim())
       await loadAllSessions()
@@ -209,15 +243,15 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
     if (window.api && window.api.selectDirectory) {
       const selected = await window.api.selectDirectory()
       if (selected) {
-        await setSessionWorkspace(activeSessionId, selected)
+        await setSessionWorkspace(activeSessionId, String(selected))
         setSessions((prev) =>
-          prev.map((s) => (s.id === activeSessionId ? { ...s, workspaceRoot: selected } : s))
+          prev.map((s) => (s.id === activeSessionId ? { ...s, workspaceRoot: String(selected) } : s))
         )
       }
     }
   }
 
-  const handleSendMessage = async (prompt) => {
+  const handleSendMessage = async (prompt: string) => {
     if (!prompt.trim()) return
 
     // Auto-update session title if it's default
@@ -231,12 +265,12 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
 
     if (activeSessionId === 1) {
       // Direct pass to Main Thread (Home Orb engine)
-      handlePlanningCommand(prompt, false, false, {
+      handlePlanningCommand?.(prompt, false, false, {
         workspaceRoot: currentSession?.workspaceRoot
       })
     } else {
       // Local workspace session execution via useAbelinkPlan
-      handlePlanningCommand(prompt, false, false, {
+      handlePlanningCommand?.(prompt, false, false, {
         sessionId: activeSessionId,
         customChatData: activeSessionData,
         workspaceRoot: currentSession?.workspaceRoot
@@ -258,10 +292,9 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
     (s.title || '').toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  const activeSessionObj = sessions.find((s) => s.id === activeSessionId) || {
-    id: 1,
-    title: 'Main Thread'
-  }
+  const activeSessionObj: SessionRow =
+    (sessions.find((s) => s.id === activeSessionId) as SessionRow | undefined) ||
+    ({ id: 1, title: 'Main Thread', data: [], timestamp: 0 } as SessionRow)
 
   return (
     <>
@@ -272,7 +305,7 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
           {/* Sidebar Header */}
           <div
             className="p-4 border-b border-white/10 space-y-3 z-30 relative select-none"
-            style={{ WebkitAppRegion: 'no-drag' }}
+            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
           >
             <div className="flex items-center justify-between pointer-events-auto">
               <div className="flex items-center gap-2 font-bold text-sm tracking-wide text-white">
@@ -283,7 +316,7 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
                     onClose()
                   }}
                   className="btn btn-ghost btn-sm btn-circle text-white/70 hover:text-white mr-1 cursor-pointer shrink-0 pointer-events-auto"
-                  style={{ WebkitAppRegion: 'no-drag' }}
+                  style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
                   title="Tutup Studio (Esc)"
                 >
                   <ArrowLeft className="w-5 h-5" />
@@ -296,7 +329,7 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
                   type="button"
                   onClick={handleCreateNewChat}
                   className="btn btn-xs btn-primary rounded-lg gap-1 font-medium shadow-md shadow-primary/20 cursor-pointer pointer-events-auto"
-                  style={{ WebkitAppRegion: 'no-drag' }}
+                  style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
                 >
                   <Plus className="w-3.5 h-3.5" />
                   Sesi Baru
@@ -305,7 +338,7 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
             </div>
 
             {/* Search Input */}
-            <div className="relative pointer-events-auto" style={{ WebkitAppRegion: 'no-drag' }}>
+            <div className="relative pointer-events-auto" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-white/60" />
               <input
                 type="text"
@@ -369,8 +402,8 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
 
                 return (
                   <div
-                    key={s.id}
-                    onClick={() => setActiveSessionId(s.id)}
+                    key={s.id ?? 'session'}
+                    onClick={() => s.id !== undefined && setActiveSessionId(s.id)}
                     className={`w-full p-2.5 rounded-xl text-left transition-all flex items-center justify-between group/session cursor-pointer ${
                       isActive
                         ? 'bg-white/10 border border-white/20 text-white shadow-sm'
@@ -393,8 +426,8 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
                           type="text"
                           value={editingTitle}
                           onChange={(e) => setEditingTitle(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleSaveRename(s.id)
+                          onKeyDown={(e: ReactKeyboardEvent<HTMLInputElement>) => {
+                            if (e.key === 'Enter' && s.id !== undefined) handleSaveRename(s.id)
                             if (e.key === 'Escape') setEditingSessionId(null)
                           }}
                           autoFocus
@@ -424,7 +457,7 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
-                            handleSaveRename(s.id)
+                            if (s.id !== undefined) handleSaveRename(s.id)
                           }}
                           className="btn btn-ghost btn-xs p-1 text-primary hover:bg-primary/20"
                         >
@@ -440,7 +473,7 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
                             <Edit2 className="w-3 h-3" />
                           </button>
                           <button
-                            onClick={(e) => handleDeleteSessionClick(e, s.id)}
+                            onClick={(e) => s.id !== undefined && handleDeleteSessionClick(e, s.id)}
                             className="btn btn-ghost btn-xs p-1 text-white/60 hover:text-error"
                             title="Hapus sesi"
                           >
@@ -466,9 +499,9 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
           {/* Header */}
           <div
             className="h-14 px-6 border-b border-white/10 flex items-center justify-between bg-base-300/80 backdrop-blur-md shrink-0 z-30 relative select-none"
-            style={{ WebkitAppRegion: 'drag' }}
+            style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
           >
-            <div className="flex items-center gap-3 min-w-0" style={{ WebkitAppRegion: 'drag' }}>
+            <div className="flex items-center gap-3 min-w-0" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}>
               <div className="w-2.5 h-2.5 rounded-full bg-primary shadow-[0_0_10px_var(--color-primary)]" />
               <div>
                 <h3 className="text-sm font-bold text-white truncate max-w-md">
@@ -482,7 +515,7 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
 
             <div
               className="flex items-center gap-2 pointer-events-auto mr-28"
-              style={{ WebkitAppRegion: 'no-drag' }}
+              style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
             ></div>
           </div>
 
@@ -522,24 +555,24 @@ export const ChatStudioModal = ({ isOpen, onClose, chatContext }) => {
                 .slice(-visibleMessageCount)
                 .map((msg, idx) => (
                   <ChatList
-                    key={msg.id || msg.created_at || idx}
-                    role={msg.role}
+                    key={(msg.id ?? msg.created_at ?? idx) as string | number}
+                    role={typeof msg.role === 'string' ? msg.role : 'user'}
                     content={msg.content}
-                    reasoning={msg.reasoning}
-                    isThinking={msg.isThinking}
-                    isSearching={msg.isSearching}
-                    isSummarizing={msg.isSummarizing}
-                    isSearchingMusic={msg.isSearchingMusic}
-                    sources={msg.sources}
-                    executedTools={msg.executedTools}
-                    isMemorySaved={msg.isMemorySaved}
+                    reasoning={(msg.reasoning as string | null | undefined) ?? null}
+                    isThinking={!!msg.isThinking}
+                    isSearching={!!msg.isSearching}
+                    isSummarizing={!!msg.isSummarizing}
+                    isSearchingMusic={!!msg.isSearchingMusic}
+                    sources={(msg.sources as unknown[] | undefined) ?? []}
+                    executedTools={(msg.executedTools as unknown[] | undefined) ?? []}
+                    isMemorySaved={!!msg.isMemorySaved}
                     choice={msg.choice}
-                    isMemoryUpdated={msg.isMemoryUpdated}
-                    isMemoryDeleted={msg.isMemoryDeleted}
-                    timestamp={msg.timestamp}
-                    mood={msg.mood}
-                    source={msg.source}
-                    sender={msg.sender}
+                    isMemoryUpdated={!!msg.isMemoryUpdated}
+                    isMemoryDeleted={!!msg.isMemoryDeleted}
+                    timestamp={(msg.timestamp as string | number | undefined) ?? ''}
+                    mood={typeof msg.mood === 'string' ? msg.mood : 'neutral'}
+                    source={(msg.source as string | null | undefined) ?? null}
+                    sender={(msg.sender as string | null | undefined) ?? null}
                   />
                 ))
             )}

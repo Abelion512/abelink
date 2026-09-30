@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, type ChangeEvent, type DragEvent, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -14,16 +14,24 @@ import {
   Layers
 } from 'lucide-react'
 import { ingestDocument } from '../api/ragPipeline'
-import { getAllDocuments, deleteDocumentByName, db } from '../api/db'
+import { getAllDocuments, deleteDocumentByName, db, type DocumentRow } from '../api/db'
 import { deleteDocumentFromOrama } from '../api/oramaStore'
 import { generateVector, cosineSimilarity } from '../api/vectorMemory'
 import { useConfirm } from '../hooks/useConfirm'
 
+interface DocSummary {
+  name: string | undefined
+  chunks: number
+  timestamp: number
+}
+
+type SimResult = DocumentRow & { similarity?: number }
+
 const Knowledge = () => {
   const navigate = useNavigate()
-  const [documents, setDocuments] = useState([])
-  const [selectedDoc, setSelectedDoc] = useState(null)
-  const [selectedDocChunks, setSelectedDocChunks] = useState([])
+  const [documents, setDocuments] = useState<DocSummary[]>([])
+  const [selectedDoc, setSelectedDoc] = useState<DocSummary | null>(null)
+  const [selectedDocChunks, setSelectedDocChunks] = useState<DocumentRow[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -34,18 +42,18 @@ const Knowledge = () => {
   // Semantic query simulator state
   const [simQuery, setSimQuery] = useState('')
   const [isSimulating, setIsSimulating] = useState(false)
-  const [simResults, setSimResults] = useState(null)
+  const [simResults, setSimResults] = useState<SimResult[] | null>(null)
 
-  const [toastMessage, setToastMessage] = useState(null)
+  const [toastMessage, setToastMessage] = useState<string | null>(null)
 
-  const showToast = (message) => {
+  const showToast = (message: string) => {
     setToastMessage(message)
     setTimeout(() => setToastMessage(null), 3000)
   }
 
   const loadData = useCallback(async () => {
     try {
-      const allDocs = await getAllDocuments()
+      const allDocs = (await getAllDocuments()) as DocumentRow[]
       const uniqueDocs = Array.from(new Set(allDocs.map((d) => d.docName))).map((name) => {
         const chunks = allDocs.filter((d) => d.docName === name)
         return {
@@ -85,7 +93,7 @@ const Knowledge = () => {
       try {
         const chunks = await db.documents
           .where('docName')
-          .equals(selectedDoc.name)
+          .equals(String(selectedDoc.name))
           .sortBy('chunkIndex')
         if (active) {
           setSelectedDocChunks(chunks || [])
@@ -101,7 +109,7 @@ const Knowledge = () => {
     }
   }, [selectedDoc])
 
-  const processFile = async (file) => {
+  const processFile = async (file: File) => {
     if (!file) return
 
     setIsUploading(true)
@@ -132,7 +140,7 @@ const Knowledge = () => {
     }
   }
 
-  const handleFileUpload = (e) => {
+  const handleFileUpload = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
       processFile(file)
@@ -140,7 +148,7 @@ const Knowledge = () => {
     }
   }
 
-  const handleDrop = (e) => {
+  const handleDrop = (e: DragEvent<HTMLElement>) => {
     e.preventDefault()
     setIsDragging(false)
     const file = e.dataTransfer.files?.[0]
@@ -149,7 +157,7 @@ const Knowledge = () => {
     }
   }
 
-  const handleDeleteDocument = async (docName) => {
+  const handleDeleteDocument = async (docName: string) => {
     const result = await confirm({
       title: 'Hapus Dokumen?',
       message: `Yakin ingin menghapus dokumen "${docName}"? Abelink tidak akan bisa mengingat informasi dari dokumen ini lagi.`,
@@ -188,7 +196,7 @@ const Knowledge = () => {
     }
   }
 
-  const handleRunSimulation = async (e) => {
+  const handleRunSimulation = async (e: FormEvent) => {
     e.preventDefault()
     if (!simQuery.trim() || !selectedDoc || selectedDocChunks.length === 0) return
     setIsSimulating(true)
@@ -200,8 +208,8 @@ const Knowledge = () => {
       }
       const scored = selectedDocChunks
         .filter((c) => Array.isArray(c.vector))
-        .map((c) => ({ ...c, similarity: cosineSimilarity(queryVector, c.vector) }))
-        .sort((a, b) => b.similarity - a.similarity)
+        .map((c) => ({ ...c, similarity: cosineSimilarity(queryVector, c.vector as number[]) }))
+        .sort((a, b) => (b.similarity ?? 0) - (a.similarity ?? 0))
         .slice(0, 3)
       setSimResults(scored)
     } catch (err) {
@@ -213,7 +221,7 @@ const Knowledge = () => {
   }
 
   const filteredDocs = documents.filter((d) =>
-    d.name.toLowerCase().includes(searchQuery.toLowerCase())
+    (d.name ?? '').toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   return (
@@ -221,11 +229,11 @@ const Knowledge = () => {
       {/* Top Bar with Safe Area Gutter */}
       <div
         className="h-14 pl-16 pr-28 border-b border-white/10 flex items-center justify-between bg-[#1c1c1e]/80 backdrop-blur-xl shrink-0 z-30 select-none"
-        style={{ WebkitAppRegion: 'drag' }}
+        style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       >
         <div
           className="flex items-center gap-3 pointer-events-auto"
-          style={{ WebkitAppRegion: 'no-drag' }}
+          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
         >
           <button
             type="button"
@@ -304,7 +312,7 @@ const Knowledge = () => {
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation()
-                      handleDeleteDocument(doc.name)
+                      handleDeleteDocument(String(doc.name))
                     }}
                     className={`p-1.5 rounded-lg transition-colors opacity-0 group-hover:opacity-100 ${
                       isSelected
@@ -399,7 +407,7 @@ const Knowledge = () => {
                 </div>
                 <button
                   type="button"
-                  onClick={() => handleDeleteDocument(selectedDoc.name)}
+                  onClick={() => handleDeleteDocument(String(selectedDoc.name))}
                   className="px-3 py-1.5 rounded-xl bg-[#ff453a]/20 text-[#ff453a] hover:bg-[#ff453a] hover:text-white transition-all text-xs font-medium flex items-center gap-1.5 cursor-pointer"
                 >
                   <Trash2 size={14} />
@@ -470,21 +478,21 @@ const Knowledge = () => {
                     ) : (
                       simResults.map((r, i) => (
                         <div
-                          key={r.chunkIndex}
+                          key={r.chunkIndex ?? i}
                           className="p-3 rounded-xl bg-white/[0.04] border border-white/10 text-xs space-y-1"
                         >
                           <div className="flex items-center justify-between text-[10px] font-mono">
-                            <span className="text-white/60">Rank #{i + 1} (Chunk #{r.chunkIndex + 1})</span>
+                            <span className="text-white/60">Rank #{i + 1} (Chunk #{(r.chunkIndex ?? 0) + 1})</span>
                             <span
                               className={`font-semibold ${
-                                r.similarity > 0.6
+                                (r.similarity ?? 0) > 0.6
                                   ? 'text-[#30d158]'
-                                  : r.similarity > 0.3
+                                  : (r.similarity ?? 0) > 0.3
                                     ? 'text-[#0a84ff]'
                                     : 'text-white/40'
                               }`}
                             >
-                              Skor: {(r.similarity * 100).toFixed(1)}%
+                              Skor: {((r.similarity ?? 0) * 100).toFixed(1)}%
                             </span>
                           </div>
                           <p className="text-white/80 font-mono text-[11px] leading-relaxed whitespace-pre-wrap">
@@ -514,7 +522,7 @@ const Knowledge = () => {
                       className="p-3.5 rounded-xl bg-white/[0.03] border border-white/10 hover:border-white/20 transition-all text-xs space-y-1.5"
                     >
                       <div className="flex items-center justify-between text-[10px] text-white/40 font-mono">
-                        <span className="font-semibold text-[#0a84ff]">Chunk #{c.chunkIndex + 1}</span>
+                        <span className="font-semibold text-[#0a84ff]">Chunk #{(c.chunkIndex ?? 0) + 1}</span>
                         <span>{c.content?.length || 0} karakter</span>
                       </div>
                       <p className="text-white/80 text-[11px] font-mono leading-relaxed whitespace-pre-wrap select-text">
