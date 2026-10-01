@@ -1,4 +1,4 @@
-// evaluation/evidence.mjs - PR46 evidence plane (thin normalizer, no new store).
+// evaluation/evidence.ts - PR46 evidence plane (thin normalizer, no new store).
 //
 // PR46 objective: give the measurement layer a single, minimal evidence shape
 // that keeps result -> evidence -> oracle -> report provenance intact, WITHOUT
@@ -49,7 +49,7 @@ const EXEC_FAILURE_RE = /^\s*(ERROR:|\[ERROR\]|\[DITOLAK\]|\[DIBATALKAN\]|\[SEAR
 // Genuine negative evidence: the tool ran and truthfully reported "nothing".
 const NEGATIVE_RE = /(tidak ditemukan|tidak ada hasil|no results?|not found|empty result|kosong)/i
 
-const compact = (value, limit) =>
+const compact = (value: any, limit: any) =>
   String(value ?? '')
     .replace(/\s+/g, ' ')
     .trim()
@@ -99,7 +99,7 @@ export function normalizeEvidenceRecord({
   recovery = false,
   progressOutcome = null,
   claim = false,
-} = {}) {
+}: any = {}) {
   const payload = String(observation ?? '')
   // Execution identity: benchmarkRunId is the benchmark session, executionId is
   // one concrete execution (session + taskId + iteration). `runId` stays as an
@@ -151,12 +151,12 @@ export function evidenceFromRun({
   trace = [],
   stepLog = [],
   verificationState = VERIFICATION_STATE.NOT_RUN,
-} = {}) {
-  const records = []
+}: any = {}) {
+  const records: any = []
   const seenKeys = new Set()
-  let previous = null
+  let previous: any = null
 
-  const push = (entry) => {
+  const push = (entry: any) => {
     const observation = entry.observation
     const strategyKey = normalizeProgressKey(entry.tool || '', entry.query || '')
     const fingerprint = observationFingerprint(observation)
@@ -286,7 +286,7 @@ export function evidenceFromRun({
 }
 
 /** Aggregate an evidence record list into the counters the metrics layer needs. */
-export function summarizeEvidence(records = []) {
+export function summarizeEvidence(records: any = []) {
   const list = Array.isArray(records) ? records : []
   const toolRecords = list.filter((r) => r.action === 'tool' && r.tool)
   const failures = list.filter((r) => r.status === EVIDENCE_STATUS.FAILED).length
@@ -312,7 +312,7 @@ export function summarizeEvidence(records = []) {
 
 /** Run-level in-memory ledger. No persistence, no schema migration. */
 export function createEvidenceLedger({ runId = null, benchmarkRunId = null, taskId = null, lane = null, arch = 'basic', representation = null, model = null } = {}) {
-  const records = []
+  const records: any = []
   return {
     runId,
     benchmarkRunId,
@@ -322,7 +322,7 @@ export function createEvidenceLedger({ runId = null, benchmarkRunId = null, task
     representation,
     model,
     records,
-    add(record) {
+    add(record: any) {
       records.push(record)
       return record
     },
@@ -337,7 +337,7 @@ export function createEvidenceLedger({ runId = null, benchmarkRunId = null, task
  * Explicit so a report can always be traced back to the observation that
  * supported (or failed to support) a verdict.
  */
-export function provenanceChain({ result = null, evidence = null, oracle = null, report = null } = {}) {
+export function provenanceChain({ result = null, evidence = null, oracle = null, report = null }: any = {}) {
   const records = Array.isArray(evidence) ? evidence : evidence?.records || []
   return {
     result: result
@@ -353,8 +353,8 @@ export function provenanceChain({ result = null, evidence = null, oracle = null,
       : null,
     evidence: {
       count: records.length,
-      tools: [...new Set(records.filter((r) => r.tool).map((r) => r.tool))],
-      sources: [...new Set(records.map((r) => r.source))],
+      tools: [...new Set(records.filter((r: any) => r.tool).map((r: any) => r.tool))],
+      sources: [...new Set(records.map((r: any) => r.source))],
     },
     oracle: oracle
       ? {

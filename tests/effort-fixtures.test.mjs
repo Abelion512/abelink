@@ -8,7 +8,7 @@ import {
   BudgetExhausted,
   Workflow,
   WorkflowNode,
-} from '../evaluation/effort-fixtures.mjs'
+} from '../evaluation/effort-fixtures.ts'
 import {
   EffortLevel,
   EffortPolicy,

@@ -1,4 +1,4 @@
-// evaluation/pr46-experiments.mjs - PR46 experiment support (pure, no I/O).
+// evaluation/pr46-experiments.ts - PR46 experiment support (pure, no I/O).
 //
 // Three paired experiments are required before PR45 runtime adaptations can be
 // judged:
@@ -87,10 +87,10 @@ export const FIXED_COMPARISON_FIELDS = Object.freeze([
   'verifier',
 ])
 
-const normalize = (v) => (typeof v === 'string' ? v.trim() : v)
-const stable = (v) => JSON.stringify(v ?? null)
+const normalize = (v: any) => (typeof v === 'string' ? v.trim() : v)
+const stable = (v: any) => JSON.stringify(v ?? null)
 
-export function makeModelIdentity({ provider, modelId, modelVersion } = {}) {
+export function makeModelIdentity({ provider, modelId, modelVersion }: any = {}) {
   const identity = {
     provider: normalize(provider),
     modelId: normalize(modelId),
@@ -107,7 +107,7 @@ export function makeModelIdentity({ provider, modelId, modelVersion } = {}) {
   return Object.freeze(identity)
 }
 
-export function isNeverLatest(identity = {}) {
+export function isNeverLatest(identity: any = {}) {
   const values = [identity.provider, identity.modelId, identity.modelVersion]
   return values.every(
     (v) => typeof v === 'string' && v.trim() && !MODEL_IDENTITY_FORBIDDEN.includes(v.trim().toLowerCase())
@@ -126,7 +126,7 @@ export function makeExperimentSpec({
   verifier = 'deterministic-world-state-predicate',
   model = null,
   note = '',
-} = {}) {
+}: any = {}) {
   if (!id || !kind) throw new Error('makeExperimentSpec requires id and kind')
   if (!Object.values(EXPERIMENT_KINDS).includes(kind)) throw new Error(`unknown experiment kind: ${kind}`)
   if (model && !isNeverLatest(model)) throw new Error('experiment model identity must never be "latest"')
@@ -149,8 +149,8 @@ export function makeExperimentSpec({
  * Validate that two arms differ only in the intended variable. Returns
  * mismatches for every fixed field that is not identical.
  */
-export function validateComparability({ baseline = {}, candidate = {} } = {}, { variable = 'architecture', fixedFields = FIXED_COMPARISON_FIELDS } = {}) {
-  const mismatches = []
+export function validateComparability({ baseline = {}, candidate = {} }: any = {}, { variable = 'architecture', fixedFields = FIXED_COMPARISON_FIELDS }: any = {}) {
+  const mismatches: any[] = []
   for (const field of fixedFields) {
     if (field === variable) continue
     if (stable(baseline[field]) !== stable(candidate[field])) {
@@ -198,7 +198,7 @@ export function baselineVsCandidateSpec({
   }
 }
 
-const reportExecutionCount = (arm) => {
+const reportExecutionCount = (arm: any) => {
   const n = arm?.aggregate?.runCount
   if (Number.isFinite(n)) return n
   return Array.isArray(arm?.runs) ? arm.runs.length : null
@@ -215,7 +215,7 @@ const reportExecutionCount = (arm) => {
  *   3. the architecture actually differs.
  * A single-arm run is never comparable, no matter how complete its identity is.
  */
-export function compareArmReports({ baseline = null, candidate = null, dimensions = ARM_COMPARISON_DIMENSIONS } = {}) {
+export function compareArmReports({ baseline = null, candidate = null, dimensions = ARM_COMPARISON_DIMENSIONS }: any = {}) {
   const base = {
     valid: false,
     variable: 'architecture',
@@ -235,8 +235,8 @@ export function compareArmReports({ baseline = null, candidate = null, dimension
 
   // "Both measured arms" is checked, not assumed: a file carrying an identity
   // block but zero executions is not evidence that an arm ran.
-  const notMeasured = []
-  const executions = { baseline: reportExecutionCount(baseline), candidate: reportExecutionCount(candidate) }
+  const notMeasured: any[] = []
+  const executions: any = { baseline: reportExecutionCount(baseline), candidate: reportExecutionCount(candidate) }
   for (const [name, arm] of [
     ['baseline', baseline],
     ['candidate', candidate],
@@ -253,9 +253,9 @@ export function compareArmReports({ baseline = null, candidate = null, dimension
   const axisWired =
     baseline.identity?.architectureAxisWired === true && candidate.identity?.architectureAxisWired === true
 
-  const mismatches = []
-  const unverifiable = []
-  const checked = []
+  const mismatches: any[] = []
+  const unverifiable: any[] = []
+  const checked: any[] = []
   for (const { contract, key } of dimensions) {
     const a = baseline.identity?.[key] ?? null
     const b = candidate.identity?.[key] ?? null
@@ -309,8 +309,8 @@ export function compareArmReports({ baseline = null, candidate = null, dimension
  * identical except for the `representation` field, otherwise the comparison is
  * invalid and the caller must not report it.
  */
-export function representationAblationSpec({ pairs = [], runs = 3, fixed = {} } = {}) {
-  const results = pairs.map((pair) => {
+export function representationAblationSpec({ pairs = [], runs = 3, fixed = {} }: any = {}) {
+  const results = pairs.map((pair: any) => {
     const integrity = validateAblationPair(pair.raw, pair.semanticFirst)
     return { id: pair.id, integrity }
   })
@@ -324,8 +324,8 @@ export function representationAblationSpec({ pairs = [], runs = 3, fixed = {} } 
     // Valid only when every pair differs by representation AND both values are
     // real execution-path representations. A label-only difference is not an
     // ablation, so it must not read as one.
-    runtimeSupported: results.every((r) => r.integrity.runtimeSupported),
-    valid: results.length > 0 && results.every((r) => r.integrity.valid),
+    runtimeSupported: results.every((r: any) => r.integrity.runtimeSupported),
+    valid: results.length > 0 && results.every((r: any) => r.integrity.valid),
     deferred: false,
     note: 'Raw vs semantic-first observation; no other variable may change.',
   }
@@ -345,8 +345,8 @@ export const ABLATION_FIXED_FIELDS = Object.freeze([
 ])
 
 /** Validate that two fixtures differ only by observation representation. */
-export function validateAblationPair(rawFixture = {}, semanticFixture = {}) {
-  const mismatches = []
+export function validateAblationPair(rawFixture: any = {}, semanticFixture: any = {}) {
+  const mismatches: any[] = []
   for (const field of ABLATION_FIXED_FIELDS) {
     if (stable(rawFixture[field]) !== stable(semanticFixture[field])) {
       mismatches.push({ field, raw: rawFixture[field] ?? null, semantic: semanticFixture[field] ?? null })

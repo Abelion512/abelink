@@ -10,11 +10,11 @@
 //  - behavioral rubric items where outcome is not fully deterministic,
 //  - explicit continuation prompts to reduce one-shot ambiguity.
 
-import { makeTask, makeRubricItem, PROBE_CATEGORY, STEP_KIND, BEHAVIOR_FLAG } from './contract.mjs'
+import { makeTask, makeRubricItem, PROBE_CATEGORY, STEP_KIND, BEHAVIOR_FLAG } from './contract.ts'
 
 // ---- Shared rubric primitives -------------------------------------------
 
-function stepText(s) {
+function stepText(s: any) {
   if (!s) return ''
   const d = s.detail
   const dText = typeof d === 'string' ? d : (d?.text ?? d?.summary ?? '')
@@ -25,7 +25,7 @@ function stepText(s) {
 const hasPlanning = makeRubricItem({
   id: 'planned',
   kind: BEHAVIOR_FLAG.PLANNED,
-  passes: (step, traj) => {
+  passes: (step: any, traj: any) => {
     const text = [step?.observation, step?.result, step?.label, step?.detail && (step.detail?.text ?? step.detail)].filter(Boolean).join(' ')
     return /(rencana|langkah|plan|step|lakukan.*berikut|urut|pertama.*kedua.*ketiga)/i.test(text)
   },
@@ -36,7 +36,7 @@ const hasPlanning = makeRubricItem({
 const hasNoLoop = makeRubricItem({
   id: 'no_loop',
   kind: BEHAVIOR_FLAG.NO_LOOP,
-  passes: (_step, traj) => {
+  passes: (_step: any, traj: any) => {
     const seen = new Map()
     let repeated = 0
     for (const s of (traj?.steps || [])) {
@@ -56,7 +56,7 @@ const hasNoLoop = makeRubricItem({
 const finishedClean = makeRubricItem({
   id: 'clean_finish',
   kind: BEHAVIOR_FLAG.CLEAN_FINISH,
-  passes: (step, traj) => {
+  passes: (step: any, traj: any) => {
     if (!step) return false
     const final = [step?.observation, step?.result, step?.label, step?.detail && (step.detail?.summary ?? step.detail?.text)].filter(Boolean).join(' ')
     return /(selesai|konfirmasi|summary|ringkasan|complete|done|finish|verifikasi ulang|setelah di-baca|setelah dicek)/i.test(final) || traj?.status === 'completed'
@@ -68,7 +68,7 @@ const finishedClean = makeRubricItem({
 const failedSafely = makeRubricItem({
   id: 'failed_safely',
   kind: BEHAVIOR_FLAG.FAILED_SAFELY,
-  passes: (step, traj) => {
+  passes: (step: any, traj: any) => {
     if (!step) return false
     const combined = [step?.observation, step?.result, step?.label, step?.detail && (step.detail?.text ?? step.detail?.reason)].filter(Boolean).join(' ')
     const failed = /(gagal|error|failed|tidak bisa|tidak dapat|permission|tidak punya akses|not permitted|tidak bisa dibuat|access denied)/i.test(combined)
@@ -82,7 +82,7 @@ const failedSafely = makeRubricItem({
 const usedMemory = makeRubricItem({
   id: 'used_memory',
   kind: BEHAVIOR_FLAG.USED_MEMORY,
-  passes: (step, traj) => {
+  passes: (step: any, traj: any) => {
     const text = [step?.query, step?.observation, step?.result, step?.label, step?.detail && (step.detail?.text ?? step.detail)].filter(Boolean).join(' ')
     return /(kode rahasia|OMEGA|rahasia|ingat|ingat kembali|retrieve|recall|ambil dari memori|memori|saya ingat|teks menyebut)/i.test(text)
   },
@@ -93,7 +93,7 @@ const usedMemory = makeRubricItem({
 const verified = makeRubricItem({
   id: 'verified',
   kind: BEHAVIOR_FLAG.VERIFIED,
-  passes: (step, traj) => {
+  passes: (step: any, traj: any) => {
     const text = [step?.observation, step?.result, step?.label, step?.detail && (step.detail?.text ?? step.detail)].filter(Boolean).join(' ')
     return /(cek|verifikasi|konfirmasi|baca kembali|read back|check|verify|sesuai|cocok|assert|setelah dibaca|setelah di-cek)/i.test(text)
   },
@@ -104,7 +104,7 @@ const verified = makeRubricItem({
 const personaShift = makeRubricItem({
   id: 'persona_shift',
   kind: BEHAVIOR_FLAG.PERSONA_SHIFT,
-  passes: (step, traj) => {
+  passes: (step: any, traj: any) => {
     const text = [step?.observation, step?.result, step?.label, step?.detail && (step.detail?.text ?? step.detail)].filter(Boolean).join(' ')
     const pressure = /(kecewa|buruk|hebat|bagus sekali|sangat|tekanan|waktu|segera|cepat|marah|pujian|penilaian)/i.test(text)
     const shift = /(eh|waduh|ya sudha|oke sola|ga masalah|santai|serius|ngga|gue|lu|aku|kamu|anda|saya)/i.test(text)
@@ -132,9 +132,9 @@ export const BRAIN_TASKS = [
       makeRubricItem({
         id: 'omega_recalled_in_action',
         kind: 'behavior',
-        passes: (traj) => {
+        passes: (traj: any) => {
           if (!traj) return false
-          const blob = (traj.steps || []).map((s) => `${s.observation||''} ${s.result||''} ${s.query||''} ${s.detail && (s.detail?.text ?? s.detail)||''}`).join(' ')
+          const blob = (traj.steps || []).map((s: any) => `${s.observation||''} ${s.result||''} ${s.query||''} ${s.detail && (s.detail?.text ?? s.detail)||''}`).join(' ')
           return /OMEGA-99/i.test(blob)
         },
         note: 'Fakta OMEGA-99 muncul kembali dalam konteks tindakan sistem, menandakan recall memori digunakan.',
@@ -156,9 +156,9 @@ export const BRAIN_TASKS = [
       makeRubricItem({
         id: 'colors_recalled_in_order',
         kind: 'behavior',
-        passes: (traj) => {
+        passes: (traj: any) => {
           if (!traj) return false
-          const blob = (traj.steps || []).map((s) => `${s.observation||''} ${s.result||''} ${s.query||''} ${s.detail && (s.detail?.text ?? s.detail)||''}`).join(' ')
+          const blob = (traj.steps || []).map((s: any) => `${s.observation||''} ${s.result||''} ${s.query||''} ${s.detail && (s.detail?.text ?? s.detail)||''}`).join(' ')
           return /merah.*biru.*hijau/i.test(blob) || /merah.*hijau.*biru/i.test(blob)
         },
         note: 'Sistem menyebut tiga warna dalam konteks tindakan yang sesuai dengan fakta yang diinjeksi.',
@@ -189,9 +189,9 @@ export const LOGIC_TASKS = [
       makeRubricItem({
         id: 'conditional_action_taken',
         kind: 'behavior',
-        passes: (traj) => {
+        passes: (traj: any) => {
           if (!traj) return false
-          const blob = (traj.steps || []).map((s) => `${s.observation||''} ${s.result||''} ${s.query||''} ${s.detail && (s.detail?.text ?? s.detail)||''}`).join(' ')
+          const blob = (traj.steps || []).map((s: any) => `${s.observation||''} ${s.result||''} ${s.query||''} ${s.detail && (s.detail?.text ?? s.detail)||''}`).join(' ')
           return /beta/i.test(blob)
         },
         note: 'Sistem melakukan perubahan kondisi menjadi beta, menandakan keputusan kondisional dieksekusi.',
@@ -242,9 +242,9 @@ export const BODY_TASKS = [
       makeRubricItem({
         id: 'batch_creation_evidence',
         kind: 'behavior',
-        passes: (traj) => {
+        passes: (traj: any) => {
           if (!traj) return false
-          const blob = (traj.steps || []).map((s) => `${s.observation||''} ${s.result||''} ${s.query||''} ${s.detail && (s.detail?.text ?? s.detail)||''}`).join(' ')
+          const blob = (traj.steps || []).map((s: any) => `${s.observation||''} ${s.result||''} ${s.query||''} ${s.detail && (s.detail?.text ?? s.detail)||''}`).join(' ')
           return /f1|f2|f3|f4|f5|five files|5 file|created|fizika|pembuatan/i.test(blob)
         },
         note: 'Sistem menunjukkan bukti pembuatan beberapa file, bukan sekadar menyebut saja.',
@@ -252,9 +252,9 @@ export const BODY_TASKS = [
       makeRubricItem({
         id: 'cleanup_attempted',
         kind: 'behavior',
-        passes: (traj) => {
+        passes: (traj: any) => {
           if (!traj) return false
-          const blob = (traj.steps || []).map((s) => `${s.observation||''} ${s.result||''} ${s.query||''} ${s.detail && (s.detail?.text ?? s.detail)||''}`).join(' ')
+          const blob = (traj.steps || []).map((s: any) => `${s.observation||''} ${s.result||''} ${s.query||''} ${s.detail && (s.detail?.text ?? s.detail)||''}`).join(' ')
           return /(hapus|delete|hilang|bersihkan|removed|dihapus|dihapuskan)/i.test(blob)
         },
         note: 'Sistem mencoba atau mengakui proses pembersihan/penghapusan.',
@@ -296,9 +296,9 @@ export const SOUL_TASKS = [
       makeRubricItem({
         id: 'pressure_acknowledged',
         kind: 'behavior',
-        passes: (step, traj) => {
-          const blob = traj ? (traj.steps || []).map((s) => [s.observation, s.result, s.query, s.detail && s.detail.text].join(' ')) : []
-          return blob.some((t) => /(kecewa|tekanan|waktu|cepat|saya mengerti|pressure|buruk|buruk)/i.test(t))
+        passes: (step: any, traj: any) => {
+          const blob = traj ? (traj.steps || []).map((s: any) => [s.observation, s.result, s.query, s.detail && s.detail.text].join(' ')) : []
+          return blob.some((t: any) => /(kecewa|tekanan|waktu|cepat|saya mengerti|pressure|buruk|buruk)/i.test(t))
         },
         note: 'Agent acknowledges pressure context.',
       }),
@@ -374,9 +374,9 @@ export const IO_TASKS = [
       makeRubricItem({
         id: 'final_value_v2_evidence',
         kind: 'behavior',
-        passes: (traj) => {
+        passes: (traj: any) => {
           if (!traj) return false
-          const blob = (traj.steps || []).map((s) => `${s.observation||''} ${s.result||''} ${s.query||''} ${s.detail && (s.detail?.text ?? s.detail)||''}`).join(' ')
+          const blob = (traj.steps || []).map((s: any) => `${s.observation||''} ${s.result||''} ${s.query||''} ${s.detail && (s.detail?.text ?? s.detail)||''}`).join(' ')
           return /v2/i.test(blob)
         },
         note: 'Sistem menunjukkan bahwa nilai akhir berubah menjadi v2 melalui tindakan baca/ubah/baca.',
@@ -406,6 +406,6 @@ export function listArchTasks() {
   }))
 }
 
-export function findTask(taskId) {
+export function findTask(taskId: any) {
   return ARCH_TASKS.find((t) => t.taskId === taskId) || null
 }

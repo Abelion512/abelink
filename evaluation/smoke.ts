@@ -6,11 +6,11 @@
 // saat dijalankan lokal.
 
 import assert from 'node:assert/strict'
-import { TASKS, ALL_TASKS, listTasks, akSentinel } from './terminal-bench.mjs'
-import { parseToolCalls, normalizeEffort, resolveTaskEffort, toNativeQuery, toolPreamble } from './abelink-adapter.mjs'
-import { aggregateRuns, detectCheat, compareReports } from './run.mjs'
-import { runSmoke as runAbelinkEvalSmoke, aggregateAbelinkEval } from './abelink-eval.mjs'
-import { BENCHMARK_MATRIX, CORE_SET, summarizeMatrix } from './matrix.mjs'
+import { TASKS, ALL_TASKS, listTasks, akSentinel } from './terminal-bench.ts'
+import { parseToolCalls, normalizeEffort, resolveTaskEffort, toNativeQuery, toolPreamble } from './abelink-adapter.ts'
+import { aggregateRuns, detectCheat, compareReports } from './run.ts'
+import { runSmoke as runAbelinkEvalSmoke, aggregateAbelinkEval } from './abelink-eval.ts'
+import { BENCHMARK_MATRIX, CORE_SET, summarizeMatrix } from './matrix.ts'
 
 // 1. Task registry terbaca
 const tasks = listTasks()
@@ -233,11 +233,11 @@ assert.equal(sweepAgg.tasks['x@high'].details[0].effort, 'high')
 assert.equal(sweepAgg.summary.byEffort.low.runs, 2)
 assert.equal(sweepAgg.summary.byEffort.high.runs, 2)
 assert.equal(sweepAgg.summary.byEffort.high.passRate, 0.5)
-assert.equal(sweepAgg.effortScaling.find((e) => e.effort === 'high').avgSteps, 4)
+assert.equal(sweepAgg.effortScaling.find((e: any) => e.effort === 'high').avgSteps, 4)
 console.log('[ok] per-task effort direkam + split key effort campur (A/B siap)')
 
 // 10d. Effort scaling tanpa asumsi monoton: hanya melaporkan, tidak membandingkan
-const scalingLow = sweepAgg.effortScaling.find((e) => e.effort === 'low')
+const scalingLow = sweepAgg.effortScaling.find((e: any) => e.effort === 'low')
 assert.equal(scalingLow.passRate, 1)
 assert.equal(scalingLow.avgDurationMs, 100)
 console.log('[ok] effortScaling empiris (kurva dibiarkan terbuka)')
@@ -270,25 +270,25 @@ assert.equal(CORE_SET.length, 6, 'core set = 5 pilar publik + ABELINK-Eval')
 const matrixSummary = summarizeMatrix({ 'terminal-bench-4.0': { score: 0.612 } })
 assert.equal(matrixSummary.kind, 'abelinkbench-matrix')
 assert.equal(matrixSummary.rows.length, BENCHMARK_MATRIX.length)
-assert.equal(matrixSummary.rows.find((r) => r.id === 'terminal-bench-4.0').score, 0.612)
+assert.equal(matrixSummary.rows.find((r: any) => r.id === 'terminal-bench-4.0')?.score, 0.612)
 console.log('[ok] benchmark matrix (pilar + core set)')
 
 // Fase 2: world-state verifier contract — text without tool evidence MUST fail.
-import { VERIFY_WORLD } from './tasks-student-corporate.mjs'
+import { VERIFY_WORLD } from './tasks-student-corporate.ts'
 const fakeCtx = (over = {}) => ({ sentinel: 'S3N-test', workdir: '/tmp/abelinkbench-smoke', stepLog: [], ...over })
 assert.equal(VERIFY_WORLD.corpReportTextOnly('laporan berisi S3N-test', fakeCtx()), false, 'text-only without write evidence fails')
 assert.equal(VERIFY_WORLD.corpReportTextOnly('nope', fakeCtx({ stepLog: [{ toolCalls: [{ tool: 'write-file', success: true }] }] })), false, 'missing sentinel fails')
 // Bentuk stepLog adapter nyata (tanpa field success) dihitung sebagai evidence,
-// kecuali result berawalan ERROR: — kompatibilitas abelink-adapter.mjs.
-import { hasToolEvidence } from './tasks-student-corporate.mjs'
+// kecuali result berawalan ERROR: — kompatibilitas abelink-adapter.ts.
+import { hasToolEvidence } from './tasks-student-corporate.ts'
 assert.equal(hasToolEvidence([{ step: 1, type: 'tool', tool: 'write-file', result: 'ok' }], ['write-file']), true, 'adapter-shape success counts')
 assert.equal(hasToolEvidence([{ step: 1, type: 'tool', tool: 'write-file', result: 'ERROR: denied' }], ['write-file']), false, 'adapter-shape ERROR does not count')
 
 console.log('AbelinkBench smoke: LOLOS')
 
 // ---- Task 7: arch axis + report shell v3 (offline) ----
-import { buildReportShell, sidecarWorkspaceRoot } from './run.mjs'
-import { resolveBenchArch, ARCH_VALUES } from './abelink-adapter.mjs'
+import { buildReportShell, sidecarWorkspaceRoot } from './run.ts'
+import { resolveBenchArch, ARCH_VALUES } from './abelink-adapter.ts'
 import { join as joinWs } from 'node:path'
 const shell = buildReportShell({ arch: 'basic', runId: 'smoke-1' })
 assert.equal(shell.schemaVersion, 3, 'report shell is v3')
@@ -308,7 +308,7 @@ import { tmpdir } from 'node:os'
 import { join as joinPath } from 'node:path'
 import { spawnSync as spawnSyncGit } from 'node:child_process'
 const gitTmp = mkdtempSync(joinPath(tmpdir(), 'abelinkbench-git-'))
-const gitRun = (...a) => spawnSyncGit('git', ['-C', gitTmp, ...a], { encoding: 'utf8', timeout: 30000 })
+const gitRun = (...a: any[]) => spawnSyncGit('git', ['-C', gitTmp, ...a], { encoding: 'utf8', timeout: 30000 })
 gitRun('init', '-q')
 import { writeFileSync as writeTmpFile } from 'node:fs'
 writeTmpFile(joinPath(gitTmp, 'f.txt'), 'x\n')
@@ -337,9 +337,9 @@ import {
   minStepsForArtifacts,
   recommendedStepsForArtifacts,
   rungId,
-} from './limit-ladder.mjs'
-import { LIMIT_TASKS, listLimitTasks, verifyChainArtifacts } from './tasks-limit.mjs'
-import { planRows, selectedRungs } from './limit-probe.mjs'
+} from './limit-ladder.ts'
+import { LIMIT_TASKS, listLimitTasks, verifyChainArtifacts } from './tasks-limit.ts'
+import { planRows, selectedRungs } from './limit-probe.ts'
 
 const limitTasks = listLimitTasks()
 assert.equal(limitTasks.length, LADDER.length, 'satu task per rung LADDER')
@@ -348,7 +348,7 @@ for (const t of limitTasks) {
   assert.ok(TASKS[t.taskId] === undefined, 'rung bukan task legacy: verifier wajib signature dunia')
   assert.ok(t.maxTurns >= minStepsForArtifacts(t.artifacts), 'maxTurns minimal sebesar prasyarat fisik')
 }
-assert.ok(ALL_TASKS[rungId(8)], 'rung pertama harus terlihat oleh orchestrator (ALL_TASKS)')
+assert.ok((ALL_TASKS as any)[rungId(8)], 'rung pertama harus terlihat oleh orchestrator (ALL_TASKS)')
 
 // Verifier dunia: tanpa bukti tool dan tanpa berkas, teks apa pun = FAIL.
 const emptyWork = mkdtempSync(joinPath(tmpdir(), 'abelinkbench-limit-'))
@@ -394,9 +394,9 @@ import {
   PR46_MINIMAL_OFFLINE,
   laneCounts,
   seedPr46Fixture,
-} from './pr46-matrix.mjs'
-import { evidenceFromRun, summarizeEvidence } from './evidence.mjs'
-import { computeRunMetrics, aggregateMetrics, buildMeasurementReport } from './metrics.mjs'
+} from './pr46-matrix.ts'
+import { evidenceFromRun, summarizeEvidence } from './evidence.ts'
+import { computeRunMetrics, aggregateMetrics, buildMeasurementReport } from './metrics.ts'
 import {
   makeModelIdentity,
   baselineVsCandidateSpec,
@@ -405,12 +405,12 @@ import {
   compareArmReports,
   MEASUREMENT_REPORT_KIND,
   ARM_COMPARISON_DIMENSIONS,
-} from './pr46-experiments.mjs'
+} from './pr46-experiments.ts'
 import {
   renderBrowserObservation,
   resolveObservationRepresentation,
 } from '../extension/browser-observation.mjs'
-import { ARCH_AXIS_IN_BENCH_PATH } from './abelink-adapter.mjs'
+import { ARCH_AXIS_IN_BENCH_PATH } from './abelink-adapter.ts'
 
 assert.equal(PR46_TOTAL_FIXTURES, 30, 'PR46 matrix = 30 fixture')
 assert.equal(Object.keys(PR46_TASKS).length, 30, 'PR46 registry memuat 30 fixture')
@@ -507,7 +507,7 @@ const semanticObservation = renderBrowserObservation(pr46Payload, { representati
 assert.notEqual(rawObservation, semanticObservation, 'raw vs semantic-first wajib berbeda')
 assert.equal(semanticObservation, renderBrowserObservation(pr46Payload), 'default runtime tetap semantic-first')
 assert.equal(resolveObservationRepresentation(), 'semantic-first')
-assert.throws(() => resolveObservationRepresentation('nope'), 'representasi tak dikenal wajib gagal')
+assert.throws(() => (resolveObservationRepresentation as any)('nope'), 'representasi tak dikenal wajib gagal')
 console.log('[ok] PR46 switch representasi observasi (raw vs semantic-first) nyata')
 
 // Identitas model: exact, bukan "latest".
@@ -539,7 +539,7 @@ assert.equal(spec.runnable, true)
 
 // Perbandingan valid hanya bila KEDUA arm benar-benar terukur, semua dimensi
 // tetap yang DIKLAIM benar-benar direkam, dan arsitekturnya berbeda.
-const armReport = (arch, identityOver = {}) => ({
+const armReport = (arch: any, identityOver = {}) => ({
   kind: MEASUREMENT_REPORT_KIND,
   repeatedRunsPerTask: 3,
   aggregate: { runCount: 3 },
@@ -561,7 +561,7 @@ const armReport = (arch, identityOver = {}) => ({
     ...identityOver,
   },
 })
-const hollowArm = (arch) => ({
+const hollowArm = (arch: any) => ({
   kind: MEASUREMENT_REPORT_KIND,
   repeatedRunsPerTask: 3,
   aggregate: { runCount: 0 },
@@ -644,9 +644,9 @@ assert.equal(measurement.aggregate.unnecessaryActionRate, null)
 assert.ok(measurement.aggregate.unnecessaryActionRateReason, 'alasan ketidaktersediaan wajib eksplisit')
 assert.ok('repeatActionRate' in measurement.aggregate)
 
-// Laporan yang dibangun dari konfigurasi run.mjs yang NYATA harus memuat semua
+// Laporan yang dibangun dari konfigurasi run.ts yang NYATA harus memuat semua
 // dimensi tetap kontrak, kalau tidak eksperimen A tidak akan pernah bisa valid.
-const realArm = (arch, axisWired = ARCH_AXIS_IN_BENCH_PATH) =>
+const realArm = (arch: any, axisWired = ARCH_AXIS_IN_BENCH_PATH) =>
   buildMeasurementReport({
     runs: [metrics],
     config: {
@@ -673,7 +673,7 @@ const realPair = compareArmReports({ baseline: realArm('vanilla'), candidate: re
 assert.deepEqual(realPair.unverifiable, [], 'tidak boleh ada dimensi kontrak yang tidak terekam')
 for (const dimension of ARM_COMPARISON_DIMENSIONS) {
   assert.ok(
-    realPair.checked.includes(dimension.contract),
+    (realPair.checked as any).includes(dimension.contract),
     `dimensi kontrak ${dimension.contract} wajib benar-benar dibandingkan`
   )
 }

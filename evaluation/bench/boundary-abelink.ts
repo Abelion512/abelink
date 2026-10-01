@@ -1,7 +1,7 @@
 // Abelink Architecture Benchmark — live ABELINK execution boundary.
 //
-// Thin wrapper over evaluation/abelink-adapter.mjs (sidecar RPC, the same
-// engine the terminal-bench track uses). Satisfies boundary-spec.mjs via the
+// Thin wrapper over evaluation/abelink-adapter.ts (sidecar RPC, the same
+// engine the terminal-bench track uses). Satisfies boundary-spec.ts via the
 // existing adapter: no new transport, no CLI, no UI.
 //
 // Design notes:
@@ -17,20 +17,20 @@ import os from 'node:os'
 import path from 'node:path'
 import { mkdirSync } from 'node:fs'
 
-import { makeRawStep, makeRunRequest, makeFinalStatus } from './capture.mjs'
-import { runAbelinkAgent } from '../abelink-adapter.mjs'
+import { makeRawStep, makeRunRequest, makeFinalStatus } from './capture.ts'
+import { runAbelinkAgent } from '../abelink-adapter.ts'
 
 export { makeRunRequest, makeFinalStatus }
 
 const DEFAULT_TOOLS = ['write-file', 'read-file', 'run-shell', 'list-dir']
 
-function scratchDir(taskId, runId) {
+function scratchDir(taskId: any, runId: any) {
   const safe = String(taskId || 'task').replace(/[^a-zA-Z0-9_-]/g, '_')
   return path.join(os.tmpdir(), 'abelink-bench', `${safe}-${runId || 'run'}`)
 }
 
 /** Translate one adapter trace entry into one or more raw bench steps. */
-function* traceToRaw(trace, baseIndex = 0) {
+function* traceToRaw(trace: any, baseIndex = 0) {
   let index = baseIndex
   for (const entry of trace || []) {
     if (entry.kind === 'tool' && Array.isArray(entry.toolCalls) && entry.toolCalls.length) {
@@ -61,11 +61,11 @@ function* traceToRaw(trace, baseIndex = 0) {
   return index
 }
 
-export function createAbelinkBoundary({ model, provider, effort = null, runFn = runAbelinkAgent } = {}) {
+export function createAbelinkBoundary({ model, provider, effort = null, runFn = runAbelinkAgent }: any = {}) {
   const pending = new Map() // runId -> ctx
 
   return {
-    async startRun(request) {
+    async startRun(request: any) {
       const runId = request.runId || request.taskId
       const workdir = scratchDir(request.taskId, runId)
       mkdirSync(workdir, { recursive: true })
@@ -74,7 +74,7 @@ export function createAbelinkBoundary({ model, provider, effort = null, runFn = 
       return ctx
     },
 
-    async *sendPrompt(ctx, prompt, options = {}) {
+    async *sendPrompt(ctx: any, prompt: any, options: any = {}) {
       const known = pending.get(ctx.runId)
       if (!known) throw new Error('Unknown run context')
       if (known.aborted) return
@@ -106,7 +106,7 @@ export function createAbelinkBoundary({ model, provider, effort = null, runFn = 
       }
     },
 
-    async endRun(ctx) {
+    async endRun(ctx: any) {
       const known = pending.get(ctx.runId)
       if (!known) throw new Error('Unknown run context')
       pending.delete(ctx.runId)
@@ -120,7 +120,7 @@ export function createAbelinkBoundary({ model, provider, effort = null, runFn = 
       })
     },
 
-    async abortRun(ctx) {
+    async abortRun(ctx: any) {
       const known = pending.get(ctx.runId)
       if (!known) return false
       known.aborted = true

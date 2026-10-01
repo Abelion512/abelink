@@ -1,8 +1,8 @@
 // One-command local benchmark over the live ABELINK boundary.
 // Usage:
-//   bun evaluation/bench/run-local.mjs            (live, needs provider)
-//   bun evaluation/bench/run-local.mjs --stub      (offline stub smoke)
-//   bun evaluation/bench/run-local.mjs --stub --task=io-01-read-modify-write
+//   bun evaluation/bench/run-local.ts            (live, needs provider)
+//   bun evaluation/bench/run-local.ts --stub      (offline stub smoke)
+//   bun evaluation/bench/run-local.ts --stub --task=io-01-read-modify-write
 // Prints summary JSON. Stub mode gates on stub-baseline.json overallPassRate
 // (exit 1 on drop >= 5). Live runs NEVER compare against stub-baseline; they
 // save to live-baseline.json via --save. Effort via ABELINK_BENCH_EFFORT env.
@@ -11,11 +11,11 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { runBenchmark, runStubBenchmark } from './runner-stub.mjs'
-import { createAbelinkBoundary } from './boundary-abelink.mjs'
-import { makeImprovementRecord } from './contract.mjs'
-import { resolveTaskEffortSync } from '../abelink-adapter.mjs'
-import { ARCH_TASKS, findTask } from './tasks.mjs'
+import { runBenchmark, runStubBenchmark } from './runner-stub.ts'
+import { createAbelinkBoundary } from './boundary-abelink.ts'
+import { makeImprovementRecord } from './contract.ts'
+import { resolveTaskEffortSync } from '../abelink-adapter.ts'
+import { ARCH_TASKS, findTask } from './tasks.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const STUB_BASELINE = path.join(__dirname, 'stub-baseline.json')
@@ -30,7 +30,7 @@ if (taskArg && !findTask(taskArg.slice('--task='.length))) {
 }
 const tasks = taskArg ? [findTask(taskArg.slice('--task='.length))] : ARCH_TASKS
 
-const effortResolver = (task) => resolveTaskEffortSync({
+const effortResolver = (task: any) => resolveTaskEffortSync({
   taskEffort: task.effortHint,
   envEffort: process.env.ABELINK_BENCH_EFFORT,
 })

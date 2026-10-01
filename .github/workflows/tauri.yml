@@ -87,7 +87,7 @@ jobs:
       - name: Install dependencies (frozen lockfile)
         run: bun install --frozen-lockfile
       - name: Task registry + adapter import
-        run: bun evaluation/smoke.mjs
+        run: bun evaluation/smoke.ts
 
   rust:
     name: Rust check (src-tauri)

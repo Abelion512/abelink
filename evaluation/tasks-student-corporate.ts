@@ -4,7 +4,7 @@
 //
 // Kontrak verifier: (output, { sentinel, workdir, stepLog }) -> boolean.
 // Prompt memakai placeholder {{SENTINEL}} / {{WORKDIR}} yang di-resolve
-// orchestrator (evaluation/run.mjs) per-run ke dir fixture unik.
+// orchestrator (evaluation/run.ts) per-run ke dir fixture unik.
 
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -12,9 +12,9 @@ import { spawnSync } from 'node:child_process'
 
 // Cek dunia nyata: repo <repoDir> punya commit (5 teratas) yang pesannya
 // memuat `message` (biasanya sentinel per-run). False bila repo hilang/git gagal.
-// Tinggal di sini (bukan terminal-bench.mjs) agar dependensi satu arah:
+// Tinggal di sini (bukan terminal-bench.ts) agar dependensi satu arah:
 // terminal-bench -> modul ini, bukan sebaliknya (bebas circular import).
-export function hasGitCommitWithMessage(repoDir, message) {
+export function hasGitCommitWithMessage(repoDir: any, message: any) {
   if (!repoDir || !message) return false
   try {
     const r = spawnSync('git', ['-C', repoDir, 'log', '--oneline', '-5'], {
@@ -30,23 +30,23 @@ export function hasGitCommitWithMessage(repoDir, message) {
 
 // True bila setiap tool di `tools` punya >=1 pemanggilan sukses di stepLog.
 // Bentuk step yang didukung: { toolCalls: [{ tool, success }] } atau { tool, success } datar.
-// Catatan adapter nyata (abelink-adapter.mjs): entry tool datar TIDAK punya field
+// Catatan adapter nyata (abelink-adapter.ts): entry tool datar TIDAK punya field
 // success — kegagalan dikodekan sebagai result berawalan "ERROR: ". Entry tanpa
 // success dihitung sukses kecuali result-nya jelas ERROR.
-const isErrorResult = (c) => typeof c?.result === 'string' && c.result.startsWith('ERROR:')
-const isSuccessCall = (c) =>
+const isErrorResult = (c: any) => typeof c?.result === 'string' && c.result.startsWith('ERROR:')
+const isSuccessCall = (c: any) =>
   c && typeof c.tool === 'string' && (c.success === true || (c.success === undefined && !isErrorResult(c)))
 
-export function hasToolEvidence(stepLog, tools) {
-  const calls = []
+export function hasToolEvidence(stepLog: any, tools: any) {
+  const calls: any = []
   for (const step of stepLog || []) {
     if (Array.isArray(step?.toolCalls)) calls.push(...step.toolCalls)
     else if (step && typeof step.tool === 'string') calls.push(step)
   }
-  return (tools || []).every((t) => calls.some((c) => isSuccessCall(c) && c.tool === t))
+  return (tools || []).every((t: any) => calls.some((c: any) => isSuccessCall(c) && c.tool === t))
 }
 
-function readArtifact(workdir, rel) {
+function readArtifact(workdir: any, rel: any) {
   try {
     const p = join(workdir, rel)
     if (!existsSync(p)) return null
@@ -56,13 +56,13 @@ function readArtifact(workdir, rel) {
   }
 }
 
-function countHeaders(md) {
-  return md.split('\n').filter((l) => /^#{1,3}\s+\S/.test(l.trim())).length
+function countHeaders(md: any) {
+  return md.split('\n').filter((l: any) => /^#{1,3}\s+\S/.test(l.trim())).length
 }
 
 // Lolos hanya bila ada bukti tulis DAN sentinel hadir di output atau artefak.
 // Teks tanpa tool evidence = curang = FAIL.
-function corpReportTextOnly(output, ctx = {}) {
+function corpReportTextOnly(output: any, ctx: any = {}) {
   const { sentinel, workdir, stepLog } = ctx
   if (!sentinel || typeof output !== 'string') return false
   if (!hasToolEvidence(stepLog, ['write-file'])) return false
@@ -81,7 +81,7 @@ export const CORP_TASKS = {
     requiredTools: ['write-file'],
     maxTurns: 15,
     effort: 'medium',
-    verifier: (output, { sentinel, workdir, stepLog } = {}) => {
+    verifier: (output: any, { sentinel, workdir, stepLog }: any = {}) => {
       if (!hasToolEvidence(stepLog, ['write-file'])) return false
       const md = readArtifact(workdir, 'report.md')
       if (!md || !sentinel || !md.includes(sentinel)) return false
@@ -95,7 +95,7 @@ export const CORP_TASKS = {
     requiredTools: ['write-file'],
     maxTurns: 12,
     effort: 'medium',
-    verifier: (output, { sentinel, workdir, stepLog } = {}) => {
+    verifier: (output: any, { sentinel, workdir, stepLog }: any = {}) => {
       if (!hasToolEvidence(stepLog, ['write-file'])) return false
       const csv = readArtifact(workdir, 'data.csv')
       if (!csv || !sentinel || !csv.includes(sentinel)) return false
@@ -113,7 +113,7 @@ export const CORP_TASKS = {
     requiredTools: ['read-file', 'write-file'],
     maxTurns: 12,
     effort: 'medium',
-    verifier: (output, { sentinel, workdir, stepLog } = {}) => {
+    verifier: (output: any, { sentinel, workdir, stepLog }: any = {}) => {
       if (!hasToolEvidence(stepLog, ['read-file', 'write-file'])) return false
       const summary = readArtifact(workdir, 'ringkasan.md')
       if (!summary || !sentinel || !summary.includes(sentinel)) return false
@@ -127,7 +127,7 @@ export const CORP_TASKS = {
     requiredTools: ['write-file'],
     maxTurns: 20,
     effort: 'high',
-    verifier: (output, { sentinel, workdir, stepLog } = {}) => {
+    verifier: (output: any, { sentinel, workdir, stepLog }: any = {}) => {
       if (!hasToolEvidence(stepLog, ['write-file'])) return false
       const md = readArtifact(workdir, 'riset.md')
       if (!md || !sentinel || !md.includes(sentinel)) return false
@@ -142,7 +142,7 @@ export const CORP_TASKS = {
     requiredTools: ['read-file', 'write-file'],
     maxTurns: 12,
     effort: 'medium',
-    verifier: (output, { sentinel, workdir, stepLog } = {}) => {
+    verifier: (output: any, { sentinel, workdir, stepLog }: any = {}) => {
       if (!hasToolEvidence(stepLog, ['read-file', 'write-file'])) return false
       const md = readArtifact(workdir, 'catatan.md')
       if (!md || !sentinel || !md.includes(sentinel)) return false
@@ -160,7 +160,7 @@ export const CORP_TASKS = {
     requiredTools: ['read-file', 'write-file', 'run-shell'],
     maxTurns: 20,
     effort: 'high',
-    verifier: (output, { sentinel, workdir, stepLog } = {}) => {
+    verifier: (output: any, { sentinel, workdir, stepLog }: any = {}) => {
       if (!hasToolEvidence(stepLog, ['write-file'])) return false
       const note = readArtifact(workdir, 'code-fix/PERBAIKAN.md')
       if (!note || !sentinel || !note.includes(sentinel)) return false
@@ -179,7 +179,7 @@ export const CORP_TASKS = {
     requiredTools: [],
     maxTurns: 8,
     effort: 'low',
-    verifier: (output, { sentinel } = {}) => {
+    verifier: (output: any, { sentinel }: any = {}) => {
       if (typeof output !== 'string' || !sentinel || !output.includes(sentinel)) return false
       const hasParam = /parameter|argumen|harga|pajak/i.test(output)
       const hasReturn = /kembali|return|mengembalikan/i.test(output)
@@ -193,7 +193,7 @@ export const CORP_TASKS = {
     requiredTools: ['run-shell'],
     maxTurns: 10,
     effort: 'low',
-    verifier: (output, { sentinel, workdir, stepLog } = {}) => {
+    verifier: (output: any, { sentinel, workdir, stepLog }: any = {}) => {
       if (!hasToolEvidence(stepLog, ['run-shell'])) return false
       if (!sentinel || !workdir) return false
       return hasGitCommitWithMessage(join(workdir, 'git-repo'), sentinel)

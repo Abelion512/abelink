@@ -4,7 +4,7 @@
 //
 // Pemakaian (promptfooconfig.yaml):
 //   providers:
-//     - file://evaluation/promptfoo/abelink-provider.mjs
+//     - file://evaluation/promptfoo/abelink-provider.ts
 //       config:
 //         workspace: /path/ke/workspace   # default: cwd
 //         timeoutMs: 180000               # default 180s
@@ -21,11 +21,11 @@ import { spawn } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const CLI_PATH = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../bin/abelink.mjs')
+const CLI_PATH = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../bin/abelink.ts')
 
 const DEFAULT_TIMEOUT_MS = 180000
 
-function runCli(args, timeoutMs) {
+function runCli(args: any, timeoutMs: any) {
   return new Promise((resolve) => {
     const child = spawn('bun', [CLI_PATH, ...args], {
       cwd: process.cwd(),
@@ -34,7 +34,7 @@ function runCli(args, timeoutMs) {
     let stdout = ''
     let stderr = ''
     let settled = false
-    const finish = (value) => {
+    const finish = (value: any) => {
       if (settled) return
       settled = true
       clearTimeout(timer)
@@ -52,7 +52,7 @@ function runCli(args, timeoutMs) {
 }
 
 // Ambil object JSON terakhir dari stdout (CLI human-mode bisa mencetak teks lain).
-function extractLastJson(stdout) {
+function extractLastJson(stdout: any) {
   const lines = String(stdout || '').split('\n').filter((l) => l.trim().startsWith('{'))
   for (let i = lines.length - 1; i >= 0; i--) {
     try { return JSON.parse(lines[i]) } catch { /* coba baris sebelumnya */ }
@@ -61,7 +61,9 @@ function extractLastJson(stdout) {
 }
 
 export default class AbelinkProvider {
-  constructor(options) {
+  providerId: any
+  config: any
+  constructor(options: any) {
     this.providerId = options?.id || 'abelink-agent'
     this.config = options?.config || {}
   }
@@ -70,7 +72,7 @@ export default class AbelinkProvider {
     return this.providerId
   }
 
-  async callApi(prompt, context) {
+  async callApi(prompt: any, context: any) {
     const cfg = this.config || {}
     const args = ['agent', 'run', String(prompt ?? ''), '--json']
     if (cfg.workspace) args.push('--workspace', String(cfg.workspace))
@@ -80,7 +82,7 @@ export default class AbelinkProvider {
     for (const extra of cfg.extraArgs || []) args.push(String(extra))
 
     const timeoutMs = Number(cfg.timeoutMs) || DEFAULT_TIMEOUT_MS
-    const run = await runCli(args, timeoutMs)
+    const run: any = await runCli(args, timeoutMs)
     if (run.error) {
       return { output: null, error: run.error, metadata: { adapter: 'abelink-promptfoo', phase: 'spawn' } }
     }

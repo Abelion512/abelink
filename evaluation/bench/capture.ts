@@ -12,7 +12,7 @@ import {
   makeStep,
   STEP_KIND,
   nowISO,
-} from './contract.mjs'
+} from './contract.ts'
 
 // ---- Execution boundary contract -----------------------------------------
 
@@ -28,7 +28,7 @@ export function makeRawStep({
   text = '',
   durationMs = null,
   detail = null,
-} = {}) {
+}: any = {}) {
   return {
     index,
     kind,
@@ -70,7 +70,7 @@ export function makeRunRequest({
   effort = null,
   maxSteps = null,
   meta = null,
-} = {}) {
+}: any = {}) {
   if (!taskId || !prompt) {
     throw new Error('makeRunRequest requires taskId and prompt')
   }
@@ -94,7 +94,7 @@ export function makeFinalStatus({
   error = null,
   finishedAt = nowISO(),
   notes = '',
-} = {}) {
+}: any = {}) {
   return {
     runId,
     status,
@@ -108,7 +108,7 @@ export function makeFinalStatus({
 // ---- Normalization --------------------------------------------------------
 
 /** Normalize a raw step into the benchmark trajectory step shape. */
-export function normalizeStep(raw) {
+export function normalizeStep(raw: any) {
   const text = raw.text || raw.observation || raw.result || ''
   return makeStep({
     step: raw.index != null ? raw.index : 0,
@@ -123,8 +123,8 @@ export function normalizeStep(raw) {
 }
 
 /** Build a benchmark trajectory from a raw step stream. */
-export async function buildTrajectory({ runId, startedAt, rawSteps, finalStatus, meta = null } = {}) {
-  const steps = []
+export async function buildTrajectory({ runId, startedAt, rawSteps, finalStatus, meta = null }: any = {}) {
+  const steps: any[] = []
   let index = 0
   for (const raw of rawSteps) {
     steps.push(normalizeStep({ ...raw, index: raw.index != null ? raw.index : index++ }))
@@ -146,7 +146,7 @@ export async function buildTrajectory({ runId, startedAt, rawSteps, finalStatus,
 }
 
 /** Helper to read a final completion signal from a status object. */
-export function isCompleted(status) {
+export function isCompleted(status: any) {
   if (!status) return false
   if (status.completed) return true
   if (status.status === 'completed') return true
@@ -154,7 +154,7 @@ export function isCompleted(status) {
 }
 
 /** Helper to read an error/abort signal. */
-export function isFailed(status) {
+export function isFailed(status: any) {
   if (!status) return false
   if (status.error) return true
   if (status.status === 'failed' || status.status === 'aborted') return true
@@ -168,7 +168,7 @@ export function isFailed(status) {
  * on ABELINK itself.
  *
  * Full specification for the ABELINK-side implementation:
- *   evaluation/bench/boundary-spec.mjs It must expose the following operations in whatever
+ *   evaluation/bench/boundary-spec.ts It must expose the following operations in whatever
  * transport ABELINK supports: CLI, IPC, RPC, harness API, or a future Tauri
  * invoke channel.
  *
@@ -203,7 +203,7 @@ export const BOUNDARY_REQUIREMENTS = [
 ]
 
 /** Diagnostic helper: describe whether a boundary looks compliant. */
-export function describeBoundary(boundary) {
+export function describeBoundary(boundary: any) {
   if (!boundary) return { compliant: false, reason: 'boundary is null/undefined' }
   if (typeof boundary.startRun !== 'function') return { compliant: false, reason: 'missing startRun' }
   if (typeof boundary.sendPrompt !== 'function') return { compliant: false, reason: 'missing sendPrompt' }
@@ -223,13 +223,13 @@ export function createStubBoundary() {
   const pending = new Map()
 
   return {
-    async startRun(request) {
+    async startRun(request: any) {
       const ctx = { runId: request.runId || request.taskId, request }
       pending.set(ctx.runId, ctx)
       return ctx
     },
 
-    async *sendPrompt(ctx, prompt, options = {}) {
+    async *sendPrompt(ctx: any, prompt: any, options: any = {}) {
       if (!pending.has(ctx.runId)) {
         throw new Error('Unknown run context')
       }
@@ -253,7 +253,7 @@ export function createStubBoundary() {
       }
     },
 
-    async endRun(ctx) {
+    async endRun(ctx: any) {
       if (!pending.has(ctx.runId)) {
         throw new Error('Unknown run context')
       }
@@ -266,7 +266,7 @@ export function createStubBoundary() {
       })
     },
 
-    async abortRun(ctx) {
+    async abortRun(ctx: any) {
       if (!pending.has(ctx.runId)) {
         return false
       }

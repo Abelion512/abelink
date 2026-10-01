@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest'
 
-import { describeBoundary } from '../evaluation/bench/capture.mjs'
-import { createAbelinkBoundary } from '../evaluation/bench/boundary-abelink.mjs'
-import { makeRunRequest } from '../evaluation/bench/capture.mjs'
-import { wrapBoundary } from '../evaluation/bench/runner-stub.mjs'
+import { describeBoundary } from '../evaluation/bench/capture.ts'
+import { createAbelinkBoundary } from '../evaluation/bench/boundary-abelink.ts'
+import { makeRunRequest } from '../evaluation/bench/capture.ts'
+import { wrapBoundary } from '../evaluation/bench/runner-stub.ts'
 
 function fakeRun(result) {
   return async () => result ?? {

@@ -1,4 +1,4 @@
-// evaluation/metrics.mjs - PR46 per-run metrics + machine-readable report.
+// evaluation/metrics.ts - PR46 per-run metrics + machine-readable report.
 //
 // Extends the existing benchmark measurement path additively: it consumes the
 // run result + normalized evidence + the task oracle verdict and produces the
@@ -12,7 +12,7 @@
 //   - Repeated-run count is explicit; one aggregate is never a release claim.
 
 import { isIndependentlyVerified, VERIFICATION_STATE } from '../src/api/ai/objectiveVerifier.ts'
-import { summarizeEvidence, EVIDENCE_STATUS } from './evidence.mjs'
+import { summarizeEvidence, EVIDENCE_STATUS } from './evidence.ts'
 
 export const MEASUREMENT_SCHEMA_VERSION = 1
 
@@ -33,23 +33,23 @@ export const TOKEN_COST_UNAVAILABLE = Object.freeze({
   estimated: false,
 })
 
-const median = (values) => {
-  const list = values.filter((v) => Number.isFinite(v)).sort((a, b) => a - b)
+const median = (values: any) => {
+  const list = values.filter((v: any) => Number.isFinite(v)).sort((a: any, b: any) => a - b)
   if (!list.length) return null
   const mid = Math.floor(list.length / 2)
   return list.length % 2 ? list[mid] : +((list[mid - 1] + list[mid]) / 2).toFixed(3)
 }
 
-const mean = (values) => {
-  const list = values.filter((v) => Number.isFinite(v))
+const mean = (values: any) => {
+  const list = values.filter((v: any) => Number.isFinite(v))
   if (!list.length) return null
-  return +(list.reduce((a, b) => a + b, 0) / list.length).toFixed(3)
+  return +(list.reduce((a: any, b: any) => a + b, 0) / list.length).toFixed(3)
 }
 
-const rate = (num, den) => (den > 0 ? +(num / den).toFixed(3) : null)
+const rate = (num: any, den: any) => (den > 0 ? +(num / den).toFixed(3) : null)
 
 /** Normalize adapter token usage into an explicit available/unavailable shape. */
-export function normalizeTokenCost(tokenUsage) {
+export function normalizeTokenCost(tokenUsage: any) {
   if (!tokenUsage || typeof tokenUsage !== 'object') return { ...TOKEN_COST_UNAVAILABLE }
   const total = tokenUsage.totalTokens
   const prompt = tokenUsage.promptTokens
@@ -69,7 +69,7 @@ export function normalizeTokenCost(tokenUsage) {
  * Classify why a run failed, from data that actually exists. Never guesses.
  * Returns null when the oracle passed.
  */
-export function classifyFailure({ passed, status, failures = 0, recoveryEvents = 0, stagnationEvents = 0, steps, maxTurns }) {
+export function classifyFailure({ passed, status, failures = 0, recoveryEvents = 0, stagnationEvents = 0, steps, maxTurns }: any = {}) {
   if (passed) return null
   if (status === 'aborted') return 'aborted'
   if (Number.isInteger(steps) && Number.isInteger(maxTurns) && maxTurns > 0 && steps >= maxTurns) return 'budget-exhausted'
@@ -95,7 +95,7 @@ export function computeRunMetrics({
   runtimeVerification = VERIFICATION_STATE.NOT_RUN,
   objectiveKind = 'general',
   humanInterventions = null,
-} = {}) {
+}: any = {}) {
   const stats = summarizeEvidence(evidence)
   const steps = Number.isInteger(run.steps) ? run.steps : null
   const toolCalls = Number.isInteger(run.toolCalls) ? run.toolCalls : stats.toolCalls || null
@@ -165,7 +165,7 @@ export function computeRunMetrics({
 }
 
 /** Aggregate per-run metrics into the PR46 aggregate block. */
-export function aggregateMetrics(runs = []) {
+export function aggregateMetrics(runs: any = []) {
   const list = Array.isArray(runs) ? runs : []
   const total = list.length
   const passed = list.filter((r) => r.taskSuccess).length
@@ -180,7 +180,7 @@ export function aggregateMetrics(runs = []) {
   // being reused across tasks/iterations).
   const executions = new Set(list.map((r) => r.executionId ?? r.runId).filter(Boolean))
 
-  const byLane = {}
+  const byLane: Record<string, any> = {}
   for (const run of list) {
     const lane = run.lane || 'unlabeled'
     if (!byLane[lane]) byLane[lane] = { runs: 0, passed: 0, verified: 0 }
@@ -242,7 +242,7 @@ export function aggregateMetrics(runs = []) {
  * Machine-readable PR46 measurement report. Wraps (does not replace) the
  * existing aggregateRuns report; callers keep both.
  */
-export function buildMeasurementReport({ runs = [], config = {} } = {}) {
+export function buildMeasurementReport({ runs = [], config = {} }: any = {}) {
   const aggregate = aggregateMetrics(runs)
   // Only an explicit `valid: true` (set by a caller that actually has both
   // arms) counts. A missing comparison block must never read as comparable.

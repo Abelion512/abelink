@@ -14,12 +14,12 @@ import {
   makeRubricResult,
   STEP_KIND,
   BEHAVIOR_FLAG,
-} from './contract.mjs'
+} from './contract.ts'
 
 // ---- Text extraction -----------------------------------------------------
 
 /** Flatten a step into searchable text. */
-export function stepText(step) {
+export function stepText(step: any) {
   if (!step) return ''
   const parts = []
   if (step.observation) parts.push(step.observation)
@@ -38,13 +38,13 @@ export function stepText(step) {
 }
 
 /** Flatten full trajectory into searchable text. */
-export function trajectoryText(traj) {
+export function trajectoryText(traj: any) {
   if (!traj) return ''
   return (traj.steps || []).map(stepText).join('\n')
 }
 
 /** Extract metadata if trajectory carries it. */
-export function trajectoryMeta(traj) {
+export function trajectoryMeta(traj: any) {
   if (!traj) return null
   return traj.meta || null
 }
@@ -52,7 +52,7 @@ export function trajectoryMeta(traj) {
 // ---- Rubric evaluation ---------------------------------------------------
 
 /** Evaluate a single rubric item against a trajectory. */
-export function evaluateRubric(item, traj, stepIndex) {
+export function evaluateRubric(item: any, traj: any, stepIndex: any) {
   const step = stepIndex != null && traj?.steps?.[stepIndex] ? traj.steps[stepIndex] : null
   const passed = typeof item.passes === 'function' ? item.passes(step, traj) : false
   return makeRubricResult({
@@ -65,7 +65,7 @@ export function evaluateRubric(item, traj, stepIndex) {
 }
 
 /** Run all rubric items for a task over the full trajectory. */
-export function evaluateTaskRubric(task, traj) {
+export function evaluateTaskRubric(task: any, traj: any) {
   const results = []
   const steps = traj?.steps || []
   for (const item of task.rubric) {
@@ -76,7 +76,7 @@ export function evaluateTaskRubric(task, traj) {
 
 // ---- Flag extraction ----------------------------------------------------
 
-export function extractFlags(task, traj) {
+export function extractFlags(task: any, traj: any) {
   const flags = []
   const text = trajectoryText(traj)
   const steps = traj?.steps || []
@@ -93,8 +93,8 @@ export function extractFlags(task, traj) {
   return flags
 }
 
-function hasPlanningFlag(task, traj, steps) {
-  const planRubric = task.rubric?.find((r) => r.id === 'planned')
+function hasPlanningFlag(task: any, traj: any, steps: any) {
+  const planRubric = task.rubric?.find((r: any) => r.id === 'planned')
   if (planRubric && typeof planRubric.passes === 'function') {
     return planRubric.passes(null, traj)
   }
@@ -103,7 +103,7 @@ function hasPlanningFlag(task, traj, steps) {
   return /(rencana|langkah|plan|step|lakukan.*berikut|urut)/i.test(t)
 }
 
-function hasNoLoopFlag(traj, steps) {
+function hasNoLoopFlag(traj: any, steps: any) {
   const seen = new Map()
   let repeats = 0
   for (const s of steps) {
@@ -117,28 +117,28 @@ function hasNoLoopFlag(traj, steps) {
   return true
 }
 
-function hasMemoryFlag(task, traj, text) {
-  const memRubric = task.rubric?.find((r) => r.id === 'used_memory')
+function hasMemoryFlag(task: any, traj: any, text: any) {
+  const memRubric = task.rubric?.find((r: any) => r.id === 'used_memory')
   if (memRubric && typeof memRubric.passes === 'function') {
     return memRubric.passes(null, traj)
   }
   return /(kode rahasia|OMEGA|rahasia|ingat|ingat kembali|retrieve|recall|ambil dari memori|memori)/i.test(text)
 }
 
-function hasVerificationFlag(traj, steps) {
+function hasVerificationFlag(traj: any, steps: any) {
   const verifyRubric = traj?.meta?.item?.find ? null : null
   const t = trajectoryText(traj)
   return /(cek|verifikasi|konfirmasi|baca kembali|read back|check|verify|sesuai|cocok|assert)/i.test(t)
 }
 
-function hasCleanFinishFlag(traj, lastStep) {
+function hasCleanFinishFlag(traj: any, lastStep: any) {
   if (!lastStep) return false
   const t = stepText(lastStep)
   if (traj.status === 'completed') return true
   return /(selesai|selesai|tercomplete|done|finish|berhasil|konfirmasi|summary|ringkasan)/i.test(t)
 }
 
-function hasFailedSafelyFlag(traj, lastStep, text) {
+function hasFailedSafelyFlag(traj: any, lastStep: any, text: any) {
   if (!lastStep) return false
   const combined = stepText(lastStep) + '\n' + text
   const failed = /(gagal|error|failed|tidak bisa|tidak dapat|permission|tidak punya akses|not permitted)/i.test(combined)
@@ -147,8 +147,8 @@ function hasFailedSafelyFlag(traj, lastStep, text) {
   return !panic
 }
 
-function hasPersonaShiftFlag(task, traj, text) {
-  const shiftRubric = task.rubric?.find((r) => r.id === 'persona_shift')
+function hasPersonaShiftFlag(task: any, traj: any, text: any) {
+  const shiftRubric = task.rubric?.find((r: any) => r.id === 'persona_shift')
   if (shiftRubric && typeof shiftRubric.passes === 'function') {
     return shiftRubric.passes(null, traj)
   }
@@ -160,7 +160,7 @@ function hasPersonaShiftFlag(task, traj, text) {
 // ---- Task-level evaluation ----------------------------------------------
 
 /** Evaluate one task from its trajectory and return a result. */
-export function evaluateTask({ task, traj, effort = null, finishedAt = null, outputPreview = '' }) {
+export function evaluateTask({ task, traj, effort = null, finishedAt = null, outputPreview = '' }: any = {}) {
   const steps = traj?.steps || []
   const text = trajectoryText(traj)
   const status = inferStatus(traj, text)
@@ -193,12 +193,12 @@ export function evaluateTask({ task, traj, effort = null, finishedAt = null, out
 }
 
 /** Count tool-like steps. */
-export function countToolCalls(steps) {
-  return steps.filter((s) => s.kind === STEP_KIND.TOOL).length
+export function countToolCalls(steps: any) {
+  return steps.filter((s: any) => s.kind === STEP_KIND.TOOL).length
 }
 
 /** Infer status from trajectory signals. */
-export function inferStatus(traj, text) {
+export function inferStatus(traj: any, text: any) {
   if (!traj) return 'unknown'
   if (traj.status && ['completed', 'failed', 'aborted', 'budget_exhausted'].includes(traj.status)) {
     return traj.status
@@ -212,11 +212,11 @@ export function inferStatus(traj, text) {
   return 'unknown'
 }
 
-function buildNotes(task, rubricResults, flags, status) {
+function buildNotes(task: any, rubricResults: any, flags: any, status: any) {
   const lines = []
-  const failedRubric = rubricResults.filter((r) => !r.passed)
+  const failedRubric = rubricResults.filter((r: any) => !r.passed)
   if (failedRubric.length) {
-    lines.push(`Item perilaku gagal: ${failedRubric.map((r) => r.rubricId).join(', ')}`)
+    lines.push(`Item perilaku gagal: ${failedRubric.map((r: any) => r.rubricId).join(', ')}`)
   }
   if (flags.length) {
     lines.push(`Flag perilaku: ${flags.join(', ')}`)
@@ -231,6 +231,6 @@ function buildNotes(task, rubricResults, flags, status) {
 
 // ---- Batch evaluation ---------------------------------------------------
 
-export function evaluateBatch(taskResults) {
-  return taskResults.map((tr) => evaluateTask(tr))
+export function evaluateBatch(taskResults: any) {
+  return taskResults.map((tr: any) => evaluateTask(tr))
 }

@@ -33,7 +33,7 @@ export function makeRunMeta({
   benchmarkVersion = '1.0',
   toolConfig = 'core+groups',
   created = nowISO(),
-} = {}) {
+}: any = {}) {
   return {
     runId: runId || makeRunId(),
     model,
@@ -69,7 +69,7 @@ export function makeStep({
   result = null,
   observation = '',
   detail = null,
-} = {}) {
+}: any = {}) {
   return {
     step: step == null ? 0 : step,
     kind,
@@ -92,7 +92,7 @@ export function makeTrajectory({
   status = 'unknown',
   error = null,
   meta = null,
-} = {}) {
+}: any = {}) {
   const start = new Date(startedAt)
   const end = new Date(finishedAt)
   return {
@@ -142,7 +142,7 @@ export function makeTask({
   maxSteps = null,
   effortHint = null,
   continuation = null,
-} = {}) {
+}: any = {}) {
   if (!taskId || !category || !prompt) {
     throw new Error('makeTask requires taskId, category, and prompt')
   }
@@ -162,9 +162,9 @@ export function makeTask({
 export function makeRubricItem({
   id,
   kind,
-  passes = (step, traj) => false,
+  passes = (step: any, traj: any) => false,
   note = '',
-} = {}) {
+}: any = {}) {
   if (!id || !kind) {
     throw new Error('makeRubricItem requires id and kind')
   }
@@ -192,7 +192,7 @@ export function makeTaskResult({
   notes = '',
   outputPreview = '',
   error = null,
-} = {}) {
+}: any = {}) {
   return {
     taskId,
     category,
@@ -221,20 +221,20 @@ export function makeRubricResult({
   passed,
   note = '',
   detail = null,
-} = {}) {
+}: any = {}) {
   return { rubricId, kind, passed, note, detail }
 }
 
 // ---- Architecture benchmark report --------------------------------------
 
 /** Per-task aggregation entry in an architecture benchmark report. */
-export function aggregateTaskResults(results, effort) {
-  const base = results.filter((r) => r.taskId === results[0]?.taskId)
-  const passedCount = results.filter((r) => r.passed).length
+export function aggregateTaskResults(results: any, effort: any) {
+  const base = results.filter((r: any) => r.taskId === results[0]?.taskId)
+  const passedCount = results.filter((r: any) => r.passed).length
   const totalCount = results.length
-  const durations = results.map((r) => Number.isFinite(r.durationMs) ? r.durationMs : NaN).filter((v) => !Number.isNaN(v))
-  const steps = results.map((r) => Number.isFinite(r.stepCount) ? r.stepCount : NaN).filter((v) => !Number.isNaN(v))
-  const tools = results.map((r) => Number.isFinite(r.toolCallCount) ? r.toolCallCount : NaN).filter((v) => !Number.isNaN(v))
+  const durations = results.map((r: any) => Number.isFinite(r.durationMs) ? r.durationMs : NaN).filter((v: any) => !Number.isNaN(v))
+  const steps = results.map((r: any) => Number.isFinite(r.stepCount) ? r.stepCount : NaN).filter((v: any) => !Number.isNaN(v))
+  const tools = results.map((r: any) => Number.isFinite(r.toolCallCount) ? r.toolCallCount : NaN).filter((v: any) => !Number.isNaN(v))
 
   const flags = new Set()
   for (const r of results) {
@@ -248,16 +248,16 @@ export function aggregateTaskResults(results, effort) {
     runs: totalCount,
     passed: passedCount,
     passRate: totalCount ? Number((((passedCount / totalCount) * 100).toFixed(3))) : 0,
-    avgDurationMs: durations.length ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length) : null,
-    avgSteps: steps.length ? Number((steps.reduce((a, b) => a + b, 0) / steps.length).toFixed(1)) : null,
-    avgToolCalls: tools.length ? Number((tools.reduce((a, b) => a + b, 0) / tools.length).toFixed(1)) : null,
+    avgDurationMs: durations.length ? Math.round(durations.reduce((a: any, b: any) => a + b, 0) / durations.length) : null,
+    avgSteps: steps.length ? Number((steps.reduce((a: any, b: any) => a + b, 0) / steps.length).toFixed(1)) : null,
+    avgToolCalls: tools.length ? Number((tools.reduce((a: any, b: any) => a + b, 0) / tools.length).toFixed(1)) : null,
     flags: [...flags],
     rubricSummary: summarizeRubric(results),
   }
 }
 
 /** Collapse rubric results across repeated runs. */
-export function summarizeRubric(results) {
+export function summarizeRubric(results: any) {
   const map = new Map()
   for (const r of results) {
     for (const item of (r.rubricResults || [])) {
@@ -270,7 +270,7 @@ export function summarizeRubric(results) {
       else entry.failed += 1
     }
   }
-  return [...map.values()].map((e) => ({
+  return [...map.values()].map((e: any) => ({
     ...e,
     passRate: e.failed + e.passed ? +(e.passed / (e.passed + e.failed)).toFixed(3) : 0,
   }))
@@ -283,14 +283,14 @@ export function makeReport({
   tasks = {},
   summary = null,
   generatedAt = nowISO(),
-} = {}) {
-  const runs = Object.values(tasks).reduce((acc, t) => acc + (Number.isFinite(t.runs) ? t.runs : 0), 0)
-  const passed = Object.values(tasks).reduce((acc, t) => acc + (Number.isFinite(t.passed) ? t.passed : 0), 0)
-  const durations = Object.values(tasks).map((t) => t.avgDurationMs).filter((v) => v != null)
-  const steps = Object.values(tasks).map((t) => t.avgSteps).filter((v) => v != null)
+}: any = {}) {
+  const runs: any = Object.values(tasks).reduce((acc: any, t: any) => acc + (Number.isFinite(t.runs) ? t.runs : 0), 0)
+  const passed: any = Object.values(tasks).reduce((acc: any, t: any) => acc + (Number.isFinite(t.passed) ? t.passed : 0), 0)
+  const durations = Object.values(tasks).map((t: any) => t.avgDurationMs).filter((v: any) => v != null)
+  const steps = Object.values(tasks).map((t: any) => t.avgSteps).filter((v: any) => v != null)
 
-  const normalizedTasks = {}
-  for (const [key, t] of Object.entries(tasks)) {
+  const normalizedTasks: Record<string, any> = {}
+  for (const [key, t] of Object.entries(tasks) as any) {
     normalizedTasks[key] = t
     if (t.taskId == null) normalizedTasks[key].taskId = key
   }
@@ -305,17 +305,17 @@ export function makeReport({
       totalTasks: Object.keys(normalizedTasks).length,
       totalRuns: runs,
       overallPassRate: runs ? +((passed / runs) * 100).toFixed(3) : 0,
-      avgDurationMs: durations.length ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length) : null,
-      avgSteps: steps.length ? +(steps.reduce((a, b) => a + b, 0) / steps.length).toFixed(1) : null,
+      avgDurationMs: durations.length ? Math.round(durations.reduce((a: any, b: any) => a + b, 0) / durations.length) : null,
+      avgSteps: steps.length ? +(steps.reduce((a: any, b: any) => a + b, 0) / steps.length).toFixed(1) : null,
       byCategory: summarizeByCategory(normalizedTasks),
     },
   }
 }
 
 /** Group summary by category. */
-export function summarizeByCategory(tasks) {
-  const map = new Map()
-  for (const t of Object.values(tasks)) {
+export function summarizeByCategory(tasks: any) {
+  const map: any = new Map()
+  for (const t of Object.values(tasks) as any) {
     const cat = t.category ?? 'unknown'
     if (!map.has(cat)) {
       map.set(cat, { category: cat, tasks: 0, runs: 0, passed: 0 })
@@ -325,7 +325,7 @@ export function summarizeByCategory(tasks) {
     entry.runs += Number.isFinite(t.runs) ? t.runs : 0
     entry.passed += Number.isFinite(t.passed) ? t.passed : 0
   }
-  return [...map.values()].map((e) => ({
+  return [...map.values()].map((e: any) => ({
     ...e,
     passRate: e.runs ? +((e.passed / e.runs) * 100).toFixed(3) : 0,
   }))
@@ -347,7 +347,7 @@ export function makeDiffEntry({
   afterDuration,
   flagsChanged,
   rubricChanged,
-} = {}) {
+}: any = {}) {
   return {
     taskId,
     category,
@@ -365,10 +365,10 @@ export function makeDiffEntry({
 }
 
 /** Compare two architecture benchmark reports. */
-export function compareReports(current, prev, { thresholdPct = 5, ignoreEffortMismatch = false } = {}) {
+export function compareReports(current: any, prev: any, { thresholdPct = 5, ignoreEffortMismatch = false }: any = {}) {
   const prevTasks = prev?.tasks || {}
-  const diffs = []
-  for (const [key, cur] of Object.entries(current?.tasks || {})) {
+  const diffs: any[] = []
+  for (const [key, cur] of Object.entries(current?.tasks || {}) as any) {
     const curTaskId = cur.taskId ?? key
     const prevTask = prevTasks[key] || prevTasks[curTaskId]
     if (!prevTask) {
@@ -422,7 +422,7 @@ export function compareReports(current, prev, { thresholdPct = 5, ignoreEffortMi
   }
 }
 
-export function flagsDiff(before, after) {
+export function flagsDiff(before: any, after: any) {
   const b = new Set(before)
   const a = new Set(after)
   const added = [...a].filter((f) => !b.has(f))
@@ -430,7 +430,7 @@ export function flagsDiff(before, after) {
   return { added, removed }
 }
 
-export function rubricDiff(before, after) {
+export function rubricDiff(before: any, after: any) {
   const map = new Map()
 
   for (const item of (before || [])) {
@@ -445,7 +445,7 @@ export function rubricDiff(before, after) {
     map.set(item.rubricId, existing)
   }
 
-  return [...map.values()].map((e) => ({
+  return [...map.values()].map((e: any) => ({
     ...e,
     deltaPct: e.before == null || e.after == null ? null : +((e.after - e.before)).toFixed(3),
   }))
@@ -501,16 +501,16 @@ export function makeImprovementRecord({
   expectedGain = null,
   regressionRisk = null,
   commit = null,
-} = {}) {
+}: any = {}) {
   if (!trialId || !taskId || !result) {
     throw new Error('makeImprovementRecord requires trialId, taskId, and result')
   }
-  if (failureClass != null && !FAILURE_TAXONOMY[failureClass]) {
+  if (failureClass != null && !(FAILURE_TAXONOMY as any)[failureClass]) {
     throw new Error(`unknown failureClass: ${failureClass}`)
   }
   return {
     trialId,
-    capability: RI_CAPABILITY[taskId] ?? null,
+    capability: (RI_CAPABILITY as any)[taskId] ?? null,
     taskId,
     taskVariant,
     environment,

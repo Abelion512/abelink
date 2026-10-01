@@ -15,12 +15,12 @@ import {
   makeTaskResult,
   aggregateTaskResults,
   compareReports,
-} from './contract.mjs'
-import { evaluateTask, inferStatus, countToolCalls, trajectoryText } from './evaluator.mjs'
-import { findTask, ARCH_TASKS } from './tasks.mjs'
+} from './contract.ts'
+import { evaluateTask, inferStatus, countToolCalls, trajectoryText } from './evaluator.ts'
+import { findTask, ARCH_TASKS } from './tasks.ts'
 
-export { evaluateTask, inferStatus, countToolCalls, trajectoryText } from './evaluator.mjs'
-export { findTask, ARCH_TASKS, listArchTasks } from './tasks.mjs'
+export { evaluateTask, inferStatus, countToolCalls, trajectoryText } from './evaluator.ts'
+export { findTask, ARCH_TASKS, listArchTasks } from './tasks.ts'
 
 // ---- Trajectory provider contract ----------------------------------------
 
@@ -31,15 +31,15 @@ export function createRun({
   meta,
   config,
   effortResolver = null,
-} = {}) {
+}: any = {}) {
   if (!provider) {
     throw new Error('Architecture benchmark runner requires a trajectory provider.')
   }
 
-  const resolvedTasks = tasks.map((t) => findTask(t.taskId) || t)
+  const resolvedTasks = tasks.map((t: any) => findTask(t.taskId) || t)
   const runMeta = makeRunMeta(meta)
 
-  const results = []
+  const results: any[] = []
 
   for (const task of resolvedTasks) {
     const effort = resolveEffort(task, effortResolver)
@@ -64,8 +64,8 @@ export function createRun({
     results.push(result)
   }
 
-  const taskMap = {}
-  const grouped = new Map()
+  const taskMap: Record<string, any> = {}
+  const grouped: any = new Map()
   for (const r of results) {
     const key = r.taskId
     if (!grouped.has(key)) grouped.set(key, [])
@@ -78,10 +78,10 @@ export function createRun({
     taskMap[taskId].category = task.category ?? taskMap[taskId].category
   }
 
-  const summary = {
+  const summary: any = {
     totalTasks: Object.keys(taskMap).length,
-    totalRuns: Object.values(taskMap).reduce((a, t) => a + (t.runs || 0), 0),
-    overallPassRate: Object.values(taskMap).reduce((a, t, _, arr) => {
+    totalRuns: Object.values(taskMap).reduce((a: any, t: any) => a + (t.runs || 0), 0),
+    overallPassRate: Object.values(taskMap).reduce((a: any, t: any, _x: any, _arr: any) => {
       const runs = t.runs || 0
       const passed = t.passed || 0
       return a + (runs ? (passed / runs) : 0)
@@ -100,7 +100,7 @@ export function createRun({
 }
 
 /** Resolve effort for a task using optional resolver. */
-export function resolveEffort(task, effortResolver) {
+export function resolveEffort(task: any, effortResolver: any) {
   if (typeof effortResolver === 'function') {
     const r = effortResolver(task)
     if (r) return r
@@ -108,9 +108,9 @@ export function resolveEffort(task, effortResolver) {
   return task.effortHint || null
 }
 
-function summarizeByCategory(taskMap) {
-  const map = new Map()
-  for (const t of Object.values(taskMap)) {
+function summarizeByCategory(taskMap: any) {
+  const map: any = new Map()
+  for (const t of Object.values(taskMap) as any) {
     const cat = t.category ?? 'unknown'
     if (!map.has(cat)) map.set(cat, { category: cat, tasks: 0, runs: 0, passed: 0 })
     const entry = map.get(cat)
@@ -118,7 +118,7 @@ function summarizeByCategory(taskMap) {
     entry.runs += t.runs || 0
     entry.passed += t.passed || 0
   }
-  return [...map.values()].map((e) => ({
+  return [...map.values()].map((e: any) => ({
     ...e,
     passRate: e.runs ? +((e.passed / e.runs) * 100).toFixed(3) : 0,
   }))
@@ -127,7 +127,7 @@ function summarizeByCategory(taskMap) {
 // ---- Manual run helper ---------------------------------------------------
 
 /** Create a fake trajectory for local smoke testing. */
-export function syntheticTrajectory({ taskId, steps, status = 'completed', error = null, meta = null } = {}) {
+export function syntheticTrajectory({ taskId, steps, status = 'completed', error = null, meta = null }: any = {}) {
   return makeTrajectory({
     runId: taskId,
     status,
@@ -143,7 +143,7 @@ export function syntheticTrajectory({ taskId, steps, status = 'completed', error
 }
 
 /** Run a single synthetic task for smoke testing. */
-export async function runSyntheticTask(taskId, overrides = {}) {
+export async function runSyntheticTask(taskId: any, overrides: any = {}) {
   const task = findTask(taskId)
   if (!task) throw new Error('Unknown synthetic task: ' + taskId)
   const traj = syntheticTrajectory({

@@ -9,13 +9,13 @@
 //
 // Effort (owner requirement — task-level A/B, bukan process-global):
 //   - task registry BOLEH mendeklarasikan effort per task (task override).
-//   - run.mjs menerima benchmark default: `--effort low|medium|high`.
+//   - run.ts menerima benchmark default: `--effort low|medium|high`.
 //   - `--efforts low,medium,high` menjalankan SWEEP: setiap task (tanpa
 //     task-level effort) dijalankan pada tiap effort sehingga kurva
 //     effort-scaling bisa diamati pada task/lingkungan yang SAMA.
 //   - Lingkungan: env ABELINK_BENCH_EFFORT tetap didukung (default level).
 //   - Precedence: task.effort > benchmark override > env > sistem 'low'
-//     (resolveTaskEffort di abelink-adapter.mjs).
+//     (resolveTaskEffort di abelink-adapter.ts).
 //
 // Effort direkam di SETIAP task result & per-run detail, bukan hanya di config
 // laporan. Laporan JSON memakai schemaVersion 3 (+arch axis +worldState).
@@ -27,10 +27,10 @@ import { join, relative } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import AdmZip from 'adm-zip'
-import { ALL_TASKS, runTask, akSentinel } from './terminal-bench.mjs'
-import { PR46_TASKS, seedPr46Fixture } from './pr46-matrix.mjs'
-import { buildMeasurementReport } from './metrics.mjs'
-import { makeModelIdentity, compareArmReports, ARCHITECTURE_ARMS } from './pr46-experiments.mjs'
+import { ALL_TASKS, runTask, akSentinel } from './terminal-bench.ts'
+import { PR46_TASKS, seedPr46Fixture } from './pr46-matrix.ts'
+import { buildMeasurementReport } from './metrics.ts'
+import { makeModelIdentity, compareArmReports, ARCHITECTURE_ARMS } from './pr46-experiments.ts'
 import {
   resolveTaskEffort,
   normalizeEffort,
@@ -42,7 +42,7 @@ import {
   ARCH_AXIS_IN_BENCH_PATH,
   ARCH_VALUES,
   resolveBenchArch,
-} from './abelink-adapter.mjs'
+} from './abelink-adapter.ts'
 
 const DEFAULT_RUNS = 3
 const REGRESSION_THRESHOLD = 5 // persen pass-rate; default tanpa --compare = tidak dieksekusi
@@ -67,14 +67,14 @@ export function sidecarWorkspaceRoot() {
 // ---- Anti-cheat ----
 // Task sentinel dianggap curang jika keluarannya persis `expected` (jawaban
 // hafalan) padahal sentinel acak per-run tidak muncul di output.
-export function detectCheat(task, result, sentinel) {
+export function detectCheat(task: any, result: any, sentinel: any) {
   if (!task.sentinel || !sentinel) return false
   if (result.output.includes(sentinel)) return false
   if (task.expected && result.output.trim() === task.expected.trim()) return true
   return false
 }
 
-const avg = (arr) => (arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : null)
+const avg = (arr: any) => (arr.length ? Math.round(arr.reduce((a: any, b: any) => a + b, 0) / arr.length) : null)
 
 // ---- Architecture commit (reproducibility) ----
 // The measurement report must state which revision of the runtime was measured.
@@ -99,7 +99,7 @@ export function resolveArchitectureCommit(cwd = process.cwd()) {
 // ---- Report shell v3 (diuji smoke CI tanpa LLM) ----
 // arch: vanilla|basic. worldState menunjuk base dir fixture per-run;
 // sentinel per-iterasi dicatat di details tiap task.
-export function buildReportShell({ arch = 'basic', runId = 'smoke' } = {}) {
+export function buildReportShell({ arch = 'basic', runId = 'smoke' }: any = {}) {
   const resolved = resolveBenchArch(arch)
   return {
     schemaVersion: 3,
@@ -117,7 +117,7 @@ export function buildReportShell({ arch = 'basic', runId = 'smoke' } = {}) {
 // unik: kuliah.txt / fungsi.js / code-fix/* / git-repo / sumber.docx.
 const TEMPLATE_DOCX = fileURLToPath(new URL('./fixtures/sumber-template.docx', import.meta.url))
 
-export function seedFixtures(workdir, sentinel) {
+export function seedFixtures(workdir: any, sentinel: any) {
   rmSync(workdir, { recursive: true, force: true })
   mkdirSync(workdir, { recursive: true })
   mkdirSync(join(workdir, 'code-fix'), { recursive: true })
@@ -144,16 +144,16 @@ export function seedFixtures(workdir, sentinel) {
       '  })\n' +
       '})\n'
   )
-  // Nearest config wins (vitest searches upward): tanpa ini, vitest.config.mjs
+  // Nearest config wins (vitest searches upward): tanpa ini, vitest.config.ts
   // repo root (include tests/**) ikut kepakai dan bug.test.js tak ditemukan.
   writeFileSync(
-    join(workdir, 'code-fix', 'vitest.config.mjs'),
+    join(workdir, 'code-fix', 'vitest.config.ts'),
     "import { defineConfig } from 'vitest/config'\n" +
       'export default defineConfig({ test: { include: ["*.test.js"] } })\n'
   )
   // sumber.docx: salin template lalu patch sentinel nyata ke word/document.xml
   // via adm-zip (dependensi repo, offline). Template memakai __SENTINEL__.
-  const zip = new AdmZip(TEMPLATE_DOCX)
+  const zip: any = new AdmZip(TEMPLATE_DOCX)
   const entry = zip.getEntry('word/document.xml')
   const xml = entry.getData().toString('utf8').split('__SENTINEL__').join(sentinel)
   zip.updateFile('word/document.xml', Buffer.from(xml, 'utf8'))
@@ -161,7 +161,7 @@ export function seedFixtures(workdir, sentinel) {
   // git-repo: init + 1 commit awal (tb-git-01/02 menambah commit bersentinel).
   const repo = join(workdir, 'git-repo')
   mkdirSync(repo, { recursive: true })
-  const git = (...args) =>
+  const git = (...args: any[]) =>
     spawnSync('git', ['-C', repo, ...args], { encoding: 'utf8', timeout: 30000 })
   git('init', '-q')
   // Identitas repo-lokal: commit polos agen (`git commit -m ...` tanpa -c)
@@ -180,7 +180,7 @@ export function seedFixtures(workdir, sentinel) {
 // Kebijakan key: effort SAMA untuk semua run task = key taskId (backward
 // compatible). Effort BERCAMPUR (sweep) = key `${taskId}@${effort}` agar
 // perbandingan low/medium/high pada task yang sama tetap terbaca per-effort.
-export function aggregateRuns(rawRuns, config = {}) {
+export function aggregateRuns(rawRuns: any, config: any = {}) {
   const byTask = new Map()
   for (const run of rawRuns) {
     const effort = normalizeEffort(run.effort, SYSTEM_DEFAULT_EFFORT)
@@ -193,36 +193,36 @@ export function aggregateRuns(rawRuns, config = {}) {
   const keys = [...byTask.keys()]
   for (const key of keys) {
     const runs = byTask.get(key)
-    const efforts = new Set(runs.map((r) => r.effort))
+    const efforts = new Set(runs.map((r: any) => r.effort))
     if (efforts.size > 1) {
       byTask.delete(key)
       for (const effort of efforts) {
-        byTask.set(`${key}@${effort}`, runs.filter((r) => r.effort === effort))
+        byTask.set(`${key}@${effort}`, runs.filter((r: any) => r.effort === effort))
       }
     }
   }
 
-  const tasks = {}
+  const tasks: Record<string, any> = {}
   let totalRuns = 0
   let totalPassed = 0
   let cheatTotal = 0
-  const durationAll = []
-  const stepsAll = []
-  const toolCallsAll = []
-  const byEffort = {}
+  const durationAll: any[] = []
+  const stepsAll: any[] = []
+  const toolCallsAll: any[] = []
+  const byEffort: Record<string, any> = {}
   for (const effort of EFFORT_VALUES) byEffort[effort] = { runs: 0, passed: 0 }
 
   for (const [taskKey, runs] of byTask) {
-    const passed = runs.filter((r) => r.passed).length
-    const cheats = runs.filter((r) => r.cheatSuspected).length
-    const durations = runs.map((r) => r.durationMs || 0)
+    const passed = runs.filter((r: any) => r.passed).length
+    const cheats = runs.filter((r: any) => r.cheatSuspected).length
+    const durations = runs.map((r: any) => r.durationMs || 0)
     const effort = runs[0].effort
     totalRuns += runs.length
     totalPassed += passed
     cheatTotal += cheats
     durationAll.push(...durations)
-    stepsAll.push(...runs.map((r) => (Number.isInteger(r.steps) ? r.steps : NaN)))
-    toolCallsAll.push(...runs.map((r) => (Number.isInteger(r.toolCalls) ? r.toolCalls : NaN)))
+    stepsAll.push(...runs.map((r: any) => (Number.isInteger(r.steps) ? r.steps : NaN)))
+    toolCallsAll.push(...runs.map((r: any) => (Number.isInteger(r.toolCalls) ? r.toolCalls : NaN)))
     if (byEffort[effort]) {
       byEffort[effort].runs += runs.length
       byEffort[effort].passed += passed
@@ -235,12 +235,12 @@ export function aggregateRuns(rawRuns, config = {}) {
       passed,
       passRate: +(passed / runs.length).toFixed(3),
       durationMsAvg: avg(durations),
-      stepsAvg: avg(runs.filter((r) => Number.isInteger(r.steps)).map((r) => r.steps)),
+      stepsAvg: avg(runs.filter((r: any) => Number.isInteger(r.steps)).map((r: any) => r.steps)),
       toolCallsAvg: avg(
-        runs.filter((r) => Number.isInteger(r.toolCalls)).map((r) => r.toolCalls)
+        runs.filter((r: any) => Number.isInteger(r.toolCalls)).map((r: any) => r.toolCalls)
       ),
       cheatSuspected: cheats,
-      details: runs.map((r, i) => ({
+      details: runs.map((r: any, i: any) => ({
         run: i + 1,
         effort: r.effort, // per-run effort — syarat analisis per-effort
         passed: r.passed,
@@ -260,7 +260,7 @@ export function aggregateRuns(rawRuns, config = {}) {
   const stepVals = stepsAll.filter((v) => !Number.isNaN(v))
   const toolVals = toolCallsAll.filter((v) => !Number.isNaN(v))
 
-  const effortsRun = EFFORT_VALUES.filter((e) => byEffort[e].runs > 0)
+  const effortsRun = EFFORT_VALUES.filter((e: any) => byEffort[e].runs > 0)
   const summary = {
     totalTasks: byTask.size,
     totalRuns,
@@ -270,7 +270,7 @@ export function aggregateRuns(rawRuns, config = {}) {
     avgToolCalls: toolVals.length ? +(toolVals.reduce((a, b) => a + b, 0) / toolVals.length).toFixed(1) : null,
     cheatTotal,
     byEffort: Object.fromEntries(
-      effortsRun.map((e) => [
+      effortsRun.map((e: any) => [
         e,
         {
           runs: byEffort[e].runs,
@@ -285,11 +285,11 @@ export function aggregateRuns(rawRuns, config = {}) {
 
   // Effort-scaling summary: dipakai mengamati kurva low/medium/high EMPIRIS
   // (tanpa asumsi monoton) pada run yang sama. Rata-rata seluruh task per effort.
-  const effortScaling = effortsRun.map((e) => {
-    const matching = Object.values(tasks).filter((t) => t.effort === e)
-    const durs = matching.flatMap((t) => t.details.map((d) => d.durationMs || 0))
-    const stps = matching.flatMap((t) => t.details.map((d) => d.steps)).filter((v) => v !== null)
-    const tls = matching.flatMap((t) => t.details.map((d) => d.toolCalls)).filter((v) => v !== null)
+  const effortScaling = effortsRun.map((e: any) => {
+    const matching = (Object.values(tasks) as any[]).filter((t: any) => t.effort === e)
+    const durs = matching.flatMap((t) => t.details.map((d: any) => d.durationMs || 0))
+    const stps = matching.flatMap((t) => t.details.map((d: any) => d.steps)).filter((v) => v !== null)
+    const tls = matching.flatMap((t) => t.details.map((d: any) => d.toolCalls)).filter((v) => v !== null)
     return {
       effort: e,
       runs: byEffort[e].runs,
@@ -341,10 +341,10 @@ export function aggregateRuns(rawRuns, config = {}) {
 // menyeberang kedua bentuk, kalau tidak regresi pada task yang di-sweep
 // dilewati diam-diam (gate melaporkan "tidak ada regresi" padahal ada).
 const TASK_KEY_EFFORT_RE = /@(low|medium|high)$/
-export function compareReports(current, prev, thresholdPct = REGRESSION_THRESHOLD) {
+export function compareReports(current: any, prev: any, thresholdPct = REGRESSION_THRESHOLD) {
   const prevTasks = prev?.tasks || {}
-  const regressions = []
-  for (const [key, cur] of Object.entries(current?.tasks || {})) {
+  const regressions: any[] = []
+  for (const [key, cur] of Object.entries(current?.tasks || {}) as any) {
     const m = key.match(TASK_KEY_EFFORT_RE)
     const baseId = m ? key.slice(0, -m[0].length) : key
     const effort = m ? m[1] : cur.effort || null
@@ -368,8 +368,8 @@ export function compareReports(current, prev, thresholdPct = REGRESSION_THRESHOL
 }
 
 // ---- CLI ----
-function parseArgs(argv) {
-  const args = {
+function parseArgs(argv: any) {
+  const args: any = {
     runs: DEFAULT_RUNS,
     tasks: null,
     out: null,
@@ -401,8 +401,8 @@ function parseArgs(argv) {
     else if (a === '--efforts') {
       args.efforts = (argv[++i] || '')
         .split(',')
-        .map((e) => e.trim().toLowerCase())
-        .filter((e) => e)
+        .map((e: any) => e.trim().toLowerCase())
+        .filter((e: any) => e)
     } else if (a === '--run-id') args.runId = argv[++i]
     else if (a === '--tool-config') args.toolConfig = argv[++i]
     else if (a === '--arch') args.arch = argv[++i]
@@ -415,7 +415,7 @@ function parseArgs(argv) {
   return args
 }
 
-function printTable(report) {
+function printTable(report: any) {
   const effortLabel = report.config.efforts?.length
     ? `sweep(${report.config.efforts.join(',')})`
     : report.config.effort || 'default'
@@ -423,7 +423,7 @@ function printTable(report) {
     `AbelinkBench — ${report.config.runs}x run per task (model=${report.meta.model || 'default'}, effort=${effortLabel}, arch=${report.arch || report.config.arch || 'basic'})`
   )
   console.log('─'.repeat(72))
-  for (const t of Object.values(report.tasks)) {
+  for (const t of Object.values(report.tasks) as any) {
     const cheats = t.cheatSuspected ? `  CHEAT x${t.cheatSuspected}` : ''
     console.log(
       `[${t.passRate === 1 ? 'PASS' : t.passRate > 0 ? 'PARTIAL' : 'FAIL'}] ${t.taskId.padEnd(18)} @${t.effort.padEnd(6)} ${t.passed}/${t.runs}  avg ${t.durationMsAvg}ms  steps ${t.stepsAvg ?? '-'}  tools ${t.toolCallsAvg ?? '-'}${cheats}`
@@ -474,8 +474,8 @@ async function main() {
         modelId: args.model,
         modelVersion: args.modelVersion,
       })
-    } catch (e) {
-      console.error(`identitas model tidak valid: ${e.message}`)
+    } catch (e: any) {
+      console.error(`identitas model tidak valid: ${e?.message}`)
       process.exit(2)
     }
   } else if (suite === 'pr46') {
@@ -490,16 +490,16 @@ async function main() {
   const promptBase = relative(sidecarWorkspaceRoot(), baseDir)
   mkdirSync(baseDir, { recursive: true })
 
-  const tasks = args.tasks && args.tasks.length ? args.tasks : Object.keys(registry)
+  const tasks: any = args.tasks && args.tasks.length ? args.tasks : Object.keys(registry)
 
   // Benchmark default effort: --effort / --efforts > env ABELINK_BENCH_EFFORT > 'low'
-  const envEffort = normalizeEffort(process.env.ABELINK_BENCH_EFFORT, null)
+  const envEffort = normalizeEffort(process.env.ABELINK_BENCH_EFFORT, undefined)
   const benchmarkEffort = normalizeEffort(args.effort, envEffort || SYSTEM_DEFAULT_EFFORT)
-  let sweepEfforts = null
+  let sweepEfforts: any = null
   if (args.efforts?.length) {
     sweepEfforts = args.efforts
-      .map((e) => normalizeEffort(e, null))
-      .filter((e) => e !== null)
+      .map((e: any) => normalizeEffort(e, undefined))
+      .filter((e: any) => e !== null)
     if (!sweepEfforts.length) {
       console.error(`--efforts tidak berisi effort valid (low/medium/high): ${args.efforts}`)
       process.exit(1)
@@ -627,20 +627,20 @@ async function main() {
 
   // Comparability requires BOTH measured arms with identical identity. It is
   // never inferred from a complete model identity alone.
-  let baselineReport = null
+  let baselineReport: any = null
   if (args.baselineReport) {
     try {
       baselineReport = JSON.parse(fs.readFileSync(args.baselineReport, 'utf8'))
-    } catch (e) {
-      console.error(`--baseline-report tidak bisa dibaca: ${e.message}`)
+    } catch (e: any) {
+      console.error(`--baseline-report tidak bisa dibaca: ${e?.message}`)
       process.exit(2)
     }
   }
-  measurement.comparison = {
+  ;(measurement as any).comparison = {
     ...measurement.comparison,
     ...compareArmReports({ baseline: baselineReport, candidate: measurement }),
   }
-  report.measurement = measurement
+  ;(report as any).measurement = measurement
 
   printTable(report)
   console.log(
@@ -684,7 +684,7 @@ async function main() {
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   main().catch((e) => {
-    console.error('run.mjs gagal:', e.message)
+    console.error('run.ts gagal:', e.message)
     process.exit(1)
   })
 }

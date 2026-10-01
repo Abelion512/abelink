@@ -16,7 +16,7 @@ import {
   representationAblationSpec,
   validateAblationPair,
   modelCompatibilitySpec,
-} from '../evaluation/pr46-experiments.mjs'
+} from '../evaluation/pr46-experiments.ts'
 import { ARCH_VALUES } from '../src/api/ai/benchArch.ts'
 
 const exactIdentity = { provider: 'anthropic', modelId: 'claude-fable-5.1', modelVersion: '2026-09-01' }

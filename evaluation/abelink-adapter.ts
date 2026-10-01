@@ -45,8 +45,8 @@ const _resolvedValues = ['low', 'medium', 'high', 'xhigh', 'max', 'ultra']
 // Promise, so the module must be awaited before its exports are readable.
 // Synchronous top-level consumers get the fallback values; the real
 // constants are loaded lazily on first use via _loadEffortSystem().
-let _effortModule = null
-let _effortModulePromise = null
+let _effortModule: any = null
+let _effortModulePromise: any = null
 
 async function _loadEffortSystem() {
   if (_effortModule) return _effortModule
@@ -97,7 +97,7 @@ export const BENCH_SCHEMA_VERSION_sync = 3
 _loadEffortSystem()
 
 
-export function resolveTaskEffortSync({ taskEffort, benchmarkEffort, envEffort } = {}) {
+export function resolveTaskEffortSync({ taskEffort, benchmarkEffort, envEffort }: any = {}) {
   const values = _getEffortValues()
   if (values.includes(taskEffort)) return taskEffort
   if (values.includes(benchmarkEffort)) return benchmarkEffort
@@ -107,10 +107,10 @@ export function resolveTaskEffortSync({ taskEffort, benchmarkEffort, envEffort }
 
 // Precedence (explicit, spec-compliant):
 //   1. task.effort            (task-level override in terminal-bench registry)
-//   2. benchmark effort       (run.mjs --effort / --efforts value)
+//   2. benchmark effort       (run.ts --effort / --efforts value)
 //   3. environment default    (ABELINK_BENCH_EFFORT, kept for CLI experiments)
 //   4. system default         ('low')
-export async function resolveTaskEffort({ taskEffort, benchmarkEffort, envEffort } = {}) {
+export async function resolveTaskEffort({ taskEffort, benchmarkEffort, envEffort }: any = {}) {
   const values = _getEffortValues()
   if (values.includes(taskEffort)) return taskEffort
   if (values.includes(benchmarkEffort)) return benchmarkEffort
@@ -118,7 +118,7 @@ export async function resolveTaskEffort({ taskEffort, benchmarkEffort, envEffort
   return _getSystemDefaultEffort() || 'low'
 }
 
-export function normalizeEffort(value, fallback = 'low') {
+export function normalizeEffort(value: any, fallback = 'low') {
   return _getEffortValues().includes(value) ? value : fallback
 }
 
@@ -170,7 +170,7 @@ function createSidecar(arch = 'basic', representation = null) {
     process.stderr.write('[sidecar] ' + chunk.toString().trim() + '\n')
   })
 
-  const rpc = (request) =>
+  const rpc = (request: any) =>
     new Promise((resolve, reject) => {
       const entry = {
         resolve,
@@ -222,8 +222,8 @@ const newId = () => (Date.now() + Math.random() * 1e6) | 0
 // (pilot vanilla: tools 0 padahal model sudah bertindak). Quote-aware agar
 // koma di dalam quote tidak memecah pasangan.
 // Diekspor untuk smoke test CI (pure function, tanpa efek samping).
-function splitArgs(argsStr) {
-  const args = {}
+function splitArgs(argsStr: any) {
+  const args: Record<string, any> = {}
   let cur = ''
   const pairs = []
   let quote = null
@@ -246,7 +246,7 @@ function splitArgs(argsStr) {
     const eq = pair.indexOf('=')
     if (eq === -1) continue
     const key = pair.slice(0, eq).trim()
-    let v = pair.slice(eq + 1).trim()
+    let v: any = pair.slice(eq + 1).trim()
     if (
       (v.startsWith('"') && v.endsWith('"')) ||
       (v.startsWith("'") && v.endsWith("'"))
@@ -262,7 +262,7 @@ function splitArgs(argsStr) {
   return args
 }
 
-export function parseToolCalls(text) {
+export function parseToolCalls(text: any) {
   const calls = []
   const src = String(text || '')
   let i = 0
@@ -324,7 +324,7 @@ export function parseToolCalls(text) {
 // Preamble + mapper ini HANYA untuk bench; perilaku aplikasi tidak berubah.
 
 // Argumen per tool yang dipakai task bench (sumber: sidecar/main/tools/*).
-const TOOL_ARG_DOCS = {
+const TOOL_ARG_DOCS: Record<string, string> = {
   'write-file': 'path="..." content="..."',
   'read-file': 'path="..."',
   'run-shell': 'command="..." (awali dengan `cd <dir> &&` bila perintah harus jalan di direktori tertentu)',
@@ -357,10 +357,10 @@ export const BENCH_PROMPT_TEMPLATE = 'bench-tool-preamble-v1'
 // valid comparison.
 export const ARCH_AXIS_IN_BENCH_PATH = true
 
-export function toolPreamble(requiredTools = [], hint = {}) {
-  const tools = (requiredTools || []).filter((t) => TOOL_ARG_DOCS[t])
+export function toolPreamble(requiredTools: any = [], hint: any = {}) {
+  const tools = (requiredTools || []).filter((t: any) => TOOL_ARG_DOCS[t])
   if (tools.length === 0) return ''
-  const lines = tools.map((t) => `- ${t}: [tool: ${t}(${TOOL_ARG_DOCS[t]})]`)
+  const lines = tools.map((t: any) => `- ${t}: [tool: ${t}(${TOOL_ARG_DOCS[t]})]`)
   const dir = typeof hint.workdir === 'string' && hint.workdir ? hint.workdir : 'WORKDIR'
   return (
     `\n\n[ALAT] Kamu memiliki akses tool berikut untuk menyelesaikan tugas ini:\n${lines.join('\n')}\n` +
@@ -374,10 +374,10 @@ export function toolPreamble(requiredTools = [], hint = {}) {
 }
 
 // Ubah OBJECT arguments model menjadi query STRING sidecar.
-export function toNativeQuery(name, args = {}) {
+export function toNativeQuery(name: any, args: any = {}) {
   const a = args && typeof args === 'object' ? args : { query: String(args ?? '') }
-  const s = (v) => (v === undefined || v === null ? '' : String(v))
-  const joinTail = (parts) => parts.filter((x, i) => i === 0 || x !== '').join('||')
+  const s = (v: any) => (v === undefined || v === null ? '' : String(v))
+  const joinTail = (parts: any) => parts.filter((x: any, i: any) => i === 0 || x !== '').join('||')
   switch (name) {
     case 'write-file':
       return `${s(a.path)}||${s(a.content)}`
@@ -406,9 +406,9 @@ export function toNativeQuery(name, args = {}) {
   }
 }
 
-// Normalized step shape consumed by ABELINK-Eval (evaluation/abelink-eval.mjs):
+// Normalized step shape consumed by ABELINK-Eval (evaluation/abelink-eval.ts):
 // { step, kind, toolCalls: [{ tool, query, result }], observation, response }
-function pushTrace(trace, step, kind, payload) {
+function pushTrace(trace: any, step: any, kind: any, payload: any) {
   trace.push({
     step,
     kind,
@@ -421,9 +421,9 @@ function pushTrace(trace, step, kind, payload) {
 
 // ---- Run one Abelink agent task ----
 // runAbelinkAgent(task, model, provider, options)
-//   options.effort = benchmark-level default (from run.mjs --effort/--efforts)
+//   options.effort = benchmark-level default (from run.ts --effort/--efforts)
 //   task.effort    = task-level override (terminal-bench registry)
-export async function runAbelinkAgent(task, model, provider, options = {}) {
+export async function runAbelinkAgent(task: any, model: any, provider: any, options: any = {}) {
   // Task-level effort override: task.effort > options.effort (benchmark
   // default) > ABELINK_BENCH_EFFORT (env) > 'low' (system default).
   const effort = await resolveTaskEffort({
@@ -452,10 +452,10 @@ export async function runAbelinkAgent(task, model, provider, options = {}) {
   const startedAt = Date.now()
   // Prompt mentah + protokol tool (hanya bila task mendeklarasikan requiredTools).
   // Tanpa ini model tidak tahu sintaks [tool: ...] dan loop berhenti di turn 1.
-  const messages = [
+  const messages: any[] = [
     { role: 'user', content: `${task.prompt}${toolPreamble(task.requiredTools, { workdir: task.workdir })}` }
   ]
-  const trace = [] // normalized trajectory for ABELINK-Eval verifiers
+  const trace: any = [] // normalized trajectory for ABELINK-Eval verifiers
   const stepLog = []
   let steps = 0
   let toolCalls = 0
@@ -479,7 +479,7 @@ export async function runAbelinkAgent(task, model, provider, options = {}) {
     // eval — MCP Atlas memakai limit 100 turn). Tidak ada loop tak terbatas.
     const maxIter = task.maxTurns || MAX_ITER
     for (let iter = 0; iter < maxIter; iter++) {
-      const resp = await sidecar.rpc({
+      const resp: any = await sidecar.rpc({
         id: newId(),
         action: 'ai:fetch',
         payload: [{ messages, config, isSmallTask: false, jsonSchema: null }],
@@ -505,7 +505,7 @@ export async function runAbelinkAgent(task, model, provider, options = {}) {
         // Completion claim (no further tool calls): gate it against
         // world-state evidence from the tools actually executed. Unproven
         // claims get a bounded replan; vanilla trusts the claim (control).
-        const evidence = evaluateEvidence({
+        const evidence: any = evaluateEvidence({
           kind: objectiveKind,
           objectiveText: task?.prompt || '',
           answer: response,
@@ -543,7 +543,7 @@ export async function runAbelinkAgent(task, model, provider, options = {}) {
         try {
           // Sidecar menunggu query STRING '||', bukan OBJECT arguments model.
           const nativeQuery = toNativeQuery(call.name, call.arguments)
-          const toolResp = await sidecar.rpc({
+          const toolResp: any = await sidecar.rpc({
             id: newId(),
             action: 'native-tool:execute',
             payload: [call.name, nativeQuery, {}],
@@ -551,7 +551,7 @@ export async function runAbelinkAgent(task, model, provider, options = {}) {
           toolResult = toolResp.success
             ? toolResp.data || 'ok'
             : `ERROR: ${toolResp.error?.message || toolResp.error}`
-        } catch (err) {
+        } catch (err: any) {
           toolResult = `ERROR: ${err.message}`
         }
 

@@ -5,16 +5,16 @@
 // NOTE: metrics require a DeepEval model/API key at runtime; without one this
 // runner degrades gracefully and results still carry the official verdict.
 
-import { runTask } from './terminal-bench.mjs'
+import { runTask } from './terminal-bench.ts'
 
-export async function runWithDeepEval(taskId, model, provider) {
+export async function runWithDeepEval(taskId: any, model: any, provider: any) {
   const result = await runTask(taskId, model, provider)
 
   // DeepEval evaluation (secondary: trajectory quality, tool use)
   // If deepeval is not installed or misconfigured, skip gracefully.
   let deepevalResult = null
   try {
-    const { evaluate, TestCase, GEval, TaskCompleteness } = await import('deepeval')
+    const { evaluate, TestCase, GEval, TaskCompleteness } = (await import('deepeval' as any)) as any
     const testCase = new TestCase(
       result.taskId,
       result.prompt,
@@ -32,9 +32,9 @@ export async function runWithDeepEval(taskId, model, provider) {
         new TaskCompleteness(),
       ],
     })
-  } catch (e) {
+  } catch (e: any) {
     // DeepEval not available or failed — still return valid result
-    deepevalResult = { error: e.message }
+    deepevalResult = { error: e?.message }
   }
 
   return {
@@ -43,9 +43,9 @@ export async function runWithDeepEval(taskId, model, provider) {
   }
 }
 
-export async function runAllWithDeepEval(model, provider) {
+export async function runAllWithDeepEval(model: any, provider: any) {
   const tasks = ['tb-echo-01'] // start with 1 task
-  const results = []
+  const results: any[] = []
   for (const id of tasks) {
     results.push(await runWithDeepEval(id, model, provider))
   }
@@ -53,12 +53,12 @@ export async function runAllWithDeepEval(model, provider) {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  runAllWithDeepEval().then((results) => {
-    results.forEach((r) => {
+  runAllWithDeepEval(undefined as any, undefined as any).then((results: any) => {
+    results.forEach((r: any) => {
       console.log(`[${r.passed ? 'PASS' : 'FAIL'}] ${r.taskId}: ${r.output.slice(0, 80)}`)
       console.log('  DeepEval:', r.deepeval?.error || 'ok')
     })
-    const passed = results.filter((r) => r.passed).length
+    const passed = results.filter((r: any) => r.passed).length
     console.log(`\n${passed}/${results.length} tasks passed`)
   })
 }

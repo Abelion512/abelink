@@ -3,7 +3,7 @@
 //
 // Tesis owner: "Model memang tidak bisa dirubah, tapi architecture and
 // infrastructure bisa dibuat lebih smart." Benchmark publik mengukur
-// capability model; ABELINK-Eval (abelink-eval.mjs) mengukur kualitas arsitektur.
+// capability model; ABELINK-Eval (abelink-eval.ts) mengukur kualitas arsitektur.
 //
 // STATUS jujur per entri:
 //   implemented = runner + verifier deterministik ada di repo ini
@@ -21,7 +21,7 @@ export const BENCHMARK_MATRIX = [
     priority: 'P0',
     status: 'implemented',
     what: 'coding, shell, system tasks',
-    runner: 'evaluation/terminal-bench.mjs',
+    runner: 'evaluation/terminal-bench.ts',
     arch: ['vanilla', 'basic'],
     reportSchema: 3,
     metrics: ['task_success', 'steps', 'time', 'tool_calls', 'retries', 'token_usage'],
@@ -163,7 +163,7 @@ export const BENCHMARK_MATRIX = [
     priority: 'P0',
     status: 'implemented',
     what: 'real-activity student/corporate tasks with world-state verifiers',
-    runner: 'evaluation/tasks-student-corporate.mjs',
+    runner: 'evaluation/tasks-student-corporate.ts',
     arch: ['vanilla', 'basic'],
     reportSchema: 3,
     metrics: ['task_success', 'steps', 'time', 'tool_calls', 'recovery_success_rate', 'verification_accuracy', 'premature_termination_rate']
@@ -175,7 +175,7 @@ export const BENCHMARK_MATRIX = [
     priority: 'P0',
     status: 'implemented',
     what: 'memory, planning, safety, recovery, efficiency — arsitektur, bukan model',
-    runner: 'evaluation/abelink-eval.mjs',
+    runner: 'evaluation/abelink-eval.ts',
     metrics: [
       'plan_quality',
       'unnecessary_steps',
@@ -208,8 +208,8 @@ export const CORE_SET = [
 // Leaderboard-style summary (Luna): bukan "ABELINK score = 73%", tapi matrix
 // per-layer dengan metadata arsitektur agar "model capability != agent
 // capability" terbukti.
-export function summarizeMatrix(runReports = {}) {
-  const rows = BENCHMARK_MATRIX.map((b) => {
+export function summarizeMatrix(runReports: any = {}) {
+  const rows = BENCHMARK_MATRIX.map((b: any) => {
     const report = runReports[b.id] || null
     return {
       id: b.id,
@@ -244,7 +244,7 @@ export function summarizeMatrix(runReports = {}) {
   }
 }
 
-// CLI: `bun evaluation/matrix.mjs` — cetak matrix + status.
+// CLI: `bun evaluation/matrix.ts` — cetak matrix + status.
 if (import.meta.url === `file://${process.argv[1]}`) {
   const summary = summarizeMatrix()
   console.log('AbelinkBench Benchmark Matrix')

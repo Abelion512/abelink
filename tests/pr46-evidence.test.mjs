@@ -10,7 +10,7 @@ import {
   summarizeEvidence,
   createEvidenceLedger,
   provenanceChain,
-} from '../evaluation/evidence.mjs'
+} from '../evaluation/evidence.ts'
 
 describe('evidence status classification', () => {
   it('adapter ERROR prefix is tool execution failure', () => {

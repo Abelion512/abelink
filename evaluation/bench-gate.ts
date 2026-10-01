@@ -9,7 +9,7 @@
 //   1. ABELINK-Eval 6 dimensi (planning, tool orchestration, recovery, memory,
 //      safety, efficiency) via verifier deterministik offline.
 //   2. Verifier latency (stabilitas pipeline evaluasi itu sendiri).
-//   3. Anti-cheat + aggregation contracts ( smoke gate evaluation/smoke.mjs
+//   3. Anti-cheat + aggregation contracts ( smoke gate evaluation/smoke.ts
 //      di CI menguji ini lebih jauh; di sini dipakai sebagai guard cepat).
 //
 // Full-run (dengan LLM nyata via sidecar): `bun run benchmark:run -- --compare ...`
@@ -20,8 +20,8 @@
 // dengan delta absolut > LAT_ABS_MS (anti-noise, pola perf-gate).
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
-import { runSmoke } from './abelink-eval.mjs'
-import { aggregateRuns, compareReports, detectCheat } from './run.mjs'
+import { runSmoke } from './abelink-eval.ts'
+import { aggregateRuns, compareReports, detectCheat } from './run.ts'
 
 const BASELINE_PATH = new URL('./bench-baseline.json', import.meta.url).pathname
 const LAT_THRESHOLD = 0.25 // 25% lebih lambat = dicurigai regresi

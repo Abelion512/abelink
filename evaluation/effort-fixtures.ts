@@ -26,13 +26,14 @@ import {
 } from '../src/api/ai/effortSystem.ts'
 
 export class BudgetExhausted extends Error {
-  constructor(resource) {
+  resource: any
+  constructor(resource: any) {
     super(`BudgetExhausted: ${resource}`)
     this.resource = resource
   }
 }
 
-const LEVEL_BY_VALUE = {
+const LEVEL_BY_VALUE: Record<string, any> = {
   low: EffortLevel.LOW,
   medium: EffortLevel.MEDIUM,
   high: EffortLevel.HIGH,
@@ -42,14 +43,14 @@ const LEVEL_BY_VALUE = {
   auto: EffortLevel.AUTO,
 }
 
-export function parseLevel(v) {
+export function parseLevel(v: any) {
   const l = LEVEL_BY_VALUE[String(v || '').toLowerCase()]
   if (!l) throw new Error(`Invalid effort level: ${v}`)
   return l
 }
 
 // ---- fixture dirs (§47-§48) ----
-export async function withFixtureDir(name, fn) {
+export async function withFixtureDir(name: any, fn: any) {
   const base = path.join(os.tmpdir(), 'abelink-effort-fixtures')
   fs.mkdirSync(base, { recursive: true })
   const root = fs.mkdtempSync(path.join(base, `${name}-`))
@@ -61,9 +62,9 @@ export async function withFixtureDir(name, fn) {
   }
 }
 
-function check(state, policy, kind) {
+function check(state: any, policy: any, kind: any) {
   const snap = new BudgetSnapshot(state, policy)
-  const map = {
+  const map: Record<string, any> = {
     step: snap.execution_steps_remaining,
     tool: snap.tool_calls_remaining,
     retry: snap.retries_remaining,
@@ -76,7 +77,11 @@ function check(state, policy, kind) {
   if ((map[kind] ?? 1) <= 0) throw new BudgetExhausted(kind)
 }
 
-function baseResult(resolved, state, policy, effective) {
+function baseResult(resolved: any, state: any, policy: any, effective: any) {
+  const self: any = {
+    final_answer: '',
+  }
+  void self
   return {
     status: 'success',
     requested_effort: resolved.requested_level.value,
@@ -86,7 +91,7 @@ function baseResult(resolved, state, policy, effective) {
     effective_policy: effective,
     resolution_reason: resolved.resolution_reason,
     escalations: [...resolved.escalations],
-    escalation_path: [resolved.initial_level.value, ...resolved.escalations.map((e) => e.to_level.value)],
+    escalation_path: [resolved.initial_level.value, ...resolved.escalations.map((e: any) => e.to_level.value)],
     workflow_node_count: state.workflow_nodes_used,
     subtask_count: state.subtasks_used,
     decomposition_count: state.subtasks_used > 0 ? 1 : 0,
@@ -99,12 +104,12 @@ function baseResult(resolved, state, policy, effective) {
     execution_steps: state.execution_steps_used,
     terminated: true,
     final_answer: '',
-    final_answer_contains: (s) => String(this?.final_answer ?? '').includes(s),
+    final_answer_contains: (s: any) => '',
   }
 }
 
-function finish(resolved, state, policy, effective, extra = {}) {
-  const r = baseResult(resolved, state, policy, effective)
+function finish(resolved: any, state: any, policy: any, effective: any, extra: any = {}) {
+  const r: any = baseResult(resolved, state, policy, effective)
   Object.assign(r, extra)
   r.workflow_node_count = state.workflow_nodes_used
   r.subtask_count = state.subtasks_used
@@ -115,13 +120,18 @@ function finish(resolved, state, policy, effective, extra = {}) {
   r.verification_count = state.verifications_used
   r.tool_calls = state.tool_calls_used
   r.execution_steps = state.execution_steps_used
-  r.final_answer_contains = (s) => String(r.final_answer ?? '').includes(s)
+  r.final_answer_contains = (s: any) => String(r.final_answer ?? '').includes(s)
   return r
 }
 
 // Minimal workflow engine (§41-§42): dependency tracking + bounded parallel + checkpoint.
 export class WorkflowNode {
-  constructor(id, deps = [], run = null) {
+  id: any
+  deps: any
+  run: any
+  status: any
+  result: any
+  constructor(id: any, deps: any = [], run: any = null) {
     this.id = id
     this.deps = deps
     this.run = run
@@ -131,20 +141,24 @@ export class WorkflowNode {
 }
 
 export class Workflow {
-  constructor(policy, state) {
+  policy: any
+  state: any
+  nodes: any
+  checkpoints: any
+  constructor(policy: any, state: any) {
     this.policy = policy
     this.state = state
     this.nodes = new Map()
     this.checkpoints = []
   }
-  add(node) {
+  add(node: any) {
     this.nodes.set(node.id, node)
     return this
   }
   refresh() {
     for (const n of this.nodes.values()) {
       if (n.status === 'completed' || n.status === 'running') continue
-      const ready = n.deps.every((d) => this.nodes.get(d)?.status === 'completed')
+      const ready = n.deps.every((d: any) => this.nodes.get(d)?.status === 'completed')
       n.status = ready ? 'ready' : 'blocked'
     }
   }
@@ -177,23 +191,23 @@ export class Workflow {
     }
     return order
   }
-  node(id) {
+  node(id: any) {
     return this.nodes.get(id)
   }
 }
 
 // ---- deterministic run_task ----
-export async function runTask(kind, effort = 'low', opts = {}) {
+export async function runTask(kind: any, effort: any = 'low', opts: any = {}) {
   const requested = parseLevel(effort)
-  const resolved0 = resolve_effort(requested, {
+  const resolved0: any = resolve_effort(requested, {
     classifierInitial: opts.classifierInitial,
     autoEscalationTrigger: opts.autoEscalationTrigger,
     autoEscalationStep: opts.autoEscalationStep,
   })
   const canonical = EffortPolicy.forLevel(resolved0.effective_level)
-  const effective = applyLimits(canonical, opts.runtimeLimits ?? {}, opts.providerLimits ?? {}, SYSTEM_HARD_LIMITS)
+  const effective = applyLimits(canonical as any, (opts.runtimeLimits ?? {}) as any, (opts.providerLimits ?? {}) as any, SYSTEM_HARD_LIMITS)
   // effective policy object for budget checks (keep canonical untouched)
-  const policy = Object.freeze({ ...canonical, ...Object.fromEntries(
+  const policy: any = Object.freeze({ ...canonical, ...Object.fromEntries(
     ['execution_step_budget','tool_call_budget','retry_budget','reflection_budget','verification_budget','critic_budget','workflow_node_budget','subtask_budget','workflow_depth_budget','parallel_worker_budget']
       .filter((k) => effective[k] !== undefined).map((k) => [k, effective[k]]),
   )})
@@ -261,7 +275,7 @@ export async function runTask(kind, effort = 'low', opts = {}) {
       const total = vals.reduce((a, b) => a + b, 0)
       if (resolved0.effective_level.value === 'ultra') {
         const wf = new Workflow(policy, state)
-        const mk = (id, v) => new WorkflowNode(id, [], async () => v)
+        const mk = (id: any, v: any) => new WorkflowNode(id, [], async () => v)
         wf.add(mk('inspect-a', vals[0])); wf.add(mk('inspect-b', vals[1])); wf.add(mk('inspect-c', vals[2]))
         wf.add(new WorkflowNode('synthesis', ['inspect-a', 'inspect-b', 'inspect-c'], async () => total))
         for (const id of ['inspect-a', 'inspect-b', 'inspect-c']) { consumeSubtask(state) }
@@ -274,7 +288,7 @@ export async function runTask(kind, effort = 'low', opts = {}) {
     }
     case 'dependency': {
       const wf = new Workflow(policy, state)
-      const events = []
+      const events: any = []
       const input = fs.readFileSync(path.join(opts.root, 'input.txt'), 'utf8').trim()
       wf.add(new WorkflowNode('A', [], async () => input))
       wf.add(new WorkflowNode('B', ['A'], async () => input.toLowerCase()))
@@ -301,7 +315,7 @@ export async function runTask(kind, effort = 'low', opts = {}) {
     case 'auto-escalation': {
       // mock: LOW fail, MEDIUM fail, HIGH succeed (§57)
       const seq = [EffortLevel.LOW, EffortLevel.MEDIUM, EffortLevel.HIGH, EffortLevel.XHIGH, EffortLevel.MAX, EffortLevel.ULTRA]
-      let initial = opts.classifierInitial ?? EffortLevel.MEDIUM
+      const initial = opts.classifierInitial ?? EffortLevel.MEDIUM
       let idx = seq.findIndex((l) => l.value === initial.value)
       const escalations = []
       let cur = initial
@@ -319,7 +333,7 @@ export async function runTask(kind, effort = 'low', opts = {}) {
       const resolved = new ResolvedEffort(EffortLevel.AUTO, initial, cur, EffortPolicy.forLevel(cur), 'verification_failure', escalations)
       const st = new BudgetState()
       consumeVerification(st)
-      return finish(resolved, st, EffortPolicy.forLevel(cur), applyLimits(EffortPolicy.forLevel(cur), {}, {}, SYSTEM_HARD_LIMITS), { final_answer: 'auto ok' })
+      return finish(resolved, st, EffortPolicy.forLevel(cur), applyLimits(EffortPolicy.forLevel(cur) as any, {} as any, {} as any, SYSTEM_HARD_LIMITS), { final_answer: 'auto ok' })
     }
     case 'max-ultra': {
       // start MAX, workflow_complexity forces ULTRA (§58)
@@ -327,7 +341,7 @@ export async function runTask(kind, effort = 'low', opts = {}) {
       const esc = [new EscalationEvent(initial, EffortLevel.ULTRA, 'workflow_complexity', 3)]
       const resolved = new ResolvedEffort(opts.requested ?? initial, initial, EffortLevel.ULTRA, EffortPolicy.forLevel(EffortLevel.ULTRA), 'workflow_complexity', esc)
       const upol = EffortPolicy.forLevel(EffortLevel.ULTRA)
-      const ueff = applyLimits(upol, {}, {}, SYSTEM_HARD_LIMITS)
+      const ueff = applyLimits(upol as any, {} as any, {} as any, SYSTEM_HARD_LIMITS)
       const st = new BudgetState()
       const wf = new Workflow(upol, st)
       for (const id of ['analysis-1', 'analysis-2', 'analysis-3']) {
@@ -347,6 +361,6 @@ export async function runTask(kind, effort = 'low', opts = {}) {
   }
 }
 
-export function readAttemptCount(root) {
+export function readAttemptCount(root: any) {
   return JSON.parse(fs.readFileSync(path.join(root, 'attempts.json'), 'utf8')).attempts
 }

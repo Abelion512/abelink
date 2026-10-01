@@ -3,7 +3,7 @@
 // This document defines what the ABELINK execution boundary MUST implement for
 // the architecture benchmark to become fully automatable.
 //
-// It is the counterpart to evaluation/bench/capture.mjs, which defines the
+// It is the counterpart to evaluation/bench/capture.ts, which defines the
 // harness side. The two must stay in sync.
 //
 // Purpose:
@@ -43,7 +43,7 @@
 
 // 3.1 startRun(request) -> runContext
 //
-//   request shape: see makeRunRequest() in evaluation/bench/capture.mjs
+//   request shape: see makeRunRequest() in evaluation/bench/capture.ts
 //
 //   returns: a runContext identifier or object that can be used in later calls.
 //
@@ -71,7 +71,7 @@
 //     - maxSteps: number
 //
 //   returns: an async iterable of raw steps conforming to makeRawStep() in
-//   evaluation/bench/capture.mjs.
+//   evaluation/bench/capture.ts.
 //
 //   each raw step MUST include enough information to be normalized, at minimum:
 //     - index or equivalent ordering,
@@ -85,7 +85,7 @@
 // 3.3 endRun(runContext) -> finalStatus
 //
 //   returns: final status shape as defined in makeFinalStatus() in
-//   evaluation/bench/capture.mjs.
+//   evaluation/bench/capture.ts.
 //
 //   required outcomes:
 //     - status
@@ -123,13 +123,13 @@
 //   durationMs: number | null
 //   detail: object | null
 //
-// The harness normalizes raw steps via normalizeStep() in capture.mjs, so the
+// The harness normalizes raw steps via normalizeStep() in capture.ts, so the
 // boundary does not need to emit the final benchmark step schema directly. It
 // only needs to emit enough information for normalization.
 
 // ---- 5. Final status schema ---------------------------------------------
 
-// makeFinalStatus() in capture.mjs defines the required final status shape:
+// makeFinalStatus() in capture.ts defines the required final status shape:
 //
 //   runId: string
 //   status: 'unknown' | 'completed' | 'failed' | 'aborted' | 'budget_exhausted' | ...
@@ -182,9 +182,9 @@
 // ---- 9. Verification ----------------------------------------------------
 
 // The harness side can verify boundary compliance using:
-//   - describeBoundary(boundary) from evaluation/bench/capture.mjs
-//   - wrapBoundary(boundary) from evaluation/bench/runner-stub.mjs
-//   - the full pipeline smoke tests in tests/bench-capture.test.mjs
+//   - describeBoundary(boundary) from evaluation/bench/capture.ts
+//   - wrapBoundary(boundary) from evaluation/bench/runner-stub.ts
+//   - the full pipeline smoke tests in tests/bench-capture.test.ts
 //
 // If wrapBoundary() accepts the boundary, the harness considers it compliant
 // for benchmark execution.
@@ -202,6 +202,6 @@
 
 export {
   // This module is specification-only. The runtime contract lives in:
-  //   - evaluation/bench/capture.mjs
-  //   - evaluation/bench/runner-stub.mjs
+  //   - evaluation/bench/capture.ts
+  //   - evaluation/bench/runner-stub.ts
 }

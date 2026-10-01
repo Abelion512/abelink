@@ -1,4 +1,4 @@
-// limit-ladder.mjs - inti pencari batas panjang-task (pure, tanpa I/O).
+// limit-ladder.ts - inti pencari batas panjang-task (pure, tanpa I/O).
 //
 // Pertanyaan yang dijawab modul ini: "seberapa besar task yang masih bisa
 // diselesaikan Abelink sebelum pecah, dan pada rung berapa ia pecah?"
@@ -35,28 +35,28 @@ export const ARTIFACT_MARGIN = 2
 // verifikasi). 1.5 dipakai sebagai margin rekomendasi, bukan klaim efisiensi.
 export const SAFETY_FACTOR = 1.5
 
-export const pad3 = (k) => String(k).padStart(3, '0')
+export const pad3 = (k: any) => String(k).padStart(3, '0')
 
 /** Nama berkas artefak ke-k: 1 -> "001.txt". */
-export const artifactName = (k) => `${pad3(k)}.txt`
+export const artifactName = (k: any) => `${pad3(k)}.txt`
 
 /** Jumlah 1..k. Isi artefak ke-k, jadi tiap rung berbeda dan tidak bisa disalin. */
-export const chainSum = (k) => (k * (k + 1)) / 2
+export const chainSum = (k: any) => (k * (k + 1)) / 2
 
 /** Id task untuk rung N: 32 -> "limit-chain-032". */
-export const rungId = (n) => `${RUNG_PREFIX}${pad3(n)}`
+export const rungId = (n: any) => `${RUNG_PREFIX}${pad3(n)}`
 
 /** Kebalikan rungId; null bila bukan id rung. */
-export function artifactsFromRungId(id) {
+export function artifactsFromRungId(id: any) {
   const m = new RegExp(`^${RUNG_PREFIX}(\\d{3,4})$`).exec(String(id || ''))
   return m ? Number(m[1]) : null
 }
 
 /** Baris kanonik di artefak ke-k (juga dipakai contoh di prompt). */
-export const expectedArtifactLine = (sentinel, k) => `${sentinel} step ${pad3(k)} sum=${chainSum(k)}`
+export const expectedArtifactLine = (sentinel: any, k: any) => `${sentinel} step ${pad3(k)} sum=${chainSum(k)}`
 
 /** Baris kanonik di berkas penutup. */
-export const expectedDoneLine = (n) => `count=${n}`
+export const expectedDoneLine = (n: any) => `count=${n}`
 
 // ------------------------------------------------------- budget langkah kanonis
 /**
@@ -65,16 +65,16 @@ export const expectedDoneLine = (n) => `count=${n}`
  * @returns {Record<string, number|null>}
  */
 export function effortBudgets() {
-  const out = {}
+  const out: Record<string, any> = {}
   for (const level of EFFORT_VALUES) {
     const key = String(level).toUpperCase()
-    const enumEntry = EffortLevel[key]
+    const enumEntry = (EffortLevel as any)[key]
     if (!enumEntry) {
       out[level] = null
       continue
     }
     try {
-      const budget = resolve_effort(enumEntry).policy.execution_step_budget
+      const budget: any = (resolve_effort(enumEntry) as any).policy.execution_step_budget
       out[level] = Number.isFinite(budget) ? budget : null
     } catch {
       out[level] = null
@@ -83,16 +83,16 @@ export function effortBudgets() {
   return out
 }
 
-export function minStepsForArtifacts(n) {
+export function minStepsForArtifacts(n: any) {
   return Number(n) + ARTIFACT_MARGIN
 }
 
-export function recommendedStepsForArtifacts(n) {
+export function recommendedStepsForArtifacts(n: any) {
   return Math.ceil(minStepsForArtifacts(n) * SAFETY_FACTOR)
 }
 
 /** Effort terendah yang budget-nya memuat rekomendasi; null bila tak ada yang muat. */
-export function recommendedEffortFor(n, budgets = effortBudgets()) {
+export function recommendedEffortFor(n: any, budgets = effortBudgets()) {
   const need = recommendedStepsForArtifacts(n)
   for (const level of EFFORT_VALUES) {
     const b = budgets[level]
@@ -102,13 +102,13 @@ export function recommendedEffortFor(n, budgets = effortBudgets()) {
 }
 
 /** Apakah rung N mungkin selesai sama sekali pada effort ini (prasyarat fisik). */
-export function fitsBudget(n, effort, budgets = effortBudgets()) {
+export function fitsBudget(n: any, effort: any, budgets = effortBudgets()) {
   const b = budgets[effort]
   return Number.isFinite(b) && b >= minStepsForArtifacts(n)
 }
 
 /** Rung terbesar yang masih mungkin (prasyarat fisik) pada effort ini; null bila tak ada. */
-export function largestFeasibleRung(effort, budgets = effortBudgets(), ladder = LADDER) {
+export function largestFeasibleRung(effort: any, budgets = effortBudgets(), ladder = LADDER) {
   let best = null
   for (const n of ladder) {
     if (fitsBudget(n, effort, budgets)) best = n
@@ -118,7 +118,7 @@ export function largestFeasibleRung(effort, budgets = effortBudgets(), ladder = 
 
 // ------------------------------------------------------ predikat isi artefak
 /** Cek isi artefak ke-k terhadap kontrak (dipakai verifier task DAN tes). */
-export function checkArtifactText(text, sentinel, k) {
+export function checkArtifactText(text: any, sentinel: any, k: any) {
   if (typeof text !== 'string' || !text) return false
   if (!sentinel || !text.includes(sentinel)) return false
   if (!text.includes(`step ${pad3(k)}`)) return false
@@ -127,7 +127,7 @@ export function checkArtifactText(text, sentinel, k) {
 }
 
 /** Cek berkas penutup terhadap kontrak. */
-export function checkDoneText(text, sentinel, n) {
+export function checkDoneText(text: any, sentinel: any, n: any) {
   if (typeof text !== 'string' || !text) return false
   if (!sentinel || !text.includes(sentinel)) return false
   return text.includes(expectedDoneLine(n))
@@ -140,7 +140,7 @@ export function checkDoneText(text, sentinel, n) {
  * belakangnya tidak boleh menaikkan angka ini.
  * @param {Array<{artifacts:number, passed:boolean}>} results
  */
-export function maxSustainedArtifacts(results) {
+export function maxSustainedArtifacts(results: any) {
   const sorted = [...(results || [])]
     .filter((r) => Number.isFinite(r?.artifacts))
     .sort((a, b) => a.artifacts - b.artifacts)
@@ -166,8 +166,8 @@ export function classifyLimitFailure({
   if (passed) return 'none'
   if (runs === 0) return 'not-run'
   if (timedOut) return 'timeout'
-  if (!Number.isFinite(stepsAvg) || stepsAvg === 0) return 'no-progress'
-  if (Number.isFinite(stepBudget) && stepsAvg >= stepBudget) return 'budget-exhausted'
+  if (!Number.isFinite(stepsAvg as any) || (stepsAvg as any) === 0) return 'no-progress'
+  if (Number.isFinite(stepBudget as any) && (stepsAvg as any) >= (stepBudget as any)) return 'budget-exhausted'
   return 'incorrect-artifact'
 }
 
@@ -182,8 +182,8 @@ const FAILURE_NOTE = Object.freeze({
   unknown: 'data tidak cukup untuk menyimpulkan penyebab',
 })
 
-export function failureNote(mode) {
-  return FAILURE_NOTE[mode] || FAILURE_NOTE.unknown
+export function failureNote(mode: any) {
+  return (FAILURE_NOTE as any)[mode] || (FAILURE_NOTE as any).unknown
 }
 
 /**
@@ -199,13 +199,13 @@ export function buildLimitVerdict({
   runs = 1,
   results = [],
   budgets = effortBudgets(),
-} = {}) {
-  const stepBudget = Number.isFinite(budgets?.[effort]) ? budgets[effort] : null
-  const rows = (results || []).map((r) => ({ ...r }))
+}: any = {}) {
+  const stepBudget = Number.isFinite((budgets as any)?.[effort]) ? (budgets as any)[effort] : null
+  const rows = (results || []).map((r: any) => ({ ...r }))
   const sustainedArtifacts = maxSustainedArtifacts(rows)
-  const failures = rows.filter((r) => !r.passed)
+  const failures = rows.filter((r: any) => !r.passed)
   const firstFailure = failures.length
-    ? failures.reduce((a, b) => (a.artifacts <= b.artifacts ? a : b))
+    ? failures.reduce((a: any, b: any) => (a.artifacts <= b.artifacts ? a : b))
     : null
 
   const failureMode = firstFailure
@@ -220,13 +220,13 @@ export function buildLimitVerdict({
 
   const withinBudget = rows
     .filter(
-      (r) =>
+      (r: any) =>
         r.passed &&
         Number.isFinite(r.stepsAvg) &&
         Number.isFinite(stepBudget) &&
         r.stepsAvg <= stepBudget
     )
-    .map((r) => r.artifacts)
+    .map((r: any) => r.artifacts)
 
   return {
     schemaVersion: 1,

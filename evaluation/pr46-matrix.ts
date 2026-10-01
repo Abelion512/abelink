@@ -1,4 +1,4 @@
-// evaluation/pr46-matrix.mjs - PR46 30-fixture measurement matrix.
+// evaluation/pr46-matrix.ts - PR46 30-fixture measurement matrix.
 //
 // New measurement set for PR46. It does NOT replace or duplicate the existing
 // registries (terminal-bench TASKS, CORP tasks, LIMIT rungs, arch bench probes):
@@ -19,7 +19,7 @@
 
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { hasToolEvidence } from './tasks-student-corporate.mjs'
+import { hasToolEvidence } from './tasks-student-corporate.ts'
 
 export const PR46_LANES = Object.freeze({
   RESEARCH: 'research',
@@ -45,7 +45,7 @@ export const PR46_TOTAL_FIXTURES = Object.freeze(
 )
 
 const ARTIFACT_MARK = 'write-file'
-const readWorld = (workdir, rel) => {
+const readWorld = (workdir: any, rel: any): string | null => {
   try {
     const p = join(workdir, rel)
     return existsSync(p) ? readFileSync(p, 'utf8') : null
@@ -53,14 +53,14 @@ const readWorld = (workdir, rel) => {
     return null
   }
 }
-const worldHas = (workdir, rel) => {
+const worldHas = (workdir: any, rel: any) => {
   try {
     return existsSync(join(workdir, rel))
   } catch {
     return false
   }
 }
-const isDir = (workdir, rel) => {
+const isDir = (workdir: any, rel: any) => {
   try {
     const p = join(workdir, rel)
     return existsSync(p) && statSync(p).isDirectory()
@@ -70,8 +70,8 @@ const isDir = (workdir, rel) => {
 }
 
 /** Flatten any supported stepLog shape into tool calls. */
-export function flattenCalls(stepLog = []) {
-  const calls = []
+export function flattenCalls(stepLog: any = []) {
+  const calls: any[] = []
   for (const step of Array.isArray(stepLog) ? stepLog : []) {
     if (Array.isArray(step?.toolCalls)) calls.push(...step.toolCalls)
     else if (step && typeof step.tool === 'string') calls.push(step)
@@ -79,7 +79,7 @@ export function flattenCalls(stepLog = []) {
   return calls
 }
 
-const isFail = (c) => c?.success === false || (typeof c?.result === 'string' && c.result.startsWith('ERROR:'))
+const isFail = (c: any) => c?.success === false || (typeof c?.result === 'string' && c.result.startsWith('ERROR:'))
 
 /** True when some failed call is followed by a successful, different-tool call. */
 export function failureThenSuccess(stepLog = []) {
@@ -109,26 +109,26 @@ export function maxAdjacentRepeats(stepLog = []) {
   return best
 }
 
-const hasAnyTool = (stepLog, tools) => flattenCalls(stepLog).some((c) => !isFail(c) && tools.includes(c.tool))
-const containsAll = (text, tokens) => typeof text === 'string' && tokens.every((t) => text.includes(t))
-const containsNone = (text, tokens) => typeof text === 'string' && tokens.every((t) => !text.includes(t))
+const hasAnyTool = (stepLog: any, tools: any) => flattenCalls(stepLog).some((c) => !isFail(c) && tools.includes(c.tool))
+const containsAll = (text: any, tokens: any) => String(text ?? '').length > 0 && tokens.every((t: any) => String(text ?? '').includes(t))
+const containsNone = (text: any, tokens: any) => typeof text === 'string' && tokens.every((t: any) => !text.includes(t))
 
-const escapeRe = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\\\$&')
+const escapeRe = (s: any) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\\\$&')
 
 /**
  * True when `a` and `b` occur within `maxGap` characters of each other (either
  * order). Used so a provenance oracle checks a claim is actually tied to its
  * source, instead of both strings merely appearing somewhere in the document.
  */
-export function pairedWithin(text, a, b, maxGap = 40) {
+export function pairedWithin(text: any, a: any, b: any, maxGap = 40) {
   if (typeof text !== 'string' || !text) return false
   const A = escapeRe(a)
   const B = escapeRe(b)
   return new RegExp(`(${A}[\\s\\S]{0,${maxGap}}${B}|${B}[\\s\\S]{0,${maxGap}}${A})`).test(text)
 }
 
-function writeWorld(workdir, files) {
-  for (const [rel, content] of Object.entries(files)) {
+function writeWorld(workdir: any, files: any) {
+  for (const [rel, content] of Object.entries(files) as any) {
     const p = join(workdir, rel)
     mkdirSync(dirname(p), { recursive: true })
     writeFileSync(p, content)
@@ -149,11 +149,11 @@ const RESEARCH = [
     requiredTools: ['read-file', 'write-file'],
     maxTurns: 8,
     effort: 'low',
-    seed: (workdir, sentinel) =>
+    seed: (workdir: any, sentinel: any) =>
       writeWorld(workdir, {
         'sumber-a.txt': `sumber:A1\nfakta:FAKTA-A1\nkode:${sentinel}\n`,
       }),
-    verify: (_output, { sentinel, workdir, stepLog }) => {
+    verify: (_output: any, { sentinel, workdir, stepLog }: any) => {
       if (!hasToolEvidence(stepLog, ['read-file', 'write-file'])) return false
       const md = readWorld(workdir, 'laporan.md')
       return containsAll(md, ['FAKTA-A1', sentinel])
@@ -169,12 +169,12 @@ const RESEARCH = [
     requiredTools: ['read-file', 'write-file'],
     maxTurns: 10,
     effort: 'low',
-    seed: (workdir, sentinel) =>
+    seed: (workdir: any, sentinel: any) =>
       writeWorld(workdir, {
         'sumber-a.txt': `fakta:FAKTA-A1\nkode:${sentinel}\n`,
         'sumber-b.txt': `fakta:FAKTA-B2\nkode:${sentinel}\n`,
       }),
-    verify: (_output, { sentinel, workdir, stepLog }) => {
+    verify: (_output: any, { sentinel, workdir, stepLog }: any) => {
       if (!hasToolEvidence(stepLog, ['read-file', 'write-file'])) return false
       const md = readWorld(workdir, 'laporan.md')
       return containsAll(md, ['FAKTA-A1', 'FAKTA-B2', sentinel])
@@ -190,12 +190,12 @@ const RESEARCH = [
     requiredTools: ['read-file', 'write-file'],
     maxTurns: 10,
     effort: 'medium',
-    seed: (workdir, sentinel) =>
+    seed: (workdir: any, sentinel: any) =>
       writeWorld(workdir, {
         'sumber-a.txt': `topik:energi surya\nfakta:FAKTA-A1\nkode:${sentinel}\n`,
         'decoy.txt': `topik:lain\nfakta:FAKTA-X9\nkode:${sentinel}\n`,
       }),
-    verify: (_output, { sentinel, workdir, stepLog }) => {
+    verify: (_output: any, { sentinel, workdir, stepLog }: any) => {
       // A "negative evidence" research verdict must be grounded in an actual
       // attempt to read the sources: without read-file the agent could skip
       // inspection entirely and still write "not found".
@@ -215,16 +215,16 @@ const RESEARCH = [
     requiredTools: ['read-file', 'write-file'],
     maxTurns: 10,
     effort: 'medium',
-    seed: (workdir, sentinel) =>
+    seed: (workdir: any, sentinel: any) =>
       writeWorld(workdir, {
         'sumber-a.txt': `VERSI: 1.0\notoritatif:false\nkode:${sentinel}\n`,
         'sumber-b.txt': `VERSI: 2.0\notoritatif:true\nkode:${sentinel}\n`,
       }),
-    verify: (_output, { sentinel, workdir, stepLog }) => {
+    verify: (_output: any, { sentinel, workdir, stepLog }: any) => {
       if (!hasToolEvidence(stepLog, ['read-file', 'write-file'])) return false
       const md = readWorld(workdir, 'putusan.md')
       if (!containsAll(md, ['VERSI: 2.0', sentinel])) return false
-      return /(konflik|conflict|bertentangan)/i.test(md || '') && !md.includes('VERSI: 1.0')
+      return /(konflik|conflict|bertentangan)/i.test(md || '') && !String(md ?? '').includes('VERSI: 1.0')
     },
   },
   {
@@ -237,17 +237,17 @@ const RESEARCH = [
     requiredTools: ['read-file', 'write-file'],
     maxTurns: 16,
     effort: 'high',
-    seed: (workdir, sentinel) =>
+    seed: (workdir: any, sentinel: any) =>
       writeWorld(workdir, {
         'sumber-a.txt': `sumber:A\nNILAI: 12\nkode:${sentinel}\n`,
         'sumber-b.txt': `sumber:B\nNILAI: 30\nkode:${sentinel}\n`,
         'sumber-c.txt': `sumber:C\nNILAI: 45\nkode:${sentinel}\n`,
       }),
-    verify: (_output, { sentinel, workdir, stepLog }) => {
+    verify: (_output: any, { sentinel, workdir, stepLog }: any) => {
       if (!hasToolEvidence(stepLog, ['read-file', 'write-file'])) return false
       const md = readWorld(workdir, 'hasil.md')
       if (!containsAll(md, ['TOTAL=87', sentinel])) return false
-      return ['sumber:A', 'sumber:B', 'sumber:C'].every((id) => md.includes(id))
+      return ['sumber:A', 'sumber:B', 'sumber:C'].every((id: any) => String(md ?? '').includes(id))
     },
   },
   {
@@ -260,13 +260,13 @@ const RESEARCH = [
     requiredTools: ['read-file', 'write-file'],
     maxTurns: 16,
     effort: 'high',
-    seed: (workdir, sentinel) =>
+    seed: (workdir: any, sentinel: any) =>
       writeWorld(workdir, {
         'sumber-a.txt': `id:SRC-A\nklaim:KLM-A1\nkode:${sentinel}\n`,
         'sumber-b.txt': `id:SRC-B\nklaim:KLM-B2\nkode:${sentinel}\n`,
         'sumber-c.txt': `id:SRC-C\nklaim:KLM-C3\nkode:${sentinel}\n`,
       }),
-    verify: (_output, { sentinel, workdir, stepLog }) => {
+    verify: (_output: any, { sentinel, workdir, stepLog }: any) => {
       if (!hasToolEvidence(stepLog, ['read-file', 'write-file'])) return false
       const md = readWorld(workdir, 'provenance.md')
       if (!containsAll(md, ['KLM-A1', 'KLM-B2', 'KLM-C3', 'SRC-A', 'SRC-B', 'SRC-C', sentinel])) return false
@@ -285,7 +285,7 @@ const RESEARCH = [
 // content. Fixtures 04/05 are the representation ablation pair: identical
 // prompt/oracle, different observation representation.
 const BROWSER_PAGE = {
-  seed: (workdir, sentinel) =>
+  seed: (workdir: any, sentinel: any) =>
     writeWorld(workdir, {
       'pages/beranda.html':
         `<!doctype html><html><head><title>Beranda-UTAMA</title></head>` +
@@ -303,8 +303,8 @@ const BROWSER_PAGE = {
     }),
 }
 
-function pageArtifactOracle(rel, tokens) {
-  return (_output, { sentinel, workdir, stepLog }) => {
+function pageArtifactOracle(rel: any, tokens: any) {
+  return (_output: any, { sentinel, workdir, stepLog }: any) => {
     const browserEvidence = hasAnyTool(stepLog, ['browser-navigate', 'browser-read', 'read-dom'])
     if (!browserEvidence) return false
     if (!hasToolEvidence(stepLog, [ARTIFACT_MARK])) return false
@@ -398,7 +398,7 @@ const OS = [
     maxTurns: 8,
     effort: 'low',
     seed: () => {},
-    verify: (_output, { sentinel, workdir, stepLog }) => {
+    verify: (_output: any, { sentinel, workdir, stepLog }: any) => {
       if (!hasToolEvidence(stepLog, ['write-file'])) return false
       return containsAll(readWorld(workdir, 'arsip/2026/catatan.txt'), [sentinel])
     },
@@ -413,8 +413,8 @@ const OS = [
     requiredTools: ['run-shell', 'write-file'],
     maxTurns: 12,
     effort: 'medium',
-    seed: (workdir) => writeWorld(workdir, { 'berkas/lama.txt': 'ISI-LAMA\n' }),
-    verify: (_output, { sentinel, workdir, stepLog }) => {
+    seed: (workdir: any) => writeWorld(workdir, { 'berkas/lama.txt': 'ISI-LAMA\n' }),
+    verify: (_output: any, { sentinel, workdir, stepLog }: any) => {
       if (!hasAnyTool(stepLog, ['run-shell', 'write-file', 'move-file'])) return false
       if (worldHas(workdir, 'berkas/lama.txt')) return false
       return containsAll(readWorld(workdir, 'berkas/baru.txt'), ['ISI-LAMA', sentinel])
@@ -430,8 +430,8 @@ const OS = [
     requiredTools: ['run-shell', 'write-file'],
     maxTurns: 10,
     effort: 'low',
-    seed: (workdir) => writeWorld(workdir, { 'log.txt': 'BARIS-1\n' }),
-    verify: (_output, { sentinel, workdir, stepLog }) => {
+    seed: (workdir: any) => writeWorld(workdir, { 'log.txt': 'BARIS-1\n' }),
+    verify: (_output: any, { sentinel, workdir, stepLog }: any) => {
       if (!hasAnyTool(stepLog, ['run-shell', 'write-file'])) return false
       return containsAll(readWorld(workdir, 'log.txt'), ['BARIS-1', 'BARIS-2', sentinel])
     },
@@ -447,7 +447,7 @@ const OS = [
     maxTurns: 20,
     effort: 'high',
     seed: () => {},
-    verify: (_output, { sentinel, workdir, stepLog }) => {
+    verify: (_output: any, { sentinel, workdir, stepLog }: any) => {
       if (!hasToolEvidence(stepLog, ['write-file'])) return false
       for (let n = 1; n <= 5; n++) {
         if (!containsAll(readWorld(workdir, `out/f${n}.txt`), [`IDX-${n}`, sentinel])) return false
@@ -465,11 +465,11 @@ const OS = [
     requiredTools: ['run-shell', 'read-file', 'write-file'],
     maxTurns: 14,
     effort: 'high',
-    seed: (workdir, sentinel) =>
+    seed: (workdir: any, sentinel: any) =>
       writeWorld(workdir, {
         'windows.txt': `JENDELA-EDITOR\nJENDELA-BROWSER\nJENDELA-TERMINAL [FOKUS]\nkode:${sentinel}\n`,
       }),
-    verify: (_output, { sentinel, workdir, stepLog }) => {
+    verify: (_output: any, { sentinel, workdir, stepLog }: any) => {
       if (!hasToolEvidence(stepLog, ['read-file', 'write-file'])) return false
       const md = readWorld(workdir, 'fokus.md')
       if (!containsAll(md, ['JENDELA-TERMINAL', sentinel])) return false
@@ -491,11 +491,11 @@ const STUDY = [
     requiredTools: ['read-file', 'write-file'],
     maxTurns: 12,
     effort: 'medium',
-    seed: (workdir) =>
+    seed: (workdir: any) =>
       writeWorld(workdir, {
         'kuliah.txt': 'ENERGIK surya diubah oleh panel FOTOVOLT menjadi listrik.\n',
       }),
-    verify: (_output, { sentinel, workdir, stepLog }) => {
+    verify: (_output: any, { sentinel, workdir, stepLog }: any) => {
       if (!hasToolEvidence(stepLog, ['read-file', 'write-file'])) return false
       const md = readWorld(workdir, 'catatan.md')
       return containsAll(md, ['## Konsep', '## Contoh', 'ENERGIK', 'FOTOVOLT', sentinel])
@@ -511,18 +511,18 @@ const STUDY = [
     requiredTools: ['read-file', 'write-file'],
     maxTurns: 14,
     effort: 'medium',
-    seed: (workdir, sentinel) =>
+    seed: (workdir: any, sentinel: any) =>
       writeWorld(workdir, {
         'materi.txt':
           'Bumi mengorbit Matahari dalam 365 hari.\nFotosintesis menghasilkan oksigen.\nPelangi memiliki 7 warna.\n' +
           `kode:${sentinel}\n`,
         'soal.txt': '1: Berapa hari Bumi mengorbit Matahari?\n2: Apa yang dihasilkan fotosintesis?\n3: Berapa warna pelangi?\n',
       }),
-    verify: (_output, { sentinel, workdir, stepLog }) => {
+    verify: (_output: any, { sentinel, workdir, stepLog }: any) => {
       if (!hasToolEvidence(stepLog, ['read-file', 'write-file'])) return false
       const md = readWorld(workdir, 'jawaban.md')
       if (!containsAll(md, ['365', 'oksigen', '7', sentinel])) return false
-      return /1:/.test(md) && /2:/.test(md) && /3:/.test(md)
+      return /1:/.test(String(md ?? '')) && /2:/.test(String(md ?? '')) && /3:/.test(String(md ?? ''))
     },
   },
   {
@@ -535,15 +535,15 @@ const STUDY = [
     requiredTools: ['read-file', 'write-file'],
     maxTurns: 12,
     effort: 'medium',
-    seed: (workdir, sentinel) =>
+    seed: (workdir: any, sentinel: any) =>
       writeWorld(workdir, {
         'materi.txt': `FOTOSINTESIS mengubah cahaya menjadi energi kimia. Proses ini menghasilkan oksigen.\nkode:${sentinel}\n`,
       }),
-    verify: (_output, { sentinel, workdir, stepLog }) => {
+    verify: (_output: any, { sentinel, workdir, stepLog }: any) => {
       if (!hasToolEvidence(stepLog, ['read-file', 'write-file'])) return false
       const md = readWorld(workdir, 'ringkasan.md')
       if (!containsAll(md, ['FOTOSINTESIS', sentinel])) return false
-      const sentences = (md.match(/[.!?]/g) || []).length
+      const sentences = (String(md ?? '').match(/[.!?]/g) || []).length
       return sentences >= 1 && sentences <= 3
     },
   },
@@ -557,17 +557,17 @@ const STUDY = [
     requiredTools: ['read-file', 'write-file'],
     maxTurns: 18,
     effort: 'high',
-    seed: (workdir, sentinel) =>
+    seed: (workdir: any, sentinel: any) =>
       writeWorld(workdir, {
         'materi.txt':
           'SEL unit terkecil kehidupan.\nMITOSIS pembelahan sel menjadi dua identik.\n' +
           `RIBOSOM tempat sintesis protein.\nKLOROPLAS tempat fotosintesis.\nkode:${sentinel}\n`,
       }),
-    verify: (_output, { sentinel, workdir, stepLog }) => {
+    verify: (_output: any, { sentinel, workdir, stepLog }: any) => {
       if (!hasToolEvidence(stepLog, ['read-file', 'write-file'])) return false
       const md = readWorld(workdir, 'kartu.md')
       if (!containsAll(md, ['SEL', 'MITOSIS', 'RIBOSOM', 'KLOROPLAS', sentinel])) return false
-      return (md.match(/KARTU \d+:/g) || []).length === 4
+      return (String(md ?? '').match(/KARTU \d+:/g) || []).length === 4
     },
   },
   {
@@ -580,17 +580,17 @@ const STUDY = [
     requiredTools: ['read-file', 'write-file'],
     maxTurns: 18,
     effort: 'high',
-    seed: (workdir, sentinel) =>
+    seed: (workdir: any, sentinel: any) =>
       writeWorld(workdir, {
         'materi-a.txt': `SEL memiliki MITOKONDRIA sebagai penghasil energi.\nkode:${sentinel}\n`,
         'materi-b.txt': `RESPIRASI mengubah ENERGI kimia menjadi ATP.\nkode:${sentinel}\n`,
       }),
-    verify: (_output, { sentinel, workdir, stepLog }) => {
+    verify: (_output: any, { sentinel, workdir, stepLog }: any) => {
       if (!hasToolEvidence(stepLog, ['read-file', 'write-file'])) return false
       const md = readWorld(workdir, 'peta.md')
       if (!containsAll(md, ['SEL', 'MITOKONDRIA', 'ENERGI', 'RESPIRASI', sentinel])) return false
-      return /(SEL[\s\S]{0,40}MITOKONDRIA|MITOKONDRIA[\s\S]{0,40}SEL)/.test(md) &&
-        /(ENERGI[\s\S]{0,40}RESPIRASI|RESPIRASI[\s\S]{0,40}ENERGI)/.test(md)
+      return /(SEL[\s\S]{0,40}MITOKONDRIA|MITOKONDRIA[\s\S]{0,40}SEL)/.test(String(md ?? '')) &&
+        /(ENERGI[\s\S]{0,40}RESPIRASI|RESPIRASI[\s\S]{0,40}ENERGI)/.test(String(md ?? ''))
     },
   },
 ]
@@ -609,11 +609,11 @@ const RECOVERY = [
     requiredTools: ['write-file'],
     maxTurns: 14,
     effort: 'medium',
-    seed: (workdir, sentinel) => {
+    seed: (workdir: any, sentinel: any) => {
       // A directory named laporan.md makes the naive write target unusable.
       writeWorld(workdir, { 'hasil/laporan.md/penghalang.txt': `blokir ${sentinel}\n` })
     },
-    verify: (_output, { sentinel, workdir, stepLog }) => {
+    verify: (_output: any, { sentinel, workdir, stepLog }: any) => {
       if (!hasToolEvidence(stepLog, ['write-file'])) return false
       if (!isDir(workdir, 'hasil/laporan.md')) return false // target must remain a directory
       const md = readWorld(workdir, 'hasil/laporan-cadangan.md')
@@ -631,9 +631,9 @@ const RECOVERY = [
     requiredTools: ['read-file', 'write-file'],
     maxTurns: 14,
     effort: 'medium',
-    seed: (workdir, sentinel) =>
+    seed: (workdir: any, sentinel: any) =>
       writeWorld(workdir, { 'sumber-cadangan.txt': `fakta:FAKTA-CADANGAN\nkode:${sentinel}\n` }),
-    verify: (_output, { sentinel, workdir, stepLog }) => {
+    verify: (_output: any, { sentinel, workdir, stepLog }: any) => {
       if (!hasToolEvidence(stepLog, ['read-file', 'write-file'])) return false
       const md = readWorld(workdir, 'laporan.md')
       if (!containsAll(md, ['FAKTA-CADANGAN', sentinel])) return false
@@ -650,8 +650,8 @@ const RECOVERY = [
     requiredTools: ['read-file', 'write-file'],
     maxTurns: 12,
     effort: 'medium',
-    seed: (workdir) => writeWorld(workdir, { 'materi-kosong.txt': '' }),
-    verify: (_output, { sentinel, workdir, stepLog }) => {
+    seed: (workdir: any) => writeWorld(workdir, { 'materi-kosong.txt': '' }),
+    verify: (_output: any, { sentinel, workdir, stepLog }: any) => {
       if (!hasToolEvidence(stepLog, ['read-file', 'write-file'])) return false
       const md = readWorld(workdir, 'ringkasan.md')
       if (!containsAll(md, [sentinel])) return false
@@ -669,8 +669,8 @@ const RECOVERY = [
     requiredTools: ['read-file', 'run-shell', 'write-file'],
     maxTurns: 18,
     effort: 'high',
-    seed: (workdir, sentinel) => writeWorld(workdir, { 'rusak.txt': `RUSAK:${sentinel}\x00\n` }),
-    verify: (_output, { sentinel, workdir, stepLog }) => {
+    seed: (workdir: any, sentinel: any) => writeWorld(workdir, { 'rusak.txt': `RUSAK:${sentinel}\x00\n` }),
+    verify: (_output: any, { sentinel, workdir, stepLog }: any) => {
       if (!hasToolEvidence(stepLog, ['write-file'])) return false
       if (!failureThenSuccess(stepLog)) return false
       const md = readWorld(workdir, 'perbaikan.md')
@@ -688,8 +688,8 @@ const RECOVERY = [
     requiredTools: ['read-file', 'write-file'],
     maxTurns: 16,
     effort: 'high',
-    seed: (workdir, sentinel) => writeWorld(workdir, { 'status.txt': `STATUS-OK\nkode:${sentinel}\n` }),
-    verify: (_output, { sentinel, workdir, stepLog }) => {
+    seed: (workdir: any, sentinel: any) => writeWorld(workdir, { 'status.txt': `STATUS-OK\nkode:${sentinel}\n` }),
+    verify: (_output: any, { sentinel, workdir, stepLog }: any) => {
       if (!hasToolEvidence(stepLog, ['read-file', 'write-file'])) return false
       if (maxAdjacentRepeats(stepLog) > 2) return false
       return containsAll(readWorld(workdir, 'verifikasi.md'), ['STATUS-OK', sentinel])
@@ -711,7 +711,7 @@ const REUSE = [
     requiredTools: ['read-file', 'write-file'],
     maxTurns: 12,
     effort: 'medium',
-    seed: (workdir, sentinel) =>
+    seed: (workdir: any, sentinel: any) =>
       writeWorld(workdir, {
         'sesi-lama.json': JSON.stringify(
           { runId: 'sesi-2026-A', verified: true, procedure: ['baca', 'hitung', 'tulis'], hasil: 'HASIL-UTAMA', kode: sentinel },
@@ -719,7 +719,7 @@ const REUSE = [
           2
         ) + '\n',
       }),
-    verify: (_output, { sentinel, workdir, stepLog }) => {
+    verify: (_output: any, { sentinel, workdir, stepLog }: any) => {
       if (!hasToolEvidence(stepLog, ['read-file', 'write-file'])) return false
       return containsAll(readWorld(workdir, 'reuse.md'), ['sesi-2026-A', 'HASIL-UTAMA', sentinel])
     },
@@ -734,12 +734,12 @@ const REUSE = [
     requiredTools: ['read-file', 'write-file'],
     maxTurns: 14,
     effort: 'medium',
-    seed: (workdir, sentinel) =>
+    seed: (workdir: any, sentinel: any) =>
       writeWorld(workdir, {
         'sesi-lama.json': JSON.stringify({ runId: 'sesi-2026-B', verified: true, hasil: 'HASIL-SALAH', kode: sentinel }) + '\n',
         'materi.txt': `hasil:HASIL-BENAR\nkode:${sentinel}\n`,
       }),
-    verify: (_output, { sentinel, workdir, stepLog }) => {
+    verify: (_output: any, { sentinel, workdir, stepLog }: any) => {
       if (!hasToolEvidence(stepLog, ['read-file', 'write-file'])) return false
       const md = readWorld(workdir, 'reuse.md')
       if (!containsAll(md, ['HASIL-BENAR', sentinel])) return false
@@ -757,12 +757,12 @@ const REUSE = [
     requiredTools: ['read-file', 'write-file'],
     maxTurns: 18,
     effort: 'high',
-    seed: (workdir, sentinel) =>
+    seed: (workdir: any, sentinel: any) =>
       writeWorld(workdir, {
         'sesi-a.json': JSON.stringify({ runId: 'sesi-a-1', hasil: 'A', kode: sentinel }) + '\n',
         'sesi-b.json': JSON.stringify({ runId: 'sesi-b-2', hasil: 'B', kode: sentinel }) + '\n',
       }),
-    verify: (_output, { sentinel, workdir, stepLog }) => {
+    verify: (_output: any, { sentinel, workdir, stepLog }: any) => {
       if (!hasToolEvidence(stepLog, ['read-file', 'write-file'])) return false
       return containsAll(readWorld(workdir, 'rantai.md'), ['sesi-a-1', 'sesi-b-2', 'GABUNG-AB', sentinel])
     },
@@ -777,21 +777,21 @@ const REUSE = [
     requiredTools: ['read-file', 'write-file'],
     maxTurns: 16,
     effort: 'high',
-    seed: (workdir, sentinel) =>
+    seed: (workdir: any, sentinel: any) =>
       writeWorld(workdir, {
         'sesi-a.json': JSON.stringify({ runId: 'sesi-a-1', verified: true, verificationState: 'verified', kode: sentinel }) + '\n',
       }),
-    verify: (_output, { sentinel, workdir, stepLog }) => {
+    verify: (_output: any, { sentinel, workdir, stepLog }: any) => {
       if (!hasToolEvidence(stepLog, ['read-file', 'write-file'])) return false
       const md = readWorld(workdir, 'reuse.md')
       if (!containsAll(md, [sentinel])) return false
-      return /prosedur:\s*sesi-a-1/.test(md) && /verifikasi:\s*verified/.test(md)
+      return /prosedur:\s*sesi-a-1/.test(String(md ?? '')) && /verifikasi:\s*verified/.test(String(md ?? ''))
     },
   },
 ]
 
 // --------------------------------------------------------------- composition
-function withDefaults(fixture) {
+function withDefaults(fixture: any) {
   return {
     requiredTools: [],
     maxTurns: 12,
@@ -850,7 +850,7 @@ export const PR46_ABLATION_PAIRS = Object.freeze([
 export const PR46_MINIMAL_OFFLINE = Object.freeze(['pr46-os-01', 'pr46-os-03', 'pr46-os-05'])
 
 export function listPr46Tasks() {
-  return Object.values(PR46_TASKS).map((t) => ({
+  return (Object.values(PR46_TASKS) as any[]).map((t: any) => ({
     taskId: t.taskId,
     lane: t.lane,
     long: t.long,
@@ -863,17 +863,17 @@ export function listPr46Tasks() {
 }
 
 export function laneCounts() {
-  const counts = {}
-  for (const lane of Object.values(PR46_LANES)) counts[lane] = 0
-  for (const t of Object.values(PR46_TASKS)) counts[t.lane] += 1
+  const counts: Record<string, any> = {}
+  for (const lane of Object.values(PR46_LANES) as any) counts[lane] = 0
+  for (const t of Object.values(PR46_TASKS) as any) counts[t.lane] += 1
   return counts
 }
 
 /**
  * Seed a fixture's deterministic world before the agent runs. Mirrors
- * run.mjs seedFixtures but per-lane, and performs no network access.
+ * run.ts seedFixtures but per-lane, and performs no network access.
  */
-export function seedPr46Fixture(task, workdir, sentinel) {
+export function seedPr46Fixture(task: any, workdir: any, sentinel: any) {
   mkdirSync(workdir, { recursive: true })
   if (typeof task?.seed === 'function') task.seed(workdir, sentinel)
   return workdir

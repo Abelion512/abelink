@@ -20,9 +20,9 @@ import {
   makeTaskResult,
   aggregateTaskResults,
   compareReports,
-} from './contract.mjs'
-import { evaluateTask } from './evaluator.mjs'
-import { findTask, ARCH_TASKS } from './tasks.mjs'
+} from './contract.ts'
+import { evaluateTask } from './evaluator.ts'
+import { findTask, ARCH_TASKS } from './tasks.ts'
 import {
   buildTrajectory,
   isCompleted,
@@ -33,7 +33,7 @@ import {
   EXECUTION_BOUNDARY_API,
   describeBoundary,
   BOUNDARY_REQUIREMENTS,
-} from './capture.mjs'
+} from './capture.ts'
 
 export {
   buildTrajectory,
@@ -43,10 +43,10 @@ export {
   makeRunRequest,
   makeFinalStatus,
   EXECUTION_BOUNDARY_API,
-} from './capture.mjs'
+} from './capture.ts'
 
-export { evaluateTask } from './evaluator.mjs'
-export { findTask, ARCH_TASKS, listArchTasks } from './tasks.mjs'
+export { evaluateTask } from './evaluator.ts'
+export { findTask, ARCH_TASKS, listArchTasks } from './tasks.ts'
 
 // ---- Pipeline ------------------------------------------------------------
 
@@ -58,14 +58,14 @@ export async function runBenchmark({
   config,
   effortResolver = null,
   onStep = null,
-} = {}) {
+}: any = {}) {
   if (!boundary) {
     throw new Error('runBenchmark requires an execution boundary.')
   }
 
   const runMeta = makeRunMeta(meta)
-  const resolvedTasks = tasks.map((t) => findTask(t.taskId) || t)
-  const results = []
+  const resolvedTasks = tasks.map((t: any) => findTask(t.taskId) || t)
+  const results: any[] = []
 
   for (const task of resolvedTasks) {
     const effort = resolveEffort(task, effortResolver)
@@ -109,13 +109,13 @@ export async function runBenchmark({
       meta: runMeta,
     })
 
-    const outputPreview = traj.steps.map((s) => s.observation || s.result || s.text || '').join(' ').slice(0, 300)
+    const outputPreview = traj.steps.map((s: any) => s.observation || s.result || s.text || '').join(' ').slice(0, 300)
     const result = evaluateTask({ task, traj, effort, finishedAt: traj.finishedAt, outputPreview })
     results.push(result)
   }
 
-  const taskMap = {}
-  const grouped = new Map()
+  const taskMap: Record<string, any> = {}
+  const grouped: any = new Map()
   for (const r of results) {
     const key = r.taskId
     if (!grouped.has(key)) grouped.set(key, [])
@@ -128,22 +128,22 @@ export async function runBenchmark({
     taskMap[taskId].category = task.category ?? taskMap[taskId].category
   }
 
-  const durations = Object.values(taskMap).map((t) => t.avgDurationMs).filter((v) => v != null)
-  const steps = Object.values(taskMap).map((t) => t.avgSteps).filter((v) => v != null)
-  const summary = {
+  const durations = Object.values(taskMap).map((t: any) => t.avgDurationMs).filter((v: any) => v != null)
+  const steps = Object.values(taskMap).map((t: any) => t.avgSteps).filter((v: any) => v != null)
+  const summary: any = {
     totalTasks: Object.keys(taskMap).length,
-    totalRuns: Object.values(taskMap).reduce((a, t) => a + (t.runs || 0), 0),
-    overallPassRate: Object.values(taskMap).reduce((a, t) => a + (t.passed || 0), 0),
+    totalRuns: Object.values(taskMap).reduce((a: any, t: any) => a + (t.runs || 0), 0),
+    overallPassRate: Object.values(taskMap).reduce((a: any, t: any) => a + (t.passed || 0), 0),
   }
   summary.overallPassRate = summary.totalRuns ? Number((+(summary.overallPassRate / summary.totalRuns) * 100).toFixed(3)) : 0
-  summary.avgDurationMs = durations.length ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length) : null
-  summary.avgSteps = steps.length ? Number((steps.reduce((a, b) => a + b, 0) / steps.length).toFixed(1)) : null
+  summary.avgDurationMs = durations.length ? Math.round(durations.reduce((a: any, b: any) => a + b, 0) / durations.length) : null
+  summary.avgSteps = steps.length ? Number((steps.reduce((a: any, b: any) => a + b, 0) / steps.length).toFixed(1)) : null
   summary.byCategory = summarizeByCategory(taskMap)
 
   return makeReport({ meta: runMeta, config, tasks: taskMap, summary })
 }
 
-function resolveEffort(task, effortResolver) {
+function resolveEffort(task: any, effortResolver: any) {
   if (typeof effortResolver === 'function') {
     const r = effortResolver(task)
     if (r) return r
@@ -151,9 +151,9 @@ function resolveEffort(task, effortResolver) {
   return task.effortHint || null
 }
 
-function summarizeByCategory(taskMap) {
-  const map = new Map()
-  for (const t of Object.values(taskMap)) {
+function summarizeByCategory(taskMap: any) {
+  const map: any = new Map()
+  for (const t of Object.values(taskMap) as any) {
     const cat = t.category ?? 'unknown'
     if (!map.has(cat)) map.set(cat, { category: cat, tasks: 0, runs: 0, passed: 0 })
     const entry = map.get(cat)
@@ -161,7 +161,7 @@ function summarizeByCategory(taskMap) {
     entry.runs += t.runs || 0
     entry.passed += t.passed || 0
   }
-  return [...map.values()].map((e) => ({
+  return [...map.values()].map((e: any) => ({
     ...e,
     passRate: e.runs ? Number((+(e.passed / e.runs) * 100).toFixed(3)) : 0,
   }))
@@ -170,14 +170,14 @@ function summarizeByCategory(taskMap) {
 // ---- Stub execution -------------------------------------------------------
 
 /** Run a benchmark using the stub boundary for local testing only. */
-export async function runStubBenchmark({ tasks, meta, config, effortResolver = null } = {}) {
+export async function runStubBenchmark({ tasks, meta, config, effortResolver = null }: any = {}) {
   return runBenchmark({ tasks, boundary: createStubBoundary(), meta, config, effortResolver })
 }
 
 // ---- Boundary wrapper ---------------------------------------------------
 
 /** Wrap any compliant boundary for use in the benchmark pipeline. */
-export function wrapBoundary(boundary) {
+export function wrapBoundary(boundary: any) {
   const description = describeBoundary(boundary)
   if (!description.compliant) {
     throw new Error(`Boundary not compliant: ${description.reason}`)
@@ -190,11 +190,11 @@ export function wrapBoundary(boundary) {
 }
 
 /** Return the current boundary capability description. */
-export function boundaryDescription(boundary) {
+export function boundaryDescription(boundary: any) {
   return describeBoundary(boundary)
 }
 
 // ---- Comparison helper ---------------------------------------------------
-export async function compareBenchmarkRuns(current, prev, options = {}) {
+export async function compareBenchmarkRuns(current: any, prev: any, options = {}) {
   return compareReports(current, prev, options)
 }

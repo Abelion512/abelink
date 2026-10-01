@@ -17,9 +17,9 @@ import {
   AGENT_ARCH_VERSION_sync,
   BENCH_SCHEMA_VERSION,
   BENCH_SCHEMA_VERSION_sync
-} from '../evaluation/abelink-adapter.mjs'
-import { aggregateRuns, detectCheat, compareReports } from '../evaluation/run.mjs'
-import { TASKS } from '../evaluation/terminal-bench.mjs'
+} from '../evaluation/abelink-adapter.ts'
+import { aggregateRuns, detectCheat, compareReports } from '../evaluation/run.ts'
+import { TASKS } from '../evaluation/terminal-bench.ts'
 
 
 describe('effort resolution — explicit precedence', () => {

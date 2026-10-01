@@ -10,12 +10,12 @@
 //
 // maxTurns di sini SENGAJA longgar (2x langkah minimum). Yang diukur adalah
 // kemampuan agent menyelesaikan rung, bukan plafon harness; perbandingan
-// dengan budget langkah produksi dilakukan oleh limit-probe.mjs memakai
+// dengan budget langkah produksi dilakukan oleh limit-probe.ts memakai
 // effortBudgets() dari effortSystem.
 
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { hasToolEvidence } from './tasks-student-corporate.mjs'
+import { hasToolEvidence } from './tasks-student-corporate.ts'
 import {
   CHAIN_DIR,
   DONE_FILE,
@@ -25,16 +25,16 @@ import {
   checkDoneText,
   minStepsForArtifacts,
   rungId,
-} from './limit-ladder.mjs'
+} from './limit-ladder.ts'
 
 // Plafon loop harness. Lihat catatan header: ini bukan angka yang diukur.
 const HARNESS_SLACK = 2
 
-export function rungMaxTurns(artifacts) {
+export function rungMaxTurns(artifacts: any) {
   return minStepsForArtifacts(artifacts) * HARNESS_SLACK
 }
 
-function readWorldFile(workdir, ...parts) {
+function readWorldFile(workdir: any, ...parts: any[]) {
   try {
     const p = join(workdir, ...parts)
     return existsSync(p) ? readFileSync(p, 'utf8') : null
@@ -47,7 +47,7 @@ function readWorldFile(workdir, ...parts) {
  * Verifier rung: semua berkas 001..N ada dengan isi benar, plus berkas penutup.
  * Butuh bukti tool `write-file` di stepLog: teks chat tanpa jejak tool = gagal.
  */
-export function verifyChainArtifacts(output, { sentinel, workdir, stepLog } = {}, artifacts) {
+export function verifyChainArtifacts(output: any, { sentinel, workdir, stepLog }: any = {}, artifacts: any) {
   if (!Number.isInteger(artifacts) || artifacts < 1) return false
   if (!sentinel || !workdir) return false
   if (!hasToolEvidence(stepLog, ['write-file'])) return false
@@ -63,7 +63,7 @@ export function verifyChainArtifacts(output, { sentinel, workdir, stepLog } = {}
 export const VERIFY_LIMIT = { verifyChainArtifacts, checkArtifactText, checkDoneText }
 
 /** Prompt rung N. Satu tempat, dipakai registry dan tes. */
-export function buildChainPrompt(artifacts) {
+export function buildChainPrompt(artifacts: any) {
   const dir = `{{WORKDIR}}/${CHAIN_DIR}`
   const example = `{{SENTINEL}} step 003 sum=6`
   return (
@@ -78,7 +78,7 @@ export function buildChainPrompt(artifacts) {
   )
 }
 
-function pad3Name(n) {
+function pad3Name(n: any) {
   return `${String(n).padStart(3, '0')}.txt`
 }
 
@@ -91,10 +91,10 @@ export const LIMIT_TASKS = Object.fromEntries(
       requiredTools: ['write-file'],
       maxTurns: rungMaxTurns(artifacts),
       sentinel: true,
-      // Tanpa pin effort: probe yang menentukan effort lewat run.mjs --effort,
+      // Tanpa pin effort: probe yang menentukan effort lewat run.ts --effort,
       // supaya satu effort berlaku untuk SEMUA rung (membandingkan rung, bukan
       // mencampur budget).
-      verifier: (output, ctx) => verifyChainArtifacts(output, ctx, artifacts),
+      verifier: (output: any, ctx: any) => verifyChainArtifacts(output, ctx, artifacts),
     },
   ])
 )

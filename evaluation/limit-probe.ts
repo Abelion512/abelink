@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// limit-probe.mjs - cari batas maksimal panjang task yang masih selesai.
+// limit-probe.ts - cari batas maksimal panjang task yang masih selesai.
 //
 // Dua mode:
 //   --plan (default)  offline, tanpa LLM. Mencetak tangga rung, budget langkah
@@ -10,12 +10,12 @@
 //                     kegagalan pertama, jadi biaya terkendali.
 //
 // Contoh:
-//   bun evaluation/limit-probe.mjs --plan
-//   bun evaluation/limit-probe.mjs --plan --effort high
-//   bun evaluation/limit-probe.mjs --run --effort xhigh --runs 1
-//   bun evaluation/limit-probe.mjs --run --effort max --runs 1 --max 96
+//   bun evaluation/limit-probe.ts --plan
+//   bun evaluation/limit-probe.ts --plan --effort high
+//   bun evaluation/limit-probe.ts --run --effort xhigh --runs 1
+//   bun evaluation/limit-probe.ts --run --effort max --runs 1 --max 96
 //
-// Verdict yang dilaporkan (lihat buildLimitVerdict di limit-ladder.mjs):
+// Verdict yang dilaporkan (lihat buildLimitVerdict di limit-ladder.ts):
 //   sustainedArtifacts : batas KEMAMPUAN (rung terbesar yang lolos)
 //   maxWithinBudget    : batas PRODUKSI (rung terbesar yang lolos DAN muat
 //                        budget langkah effort yang dipakai)
@@ -37,20 +37,20 @@ import {
   recommendedStepsForArtifacts,
   rungId,
   minStepsForArtifacts,
-} from './limit-ladder.mjs'
-import { EFFORT_VALUES } from './abelink-adapter.mjs'
+} from './limit-ladder.ts'
+import { EFFORT_VALUES } from './abelink-adapter.ts'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(HERE, '..')
-const RUNNER = join(HERE, 'run.mjs')
+const RUNNER = join(HERE, 'run.ts')
 
 /** Timeout per rung: skala dengan jumlah run, dengan langit-langit 1 jam. */
 export function defaultRungTimeoutMs(runs = 1, perRunMs = 600000) {
   return Math.min(runs * perRunMs + 120000, 3600000)
 }
 
-export function parseProbeArgs(argv) {
-  const args = {
+export function parseProbeArgs(argv: any) {
+  const args: any = {
     run: false,
     effort: 'xhigh',
     runs: 1,
@@ -82,20 +82,20 @@ export function parseProbeArgs(argv) {
 }
 
 /** Rung yang akan dijalankan, menaik, dibatasi --start/--max. */
-export function selectedRungs({ start, max }, ladder = LADDER) {
-  return ladder.filter((n) => n >= start && n <= max).sort((a, b) => a - b)
+export function selectedRungs({ start, max }: any, ladder: any = LADDER) {
+  return ladder.filter((n: any) => n >= start && n <= max).sort((a: any, b: any) => a - b)
 }
 
 /** Baris tabel rencana (offline): tiap rung + prasyarat + rekomendasi effort. */
-export function planRows(budgets = effortBudgets(), { start, max } = {}, ladder = LADDER) {
-  return selectedRungs({ start, max }, ladder).map((n) => ({
+export function planRows(budgets: any = effortBudgets(), { start, max }: any = {}, ladder: any = LADDER) {
+  return selectedRungs({ start, max }, ladder).map((n: any) => ({
     artifacts: n,
     taskId: rungId(n),
     minSteps: minStepsForArtifacts(n),
     recommendedSteps: recommendedStepsForArtifacts(n),
     recommendedEffort: recommendedEffortFor(n, budgets),
     fits: Object.fromEntries(
-      EFFORT_VALUES.map((e) => [e, fitsBudget(n, e, budgets)])
+      EFFORT_VALUES.map((e: any) => [e, fitsBudget(n, e, budgets)])
     ),
   }))
 }
@@ -105,7 +105,7 @@ function printHeaders() {
   console.log('='.repeat(78))
 }
 
-function printPlan(args, budgets) {
+function printPlan(args: any, budgets: any) {
   printHeaders()
   console.log(`Mode: PLAN (offline, tanpa LLM). Target effort: ${args.effort}`)
   const budget = budgets[args.effort]
@@ -127,14 +127,14 @@ function printPlan(args, budgets) {
     )
   }
   console.log('-'.repeat(78))
-  const runnable = planRows(budgets, args).filter((r) => r.fits[args.effort])
+  const runnable = planRows(budgets, args).filter((r: any) => r.fits[args.effort])
   console.log(
-    `Pada effort ${args.effort}, rung yang masuk akal dijalankan: ${runnable.map((r) => r.artifacts).join(', ') || 'tidak ada'}`
+    `Pada effort ${args.effort}, rung yang masuk akal dijalankan: ${runnable.map((r: any) => r.artifacts).join(', ') || 'tidak ada'}`
   )
   console.log('Jalankan dengan --run untuk mengukur sungguhan (butuh provider AI dan token).')
 }
 
-function buildRunnerArgs(args, artifacts, outPath) {
+function buildRunnerArgs(args: any, artifacts: any, outPath: any) {
   const argv = [
     RUNNER,
     '--tasks',
@@ -154,8 +154,8 @@ function buildRunnerArgs(args, artifacts, outPath) {
   return argv
 }
 
-/** Ambil ringkasan satu rung dari laporan run.mjs (pure; dipakai tes). */
-export function summarizeRung(report, artifacts, { timedOut = false, runs = 1 } = {}) {
+/** Ambil ringkasan satu rung dari laporan run.ts (pure; dipakai tes). */
+export function summarizeRung(report: any, artifacts: any, { timedOut = false, runs = 1 } = {}) {
   const entry =
     report?.tasks?.[rungId(artifacts)] ||
     // Sweep/A-B memberi key taskId@effort; ambil yang pertama bila itu yang ada.
@@ -186,7 +186,7 @@ export function summarizeRung(report, artifacts, { timedOut = false, runs = 1 } 
   }
 }
 
-function runRung(args, artifacts, rungTimeoutMs) {
+function runRung(args: any, artifacts: any, rungTimeoutMs: any) {
   const tmpReport = join(ROOT, 'reports', `_limit-tmp-${artifacts}.json`)
   mkdirSync(dirname(tmpReport), { recursive: true })
   try {
@@ -199,7 +199,7 @@ function runRung(args, artifacts, rungTimeoutMs) {
     encoding: 'utf8',
     timeout: rungTimeoutMs,
   })
-  const timedOut = res.error?.code === 'ETIMEDOUT' || res.signal === 'SIGTERM'
+  const timedOut = (res.error as any)?.code === 'ETIMEDOUT' || res.signal === 'SIGTERM'
   let report = null
   try {
     if (fs.existsSync(tmpReport)) report = JSON.parse(fs.readFileSync(tmpReport, 'utf8'))
@@ -221,7 +221,7 @@ function runRung(args, artifacts, rungTimeoutMs) {
   return summarizeRung(report, artifacts, { timedOut, runs: args.runs })
 }
 
-function printVerdict(verdict) {
+function printVerdict(verdict: any) {
   console.log('-'.repeat(78))
   console.log('rung  artefak  hasil     passRate  steps  durasi(ms)')
   for (const r of verdict.results) {
@@ -244,8 +244,8 @@ async function main() {
   let args
   try {
     args = parseProbeArgs(process.argv.slice(2))
-  } catch (e) {
-    console.error(e.message)
+  } catch (e: any) {
+    console.error(e?.message)
     process.exit(2)
   }
   const budgets = effortBudgets()
