@@ -23,7 +23,7 @@ import {
   SESSION_MESSAGE_CAP,
   TUI_FILE_REF_MAX_FILES,
   TUI_FILE_REF_MAX_BYTES
-} from '../bin/abelink-tui.mjs'
+} from '../bin/abelink-tui.ts'
 
 const ALIASES = { gemini: 'google/gemini-3.8-flash', free: 'qwen/qwen3.8-27b:free', auto: 'openrouter/auto' }
 

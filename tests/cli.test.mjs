@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { parseCliArgs, resolveNoArgsCommand } from '../bin/abelink.mjs'
+import { parseCliArgs, resolveNoArgsCommand } from '../bin/abelink.ts'
 
 describe('Abelink CLI Argument Parsing', () => {
   it('parses valid agent run prompt and flags correctly', () => {
     const argv = [
       'bun',
-      'bin/abelink.mjs',
+      'bin/abelink.ts',
       'agent',
       'run',
       'hitung 2+2',
@@ -35,7 +35,7 @@ describe('Abelink CLI Argument Parsing', () => {
   })
 
   it('accepts bare prompt without agent run prefix', () => {
-    const opts = parseCliArgs(['bun', 'bin/abelink.mjs', 'hitung 2+2', '-m', 'free'])
+    const opts = parseCliArgs(['bun', 'bin/abelink.ts', 'hitung 2+2', '-m', 'free'])
     expect(opts.command).toBe('run')
     expect(opts.prompt).toBe('hitung 2+2')
     expect(opts.model).toBe('free')
@@ -43,44 +43,44 @@ describe('Abelink CLI Argument Parsing', () => {
   })
 
   it('parses --session/-s and --continue/-c resume flags', () => {
-    const s = parseCliArgs(['bun', 'bin/abelink.mjs', 'agent', 'run', 'lanjutkan', '--session', 'abc123'])
+    const s = parseCliArgs(['bun', 'bin/abelink.ts', 'agent', 'run', 'lanjutkan', '--session', 'abc123'])
     expect(s.session).toBe('abc123')
     expect(s.prompt).toBe('lanjutkan')
-    const c = parseCliArgs(['bun', 'bin/abelink.mjs', '--continue'])
+    const c = parseCliArgs(['bun', 'bin/abelink.ts', '--continue'])
     expect(c.continueLatest).toBe(true)
     expect(c.prompt).toBeNull()
-    const short = parseCliArgs(['bun', 'bin/abelink.mjs', '-s', 'xyz-1'])
+    const short = parseCliArgs(['bun', 'bin/abelink.ts', '-s', 'xyz-1'])
     expect(short.session).toBe('xyz-1')
   })
 
   it('prompt optional when resuming, required otherwise', () => {
     // resume tanpa prompt = OK
-    expect(parseCliArgs(['bun', 'bin/abelink.mjs', 'agent', 'run', '--session', 'abc']).session).toBe('abc')
+    expect(parseCliArgs(['bun', 'bin/abelink.ts', 'agent', 'run', '--session', 'abc']).session).toBe('abc')
     // trailing prompt setelah resume flag ikut tertangkap
-    const t = parseCliArgs(['bun', 'bin/abelink.mjs', '--session', 'abc', 'lanjutkan X'])
+    const t = parseCliArgs(['bun', 'bin/abelink.ts', '--session', 'abc', 'lanjutkan X'])
     expect(t.prompt).toBe('lanjutkan X')
   })
 
   it('routes sessions subcommand without prompt', () => {
-    expect(parseCliArgs(['bun', 'bin/abelink.mjs', 'sessions']).command).toBe('sessions')
+    expect(parseCliArgs(['bun', 'bin/abelink.ts', 'sessions']).command).toBe('sessions')
   })
 
   it('routes setup and models subcommands without prompt', () => {
-    expect(parseCliArgs(['bun', 'bin/abelink.mjs', 'setup']).command).toBe('setup')
-    const m = parseCliArgs(['bun', 'bin/abelink.mjs', 'models', 'gemini'])
+    expect(parseCliArgs(['bun', 'bin/abelink.ts', 'setup']).command).toBe('setup')
+    const m = parseCliArgs(['bun', 'bin/abelink.ts', 'models', 'gemini'])
     expect(m.command).toBe('models')
     expect(m.filter).toBe('gemini')
   })
 
   it('parses --api-key flag', () => {
-    const opts = parseCliArgs(['bun', 'bin/abelink.mjs', 'halo', '--api-key', 'sk-test'])
+    const opts = parseCliArgs(['bun', 'bin/abelink.ts', 'halo', '--api-key', 'sk-test'])
     expect(opts.apiKey).toBe('sk-test')
   })
 
   it('sets default parameters when optional flags are omitted', () => {
     const argv = [
       'bun',
-      'bin/abelink.mjs',
+      'bin/abelink.ts',
       'agent',
       'run',
       'selesaikan tugas'

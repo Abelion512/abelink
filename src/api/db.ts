@@ -180,6 +180,11 @@ export interface AgentTaskStepRow {
 export interface SubagentRow {
   id: string
   status: string
+  role?: string
+  goal?: string
+  turnCount?: number
+  finalAnswer?: string | null
+  workspaceRoot?: string | null
   parentSessionId?: string
   createdAt?: number
   updatedAt?: number

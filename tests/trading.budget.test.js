@@ -1,13 +1,13 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import 'fake-indexeddb/auto'
-import { tradingDb, addLedgerEntry, setAllocation, recordUsage } from '../src/api/trading/wallet.js'
+import { tradingDb, addLedgerEntry, setAllocation, recordUsage } from '../src/api/trading/wallet.ts'
 import {
   BUDGET_POLICIES,
   estimateCost,
   getModelBudgetStatus,
   checkModelBudget,
   setAllocationWithPricing
-} from '../src/api/trading/budgetMonitor.js'
+} from '../src/api/trading/budgetMonitor.ts'
 
 // Token-budget monitor: otak self-funding wallet. Pastikan perhitungan
 // burn rate, exhausted, dan policy guard benar sebelum dipercaya.

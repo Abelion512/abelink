@@ -6,10 +6,10 @@ import { mkdtempSync, readFileSync, rmSync, existsSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import matrix from '../evaluation/pr46-matrix.mjs'
+import matrix from '../evaluation/pr46-matrix.ts'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
-const GEN = path.resolve(HERE, '../evaluation/promptfoo/generate-matrix.mjs')
+const GEN = path.resolve(HERE, '../evaluation/promptfoo/generate-matrix.ts')
 
 describe('generate-matrix (Promptfoo x AbelinkBench PR46)', () => {
   it('emit 30 fixture ke out-dir sementara dan manifest konsisten', () => {

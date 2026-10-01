@@ -1,6 +1,6 @@
 // harnessCore.ts — kontrak harness SATU SKEMA, dua penulis (PLAN-T1).
 // Penulis GUI: src/api/harness.ts -> Rust harness_append (rotasi 50MB×3).
-// Penulis headless: cli/core/harness-writer.mjs -> fs langsung, root SAMA,
+// Penulis headless: cli/core/harness-writer.ts -> fs langsung, root SAMA,
 // envelope + bentuk event SAMA agar scripts/harness-{diagnose,export}.mjs
 // membaca keduanya tanpa cabang khusus headless.
 //
@@ -10,7 +10,7 @@
 //
 // Murni: zero I/O, zero import berat — aman diimpor dari renderer maupun CLI/TUI
 // (aturan "no Node APIs in src/" tetap hidup karena tidak ada Node API di sini).
-// Detail node:fs/node:path hidup di cli/core/harness-writer.mjs.
+// Detail node:fs/node:path hidup di cli/core/harness-writer.ts.
 
 export const HARNESS_CORE_VERSION = 1
 

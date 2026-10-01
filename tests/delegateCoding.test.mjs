@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { core_tools } from '../src/api/tools/core-tools.js'
+import { core_tools } from '../src/api/tools/core-tools.ts'
 import { runAgentTool } from '../src/hooks/agent/plan/agentTools.js'
 
 describe('delegate_coding integration', () => {

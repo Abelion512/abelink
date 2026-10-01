@@ -8,8 +8,8 @@ import {
   computeRunMetrics,
   aggregateMetrics,
   buildMeasurementReport,
-} from '../evaluation/metrics.mjs'
-import { evidenceFromRun, EVIDENCE_STATUS } from '../evaluation/evidence.mjs'
+} from '../evaluation/metrics.ts'
+import { evidenceFromRun, EVIDENCE_STATUS } from '../evaluation/evidence.ts'
 
 const evidence = (stepLog) => evidenceFromRun({ taskId: 't', stepLog })
 const okEvidence = evidence([{ step: 1, type: 'tool', tool: 'write-file', result: 'ok', success: true }])

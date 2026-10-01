@@ -6,10 +6,10 @@ import { describe, it, expect } from 'vitest'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { createHarnessWriter, createHeadlessHarnessLogger, trajectoryHeadlessEnabled, resolveHarnessRoot } from '../cli/core/harness-writer.mjs'
+import { createHarnessWriter, createHeadlessHarnessLogger, trajectoryHeadlessEnabled, resolveHarnessRoot } from '../cli/core/harness-writer.ts'
 import { makeHarnessToolCall, makeHarnessTurnStart, makeHarnessTurnEnd, normalizeHarnessSessionId } from '../src/api/harnessCore.ts'
-import { readSessionEvents } from '../scripts/harness-export.mjs'
-import { parseHarnessRow } from '../cli/tui/usageStats.mjs'
+import { readSessionEvents } from '../scripts/harness-export.ts'
+import { parseHarnessRow } from '../cli/tui/usageStats.ts'
 
 const mkFs = () => {
   const dirs = new Set()

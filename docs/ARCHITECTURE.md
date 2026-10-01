@@ -177,14 +177,14 @@ Secondary material is for discovery. Implementation decisions should be traceabl
 - **Tool berbahaya:** model memutuskan → renderer `node_invoke('native-tool:execute')`
   → Rust cek `APPROVAL_ACTIONS`/`needsApproval` → dialog rfd native →
   baru diteruskan ke sidecar `main/node-tools.js`.
-- **Benchmark (AbelinkBench):** `evaluation/run.mjs` (orchestrator multi-run:
+- **Benchmark (AbelinkBench):** `evaluation/run.ts` (orchestrator multi-run:
   averaging 3x per task ala Terminal-Bench 2.1/Kimi K3, anti-cheat sentinel
   acak per run, laporan JSON `schemaVersion: 1`, regression gate `--compare`)
-  → `evaluation/terminal-bench.mjs` (registry task + verifier deterministik +
+  → `evaluation/terminal-bench.ts` (registry task + verifier deterministik +
   `maxTurns`, script `bun run benchmark:run`/`benchmark:echo`) →
   `abelink-adapter.mjs` (spawn sidecar persisten, multiplex per id, turn budget
   per task) → jawaban diverifier predikat yang dieksekusi → laporan JSON.
-   Smoke tanpa network: `bun evaluation/smoke.mjs` (registry, verifier
+   Smoke tanpa network: `bun evaluation/smoke.ts` (registry, verifier
    PASS/FAIL, agregasi + anti-cheat).
 - **Effort/budget:** `src/api/ai/effortSystem.js` (policy kanonis LOW–ULTRA +
   AUTO resolver, immutable) → `applyLimits()` (min dari kanonis, runtime,
@@ -201,18 +201,18 @@ Secondary material is for discovery. Implementation decisions should be traceabl
   `evaluator.mjs` (rubrik 0/1 deterministik) → `runner-stub.mjs`
   (otomatisasi penuh menunggu boundary ABELINK nyata, lihat
   `boundary-spec.mjs`). Fixtures deterministik effort:
-  `evaluation/effort-fixtures.mjs` + `tests/effort-fixtures.test.mjs`.
-- **Measurement plane PR46 (bukan runtime baru):** `evaluation/evidence.mjs`
+  `evaluation/effort-fixtures.ts` + `tests/effort-fixtures.test.mjs`.
+- **Measurement plane PR46 (bukan runtime baru):** `evaluation/evidence.ts`
   menormalkan observasi tool yang SUDAH ada (stepLog/trace adapter) menjadi
   record bukti in-memory berprovenance (run/task, tool, status, payload, source)
-  tanpa store baru dan tanpa field berbentuk browser; `evaluation/metrics.mjs`
+  tanpa store baru dan tanpa field berbentuk browser; `evaluation/metrics.ts`
   menghitung metrik per-run (task success vs verified success terpisah, turn,
   tool call, retry, aksi berulang, stagnasi, recovery, latensi, biaya token
   bila tersedia, intervensi manusia) dan membungkus `aggregateRuns` dengan
   `abelinkbench-measurement-report` (jumlah run berulang eksplisit).
-  `evaluation/pr46-matrix.mjs` mendaftarkan matriks 30 fixture (research 6,
+  `evaluation/pr46-matrix.ts` mendaftarkan matriks 30 fixture (research 6,
   browser 5, os 5, study 5, recovery 5, reuse 4) dengan oracle world-state
-  deterministik; `evaluation/pr46-experiments.mjs` menegakkan identitas model
+  deterministik; `evaluation/pr46-experiments.ts` menegakkan identitas model
   exact (provider/modelId/modelVersion, TIDAK pernah "latest"), integritas
   perbandingan baseline-vs-kandidat, dan ablasi representasi browser.
   `run.mjs --suite pr46` menjalankan matriks lewat runner yang sama.
@@ -330,7 +330,7 @@ SATU SKEMA, DUA PENULIS (M2c, PLAN-T1):
   `environment.executeTool` di ketiga host headless (`bin/abelink.mjs`,
   `bin/abelink-tui.mjs`, `cli/tui/engine.mjs`) — pre/post hook + audit JSONL
   otomatis (termasuk tool yang di-deny), audit tak pernah fatal.
-Evaluasi: `evaluation/run.mjs` `sidecarWorkspaceRoot()` = rumus sama +
+Evaluasi: `evaluation/run.ts` `sidecarWorkspaceRoot()` = rumus sama +
 `workspace`. Kategori log baca langsung dari file (`bun run
 harness:diagnose`), bukan copas user.
 

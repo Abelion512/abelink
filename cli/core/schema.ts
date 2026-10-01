@@ -1,7 +1,7 @@
 // cli/core/schema.ts — kontrak frame JSON-over-stdio client <-> sidecar engine.
 //
-// Single source bentuk frame; registry.mjs (sisi engine) dan
-// sidecar-client.mjs (sisi client) wajib konsisten dengan tipe ini.
+// Single source bentuk frame; registry.ts (sisi engine) dan
+// sidecar-client.ts (sisi client) wajib konsisten dengan tipe ini.
 // Kontrak runtime TIDAK berubah: `payload` tetap array atau tunggal,
 // response tetap `{ success, data | error }`, event tetap `{ event, payload }`.
 //

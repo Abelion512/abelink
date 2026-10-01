@@ -14,9 +14,9 @@ import os from 'node:os'
 import path from 'node:path'
 import 'fake-indexeddb/auto'
 
-import { createTuiState, submitLine } from '../cli/tui/engine.mjs'
-import { createHarnessWriter } from '../cli/core/harness-writer.mjs'
-import { readSessionEvents } from '../scripts/harness-export.mjs'
+import { createTuiState, submitLine } from '../cli/tui/engine.ts'
+import { createHarnessWriter } from '../cli/core/harness-writer.ts'
+import { readSessionEvents } from '../scripts/harness-export.ts'
 import { listCliSessions } from '../src/api/ai/headlessCli.ts'
 
 let tmpHome = null

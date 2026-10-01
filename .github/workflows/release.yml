@@ -70,7 +70,7 @@ jobs:
       - name: Frontend build (vite)
         run: bun run build
       - name: Benchmark smoke (evaluation harness)
-        run: bun evaluation/smoke.mjs
+        run: bun evaluation/smoke.ts
       - name: Install Linux deps (WebKitGTK)
         run: |
           sudo apt-get update

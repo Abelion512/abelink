@@ -1,5 +1,5 @@
 // tests/taskRuntime.test.mjs
-// Boundary tests for src/api/engine/taskRuntime.js (delegate-only facade).
+// Boundary tests for src/api/engine/taskRuntime.ts (delegate-only facade).
 // Lifecycle semantics live in taskStore.ts; here we prove delegation,
 // events, getResult, unknown-task errors, restart recovery, and that the
 // facade imports without browser globals.
@@ -25,7 +25,7 @@ import {
   deleteTask,
   pauseStaleTasks,
   getResult
-} from '../src/api/engine/taskRuntime.js'
+} from '../src/api/engine/taskRuntime.ts'
 
 const twoSteps = (id) => ({
   id,
@@ -51,7 +51,7 @@ describe('taskRuntime — headless import', () => {
   it('loads without React/browser globals', async () => {
     expect(typeof window).toBe('undefined')
     expect(typeof localStorage).toBe('undefined')
-    const mod = await import('../src/api/engine/taskRuntime.js')
+    const mod = await import('../src/api/engine/taskRuntime.ts')
     expect(typeof mod.createTask).toBe('function')
     expect(typeof mod.getResult).toBe('function')
   })

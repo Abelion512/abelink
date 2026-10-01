@@ -15,8 +15,8 @@ import {
   aggregateAbelinkEval,
   mkMemoryScenario,
   runSmoke
-} from '../evaluation/abelink-eval.mjs'
-import { BENCHMARK_MATRIX, CORE_SET, summarizeMatrix } from '../evaluation/matrix.mjs'
+} from '../evaluation/abelink-eval.ts'
+import { BENCHMARK_MATRIX, CORE_SET, summarizeMatrix } from '../evaluation/matrix.ts'
 
 // ABELINK-Eval = pengukur KUALITAS ARSITEKTUR. Verifier wajib deterministik.
 

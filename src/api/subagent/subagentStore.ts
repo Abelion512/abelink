@@ -1,0 +1,111 @@
+import { db } from '../db'
+
+export const subagentStore = {
+  /**
+   * Membuat entitas Sub-Agent baru di database Dexie
+   */
+  async createSubagent({
+    name = 'Specialist-Agent',
+    role = 'Technical Specialist',
+    goal = 'Selesaikan misi yang ditugaskan',
+    allowedTools = ['*'],
+    parentSessionId = 'default',
+    workspaceRoot = null
+  }) {
+    const secureIdPart =
+      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : (() => {
+            const bytes = new Uint8Array(16)
+            crypto.getRandomValues(bytes)
+            return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
+          })()
+    const id = `sub_${secureIdPart}`
+    const subagent = {
+      id,
+      name,
+      role,
+      goal,
+      allowedTools,
+      status: 'running',
+      parentSessionId,
+      workspaceRoot,
+      turnCount: 0,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      finalAnswer: null
+    }
+    await db.subagents.put(subagent)
+    return subagent
+  },
+
+  /**
+   * Mengambil metadata Sub-Agent berdasarkan ID
+   */
+  async getSubagent(id: any) {
+    if (!id) return null
+    return await db.subagents.get(id)
+  },
+
+  /**
+   * Mengambil daftar seluruh Sub-Agent
+   */
+  async listSubagents(filterStatus = null) {
+    const collection = db.subagents.orderBy('createdAt').reverse()
+    if (filterStatus && filterStatus !== 'all') {
+      return await collection.filter((s) => s.status === filterStatus).toArray()
+    }
+    return await collection.toArray()
+  },
+
+  /**
+   * Mengupdate field/status Sub-Agent
+   */
+  async updateSubagent(id: any, updates: any) {
+    if (!id) return
+    await db.subagents.update(id, { ...updates, updatedAt: Date.now() })
+  },
+
+  /**
+   * Menghapus Sub-Agent beserta riwayat chat-nya
+   */
+  async deleteSubagent(id: any) {
+    if (!id) return
+    await db.subagents.delete(id)
+    await db.subagent_messages.where('subagentId').equals(id).delete()
+  },
+
+  /**
+   * Menambahkan pesan ke riwayat percakapan AI-to-AI Sub-Agent
+   */
+  async addMessage(subagentId: any, { sender, role, content, thought = null, action = null }: any = {}) {
+    if (!subagentId) return null
+    const msg = {
+      subagentId,
+      sender, // 'abelink' | 'subagent' | 'system' | 'tool'
+      role, // 'user' | 'assistant' | 'system'
+      content: typeof content === 'string' ? content : JSON.stringify(content),
+      thought: thought || null,
+      action: action || null,
+      timestamp: Date.now()
+    }
+    const id = await db.subagent_messages.add(msg)
+    return { ...msg, id }
+  },
+
+  /**
+   * Mengambil semua pesan Sub-Agent secara kronologis
+   */
+  async getMessages(subagentId: any) {
+    if (!subagentId) return []
+    return await db.subagent_messages.where('subagentId').equals(subagentId).sortBy('timestamp')
+  },
+
+  /**
+   * Membersihkan pesan dari satu Sub-Agent
+   */
+  async clearMessages(subagentId: any) {
+    if (!subagentId) return
+    await db.subagent_messages.where('subagentId').equals(subagentId).delete()
+  }
+}

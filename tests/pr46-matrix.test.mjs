@@ -15,10 +15,10 @@ import {
   laneCounts,
   seedPr46Fixture,
   failureThenSuccess,
-} from '../evaluation/pr46-matrix.mjs'
-import { validateAblationPair } from '../evaluation/pr46-experiments.mjs'
-import { ALL_TASKS } from '../evaluation/terminal-bench.mjs'
-import { ARCH_TASKS } from '../evaluation/bench/tasks.mjs'
+} from '../evaluation/pr46-matrix.ts'
+import { validateAblationPair } from '../evaluation/pr46-experiments.ts'
+import { ALL_TASKS } from '../evaluation/terminal-bench.ts'
+import { ARCH_TASKS } from '../evaluation/bench/tasks.ts'
 
 const SENTINEL = 'S3N-pr46t'
 

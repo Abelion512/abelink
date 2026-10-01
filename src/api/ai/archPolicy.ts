@@ -3,7 +3,7 @@
 // `benchArch.js` owns the axis values + resolution (vanilla/basic, default
 // basic). This module owns what each value MEANS: supervisor on/off, verify
 // gate on/off, whether a model completion claim is trusted. Renderer call
-// sites (useAbelinkPlan.js, subagentExecutor.js) and the bench loop consume
+// sites (useAbelinkPlan.js, subagentExecutor.ts) and the bench loop consume
 // this policy instead of branching on the raw arch string inline, so the
 // duplicated `benchArch === 'vanilla'` branches in two files collapse to one.
 //

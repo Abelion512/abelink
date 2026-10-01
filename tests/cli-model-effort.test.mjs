@@ -16,7 +16,7 @@ import {
   persistCliField,
   modelSourceLabel,
   classifyAiError,
-} from '../cli/tui/modelEffort.mjs'
+} from '../cli/tui/modelEffort.ts'
 import { MODEL_ALIASES, DEFAULT_CLI_MODEL } from '../src/api/ai/headlessCli.ts'
 
 describe('MODEL_ALIASES 9Router (A1: ID live, bukan OpenRouter)', () => {

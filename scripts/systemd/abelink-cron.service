@@ -15,8 +15,8 @@
 #     journalctl --user -u abelink-cron.service -f
 #
 # Kelola job tanpa menyentuh daemon:
-#     bun bin/abelink-cron.mjs list
-#     bun bin/abelink-cron.mjs create --name pagi --prompt "ringkas berita" --cron "0 7 * * *"
+#     bun bin/abelink-cron.ts list
+#     bun bin/abelink-cron.ts create --name pagi --prompt "ringkas berita" --cron "0 7 * * *"
 [Unit]
 Description=Abelink cron scheduler daemon (tick 60s, at-most-once)
 Documentation=file://__ABELINK_ROOT__/docs/PLANNED/2026-09-26_master-migration-program.md
@@ -25,8 +25,8 @@ After=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=__ABELINK_ROOT__
-ExecStart=__ABELINK_BUN__ __ABELINK_ROOT__/bin/abelink-cron.mjs daemon
-# Job anak (`bun bin/abelink.mjs`) butuh PATH yang memuat bun + CLI agent lokal.
+ExecStart=__ABELINK_BUN__ __ABELINK_ROOT__/bin/abelink-cron.ts daemon
+# Job anak (`bun bin/abelink.ts`) butuh PATH yang memuat bun + CLI agent lokal.
 Environment=PATH=__ABELINK_BUN_DIR__:/usr/local/bin:/usr/bin:/bin
 Restart=on-failure
 RestartSec=10

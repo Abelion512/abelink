@@ -16,8 +16,8 @@ import {
   curatePicker,
   pushRecent,
   resolveCatalogModel,
-} from '../cli/tui/modelCatalog.mjs'
-import { loadModelCatalog, saveRecentModels, modelPickerRows } from '../cli/tui/engine.mjs'
+} from '../cli/tui/modelCatalog.ts'
+import { loadModelCatalog, saveRecentModels, modelPickerRows } from '../cli/tui/engine.ts'
 
 const SAMPLE = [
   { id: 'claude-work', object: 'model', capabilities: { reasoning: false, contextWindow: 128000, maxOutput: 384000, thinkingFormat: null, thinkingCanDisable: true } },

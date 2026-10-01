@@ -1,4 +1,4 @@
-// Unit test adapter Promptfoo (evaluation/promptfoo/abelink-provider.mjs).
+// Unit test adapter Promptfoo (evaluation/promptfoo/abelink-provider.ts).
 // Fokus: pemetaan hasil CLI -> ProviderResponse tanpa spawn engine sungguhan
 // (mock lewat overwrite spawn bawaan modul? — tidak: gunakan argumen yang
 // memicu jalur error deterministik CLI, plus uji helper murni via kelas).
@@ -8,8 +8,8 @@ import { spawn } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const ADAPTER = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../evaluation/promptfoo/abelink-provider.mjs')
-const CLI = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../bin/abelink.mjs')
+const ADAPTER = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../evaluation/promptfoo/abelink-provider.ts')
+const CLI = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../bin/abelink.ts')
 
 describe('abelink-provider (adapter Promptfoo)', () => {
   it('file ada dan bisa diimport default class', async () => {

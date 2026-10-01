@@ -10,9 +10,9 @@
 //
 // Sumber: docs/PLANNED/sessions/2026-09-27_os-automation-dorman.md
 import { describe, it, expect } from 'vitest'
-import { GROUP_TOOLS_DEFINITION, loadGroupToolsText } from '../src/api/tools/group-tools.js'
-import { core_tools } from '../src/api/tools/core-tools.js'
-import { DEFERRED_GROUP_SPECS, UNIFIED_TOOL_CATALOG } from '../src/api/tools/toolCatalog.js'
+import { GROUP_TOOLS_DEFINITION, loadGroupToolsText } from '../src/api/tools/group-tools.ts'
+import { core_tools } from '../src/api/tools/core-tools.ts'
+import { DEFERRED_GROUP_SPECS, UNIFIED_TOOL_CATALOG } from '../src/api/tools/toolCatalog.ts'
 
 describe('pc_automation dorman (keputusan owner 2026-09-27)', () => {
   it('group ditandai dormant dengan alasan yang jujur', () => {
@@ -33,7 +33,7 @@ describe('pc_automation dorman (keputusan owner 2026-09-27)', () => {
 
   it('sub-agent juga tidak merekrut grup dormant', async () => {
     const { readFileSync } = await import('node:fs')
-    const src = readFileSync('src/api/subagent/subagentExecutor.js', 'utf8')
+    const src = readFileSync('src/api/subagent/subagentExecutor.ts', 'utf8')
     expect(src).toMatch(/\.filter\(\(\[, v\]\) => !v\.dormant\)/)
   })
 

@@ -9,8 +9,8 @@ import {
   nextAlphaVersion as nextAlphaVersionReal,
   detectBumpType,
   bumpRank,
-} from '../scripts/release-version.mjs'
-import { appToExtVersion } from '../scripts/ext-version.mjs'
+} from '../scripts/release-version.ts'
+import { appToExtVersion } from '../scripts/ext-version.ts'
 const semver = { parse: semverParse, gt: semverGt, rcompare: semverRcompare }
 
 // ── Helper under test (inline to avoid module-level side effects) ──────────
@@ -448,7 +448,7 @@ function makeMinimalProject(dir, tauriVersion) {
   fsWrite(join(dir, 'extension', 'manifest.json'), JSON.stringify({ manifest_version: 3, name: 'test', version: '0.0.0.0' }) + '\n')
   // scripts yang dibutuhkan - symlink ke project asli
   mkdirSync(join(dir, 'scripts'), { recursive: true })
-  for (const f of ['sync-version.mjs', 'ext-version.mjs', 'semver-lite.mjs']) {
+  for (const f of ['sync-version.ts', 'ext-version.ts', 'semver-lite.ts']) {
     try { symlinkSync(join(ROOT, 'scripts', f), join(dir, 'scripts', f)) } catch { /* symlink sudah ada */ }
   }
 }
@@ -460,7 +460,7 @@ describe('sync-version exit code (regression: write mode tidak boleh exit 1)', {
       makeMinimalProject(dir, '1.0.0-alpha.5')
       let code = 0
       try {
-        execFileSync(process.execPath, [join(dir, 'scripts', 'sync-version.mjs')], {
+        execFileSync('bun', [join(dir, 'scripts', 'sync-version.ts')], {
           cwd: dir,
           env: { ...process.env },
           stdio: 'pipe',

@@ -10,7 +10,7 @@ import {
   isFailed,
   EXECUTION_BOUNDARY_API,
   createStubBoundary,
-} from '../evaluation/bench/capture.mjs'
+} from '../evaluation/bench/capture.ts'
 
 import {
   runBenchmark,
@@ -21,13 +21,13 @@ import {
   evaluateTask,
   findTask,
   ARCH_TASKS,
-} from '../evaluation/bench/runner-stub.mjs'
+} from '../evaluation/bench/runner-stub.ts'
 
 import {
   makeReport,
   makeStep,
   STEP_KIND,
-} from '../evaluation/bench/contract.mjs'
+} from '../evaluation/bench/contract.ts'
 
 // ---- Capture contract ---------------------------------------------------
 

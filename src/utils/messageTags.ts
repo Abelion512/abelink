@@ -1,4 +1,4 @@
-// Tag routing prefixes written by subagentExecutor.js: matched exactly, as literals.
+// Tag routing prefixes written by subagentExecutor.ts: matched exactly, as literals.
 export const LEAD_AGENT_TAG = '[DARI LEAD AGENT (ABELINK)]:'
 export const CREATOR_TAG = '[DARI CREATOR / USER (MADA)]:'
 

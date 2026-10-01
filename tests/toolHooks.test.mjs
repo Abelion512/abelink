@@ -2,8 +2,8 @@
 // Acceptance dokumen Hermes: "hook after menerima {tool, ok, ms}" +
 // "audit JSONL bertambah" + choke point tunggal tanpa mengubah perilaku tool.
 import { describe, it, expect, vi } from 'vitest'
-import { executeToolWithHooks, createToolAuditLogger } from '../cli/core/tool-hooks.mjs'
-import { createHarnessWriter, createHeadlessHarnessLogger } from '../cli/core/harness-writer.mjs'
+import { executeToolWithHooks, createToolAuditLogger } from '../cli/core/tool-hooks.ts'
+import { createHarnessWriter, createHeadlessHarnessLogger } from '../cli/core/harness-writer.ts'
 
 const memFs = () => {
   const files = new Map()

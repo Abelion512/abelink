@@ -19,12 +19,12 @@
 | P-06 | `src/api/ai/agentDecision.ts` | Shared predicate, ceiling 1 challenge | Bila model terus gagal challenge → tambah retry terukur |
 | P-07 | `sidecar/main/services/gemini-web.ts` | Rantai kata kunci tunggal (tanpa map per versi) | Bila versi model baru gagal resolve |
 | P-08 | `sidecar/main/browser/native-host.ts` | Python literals wajib double-quote (batasan -c) | Bila migrasi dari `python -c` |
-| P-09 | `bin/abelink.mjs` + `bin/abelink-tui.mjs` | auto-mkdir workspace (cermin TUI) | Bila tool mulai validasi workspace sendiri |
+| P-09 | `bin/abelink.ts` + `bin/abelink-tui.ts` | auto-mkdir workspace (cermin TUI) | Bila tool mulai validasi workspace sendiri |
 | P-10 | `tests/cli-tui-v2.test.mjs` | spawn + stdin.end (execFile `input:` hang di env ini) | Bila execFile bekerja di env CI baru |
-| P-11 | `scripts/bump-version.mjs` + `release-version.mjs` | regex footer, bukan parser Conventional-Commits penuh | Bila kasus commit nyata yang salah klasifikasi |
-| P-12 | `scripts/release-helper.mjs` | delete+recreate PR data (bukan merge) | Bila ada state rilis yang layak di-merge |
-| P-13 | `evaluation/bench/boundary-abelink.mjs` | clamp trace 4k (di bawah bridge clamp 20k) | Bila trace pendek dibutuhkan penuh |
-| P-14 | `evaluation/effort-fixtures.mjs` | Loop topologis sekuensial (batch terbatas) | Bila eval node punya async I/O nyata |
+| P-11 | `scripts/bump-version.ts` + `release-version.ts` | regex footer, bukan parser Conventional-Commits penuh | Bila kasus commit nyata yang salah klasifikasi |
+| P-12 | `scripts/release-helper.ts` | delete+recreate PR data (bukan merge) | Bila ada state rilis yang layak di-merge |
+| P-13 | `evaluation/bench/boundary-abelink.ts` | clamp trace 4k (di bawah bridge clamp 20k) | Bila trace pendek dibutuhkan penuh |
+| P-14 | `evaluation/effort-fixtures.ts` | Loop topologis sekuensial (batch terbatas) | Bila eval node punya async I/O nyata |
 | P-15 | `src/assets/main.css` | Keyframes hello-draw sederhana (pengganti motion pathLength, tanpa dep) | Bila animasi boot butuh path drawing asli |
 | P-16 | `src/components/Chat/CodeBlock.tsx` | pre/code + CSS (react-syntax-highlighter dep dihapus) | Bila highlight baris-per-baris dibutuhkan di jalur chat |
 | P-17 | `src/components/WhatNew.tsx` | Satu komponen timeline tanpa lib baru | Bila kebutuhan visualisasi rilis melampaui chip+search |

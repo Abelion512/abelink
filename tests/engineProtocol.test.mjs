@@ -8,7 +8,7 @@ import {
   dispatchEngineCommand,
   ProviderRuntime,
   createProviderRuntime
-} from '../cli/core/index.mjs'
+} from '../cli/core/index.ts'
 
 describe('EngineProtocol — Phase A1 Contract & Boundary', () => {
   it('dispatches commands and emits typed lifecycle events', async () => {

@@ -20,7 +20,7 @@ import {
   makeRunId,
   makeRubricResult,
   makeStep as makeStepAlias,
-} from '../evaluation/bench/contract.mjs'
+} from '../evaluation/bench/contract.ts'
 
 import {
   evaluateTask,
@@ -31,20 +31,20 @@ import {
   extractFlags,
   countToolCalls,
   inferStatus,
-} from '../evaluation/bench/evaluator.mjs'
+} from '../evaluation/bench/evaluator.ts'
 
 import {
   createRun,
   syntheticTrajectory,
   resolveEffort,
   runSyntheticTask,
-} from '../evaluation/bench/runner.mjs'
+} from '../evaluation/bench/runner.ts'
 
 import {
   summarizeComparison,
-} from '../evaluation/bench/compare.mjs'
+} from '../evaluation/bench/compare.ts'
 
-import { findTask, ARCH_TASKS, listArchTasks } from '../evaluation/bench/tasks.mjs'
+import { findTask, ARCH_TASKS, listArchTasks } from '../evaluation/bench/tasks.ts'
 
 // ---- Contract helpers ----------------------------------------------------
 

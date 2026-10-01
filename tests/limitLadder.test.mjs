@@ -27,9 +27,9 @@ import {
   recommendedStepsForArtifacts,
   rungId,
   classifyLimitFailure,
-} from '../evaluation/limit-ladder.mjs'
-import { LIMIT_TASKS, listLimitTasks, rungMaxTurns, verifyChainArtifacts } from '../evaluation/tasks-limit.mjs'
-import { defaultRungTimeoutMs, planRows, selectedRungs, summarizeRung } from '../evaluation/limit-probe.mjs'
+} from '../evaluation/limit-ladder.ts'
+import { LIMIT_TASKS, listLimitTasks, rungMaxTurns, verifyChainArtifacts } from '../evaluation/tasks-limit.ts'
+import { defaultRungTimeoutMs, planRows, selectedRungs, summarizeRung } from '../evaluation/limit-probe.ts'
 
 const SENTINEL = 'S3N-testlimit'
 

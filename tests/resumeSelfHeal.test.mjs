@@ -8,7 +8,7 @@
 // background.js adalah script klasik MV3 (tanpa modul, chrome.* global) dan
 // tidak bisa diimport di vitest — kontrak diverifikasi statis ala
 // browser-flavor.test.mjs: segmen tryAutoResume diekstrak lalu diasersi.
-// Bukti perilaku e2e di Chrome sungguhan: scripts/mv3-keepalive-measure.mjs
+// Bukti perilaku e2e di Chrome sungguhan: scripts/mv3-keepalive-measure.ts
 // mode s3only (S3c regen token -> dispatch -> pulih tanpa intervensi).
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'

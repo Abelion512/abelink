@@ -30,7 +30,7 @@ describe('workspaceRoot plumbing (WS-1)', () => {
   })
 
   it('spawn_subagent menyimpan workspaceRoot ctx ke record', async () => {
-    const { subagentStore } = await import('../src/api/subagent/subagentStore.js')
+    const { subagentStore } = await import('../src/api/subagent/subagentStore.ts')
     await subagentStore.createSubagent({
       name: 'T',
       role: 'R',

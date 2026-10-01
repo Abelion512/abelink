@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 /** @jsxImportSource @opentui/solid */
 // bin/abelink-tui-v2.tsx — TUI-v2 entry: flags + engine + render OpenTUI.
-// State + routing di cli/tui/engine.mjs (submitLine); App.tsx presentational.
+// State + routing di cli/tui/engine.ts (submitLine); App.tsx presentational.
 // Piped stdin (E2E): tiap baris via submitLine dengan runTurn stub-able,
 // lalu exit — cermin perilaku v1 readline.
 import { createCliRenderer } from '@opentui/core'
@@ -10,8 +10,8 @@ import { KeymapProvider } from '@opentui/keymap/solid'
 import { render } from '@opentui/solid'
 import { createSignal } from 'solid-js'
 import { App } from '../cli/tui/App.tsx'
-import { createTuiState, submitLine } from '../cli/tui/engine.mjs'
-import { parseTuiArgs, TUI_HELP, TUI_VERSION } from '../cli/core/index.mjs'
+import { createTuiState, submitLine } from '../cli/tui/engine.ts'
+import { parseTuiArgs, TUI_HELP, TUI_VERSION } from '../cli/core/index.ts'
 import type {
   PickerRow,
   PickerState,
@@ -142,14 +142,14 @@ async function main() {
   // cliConfig (recent/fav) dibaca bootstrap dari HOME yang sama.
   const cliConfig = boot.fileConfig || {}
   const deps: TuiDeps = { auth, aliases, maxTurns, helpText: TUI_HELP, homeDir: e2eHome, cliConfig }
-  const { parseSlashCommand, parseShellLine } = await import('../cli/core/index.mjs')
+  const { parseSlashCommand, parseShellLine } = await import('../cli/core/index.ts')
 
   if (piped) {
     // Lazy sidecar: hanya bila ada prompt (bukan slash-info murni).
     let sidecar: SidecarClient | null = null
     const getSidecar = async (): Promise<SidecarClient> => {
       if (!sidecar) {
-        const { createSidecarClient } = await import('../cli/core/index.mjs')
+        const { createSidecarClient } = await import('../cli/core/index.ts')
         sidecar = createSidecarClient() as SidecarClient
       }
       return sidecar
@@ -203,7 +203,7 @@ async function main() {
   state.onPush = () => bump()
   const getSidecar = async (): Promise<SidecarClient> => {
     if (!sidecar) {
-      const { createSidecarClient } = await import('../cli/core/index.mjs')
+      const { createSidecarClient } = await import('../cli/core/index.ts')
       sidecar = createSidecarClient() as SidecarClient
     }
     return sidecar
@@ -222,7 +222,7 @@ async function main() {
       String(r.section || '').toLowerCase().includes(s))
   }
   const loadPickerRows = async (query = ''): Promise<{ rows?: PickerRow[] }> => {
-    const { modelPickerRows } = await import('../cli/tui/engine.mjs')
+    const { modelPickerRows } = await import('../cli/tui/engine.ts')
     return modelPickerRows(state, deps, query)
   }
   const openPicker = async (query = '') => {
@@ -250,7 +250,7 @@ async function main() {
   }
   // `/sessions`: dialog sesi tersimpan (Enter = lanjut sesi).
   const openSessions = async () => {
-    const { listTuiSessions } = await import('../cli/core/index.mjs')
+    const { listTuiSessions } = await import('../cli/core/index.ts')
     let sessions: Array<{ id: string; outcome?: string; updatedAt?: string; prompt?: string }> = []
     try {
       const r = await listTuiSessions((deps as { store?: unknown }).store || null)

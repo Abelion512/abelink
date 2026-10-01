@@ -4,8 +4,8 @@ import 'fake-indexeddb/auto'
 
 import { runAgentLoop } from '../src/api/ai/agentRunner.ts'
 import { resolvePlanStepBudget } from '../src/api/ai/planStepBudget.ts'
-import { parseCliArgs } from '../bin/abelink.mjs'
-import { parseTuiArgs } from '../cli/core/parser.mjs'
+import { parseCliArgs } from '../bin/abelink.ts'
+import { parseTuiArgs } from '../cli/core/parser.ts'
 
 describe('Long-Horizon Budget & Renewal — Phase B1', () => {
   it('resolves canonical step budget for all effort levels (low, medium, high, xhigh, max, ultra)', () => {

@@ -1,6 +1,6 @@
 // benchGovernance.test.mjs — Task 4 regression lock.
 //
-// The bench loop (evaluation/abelink-adapter.mjs) executes the arch axis via
+// The bench loop (evaluation/abelink-adapter.ts) executes the arch axis via
 // getArchPolicy + the REAL governance modules (objectiveVerifier,
 // trajectorySupervisor). This test pins the decision rule the loop implements,
 // without spawning a sidecar or calling an LLM:

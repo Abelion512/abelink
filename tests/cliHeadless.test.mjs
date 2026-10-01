@@ -3,7 +3,7 @@ import 'fake-indexeddb/auto'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { parseCliArgs } from '../bin/abelink.mjs'
+import { parseCliArgs } from '../bin/abelink.ts'
 import { runAgentLoop } from '../src/api/ai/agentRunner.ts'
 import {
   parseSpawnQuery,
@@ -339,7 +339,7 @@ describe('headlessCli — runHeadlessSubagent', () => {
     const runLoop = vi.fn().mockResolvedValue({ success: true, outcome: 'completed', reply: 'dalam', stepCount: 1, toolCallsCount: 0, executedTools: [], trace: [] })
     const seen = []
     const state = { spawnCount: 0 }
-    // Mirrors bin/abelink.mjs: createEnvironment(d) -> environment {depth: d} ->
+    // Mirrors bin/abelink.ts: createEnvironment(d) -> environment {depth: d} ->
     // agentRunner executeTool ctx {depth} -> nested spawn_subagent reads it.
     await runHeadlessSubagent({
       query: 'L1||Riset||Goal||Kerjakan',
@@ -567,19 +567,19 @@ describe('headlessCli — cli session store round-trip (Fase 1)', () => {
 
 describe('CLI — approval flags parsing', () => {
   it('parses --approve-all and defaults both flags to false', () => {
-    const opts = parseCliArgs(['bun', 'bin/abelink.mjs', 'agent', 'run', 'cek status', '--approve-all'])
+    const opts = parseCliArgs(['bun', 'bin/abelink.ts', 'agent', 'run', 'cek status', '--approve-all'])
     expect(opts.approveAll).toBe(true)
     expect(opts.denyAll).toBe(false)
-    const def = parseCliArgs(['bun', 'bin/abelink.mjs', 'agent', 'run', 'cek status'])
+    const def = parseCliArgs(['bun', 'bin/abelink.ts', 'agent', 'run', 'cek status'])
     expect(def.approveAll).toBe(false)
     expect(def.denyAll).toBe(false)
     expect(def.permissionMode).toBe('auto')
   })
 
   it('parses --permission-mode manual|dont-ask', () => {
-    const m = parseCliArgs(['bun', 'bin/abelink.mjs', 'cek', '--permission-mode', 'manual'])
+    const m = parseCliArgs(['bun', 'bin/abelink.ts', 'cek', '--permission-mode', 'manual'])
     expect(m.permissionMode).toBe('manual')
-    const d = parseCliArgs(['bun', 'bin/abelink.mjs', 'cek', '--deny-all'])
+    const d = parseCliArgs(['bun', 'bin/abelink.ts', 'cek', '--deny-all'])
     expect(d.permissionMode).toBe('dont-ask')
     expect(d.denyAll).toBe(true)
   })

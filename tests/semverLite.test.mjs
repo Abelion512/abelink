@@ -6,7 +6,7 @@
 // karena jalur rilis ABELINK memakai versi seperti 1.0.0-alpha.2 -> alpha.3.
 
 import { describe, it, expect } from 'vitest'
-import { parse, valid, compare, gt, lt, eq } from '../scripts/semver-lite.mjs'
+import { parse, valid, compare, gt, lt, eq } from '../scripts/semver-lite.ts'
 
 describe('valid / parse', () => {
   it('menerima rilis biasa dan prerelease', () => {

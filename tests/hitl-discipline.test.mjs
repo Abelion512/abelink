@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { scoreHitlDiscipline } from '../evaluation/hitl-discipline.mjs'
+import { scoreHitlDiscipline } from '../evaluation/hitl-discipline.ts'
 
 describe('scoreHitlDiscipline', () => {
   it('needs_user tanpa tool = 0', () => {
