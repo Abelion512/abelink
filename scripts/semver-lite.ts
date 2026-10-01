@@ -31,7 +31,7 @@ if (invokedDirectly) {
       console.error('Pemakaian: semver-lite.mjs valid <versi> | gt <versiA> <versiB>')
       process.exit(2)
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error(String(err?.message || err))
     process.exit(1)
   }

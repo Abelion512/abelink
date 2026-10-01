@@ -37,7 +37,7 @@ const MAX_AUTO_RECOVER = 2
  * @param {string|null} incomingMessage Pesan baru dari Lead Agent (Abelink) atau User
  * @param {string} senderType 'abelink' | 'user'
  */
-export async function runSubagentTurn(subagentId, incomingMessage = null, senderType = 'abelink') {
+export async function runSubagentTurn(subagentId: any, incomingMessage: any = null, senderType = 'abelink') {
   const subagent = await subagentStore.getSubagent(subagentId)
   if (!subagent) {
     return { success: false, error: 'Sub-agent tidak ditemukan.' }
@@ -103,7 +103,7 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
     .join('\n')
 
   const groupToolsText = GROUP_TOOLS_DEFINITION
-    ? Object.entries(GROUP_TOOLS_DEFINITION)
+    ? Object.entries(GROUP_TOOLS_DEFINITION as Record<string, any>)
         .filter(([, v]) => !v.dormant)
         .map(([k, v]) => `- ${k}: ${v.description}`)
         .join('\n')
@@ -146,7 +146,7 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
   // Additive: faults stay silent, the ReAct loop below is untouched.
   const archPolicy = getArchPolicy(currentBenchArch())
   const subSupervisor = archPolicy.supervisorEnabled ? createTrajectorySupervisor() : null
-  let pendingSubHint = null
+  let pendingSubHint: any = null
 
   try {
     while (!abortController.signal.aborted) {
@@ -161,20 +161,20 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
       const history = await subagentStore.getMessages(subagentId)
       const messagesPayload = [
         { role: 'system', content: systemPrompt },
-        ...history.map((m) => ({ role: m.role, content: m.content }))
+        ...history.map((m: any) => ({ role: m.role, content: m.content }))
       ]
 
       const aiResponseRaw = await fetchAI(messagesPayload, {
         signal: abortController.signal
       })
 
-      if (aiResponseRaw && aiResponseRaw.error) {
-        throw new Error(aiResponseRaw.error)
+      if (aiResponseRaw && (aiResponseRaw as any).error) {
+        throw new Error((aiResponseRaw as any).error)
       }
 
       const rawContent =
         aiResponseRaw?.content !== undefined ? aiResponseRaw.content : aiResponseRaw
-      const decision = cleanAndParse(rawContent)
+      const decision: any = cleanAndParse(rawContent)
       if (!decision) {
         throw new Error('Sub-Agent mengembalikan output yang tidak dapat diparse sebagai JSON.')
       }
@@ -259,7 +259,7 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
         // replan observation instead of silently ending the mission.
         if (pause.type === 'final' && toolsExecutedThisRun) {
           try {
-            const evidence = evaluateEvidence({
+            const evidence: any = evaluateEvidence({
               objectiveText: subagent.goal,
               answer: decision.answer,
               observations: [lastObservation]
@@ -278,7 +278,7 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
               })
               continue
             }
-          } catch (e) {
+          } catch (e: any) {
             // Additive layer: verifier errors never block a legitimate report.
             console.warn('[subagentExecutor] objectiveVerifier error:', e?.message)
           }
@@ -358,7 +358,7 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
           if (abortController.signal.aborted) break
 
           try {
-            let res
+            let res: any
             if (act.tool === 'read-tools') {
               const groupName = (act.query || '').trim()
               if (!groupName) {
@@ -382,7 +382,7 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
               const out = await executeMemoryTool(act.query || '', {
                 turnId: subagentId,
                 sessionId: subagentId
-              })
+              } as any)
               const isErr = out.startsWith('[MEMORY-ERROR]') || out.startsWith('[MEMORY-FAILURE-CAP]')
               res = { success: !isErr, data: out }
             } else if (window.api && window.api.executeNativeTool) {
@@ -428,7 +428,7 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
             try {
               if (subSupervisor) {
                 const attemptOk = res.success === true
-                const subSupResult = subSupervisor.update({
+                const subSupResult = (subSupervisor as any).update({
                   tool: act.tool,
                   query: act.query || '',
                   success: attemptOk,
@@ -436,10 +436,10 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
                 })
                 if (subSupResult.hintText && !pendingSubHint) pendingSubHint = subSupResult.hintText
               }
-            } catch (e) {
+            } catch (e: any) {
               console.warn('[subagentExecutor] trajectory supervisor error:', e?.message)
             }
-          } catch (err) {
+          } catch (err: any) {
             observations.push(`[${act.tool} ERROR] ${err.message}`)
           }
         }
@@ -496,7 +496,7 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
       return { success: false, subagentId, error: 'Eksekusi dibatalkan oleh pengguna.' }
     }
     await subagentStore.updateSubagent(subagentId, { status: 'failed' })
-    return { success: false, subagentId, error: err.message }
+    return { success: false, subagentId, error: (err as any).message }
   } finally {
     // Hapus hanya bila yang terdaftar masih controller milik run ini,
     // supaya tidak menghapus controller run lain yang lebih baru.
@@ -512,7 +512,7 @@ export async function runSubagentTurn(subagentId, incomingMessage = null, sender
 /**
  * Membatalkan paksa eksekusi sub-agent yang sedang berjalan
  */
-export function killSubagentExecution(subagentId) {
+export function killSubagentExecution(subagentId: any) {
   const ctrl = subagentAbortControllers.get(subagentId)
   if (ctrl) {
     ctrl.abort()

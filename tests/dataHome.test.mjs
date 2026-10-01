@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import path from 'path'
 import { resolveDataHome, brandDir, isDev } from '../sidecar/main/utils/dataHome.ts'
-import { harnessRoot, parseArgs } from '../scripts/harness-common.mjs'
+import { harnessRoot, parseArgs } from '../scripts/harness-common.ts'
 
 describe('dataHome.mjs contracts', () => {
   it('resolveDataHome prioritizes ABELINK_DATA_HOME', () => {
@@ -55,7 +55,7 @@ describe('dataHome.mjs contracts', () => {
   })
 })
 
-describe('harness-common.mjs contracts', () => {
+describe('harness-common.ts contracts', () => {
   it('parseArgs correctly parses flags and values', () => {
     const args = ['--session', 'ses_123', '--verbose', '--date', '2026-09-14']
     const parsed = parseArgs(args)

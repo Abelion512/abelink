@@ -217,12 +217,12 @@ export async function browserExtensionStatusLine() {
   const fallback =
     'Status extension browser: TIDAK DIKETAHUI (asumsikan belum aktif; coba browser-navigate untuk memicu koneksi).' + age
   try {
-    if (typeof window === 'undefined' || !window.api?.runNodeFunction) return fallback
+    if (typeof window === 'undefined' || !(window as any).api?.runNodeFunction) return fallback
     const st = await Promise.race([
-      window.api.runNodeFunction('browser:status'),
+      (window as any).api.runNodeFunction('browser:status'),
       new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 3000))
     ])
-    const live = Array.isArray(st?.sessions) && st.sessions.some((s) => s.connected)
+    const live = Array.isArray(st?.sessions) && st.sessions.some((s: any) => s.connected)
     return (
       live
         ? `Status extension browser: TERSAMBUNG (browser-click/type/extract fisik tersedia).\nVisual: kursor hijau animasi + ripple efek muncul saat klik (mirip browser-use).\nTetap WAJIB read-dom di sesi yang sama sebelum klik.`
@@ -234,16 +234,16 @@ export async function browserExtensionStatusLine() {
 }
 
 export const group_tools = async () => {
-  const dynamicGroups = { ...GROUP_TOOLS_DEFINITION }
+  const dynamicGroups: Record<string, any> = { ...GROUP_TOOLS_DEFINITION }
 
   try {
-    if (typeof window !== 'undefined' && window.api?.getPlugins) {
-      const plugins = await window.api.getPlugins()
+    if (typeof window !== 'undefined' && (window as any).api?.getPlugins) {
+      const plugins = await (window as any).api.getPlugins()
       if (plugins && plugins.length > 0) {
-        plugins.forEach((plugin) => {
+        plugins.forEach((plugin: any) => {
           if (plugin.isEnabled !== false && plugin.actions) {
-            const toolMap = {}
-            plugin.actions.forEach((act) => {
+            const toolMap: Record<string, any> = {}
+            plugin.actions.forEach((act: any) => {
               let paramDocs = ''
               if (act.parameters) {
                 paramDocs = ` (Params: ${Object.entries(act.parameters)
@@ -270,7 +270,7 @@ export const group_tools = async () => {
 
 // Shared read-tools body: enriched tool/group text + examples + extension status line.
 // Returns null when the group/tool/query does not match; never throws.
-export async function loadGroupToolsText(query) {
+export async function loadGroupToolsText(query: any) {
   const name = (query || '').trim()
   if (!name) return null
   const groups = await group_tools()

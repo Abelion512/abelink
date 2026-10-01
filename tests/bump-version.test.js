@@ -3,7 +3,7 @@
  * Safe to import: the script only runs main() when executed directly.
  */
 import { describe, it, expect } from 'vitest'
-import { semverBump } from '../scripts/bump-version.mjs'
+import { semverBump } from '../scripts/bump-version.ts'
 
 describe('semverBump', () => {
   it('patch: 5.0.0 -> 5.0.1', () => {

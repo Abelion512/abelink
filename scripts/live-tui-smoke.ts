@@ -46,15 +46,15 @@ if (!modelsOk) {
 }
 
 // Prasyarat 2: key lokal.
-const headless = await import('../src/api/ai/headlessCli.ts').catch(() => ({}))
+const headless: any = await import('../src/api/ai/headlessCli.ts').catch(() => ({}))
 const key = typeof headless.loadNineRouterKey === 'function' ? await headless.loadNineRouterKey() : null
 if (!key) {
   console.error('[LIVE] SKIP: 9Router key lokal tak ditemukan (butuh untuk turn LLM).')
   process.exit(2)
 }
 
-const run = (input) =>
-  new Promise((resolve) => {
+const run = (input: any) =>
+  new Promise<any>((resolve) => {
     const c = spawn('bun', ['bin/abelink-tui-v2.tsx'], {
       cwd: ROOT,
       timeout: 180000,
@@ -70,8 +70,8 @@ const run = (input) =>
     c.stdin.end()
   })
 
-const checks = []
-const need = (name, cond, detail = '') => {
+const checks: any = []
+const need = (name: any, cond: any, detail = '') => {
   checks.push({ name, ok: !!cond, detail })
   console.log(`${cond ? 'PASS' : 'FAIL'}  ${name}${detail ? ` — ${detail}` : ''}`)
 }
@@ -90,6 +90,6 @@ try {
 } catch {}
 need('cli.json isolasi -> zen', persisted.includes('oc/muse-spark-1.3-contributor-free'), 'tanpa sentuh HOME asli')
 
-const failed = checks.filter((c) => !c.ok)
+const failed = checks.filter((c: any) => !c.ok)
 console.log(failed.length ? `\n[LIVE] ${failed.length} gate GAGAL.` : '\n[LIVE] Semua gate lolos.')
 process.exit(failed.length ? 1 : 0)

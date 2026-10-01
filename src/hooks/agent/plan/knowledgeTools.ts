@@ -108,9 +108,9 @@ export const runKnowledgeTool = async (
   }
   // 4b. Trading Support — wallet lokal (fase 1: pencatatan, tanpa order)
   if (tool.startsWith('trading-')) {
-    const wallet = await import('../../../api/trading/wallet.js')
+    const wallet = await import('../../../api/trading/wallet.ts')
     if (tool === 'trading-status') {
-      const monitor = await import('../../../api/trading/budgetMonitor.js')
+      const monitor = await import('../../../api/trading/budgetMonitor.ts')
       const balance = await wallet.getBalance()
       const allocs = await wallet.listAllocations()
       const activeAllocs = allocs.filter((a: { active?: boolean }) => a.active)

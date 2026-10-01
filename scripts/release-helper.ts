@@ -2,8 +2,8 @@ import { execSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { parse as semverParse, valid as semverValid, gt as semverGt, lt as semverLt, rcompare as semverRcompare } from './semver-lite.mjs'
-import { nextVersion, nextAlphaVersion, detectBumpType } from './release-version.mjs'
+import { parse as semverParse, valid as semverValid, gt as semverGt, lt as semverLt, rcompare as semverRcompare } from './semver-lite.ts'
+import { nextVersion, nextAlphaVersion, detectBumpType } from './release-version.ts'
 const semver = { parse: semverParse, valid: semverValid, gt: semverGt, lt: semverLt, rcompare: semverRcompare }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -32,10 +32,10 @@ function formatDate() {
   return `${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`
 }
 
-function run(cmd, opts = {}) {
+function run(cmd: any, opts = {}) {
   try {
     return execSync(cmd, { cwd: ROOT, encoding: 'utf8', stdio: ['pipe','pipe','pipe'], ...opts }).trim()
-  } catch (e) {
+  } catch (e: any) {
     const msg = e.stderr ? e.stderr.toString().trim() : e.message
     throw new Error(`Command failed: ${cmd}\n${msg}`)
   }
@@ -70,7 +70,7 @@ function getLastReleaseTag() {
   return validReleases[0]
 }
 
-function getCommitsSince(version) {
+function getCommitsSince(version: any) {
   const tag = version ? `v${version}` : null
   const range = tag ? `${tag}..HEAD` : 'HEAD'
   const out = run(`git log --oneline ${range}`)
@@ -91,7 +91,7 @@ function readConf() {
   return JSON.parse(fs.readFileSync(CONF_PATH, 'utf8'))
 }
 
-function writeConf(version) {
+function writeConf(version: any) {
   const conf = readConf()
   conf.version = version
   fs.writeFileSync(CONF_PATH, JSON.stringify(conf, null, 2) + '\n')
@@ -101,16 +101,16 @@ function writeConf(version) {
 // Commit classification
 // ============================================================
 
-function isReleasable(commit) {
+function isReleasable(commit: any) {
   return ['feat', 'fix', 'security'].includes(commit.type)
 }
 
-function shouldIncludeInNotes(commit) {
+function shouldIncludeInNotes(commit: any) {
   // Include all conventional commits except ci-only internal ones
   return commit.type !== null && !commit.type.startsWith('ci:')
 }
 
-function classifyChange(commit) {
+function classifyChange(commit: any) {
   if (commit.type === 'feat') return 'features'
   if (commit.type === 'fix') return 'fixes'
   if (commit.type === 'security') return 'security'
@@ -121,7 +121,7 @@ function classifyChange(commit) {
 
 // Human-friendly: simplify without destroying technical meaning
 // Stripping is conservative — only removes commit-message artifacts
-function humanify(scope) {
+function humanify(scope: any) {
   let s = scope
     .replace(/^\[.*?\]\s*/, '')          // [refs/xxx]
     .replace(/\([^)]*\)/g, '')           // (scope): prefix already stripped
@@ -158,7 +158,7 @@ function ensureReleaseLabel() {
 // PR management
 // ============================================================
 
-function findReleasePR(version) {
+function findReleasePR(version: any) {
   const targetBranch = `release/v${version}`
   try {
     const out = run(`gh pr list --base ${RELEASE_BASE} --label release --state open --json number,headRefName --jq '.[] | select(.headRefName == "${targetBranch}") | .number'`)
@@ -170,7 +170,7 @@ function findReleasePR(version) {
 }
 
 // Create new Release PR (called only for new releases)
-function createReleasePR(version, changes) {
+function createReleasePR(version: any, changes: any) {
   const branch = `release/v${version}`
   const prBody = buildPRBody(changes)
 
@@ -211,7 +211,7 @@ function createReleasePR(version, changes) {
 // File generation
 // ============================================================
 
-function writeReleasesFile(version, changes) {
+function writeReleasesFile(version: any, changes: any) {
   let releases = []
   if (fs.existsSync(RELEASES_PATH)) {
     try {
@@ -223,14 +223,14 @@ function writeReleasesFile(version, changes) {
   }
 
   const sections = {
-    features: (changes.features || []).map(e => ({ msg: e.msg })),
-    fixes: (changes.fixes || []).map(e => ({ msg: e.msg })),
-    security: (changes.security || []).map(e => ({ msg: e.msg })),
-    docs: (changes.docs || []).map(e => ({ msg: e.msg })),
+    features: (changes.features || []).map((e: any) => ({ msg: e.msg })),
+    fixes: (changes.fixes || []).map((e: any) => ({ msg: e.msg })),
+    security: (changes.security || []).map((e: any) => ({ msg: e.msg })),
+    docs: (changes.docs || []).map((e: any) => ({ msg: e.msg })),
   }
 
   // Check if this version already exists in releases.json (idempotency)
-  const existingIndex = releases.findIndex(r => r.version === version)
+  const existingIndex = releases.findIndex((r: any) => r.version === version)
   if (existingIndex >= 0) {
     // Update existing entry
     releases[existingIndex] = {
@@ -298,7 +298,7 @@ function writeChangelogFile() {
   fs.writeFileSync(CHANGELOG_PATH, lines.join('\n') + '\n')
 }
 
-function writeWhatsNewFile(version, changes) {
+function writeWhatsNewFile(version: any, changes: any) {
   // Compatibility projection for existing WhatNew.jsx
   // Maps semantic categories to legacy type labels
   const legacyMap = {
@@ -332,7 +332,7 @@ function writeWhatsNewFile(version, changes) {
   fs.writeFileSync(WHATSNEW_PATH, JSON.stringify(data, null, 2) + '\n')
 }
 
-function generateSummary(sections) {
+function generateSummary(sections: any) {
   const counts = {
     features: (sections.features || []).length,
     fixes: (sections.fixes || []).length,
@@ -340,7 +340,7 @@ function generateSummary(sections) {
     docs: (sections.docs || []).length,
   }
 
-  const parts = []
+  const parts: any[] = []
   if (counts.features) parts.push(`${counts.features} fitur baru`)
   if (counts.fixes) parts.push(`${counts.fixes} perbaikan`)
   if (counts.security) parts.push(`${counts.security} peningkatan keamanan`)
@@ -355,9 +355,9 @@ function generateSummary(sections) {
 // Ringkasan dampak bisnis untuk founder (WhatNew "Laporan Rilis"):
 // menerjemahkan kategori teknis ke bahasa hasil: apa yang berubah untuk
 // pengguna, bukan apa yang diubah di kode. Tanpa LLM — template deterministik.
-function generateFounderReport(sections) {
-  const lines = []
-  const pick = (arr, n = 3) => (arr || []).slice(0, n).map((i) => i.msg)
+function generateFounderReport(sections: any) {
+  const lines: any[] = []
+  const pick = (arr: any, n = 3) => (arr || []).slice(0, n).map((i: any) => i.msg)
   const feats = pick(sections.features)
   const fixes = pick(sections.fixes)
   const secs = pick(sections.security)
@@ -388,7 +388,7 @@ function generateFounderReport(sections) {
 // ============================================================
 
 // Re-ekspor agar import lama tak rusak; pipeline memakai nextVersion penuh.
-export { nextAlphaVersion } from './release-version.mjs'
+export { nextAlphaVersion } from './release-version.ts'
 
 // ============================================================
 // Stage A: Prepare
@@ -414,9 +414,9 @@ export function prepareRelease() {
   // terjebak guard idempoten selamanya.
   const lastTagVersion = getLastReleaseTag()
   const releasesMax = existingReleases
-    .map(r => r.version)
-    .filter(v => semver.valid(v))
-    .sort((a, b) => semver.rcompare(a, b))[0] || null
+    .map((r: any) => r.version)
+    .filter((v: any) => semver.valid(v))
+    .sort((a: any, b: any) => semver.rcompare(a, b))[0] || null
   const baseline = lastTagVersion && releasesMax
     ? (semver.lt(lastTagVersion, releasesMax) ? releasesMax : lastTagVersion)
     : (lastTagVersion || releasesMax)
@@ -442,7 +442,7 @@ export function prepareRelease() {
   // === Idempotency: does releases.json already have this version? ===
   // This is the PRIMARY guard — if the version entry exists, this run
   // was already prepared (even if PR is still open / tag not created).
-  if (existingReleases.some(r => r.version === newVersion)) {
+  if (existingReleases.some((r: any) => r.version === newVersion)) {
     // Also check if PR exists — if so, update it with fresh commits but keep same version
     const existingPR = findReleasePR(newVersion)
     if (existingPR) {
@@ -497,7 +497,7 @@ export function prepareRelease() {
 
 // ── Helpers refactored for testability ───────────────────────────────────────
 
-function existingPR_branch(version) {
+function existingPR_branch(version: any) {
   return `release/v${version}`
 }
 
@@ -514,8 +514,8 @@ function syncWithReleaseBase() {
   run(`git pull origin HEAD`)
 }
 
-function buildChanges(includable) {
-  const changes = { features: [], fixes: [], security: [], docs: [] }
+function buildChanges(includable: any) {
+  const changes: any = { features: [], fixes: [], security: [], docs: [] }
   for (const c of includable) {
     const section = classifyChange(c)
     changes[section].push({
@@ -526,7 +526,7 @@ function buildChanges(includable) {
   return changes
 }
 
-function writeAllFiles(version, changes) {
+function writeAllFiles(version: any, changes: any) {
   writeReleasesFile(version, changes)
   writeWhatsNewFile(version, changes)
   writeChangelogFile()
@@ -534,7 +534,7 @@ function writeAllFiles(version, changes) {
   run('bun run sync-version')
 }
 
-function commitAndPushIfChanged(version, msg) {
+function commitAndPushIfChanged(version: any, msg: any) {
   ensureGitIdentity()
   run('git add src/data/releases.json src/data/whats-new.json CHANGELOG.md src-tauri/tauri.conf.json package.json src-tauri/Cargo.toml extension/manifest.json')
   try {
@@ -546,10 +546,10 @@ function commitAndPushIfChanged(version, msg) {
   run(`git push origin release/v${version}`)
 }
 
-function buildPRBody(changes) {
+function buildPRBody(changes: any) {
   const sections = ['features', 'fixes', 'security', 'docs']
-  const icons = { features: '✨', fixes: '🛠️', security: '🔐', docs: '📚' }
-  const labels = { features: 'New', fixes: 'Fixes', security: 'Security', docs: 'Documentation' }
+  const icons: any = { features: '✨', fixes: '🛠️', security: '🔐', docs: '📚' }
+  const labels: any = { features: 'New', fixes: 'Fixes', security: 'Security', docs: 'Documentation' }
   let changelogBody = ''
   for (const section of sections) {
     const items = changes[section] || []
@@ -560,7 +560,7 @@ function buildPRBody(changes) {
   return `## Changelog\n${changelogBody}\n---\n*This release was prepared automatically by release automation.*`
 }
 
-function updatePRMetadata(version, changes) {
+function updatePRMetadata(version: any, changes: any) {
   const prNumber = findReleasePR(version)
   if (prNumber) {
     const prBody = buildPRBody(changes)
@@ -586,7 +586,7 @@ export function finalizeRelease() {
   console.log('[release-helper] Checking version synchronization...')
   try {
     run('bun run sync-version --check')
-  } catch (e) {
+  } catch (e: any) {
     throw new Error(`Version drift detected: ${e.message}`)
   }
 
@@ -619,7 +619,7 @@ export function finalizeRelease() {
   return { version, tag }
 }
 
-function dispatchReleaseWorkflow(tag) {
+function dispatchReleaseWorkflow(tag: any) {
   // Explicitly trigger release.yml via workflow_dispatch API.
   // GITHUB_TOKEN alone cannot trigger 'push: tags' events.
   // This guarantees: tag created → release build starts → GitHub Release published.

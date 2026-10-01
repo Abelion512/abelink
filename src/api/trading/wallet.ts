@@ -22,7 +22,7 @@ if (typeof indexedDB !== 'undefined' && (!Dexie.dependencies?.indexedDB || !Dexi
   if (typeof IDBKeyRange !== 'undefined') Dexie.dependencies.IDBKeyRange = IDBKeyRange
 }
 
-export const tradingDb = new Dexie(TRADING_DB_NAME)
+export const tradingDb: any = new Dexie(TRADING_DB_NAME)
 
 tradingDb.version(1).stores({
   // Buku kas: setiap perubahan saldo (deposit, alokasi ke model, pengeluaran
@@ -39,10 +39,10 @@ export const LEDGER_KINDS = ['deposit', 'allocation', 'spend', 'yield', 'withdra
 // Buku kas ringkas: saldo per source (default 'main').
 export const getBalance = async (source = 'main') => {
   const rows = await tradingDb.ledger.where('source').equals(source).toArray()
-  return rows.reduce((sum, r) => sum + (Number(r.amount) || 0), 0)
+  return rows.reduce((sum: any, r: any) => sum + (Number(r.amount) || 0), 0)
 }
 
-export const addLedgerEntry = async ({ kind, amount, note = '', source = 'main', meta = null }) => {
+export const addLedgerEntry = async ({ kind, amount, note = '', source = 'main', meta = null }: any = {}) => {
   if (!LEDGER_KINDS.includes(kind)) {
     throw new Error(`Jenis ledger tidak dikenal: ${kind}`)
   }
@@ -62,7 +62,7 @@ export const listLedger = async (source = 'main', limit = 50) => {
 }
 
 // Alokasi budget per model (mis. 'deepseek-chat', 'glm-4.7-air').
-export const setAllocation = async (modelKey, budget, { active = true } = {}) => {
+export const setAllocation = async (modelKey: any, budget: any, { active = true }: any = {}) => {
   const existing = await tradingDb.allocations.where('modelKey').equals(modelKey).first()
   if (existing) {
     await tradingDb.allocations.update(existing.id, { budget: Number(budget) || 0, active })
@@ -85,7 +85,7 @@ export const recordUsage = async ({
   tokensOut = 0,
   cost = 0,
   note = ''
-}) => {
+}: any = {}) => {
   return tradingDb.usage.add({
     modelKey,
     tokensIn: Number(tokensIn) || 0,
@@ -101,7 +101,7 @@ export const getUsageSummary = async (modelKey = null) => {
     ? await tradingDb.usage.where('modelKey').equals(modelKey).toArray()
     : await tradingDb.usage.toArray()
   return rows.reduce(
-    (acc, r) => ({
+    (acc: any, r: any) => ({
       tokensIn: acc.tokensIn + (r.tokensIn || 0),
       tokensOut: acc.tokensOut + (r.tokensOut || 0),
       cost: acc.cost + (r.cost || 0),

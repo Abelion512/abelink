@@ -13,18 +13,18 @@
  */
 import { readdirSync, readFileSync, writeFileSync, existsSync } from 'fs'
 import path from 'path'
-import { parseArgs, harnessRoot } from './harness-common.mjs'
-import { readSessionEvents } from './harness-export.mjs'
+import { parseArgs, harnessRoot } from './harness-common.ts'
+import { readSessionEvents } from './harness-export.ts'
 
-const short = (s, n = 120) => {
+const short = (s: any, n = 120) => {
   if (typeof s !== 'string') return ''
   const one = s.replace(/\s+/g, ' ').trim()
   return one.length > n ? one.slice(0, n) + '…' : one
 }
 
 // Kumpulkan semua sessionId hari itu -> pilih tersibuk.
-const pickBusiestSession = (dir) => {
-  const counts = {}
+const pickBusiestSession = (dir: any) => {
+  const counts: Record<string, number> = {}
   for (const f of readdirSync(dir)) {
     if (!f.endsWith('.jsonl')) continue
     for (const raw of readFileSync(path.join(dir, f), 'utf8').split('\n')) {
@@ -37,9 +37,9 @@ const pickBusiestSession = (dir) => {
       } catch { /* lewati */ }
     }
   }
-  let best = null
+  let best: any = null
   for (const [sid, n] of Object.entries(counts)) {
-    if (!best || n > best[1]) best = [sid, n]
+    if (!best || (n as number) > best[1]) best = [sid, n]
   }
   return best ? best[0] : null
 }
@@ -63,17 +63,17 @@ const main = () => {
     console.error(`Tidak ada folder harness: ${dir}`)
     process.exit(1)
   }
-  let session = args.session ? String(args.session) : pickBusiestSession(dir)
+  const session = args.session ? String(args.session) : pickBusiestSession(dir)
   if (!session) {
     console.error('Tidak ada sesi ber-event. Jalankan agent dulu.')
     process.exit(1)
   }
   const events = readSessionEvents({ session, date, dir })
-  const byKind = {}
+  const byKind: any = {}
   for (const e of events) byKind[e.kind] = (byKind[e.kind] || 0) + 1
 
   // Kelompokkan per turn (fallback '?' bila tanpa turn).
-  const turns = new Map()
+  const turns = new Map<any, any>()
   for (const e of events) {
     const t = e.turn ?? '?'
     if (!turns.has(t)) turns.set(t, [])
@@ -89,7 +89,7 @@ const main = () => {
   if (events.length) L.push(`rentang: ${events[0].ts} .. ${events[events.length - 1].ts}`)
   L.push('')
 
-  const turnLine = (t) => {
+  const turnLine = (t: any) => {
     const es = turns.get(t)
     const bits = []
     for (const e of es) {

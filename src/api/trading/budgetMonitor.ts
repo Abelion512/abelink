@@ -35,7 +35,7 @@ export const estimateCost = ({
   (Number(tokensOut) / 1e6 || 0) * (Number(pricePerMTokOut) || 0)
 
 // Ringkasan budget satu model: alokasi vs terpakai vs sisa + burn rate.
-export const getModelBudgetStatus = async (modelKey, windowMs = 24 * 60 * 60 * 1000) => {
+export const getModelBudgetStatus = async (modelKey: any, windowMs = 24 * 60 * 60 * 1000) => {
   const alloc = await tradingDb.allocations.where('modelKey').equals(modelKey).first()
   if (!alloc) {
     return {
@@ -51,9 +51,9 @@ export const getModelBudgetStatus = async (modelKey, windowMs = 24 * 60 * 60 * 1
   const usageRows = await tradingDb.usage
     .where('modelKey')
     .equals(modelKey)
-    .filter((u) => u.ts >= since)
+    .filter((u: any) => u.ts >= since)
     .toArray()
-  const spent = usageRows.reduce((s, u) => s + (u.cost || 0), 0)
+  const spent = usageRows.reduce((s: any, u: any) => s + (u.cost || 0), 0)
   const windowHours = Math.max(windowMs / 3600000, 0.001)
   const burnRatePerHour = spent / windowHours
   const remaining = Math.max((alloc.budget || 0) - spent, 0)
@@ -69,7 +69,7 @@ export const getModelBudgetStatus = async (modelKey, windowMs = 24 * 60 * 60 * 1
 
 // Putusan alokasi untuk model sebelum call AI: boleh jalan atau perlu degradasi.
 // policy hard_stop memblok saat exhausted; warn_only hanya menandai.
-export const checkModelBudget = async (modelKey, { policy = DEFAULT_POLICY } = {}) => {
+export const checkModelBudget = async (modelKey: any, { policy = DEFAULT_POLICY }: any = {}) => {
   const status = await getModelBudgetStatus(modelKey)
   if (status.allocated === null) {
     // Tanpa alokasi: sisa kas utama jadi fallback budget (self-funding).
@@ -99,13 +99,13 @@ export const checkModelBudget = async (modelKey, { policy = DEFAULT_POLICY } = {
 
 // Alokasi lengkap dengan harga per 1M token (meta dipakai estimator biaya).
 export const setAllocationWithPricing = async (
-  modelKey,
-  budget,
-  pricePerMTokIn,
-  pricePerMTokOut,
-  { active = true } = {}
+  modelKey: any,
+  budget: any,
+  pricePerMTokIn: any,
+  pricePerMTokOut: any,
+  { active = true }: any = {}
 ) => {
-  const { setAllocation } = await import('./wallet.js')
+  const { setAllocation } = await import('./wallet')
   await setAllocation(modelKey, budget, { active })
   const existing = await tradingDb.allocations.where('modelKey').equals(modelKey).first()
   await tradingDb.allocations.update(existing.id, {

@@ -13,16 +13,16 @@
  */
 import { readdirSync, readFileSync, writeFileSync, existsSync } from 'fs'
 import path from 'path'
-import { parseArgs, harnessRoot } from './harness-common.mjs'
+import { parseArgs, harnessRoot } from './harness-common.ts'
 
 // Dibaca scripts/harness-diagnose.mjs — kembalikan event satu sesi terurut-ts.
-export const readSessionEvents = ({ session, date, kinds = null, dir }) => {
+export const readSessionEvents = ({ session, date, kinds = null, dir }: any = {}) => {
   const want = String(session)
-  const events = []
+  const events: any[] = []
   for (const f of readdirSync(dir)) {
     if (!f.endsWith('.jsonl')) continue
     const rawKind = f.slice(0, -'.jsonl'.length)
-    if (kinds && !kinds.includes(rawKind)) continue
+    if (kinds && !(kinds as string[]).includes(rawKind)) continue
     const normalizedKind =
       rawKind === 'tool-calls'
         ? 'tool-call'
@@ -48,7 +48,7 @@ export const readSessionEvents = ({ session, date, kinds = null, dir }) => {
     }
   }
   // Urut numerik bila ts epoch, leksikal bila ISO-8601 (keduanya monoton).
-  const tsNum = (v) => {
+  const tsNum = (v: any) => {
     const n = typeof v === 'number' ? v : Date.parse(v)
     return Number.isFinite(n) ? n : 0
   }

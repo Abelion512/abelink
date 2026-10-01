@@ -29,7 +29,7 @@ import 'fake-indexeddb/auto'
 
 import { runAgentTool } from '../src/hooks/agent/plan/agentTools.js'
 import { browserTools } from '../sidecar/main/tools/browserTools.ts'
-import { subagentStore } from '../src/api/subagent/subagentStore.js'
+import { subagentStore } from '../src/api/subagent/subagentStore.ts'
 
 const PORT = 49791
 
@@ -201,7 +201,7 @@ describe('P0 delegation e2e: spawn -> eksekusi tool nyata -> wait COMPLETE', () 
       expect(w.data).toMatch(/panggil kembali 'wait_subagents'/)
       // Bersihkan loop yang masih jalan (tool eksekusi nyata, harus dihentikan).
       const { killSubagentExecution } = await import(
-        '../src/api/subagent/subagentExecutor.js'
+        '../src/api/subagent/subagentExecutor.ts'
       )
       killSubagentExecution(id)
       await new Promise((r) => setTimeout(r, 200))

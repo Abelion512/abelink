@@ -942,7 +942,7 @@ export const useAbelinkPlan = ({
       // Lepas resource: bunuh sub-agent yang masih hidup (self-terminate).
       const killLiveSubagents = async () => {
         try {
-          const { killSubagentExecution } = await import('../../api/subagent/subagentExecutor.js')
+          const { killSubagentExecution } = await import('../../api/subagent/subagentExecutor.ts')
           for (const id of [...(runningSessionIds || [])]) {
             try {
               killSubagentExecution(id)
@@ -1271,7 +1271,7 @@ export const useAbelinkPlan = ({
         // Ambil daftar sub-agent yang tersedia untuk pencegahan duplikasi
         let existingSubagents = ''
         try {
-          const { subagentStore } = await import('../../api/subagent/subagentStore.js')
+          const { subagentStore } = await import('../../api/subagent/subagentStore.ts')
           const allSubs = (await subagentStore.listSubagents()) as Array<{
             id?: unknown
             name?: unknown

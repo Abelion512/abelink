@@ -39,7 +39,7 @@ jobs:
           bun-version: 1.4.2
       - run: bun install
       - name: Finalize release (create tag)
-        run: node scripts/release-helper.mjs finalize
+        run: bun scripts/release-helper.ts finalize
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -60,7 +60,7 @@ jobs:
         # Audit 2026-09: validasi SemVer dulu memakai `require('semver')` padahal
         # paket itu TIDAK terdaftar di package.json (hanya transitive dep) —
         # gerbang rilis bisa mati dengan ERR_MODULE_NOT_FOUND. Sekarang memakai
-        # scripts/semver-lite.mjs (nol dependensi, diuji di tests/semverLite.test.mjs).
+        # scripts/semver-lite.ts (nol dependensi, diuji di tests/semverLite.test.mjs).
         # Input dispatch masuk lewat env, bukan interpolasi langsung ke shell.
         env:
           INPUT_REF: ${{ inputs.ref }}
@@ -80,7 +80,7 @@ jobs:
           # 3. version is valid SemVer
           TAG="$INPUT_REF"
           VERSION="${TAG#v}"
-          if ! node scripts/semver-lite.mjs valid "$VERSION"; then
+          if ! bun scripts/semver-lite.ts valid "$VERSION"; then
             echo "::error::${VERSION} is not valid SemVer"
             exit 1
           fi
@@ -97,7 +97,7 @@ jobs:
           if [ -z "$LAST" ] && [ -f src/data/releases.json ]; then
             LAST=$(node -e "const fs=require('fs'); try { const r=JSON.parse(fs.readFileSync('src/data/releases.json','utf8')).releases||[]; const v=r.map(x=>x.version).filter(Boolean).sort(); console.log(v[v.length-1]||'') } catch { console.log('') }")
           fi
-          if [ -n "$LAST" ] && ! node scripts/semver-lite.mjs gt "$VERSION" "$LAST"; then
+          if [ -n "$LAST" ] && ! bun scripts/semver-lite.ts gt "$VERSION" "$LAST"; then
             echo "::error::Version ${VERSION} is not newer than ${LAST}"
             exit 1
           fi
@@ -107,6 +107,6 @@ jobs:
             exit 1
           fi
       - name: Finalize release (create tag)
-        run: node scripts/release-helper.mjs finalize
+        run: bun scripts/release-helper.ts finalize
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

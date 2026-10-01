@@ -14,7 +14,7 @@ import { spawn } from 'node:child_process'
 import { createRequire } from 'node:module'
 
 const require = createRequire(import.meta.url)
-let WebSocket
+let WebSocket: any
 try {
   WebSocket = require('ws')
 } catch {
@@ -32,9 +32,9 @@ const REAL_DATA_HOME =
   path.join(os.homedir(), '.local/share')
 const ART = path.join(REAL_DATA_HOME, 'abelink-mv3-measure')
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+const sleep = (ms: any) => new Promise((r) => setTimeout(r, ms))
 
-async function getJson(url) {
+async function getJson(url: any) {
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(1500) })
     return await res.json()
@@ -43,16 +43,16 @@ async function getJson(url) {
   }
 }
 
-function wsRpc(wsUrl) {
+function wsRpc(wsUrl: any) {
   let seq = 0
-  const pending = new Map()
+  const pending = new Map<any, any>()
   const ws = new WebSocket(wsUrl)
   ws.on('error', () => {})
-  const ready = new Promise((res, rej) => {
+  const ready = new Promise<any>((res, rej) => {
     ws.on('open', res)
     ws.on('error', rej)
   })
-  ws.on('message', (raw) => {
+  ws.on('message', (raw: any) => {
     let m
     try {
       m = JSON.parse(raw.toString())
@@ -69,9 +69,9 @@ function wsRpc(wsUrl) {
   })
   return {
     ready,
-    call(method, params = {}, timeoutMs = 15000) {
+    call(method: any, params = {}, timeoutMs = 15000) {
       const id = ++seq
-      return new Promise((resolve, reject) => {
+      return new Promise<any>((resolve, reject) => {
         const to = setTimeout(() => {
           pending.delete(id)
           reject(new Error('rpc timeout ' + method))
@@ -146,7 +146,7 @@ async function main() {
     // Kirim probe dari popup: panggil sendNativeMessage ke KEDUA flavor host
     // dan laporkan hasil mentahnya.
     const list = (await getJson(`http://127.0.0.1:${DEBUG_PORT}/json/list`)) || []
-    const page = list.find((t) => t.type === 'page')
+    const page = list.find((t: any) => t.type === 'page')
     if (!page) throw new Error('tidak ada page target')
     const rpc = wsRpc(page.webSocketDebuggerUrl)
     await rpc.ready
@@ -154,12 +154,12 @@ async function main() {
     await rpc.call('Page.navigate', { url: `chrome-extension://${EXT_ID}/popup.html` })
     await sleep(1500)
     const expr = `(async () => {
-      const out = {}
+      const out: any = {}
       for (const host of ['id.abelink.bridge', 'id.abelink.bridge.dev']) {
         try {
           const res = await chrome.runtime.sendNativeMessage(host, { type: 'get-token' })
           out[host] = { ok: !!res?.ok, hasToken: !!res?.token, tokenLen: res?.token ? String(res.token).length : 0, error: res?.error || null }
-        } catch (e) {
+        } catch (e: any) {
           out[host] = { threw: true, message: String(e?.message || e) }
         }
       }

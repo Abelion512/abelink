@@ -7,7 +7,7 @@
 // Pakai: node scripts/sync-version.mjs [--check]
 //   --check : exit 1 tanpa menulis bila ada yang tidak sinkron (dipakai CI release gate).
 import { readFileSync, writeFileSync } from 'node:fs'
-import { appToExtVersion } from './ext-version.mjs'
+import { appToExtVersion } from './ext-version.ts'
 
 const CONF_PATH = 'src-tauri/tauri.conf.json'
 const PKG_PATH = 'package.json'
@@ -24,7 +24,7 @@ if (!SEMVER_RE.test(version)) {
   process.exit(1)
 }
 
-let drift = []
+const drift: any[] = []
 
 // --- package.json ---
 const pkgRaw = readFileSync(PKG_PATH, 'utf8')

@@ -29,14 +29,14 @@ export const TASK_RUNTIME_EVENTS = [
   'task.cancelled'
 ]
 
-let storeOverride = null
-let emitOverride = null
+let storeOverride: any = null
+let emitOverride: any = null
 
 // Inject a compatible store ({ createAgentTask, getAgentTask, ... } with the
 // exact taskStore.ts signatures) and/or an event sink (name, payload) => void.
 // Pass { store: null } / { emit: null } to clear one slot; use
 // resetTaskRuntimeConfig() to restore defaults.
-export function configureTaskRuntime({ store = undefined, emit = undefined } = {}) {
+export function configureTaskRuntime({ store = undefined, emit = undefined }: any = {}) {
   if (store !== undefined) {
     if (store !== null && (typeof store !== 'object' || typeof store.createAgentTask !== 'function')) {
       throw new Error('taskRuntime: injected store must expose the taskStore.ts interface')
@@ -67,7 +67,7 @@ async function store() {
   return import('../taskStore.ts')
 }
 
-function emitEvent(name, payload) {
+function emitEvent(name: any, payload: any) {
   if (!TASK_RUNTIME_EVENTS.includes(name)) return
   try {
     emitOverride?.(name, payload)
@@ -82,11 +82,11 @@ export async function createTask(input = {}) {
   return task
 }
 
-export async function getTask(taskId) {
+export async function getTask(taskId: any) {
   return (await store()).getAgentTask(taskId)
 }
 
-export async function getTaskWithSteps(taskId) {
+export async function getTaskWithSteps(taskId: any) {
   return (await store()).getAgentTaskWithSteps(taskId)
 }
 
@@ -94,26 +94,26 @@ export async function listTasks(options = {}) {
   return (await store()).listAgentTasks(options)
 }
 
-export async function startTask(taskId) {
+export async function startTask(taskId: any) {
   const task = await (await store()).startAgentTask(taskId)
   emitEvent('task.updated', { taskId, status: task?.status })
   return task
 }
 
-export async function startTaskStep(taskId, stepId) {
+export async function startTaskStep(taskId: any, stepId: any) {
   const step = await (await store()).startAgentTaskStep(taskId, stepId)
   emitEvent('task.updated', { taskId, stepId, status: 'running' })
   return step
 }
 
-export async function checkpointStep(taskId, stepId, checkpoint = {}) {
+export async function checkpointStep(taskId: any, stepId: any, checkpoint = {}) {
   const task = await (await store()).checkpointAgentTaskStep(taskId, stepId, checkpoint)
   emitEvent('task.progress', { taskId, stepId, status: task?.status })
   if (task?.status === 'completed') emitEvent('task.completed', { taskId })
   return task
 }
 
-export async function transitionTask(taskId, status, error = null) {
+export async function transitionTask(taskId: any, status: any, error = null) {
   const task = await (await store()).transitionAgentTask(taskId, status, error)
   emitEvent('task.updated', { taskId, status })
   if (status === 'completed') emitEvent('task.completed', { taskId })
@@ -122,11 +122,11 @@ export async function transitionTask(taskId, status, error = null) {
   return task
 }
 
-export async function pauseTask(taskId, reason = null) {
+export async function pauseTask(taskId: any, reason = null) {
   return transitionTask(taskId, 'paused', reason)
 }
 
-export async function resumeTask(taskId) {
+export async function resumeTask(taskId: any) {
   const task = await (await store()).resumeAgentTask(taskId)
   emitEvent('task.updated', { taskId, status: task?.status })
   return task
@@ -136,13 +136,13 @@ export async function resumeTask(taskId) {
 // the event. Limitation: an already-dispatched in-flight native operation is
 // NOT killed (sidecar has no abort propagation; Rust bridge timeout is 300s).
 // Callers must still abort their own loop/signal alongside this call.
-export async function cancelTask(taskId) {
+export async function cancelTask(taskId: any) {
   const task = await (await store()).cancelAgentTask(taskId)
   emitEvent('task.cancelled', { taskId })
   return task
 }
 
-export async function deleteTask(taskId) {
+export async function deleteTask(taskId: any) {
   return (await store()).deleteAgentTask(taskId)
 }
 
@@ -153,17 +153,17 @@ export async function pauseStaleTasks(reason = 'app_restart') {
 }
 
 // Pure checkpoint builder (verification logic untouched in taskExecutor.ts).
-export async function buildStepCheckpoint(step, output, maxRetries = 2, evidenceInput = null) {
+export async function buildStepCheckpoint(step: any, output: any, maxRetries = 2, evidenceInput = null) {
   const { buildDurableStepCheckpoint } = await import('../taskExecutor.ts')
   return buildDurableStepCheckpoint(step, output, maxRetries, evidenceInput)
 }
 
 // One stable engine-level result view per task ID. Derived only: no schema
 // change, no chat-history reconstruction. Throws when the task is unknown.
-export async function getResult(taskId) {
+export async function getResult(taskId: any) {
   const task = await (await store()).getAgentTaskWithSteps(taskId)
   if (!task) throw new Error('Task tidak ditemukan: ' + taskId)
-  const steps = (task.steps || []).map((step) => ({
+  const steps = (task.steps || []).map((step: any) => ({
     id: step.id,
     title: step.title,
     status: step.status,
@@ -175,8 +175,8 @@ export async function getResult(taskId) {
     error: step.error || null
   }))
   const text = steps
-    .filter((step) => step.status === 'completed' && step.outputSummary)
-    .map((step) => step.outputSummary)
+    .filter((step: any) => step.status === 'completed' && step.outputSummary)
+    .map((step: any) => step.outputSummary)
     .join('\n\n')
   return {
     taskId: task.id,
@@ -191,7 +191,7 @@ export async function getResult(taskId) {
   }
 }
 
-export async function getTaskHandoffContract(taskId, options = {}) {
+export async function getTaskHandoffContract(taskId: any, options = {}) {
   const s = await store()
   if (typeof s.generateTaskHandoff === 'function') {
     return s.generateTaskHandoff(taskId, options)

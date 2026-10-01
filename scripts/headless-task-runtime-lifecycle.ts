@@ -14,15 +14,16 @@ for (const g of ['window', 'localStorage']) {
   }
 }
 
-await import('fake-indexeddb/auto')
+await import('fake-indexeddb/auto' as any)
 
-const rt = await import('../src/api/engine/taskRuntime.js')
+const rt: any = await import('../src/api/engine/taskRuntime.ts')
 const { db } = await import('../src/api/db.ts')
 await db.agentTasks.clear()
 await db.agentTaskSteps.clear()
 
-const events = []
-rt.configureTaskRuntime({ emit: (n) => events.push(n) })
+const events: any[] = []
+const rtAny = rt as any
+rtAny.configureTaskRuntime({ emit: (n: any) => events.push(n) })
 
 const created = await rt.createTask({
   id: 'headless-1',
@@ -43,7 +44,7 @@ await rt.checkpointStep('headless-1', 'headless-1-a', {
   status: 'completed',
   outputSummary: stepA
 })
-await rt.pauseTask('headless-1', 'test')
+await (rt as any).pauseTask('headless-1', 'test' as any)
 assert.equal((await rt.getTask('headless-1')).status, 'paused')
 await rt.resumeTask('headless-1')
 await rt.startTaskStep('headless-1', 'headless-1-b')

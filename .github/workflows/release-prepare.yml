@@ -29,6 +29,6 @@ jobs:
           bun-version: 1.4.2
       - run: bun install
       - name: Prepare release
-        run: node scripts/release-helper.mjs prepare
+        run: bun scripts/release-helper.ts prepare
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

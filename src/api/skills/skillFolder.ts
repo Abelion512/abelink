@@ -16,7 +16,7 @@
  * - "skillName/references/api.md" -> { skillName: "skillName", subpath: "references/api.md" }
  * - "skillName//scripts/run.sh" -> { skillName: "skillName", subpath: "scripts/run.sh" }
  */
-export function parseSkillQuery(query) {
+export function parseSkillQuery(query: any) {
   const raw = String(query || '').trim()
   if (!raw) return { skillName: '', subpath: null }
 
@@ -42,7 +42,7 @@ export function parseSkillQuery(query) {
 /**
  * Format string representasi ukuran file dalam format manusiawi (B, KB, MB).
  */
-export function formatBytes(bytes) {
+export function formatBytes(bytes: any) {
   if (bytes == null || isNaN(bytes)) return ''
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
@@ -60,7 +60,7 @@ export function formatSkillFolderBundle({
   scripts = [],
   basePath = '',
   sourceType = 'DISK'
-}) {
+}: any = {}) {
   const parts = []
 
   const header = `[PEDOMAN SKILL (${sourceType}): ${String(name || '').toUpperCase()}]`
@@ -112,7 +112,7 @@ export function formatSkillFolderBundle({
  *   scripts: { 'test.sh': '...', ... } atau [{ path: 'scripts/test.sh', content: '...' }]
  * }
  */
-export function extractSkillSubfile(record, subpath) {
+export function extractSkillSubfile(record: any, subpath: any) {
   if (!record || !subpath) return null
   const normalized = String(subpath).replace(/\\/g, '/').replace(/^\/+/, '')
 
@@ -131,7 +131,7 @@ export function extractSkillSubfile(record, subpath) {
         if (typeof record.references[filename] === 'string') return record.references[filename]
         if (typeof record.references[normalized] === 'string') return record.references[normalized]
       } else if (Array.isArray(record.references)) {
-        const found = record.references.find((r) => r.name === filename || r.path === normalized)
+        const found = record.references.find((r: any) => r.name === filename || r.path === normalized)
         if (found && typeof found.content === 'string') return found.content
       }
     }
@@ -145,7 +145,7 @@ export function extractSkillSubfile(record, subpath) {
         if (typeof record.scripts[filename] === 'string') return record.scripts[filename]
         if (typeof record.scripts[normalized] === 'string') return record.scripts[normalized]
       } else if (Array.isArray(record.scripts)) {
-        const found = record.scripts.find((s) => s.name === filename || s.path === normalized)
+        const found = record.scripts.find((s: any) => s.name === filename || s.path === normalized)
         if (found && typeof found.content === 'string') return found.content
       }
     }

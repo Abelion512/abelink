@@ -8,11 +8,11 @@
 // ("1.0.0-alpha.4" -> version "1.0.0.4", version_name "1.0.0-alpha.4").
 // Chrome membandingkan per angka dari kiri, jadi update otomatis tetap jalan.
 // Batas: counter pra-rilis >65535 DITOLAK (Chrome tak bisa bandingkan).
-import { parse as semverParse } from './semver-lite.mjs'
+import { parse as semverParse } from './semver-lite.ts'
 
 const MAX_CHROME_PART = 65535
 
-function assertChromePart(n, label) {
+function assertChromePart(n: any, label: any) {
   if (!Number.isInteger(n) || n < 0 || n > MAX_CHROME_PART) {
     throw new Error(`Komponen ${label}=${n} di luar rentang Chrome (0-65535)`)
   }
@@ -21,7 +21,7 @@ function assertChromePart(n, label) {
 
 // "1.0.0-alpha.4" -> { version: "1.0.0.4", versionName: "1.0.0-alpha.4" }
 // "1.0.0" -> { version: "1.0.0", versionName: "1.0.0" }
-export function appToExtVersion(appVersion) {
+export function appToExtVersion(appVersion: any) {
   const parsed = semverParse(appVersion)
   if (!parsed) throw new Error(`Versi app bukan SemVer: ${appVersion}`)
   assertChromePart(parsed.major, 'major')

@@ -7,11 +7,11 @@
 // Kanal alpha: basis ikut jenis commit, counter alpha GLOBAL MONOTON
 // (tidak reset) — pola semantic-release/changesets prerelease:
 // feat di 1.0.0-alpha.4 -> 1.1.0-alpha.5; fix berikut -> 1.0.1-alpha.6.
-import { parse as semverParse, valid as semverValid } from './semver-lite.mjs'
+import { parse as semverParse, valid as semverValid } from './semver-lite.ts'
 
 export const RELEASE_CHANNEL_ALPHA = 'alpha'
 
-export function parseChannel(version) {
+export function parseChannel(version: any) {
   const parsed = semverParse(version)
   if (!parsed || !parsed.prerelease.length) return 'stable'
   return String(parsed.prerelease[0])
@@ -19,7 +19,7 @@ export function parseChannel(version) {
 
 // Klasifikasi bump dari SATU commit conventional.
 // Urutan prioritas diputuskan pemanggil (tertinggi menang): major > minor > patch.
-export function bumpRank(commit) {
+export function bumpRank(commit: any) {
   const msg = String(commit?.msg || commit || '')
   const type = String(commit?.type || '').toLowerCase()
   // Conventional Commits: setiap type dengan ! sebelum : -> breaking change.
@@ -37,19 +37,20 @@ export function bumpRank(commit) {
 }
 
 // Bump tertinggi dari sekumpulan commit (mayoritas konvensi proyek).
-export function detectBumpType(commits) {
+export function detectBumpType(commits: any) {
   const rank = { major: 3, minor: 2, patch: 1 }
-  let best = null
+  let best: any = null
+  const rankMap = rank as Record<string, number>
   for (const c of commits || []) {
     const r = bumpRank(c)
-    if (r && (!best || rank[r] > rank[best])) best = r
+    if (r && (!best || rankMap[r] > rankMap[best])) best = r
   }
   return best || 'patch'
 }
 
 // Versi berikut di kanal alpha: basis bump per jenis, counter +1 monoton.
 // Stabil (tanpa suffix alpha) DITOLAK — promosi stabil manual, bukan otomatis.
-export function nextVersion(current, bumpType) {
+export function nextVersion(current: any, bumpType: any) {
   const parsed = semverParse(current)
   if (!parsed) throw new Error(`Cannot parse version: ${current}`)
   if (parsed.prerelease.length === 0 || String(parsed.prerelease[0]) !== RELEASE_CHANNEL_ALPHA) {
@@ -74,10 +75,10 @@ export function nextVersion(current, bumpType) {
 }
 
 // Kompat mundur: pipeline lama hanya naikkan counter.
-export function nextAlphaVersion(current) {
+export function nextAlphaVersion(current: any) {
   return nextVersion(current, 'patch')
 }
 
-export function isValidReleaseVersion(v) {
+export function isValidReleaseVersion(v: any) {
   return Boolean(semverValid(v))
 }

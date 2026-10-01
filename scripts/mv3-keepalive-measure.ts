@@ -34,7 +34,7 @@ import { spawn } from 'node:child_process'
 import { createRequire } from 'node:module'
 
 const require = createRequire(import.meta.url)
-let WebSocket
+let WebSocket: any
 try {
   WebSocket = require('ws')
 } catch {
@@ -70,12 +70,12 @@ const DUR = QUICK
   : { s1a: 210_000, s1b: 210_000, s2: 300_000, suspWait: 150_000, s3a: 180_000, s3b: 100_000, s3bWatch: 120_000 }
 
 const now = () => Date.now()
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
-let T0 = now()
+const sleep = (ms: any) => new Promise((r) => setTimeout(r, ms))
+const T0 = now()
 
 // ------------------------------------------------------------------ log
-const events = []
-function ev(kind, detail = '') {
+const events: any = []
+function ev(kind: any, detail: any = '') {
   const e = { ts: now(), t: +((now() - T0) / 1000).toFixed(2), kind, detail: String(detail || '') }
   events.push(e)
   if (events.length < 4000) console.log(`[${String(e.t).padStart(8)}s] ${kind}${detail ? ' — ' + detail : ''}`)
@@ -86,8 +86,8 @@ let swUpAt = 0
 let swAbsentSince = 0
 let swSuspendCount = 0
 let swWakeCount = 0
-const suspendSpans = []
-const inboundTs = [] // ts perubahan lastSeenAt sesi default (poll/handshake 200/result)
+const suspendSpans: any = []
+const inboundTs: any = [] // ts perubahan lastSeenAt sesi default (poll/handshake 200/result)
 let lastSeenSeen = 0
 let firstInboundAt = 0
 
@@ -95,7 +95,7 @@ function swSuspendedNow() {
   return swAbsentSince > 0 && now() - swAbsentSince >= DEBOUNCE_MS
 }
 
-async function getJson(url) {
+async function getJson(url: any) {
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(1500) })
     return await res.json()
@@ -161,7 +161,7 @@ function launchChrome() {
 }
 
 // CDP helper: satu koneksi WS, call berurut dengan id counter.
-function wsRpc(wsUrl) {
+function wsRpc(wsUrl: any) {
   let seq = 0
   const pending = new Map()
   const ws = new WebSocket(wsUrl)
@@ -170,7 +170,7 @@ function wsRpc(wsUrl) {
     ws.on('open', res)
     ws.on('error', rej)
   })
-  ws.on('message', (raw) => {
+  ws.on('message', (raw: any) => {
     let m
     try {
       m = JSON.parse(raw.toString())
@@ -187,9 +187,9 @@ function wsRpc(wsUrl) {
   })
   return {
     ready,
-    call(method, params = {}, timeoutMs = 15000) {
+    call(method: any, params = {}, timeoutMs = 15000) {
       const id = ++seq
-      return new Promise((resolve, reject) => {
+      return new Promise<any>((resolve, reject) => {
         const to = setTimeout(() => {
           pending.delete(id)
           reject(new Error('rpc timeout ' + method))
@@ -220,7 +220,7 @@ async function loadExtension() {
         ev('EXTENSION_LOADED', `id ${r.id}`)
         return true
       }
-    } catch (e) {
+    } catch (e: any) {
       if (i >= 29) ev('LOAD_FAIL', e.message)
     }
   }
@@ -229,9 +229,9 @@ async function loadExtension() {
 
 // Kirim {type:'start'} dari konteks extension: navigasi tab ke popup.html
 // asli lalu evaluate sendMessage. Tidak menyentuh SW target.
-async function startLoopViaPopup(token) {
+async function startLoopViaPopup(token: any) {
   const list = (await getJson(`http://127.0.0.1:${DEBUG_PORT}/json/list`)) || []
-  const page = list.find((t) => t.type === 'page')
+  const page = list.find((t: any) => t.type === 'page')
   if (!page) throw new Error('tidak ada page target')
   const rpc = wsRpc(page.webSocketDebuggerUrl)
   await rpc.ready
@@ -257,7 +257,7 @@ async function startLoopViaPopup(token) {
 // TIDAK attach debugger ke service worker.
 async function probeStatus() {
   const list = (await getJson(`http://127.0.0.1:${DEBUG_PORT}/json/list`)) || []
-  const page = list.find((t) => t.type === 'page')
+  const page = list.find((t: any) => t.type === 'page')
   if (!page) throw new Error('tidak ada page target')
   const rpc = wsRpc(page.webSocketDebuggerUrl)
   await rpc.ready
@@ -271,7 +271,7 @@ async function probeStatus() {
       try {
         const h = await chrome.runtime.sendNativeMessage('id.abelink.bridge.dev', { type: 'get-token' })
         helper = { ok: !!h?.ok, hasToken: !!h?.token, error: h?.error || null }
-      } catch (e) {
+      } catch (e: any) {
         helper = { threw: true, message: String(e && e.message || e) }
       }
       return JSON.stringify({ status, helper })
@@ -289,7 +289,7 @@ async function probeStatus() {
 }
 
 // --------------------------------------------------------- timeline loop
-async function watchLoop(isRunning) {
+async function watchLoop(isRunning: any) {
   while (isRunning()) {
     const [list, version, admin] = await Promise.all([
       getJson(`http://127.0.0.1:${DEBUG_PORT}/json/list`),
@@ -297,7 +297,7 @@ async function watchLoop(isRunning) {
       getJson(`http://127.0.0.1:${ADMIN_PORT}/sessions`)
     ])
     // Aktivitas inbound (poll/handshake-200/result) = lastSeenAt naik.
-    const def = (admin && admin.sessions || []).find((s) => s.id === 'default')
+    const def = (admin && admin.sessions || []).find((s: any) => s.id === 'default')
     if (def && def.lastSeenAt > lastSeenSeen) {
       lastSeenSeen = def.lastSeenAt
       if (!firstInboundAt) firstInboundAt = now()
@@ -310,7 +310,7 @@ async function watchLoop(isRunning) {
       continue
     }
     const sw = (list || []).find(
-      (t) => t.type === 'service_worker' && String(t.url || '').startsWith(`chrome-extension://${EXT_ID}/`)
+      (t: any) => t.type === 'service_worker' && String(t.url || '').startsWith(`chrome-extension://${EXT_ID}/`)
     )
     if (sw) {
       if (!swUpAt) {
@@ -335,12 +335,12 @@ async function watchLoop(isRunning) {
 }
 
 // ------------------------------------------------------------- reporting
-function summarize(label, sinceTs) {
-  const spans = suspendSpans.filter((s) => s.from >= sinceTs)
-  const totalSuspend = spans.reduce((a, s) => a + s.ms, 0)
+function summarize(label: any, sinceTs: any): any {
+  const spans = (suspendSpans as any[]).filter((s: any) => s.from >= sinceTs)
+  const totalSuspend = spans.reduce((a: any, s: any) => a + s.ms, 0)
   const windowMs = now() - sinceTs
-  const inb = inboundTs.filter((t) => t >= sinceTs)
-  const gaps = []
+  const inb = inboundTs.filter((t: any) => t >= sinceTs)
+  const gaps: number[] = []
   for (let i = 1; i < inb.length; i++) gaps.push(inb[i] - inb[i - 1])
   return {
     label,
@@ -355,9 +355,9 @@ function summarize(label, sinceTs) {
   }
 }
 
-const FINISH = { forwarder: null, child: null, code: 0 }
+const FINISH: any = { forwarder: null, child: null, code: 0 }
 
-async function admin(method, p, body, timeoutMs = 15000) {
+async function admin(method: any, p: any, body: any = null, timeoutMs = 15000): Promise<any> {
   const res = await fetch(`http://127.0.0.1:${ADMIN_PORT}${p}`, {
     method,
     headers: { 'Content-Type': 'application/json' },
@@ -368,7 +368,7 @@ async function admin(method, p, body, timeoutMs = 15000) {
 }
 
 // Tunggu SW terkonfirmasi suspensi (absen >= DEBOUNCE) maksimal waitMs.
-async function waitSuspended(waitMs) {
+async function waitSuspended(waitMs: any) {
   const deadline = now() + waitMs
   while (now() < deadline) {
     if (swSuspendedNow()) return true
@@ -378,11 +378,11 @@ async function waitSuspended(waitMs) {
 }
 
 // ------------------------------------------------------------- laporan
-function writeReport(extra = {}) {
-  const totalSuspend = suspendSpans.reduce((a, s) => a + s.ms, 0)
-  const gapsAll = []
+function writeReport(extra: any = {}, phasesList: any = null) {
+  const totalSuspend = (suspendSpans as any[]).reduce((a: any, s: any) => a + s.ms, 0)
+  const gapsAll: number[] = []
   for (let i = 1; i < inboundTs.length; i++) gapsAll.push(inboundTs[i] - inboundTs[i - 1])
-  const report = {
+  const report: any = {
     kind: 'abelink-mv3-keepalive-measurement',
     mode: MODE,
     date: new Date().toISOString(),
@@ -403,13 +403,13 @@ function writeReport(extra = {}) {
       inbound_gap_max_s: gapsAll.length ? +(Math.max(...gapsAll) / 1000).toFixed(2) : null,
       ...extra
     },
-    phases: [...arguments[1] || []],
-    suspend_spans: suspendSpans.map((s) => ({
+    phases: [...(phasesList || [])],
+    suspend_spans: (suspendSpans as any[]).map((s: any) => ({
       from_s: +((s.from - T0) / 1000).toFixed(1),
       to_s: +((s.to - T0) / 1000).toFixed(1),
       ms: s.ms
     })),
-    inbound_ts_s: inboundTs.map((t) => +((t - T0) / 1000).toFixed(2)),
+    inbound_ts_s: inboundTs.map((t: any) => +((t - T0) / 1000).toFixed(2)),
     events
   }
   fs.writeFileSync(path.join(ART, 'mv3-keepalive-report.json'), JSON.stringify(report, null, 2))
@@ -434,7 +434,7 @@ async function main() {
   // Port bridge kanonik dev: bridge-core membaca env ini (default 49712).
   process.env.ABELINK_BRIDGE_PORT = String(BRIDGE_PORT)
 
-  const child = spawn(process.execPath, [path.join(ROOT, 'scripts', 'mv3-measure-bridge-child.mjs')], {
+  const child = spawn(process.execPath, [path.join(ROOT, 'scripts', 'mv3-measure-bridge-child.ts')], {
     env: process.env,
     stdio: ['ignore', 'pipe', 'pipe']
   })
@@ -495,7 +495,7 @@ async function main() {
         signal: AbortSignal.timeout(3000)
       })
       ev('HOLD_WARN', 'koneksi dijawab cepat — hold TIDAK aktif')
-    } catch (e) {
+    } catch (e: any) {
       holdVerified = e && e.name === 'TimeoutError'
       ev(holdVerified ? 'HOLD_VERIFIED' : 'HOLD_FAIL', e && e.name === 'TimeoutError' ? 'koneksi menggantung (benar)' : `gagal ${e?.name}: ${e?.message}`)
     }
@@ -550,7 +550,7 @@ async function main() {
     const tC = now()
     // Transisi status extension dipoll tiap 5 detik selama dispatch berjalan:
     // menjawab KAPAN loop berhenti polling dan APA status helper saat itu.
-    const statusTrail = []
+    const statusTrail: any = []
     const statusPoller = (async () => {
       while (now() - tC < 130000) {
         try {
@@ -572,7 +572,7 @@ async function main() {
     try {
       statusMsg = await probeStatus()
       ev('S3C_STATUS', JSON.stringify(statusMsg).slice(0, 300))
-    } catch (e) {
+    } catch (e: any) {
       ev('S3C_STATUS_FAIL', e.message)
     }
     void statusPoller
@@ -580,7 +580,7 @@ async function main() {
     let recC = 0
     for (let i = 0; i < 24; i++) {
       const a = await getJson(`http://127.0.0.1:${ADMIN_PORT}/sessions`)
-      const def = (a && a.sessions || []).find((s) => s.id === 'default')
+      const def = (a && a.sessions || []).find((s: any) => s.id === 'default')
       if (def && def.lastSeenAt > tC && now() - def.lastSeenAt < 3000) {
         recC = now() - tC
         break
@@ -668,7 +668,7 @@ async function main() {
   let recoveredAt = 0
   while (now() < watchDeadline) {
     const a = await getJson(`http://127.0.0.1:${ADMIN_PORT}/sessions`)
-    const def = (a && a.sessions || []).find((s) => s.id === 'default')
+    const def = (a && a.sessions || []).find((s: any) => s.id === 'default')
     // Inbound sukses pertama SETELAH dispatch = loop pulih (401 tak mengubah
     // lastSeenAt, jadi kenaikan di atas tB hanya terjadi bila poll 200).
     if (def && def.lastSeenAt > tB && now() - def.lastSeenAt < 3000) {
@@ -721,7 +721,7 @@ main()
       await ensureNativeHost({ dataHome: REAL_DATA_HOME, flavor: 'prod' })
       await ensureNativeHost({ dataHome: REAL_DATA_HOME, flavor: 'dev' })
       ev('NATIVE_HOST_RESTORED', 'manifest prod+dev menunjuk data home asli')
-    } catch (e) {
+    } catch (e: any) {
       console.error('cleanup native host gagal:', e.message)
     }
     try {

@@ -4,7 +4,7 @@ import {
   formatBytes,
   formatSkillFolderBundle,
   extractSkillSubfile
-} from '../src/api/skills/skillFolder.js'
+} from '../src/api/skills/skillFolder.ts'
 import {
   sanitizeSkillRelPath,
   getSkillFolderManifest

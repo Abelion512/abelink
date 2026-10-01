@@ -33,7 +33,7 @@ function getCurrentVersion() {
   }
 }
 
-function git(args, opts = {}) {
+function git(args: any, opts = {}) {
   const res = spawnSync('git', args.split(' '), {
     cwd: REPO,
     encoding: 'utf8',
@@ -44,16 +44,16 @@ function git(args, opts = {}) {
   return (res.stdout || '').trim()
 }
 
-export function semverBump(current, type) {
+export function semverBump(current: any, type: any) {
   const match = current.match(/^(\d+)\.(\d+)\.(\d+)(?:-(.+))?$/)
   if (!match) throw new Error(`Invalid version: ${current}`)
   const [, major, minor, patch, prerelease] = match
   const [maj, min, pat] = [Number(major), Number(minor), Number(patch)]
-  const next = {
+  const next = ({
     major: `${maj + 1}.0.0`,
     minor: `${maj}.${min + 1}.0`,
     patch: `${maj}.${min}.${pat + 1}`
-  }[type]
+  } as Record<string, string>)[type]
   if (!next) throw new Error(`Unknown bump type: ${type}`)
   // preserve prerelease suffix if any
   return prerelease ? `${next}-${prerelease}` : next
@@ -85,7 +85,7 @@ function detectBumpType() {
   return 'patch'
 }
 
-function updateTauriConf(next) {
+function updateTauriConf(next: any) {
   const confPath = path.join(REPO, 'src-tauri/tauri.conf.json')
   const conf = JSON.parse(readFileSync(confPath, 'utf8'))
   conf.version = next

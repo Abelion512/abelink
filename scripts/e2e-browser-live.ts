@@ -17,7 +17,7 @@ const PROFILE = '/tmp/abelink-ext-e2e'
 fs.mkdirSync(OUT, { recursive: true })
 fs.rmSync(PROFILE, { recursive: true, force: true })
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+const sleep = (ms: any) => new Promise((r) => setTimeout(r, ms))
 
 // ---------- sidecar RPC ----------
 const child = spawn('bun', [path.join(ROOT, 'sidecar', 'engine.ts')], {
@@ -49,8 +49,8 @@ child.stderr.on('data', (c) => {
   const s = c.toString()
   if (s.includes('BrowserBridge') || s.includes('engine:ready')) process.stderr.write('[sidecar] ' + s)
 })
-function rpc(action, payload, timeoutMs = 60000) {
-  return new Promise((resolve, reject) => {
+function rpc(action: any, payload: any, timeoutMs = 60000) {
+  return new Promise<any>((resolve, reject) => {
     const id = reqId++
     const timer = setTimeout(() => {
       pending.delete(id)
@@ -66,8 +66,8 @@ async function cdpList() {
   const res = await fetch(`http://127.0.0.1:${CDP}/json/list`)
   return res.json()
 }
-function wsCall(wsUrl, method, params = {}) {
-  return new Promise((resolve, reject) => {
+function wsCall(wsUrl: any, method: any, params = {}) {
+  return new Promise<any>((resolve, reject) => {
     const ws = new WebSocket(wsUrl)
     const id = Math.floor(Math.random() * 1e9)
     ws.onopen = () => ws.send(JSON.stringify({ id, method, params }))
@@ -81,7 +81,7 @@ function wsCall(wsUrl, method, params = {}) {
     setTimeout(() => reject(new Error('CDP timeout ' + method)), 30000)
   })
 }
-async function shot(wsUrl, name) {
+async function shot(wsUrl: any, name: any) {
   const r = await wsCall(wsUrl, 'Page.captureScreenshot', { format: 'png' })
   fs.writeFileSync(path.join(OUT, name), Buffer.from(r.data, 'base64'))
   console.log('shot:', name)
@@ -89,19 +89,19 @@ async function shot(wsUrl, name) {
 
 async function main() {
   // tunggu engine:ready
-  await new Promise((resolve) => {
+  await new Promise<void>((resolve) => {
     const t = setInterval(async () => {
       try {
         const r = await rpc('browser:status', [])
         if (r?.success) {
           clearInterval(t)
-          resolve()
+          resolve(undefined)
         }
       } catch {}
     }, 1000)
     setTimeout(() => {
       clearInterval(t)
-      resolve()
+      resolve(undefined)
     }, 30000)
   })
   const st = await rpc('browser:status', [])
@@ -130,12 +130,12 @@ async function main() {
     await sleep(1000)
   }
   if (!targets.length) throw new Error('CDP tidak hidup')
-  console.log('targets:', targets.map((t) => `${t.type} ${(t.url || '').slice(0, 70)}`))
+  console.log('targets:', targets.map((t: any) => `${t.type} ${(t.url || '').slice(0, 70)}`))
   // Service worker MV3 bisa muncul belakangan: retry sampai 20 detik.
   let sw = null
   for (let i = 0; i < 20; i++) {
     const list = await cdpList()
-    sw = list.find((t) => t.type === 'service_worker' && (t.url || '').includes('chrome-extension://'))
+    sw = list.find((t: any) => t.type === 'service_worker' && (t.url || '').includes('chrome-extension://'))
     if (sw) break
     await sleep(1000)
   }
@@ -184,9 +184,9 @@ async function main() {
 
   // screenshot tab konten example.com via CDP
   const list2 = await cdpList()
-  const page = list2.find((t) => t.type === 'page' && (t.url || '').includes('example.com'))
+  const page = list2.find((t: any) => t.type === 'page' && (t.url || '').includes('example.com'))
   if (page) await shot(page.webSocketDebuggerUrl, '04-example-com.png')
-  else console.log('tab example.com tidak ketemu:', list2.map((t) => (t.url || '').slice(0, 60)))
+  else console.log('tab example.com tidak ketemu:', list2.map((t: any) => (t.url || '').slice(0, 60)))
 
   console.log('DONE. Lihat screenshot di', OUT)
   child.kill('SIGTERM')

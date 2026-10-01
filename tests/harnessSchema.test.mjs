@@ -83,7 +83,7 @@ describe('caps jujur (bukan sampling diam-diam)', () => {
   })
 })
 
-describe('harness-diagnose.mjs', () => {
+describe('harness-diagnose.ts', () => {
   const fixture = () => {
     const root = mkdtempSync(path.join(tmpdir(), 'harness-'))
     const day = path.join(root, '2026-09-12')
@@ -106,7 +106,7 @@ describe('harness-diagnose.mjs', () => {
   it('mendeteksi turn-stuck + red flag dalam budget', () => {
     const out = execFileSync(
       'node',
-      ['scripts/harness-diagnose.mjs', '--session', '5', '--date', '2026-09-12', '--dir', fixture(), '--budget', '4000'],
+      ['scripts/harness-diagnose.ts', '--session', '5', '--date', '2026-09-12', '--dir', fixture(), '--budget', '4000'],
       { encoding: 'utf8' }
     )
     expect(out).toMatch('turn 2 START tanpa END')
@@ -117,14 +117,14 @@ describe('harness-diagnose.mjs', () => {
   it('--latest memilih sesi tersibuk', () => {
     const out = execFileSync(
       'node',
-      ['scripts/harness-diagnose.mjs', '--date', '2026-09-12', '--dir', fixture()],
+      ['scripts/harness-diagnose.ts', '--date', '2026-09-12', '--dir', fixture()],
       { encoding: 'utf8' }
     )
     expect(out).toMatch('DIAGNOSA SESI 5')
   })
 })
 
-describe('harness-export.mjs', () => {
+describe('harness-export.ts', () => {
   it('menggabung per-kind menjadi satu JSONL sesi terurut-ts', () => {
     const root = mkdtempSync(path.join(tmpdir(), 'harness-'))
     const day = path.join(root, '2026-09-12')
@@ -135,7 +135,7 @@ describe('harness-export.mjs', () => {
       path.join(day, 'tool-calls.jsonl'),
       line(7, '2026-09-12T00:00:02') + '\n' + line(7, '2026-09-12T00:00:01') + '\n' + line(9, '2026-09-12T00:00:00') + '\nkorup{\n'
     )
-    const out = execFileSync('node', ['scripts/harness-export.mjs', '--session', '7', '--date', '2026-09-12', '--dir', root], { encoding: 'utf8' })
+    const out = execFileSync('bun', ['scripts/harness-export.ts', '--session', '7', '--date', '2026-09-12', '--dir', root], { encoding: 'utf8' })
     const lines = out.trim().split('\n').map((r) => JSON.parse(r))
     const header = lines[0]
     expect(header.type).toBe('header')
@@ -151,7 +151,7 @@ describe('harness-export.mjs', () => {
     const day = path.join(root, '2026-09-12')
     mkdirSync(day)
     writeFileSync(path.join(day, 'tool-calls.jsonl'), '')
-    const out = execFileSync('node', ['scripts/harness-export.mjs', '--session', '99', '--date', '2026-09-12', '--dir', root], { encoding: 'utf8' })
+    const out = execFileSync('bun', ['scripts/harness-export.ts', '--session', '99', '--date', '2026-09-12', '--dir', root], { encoding: 'utf8' })
     const header = JSON.parse(out.trim())
     expect(header.type).toBe('header')
     expect(header.count).toBe(0)

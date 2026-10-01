@@ -42,7 +42,7 @@ export const subagentStore = {
   /**
    * Mengambil metadata Sub-Agent berdasarkan ID
    */
-  async getSubagent(id) {
+  async getSubagent(id: any) {
     if (!id) return null
     return await db.subagents.get(id)
   },
@@ -51,7 +51,7 @@ export const subagentStore = {
    * Mengambil daftar seluruh Sub-Agent
    */
   async listSubagents(filterStatus = null) {
-    let collection = db.subagents.orderBy('createdAt').reverse()
+    const collection = db.subagents.orderBy('createdAt').reverse()
     if (filterStatus && filterStatus !== 'all') {
       return await collection.filter((s) => s.status === filterStatus).toArray()
     }
@@ -61,7 +61,7 @@ export const subagentStore = {
   /**
    * Mengupdate field/status Sub-Agent
    */
-  async updateSubagent(id, updates) {
+  async updateSubagent(id: any, updates: any) {
     if (!id) return
     await db.subagents.update(id, { ...updates, updatedAt: Date.now() })
   },
@@ -69,7 +69,7 @@ export const subagentStore = {
   /**
    * Menghapus Sub-Agent beserta riwayat chat-nya
    */
-  async deleteSubagent(id) {
+  async deleteSubagent(id: any) {
     if (!id) return
     await db.subagents.delete(id)
     await db.subagent_messages.where('subagentId').equals(id).delete()
@@ -78,7 +78,7 @@ export const subagentStore = {
   /**
    * Menambahkan pesan ke riwayat percakapan AI-to-AI Sub-Agent
    */
-  async addMessage(subagentId, { sender, role, content, thought = null, action = null }) {
+  async addMessage(subagentId: any, { sender, role, content, thought = null, action = null }: any = {}) {
     if (!subagentId) return null
     const msg = {
       subagentId,
@@ -96,7 +96,7 @@ export const subagentStore = {
   /**
    * Mengambil semua pesan Sub-Agent secara kronologis
    */
-  async getMessages(subagentId) {
+  async getMessages(subagentId: any) {
     if (!subagentId) return []
     return await db.subagent_messages.where('subagentId').equals(subagentId).sortBy('timestamp')
   },
@@ -104,7 +104,7 @@ export const subagentStore = {
   /**
    * Membersihkan pesan dari satu Sub-Agent
    */
-  async clearMessages(subagentId) {
+  async clearMessages(subagentId: any) {
     if (!subagentId) return
     await db.subagent_messages.where('subagentId').equals(subagentId).delete()
   }

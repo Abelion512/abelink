@@ -616,7 +616,7 @@ export const DEFERRED_GROUP_SPECS = {
         queryFormat: 'kosongkan atau nama_berkas',
         examples: [
           { query: '', description: 'Melihat seluruh diff perubahan repo' },
-          { query: 'src/api/tools/toolCatalog.js', description: 'Melihat diff spesifik berkas' }
+          { query: 'src/api/tools/toolCatalog.ts', description: 'Melihat diff spesifik berkas' }
         ],
         tags: ['git', 'diff', 'patch']
       },
@@ -1003,7 +1003,7 @@ export const UNIFIED_TOOL_CATALOG = buildUnifiedToolCatalog()
 /**
  * Mencari tool spesifik berdasarkan nama persis.
  */
-export function getToolSpec(toolName) {
+export function getToolSpec(toolName: any) {
   if (!toolName) return null
   return UNIFIED_TOOL_CATALOG.get(toolName.trim()) || null
 }
@@ -1011,7 +1011,7 @@ export function getToolSpec(toolName) {
 /**
  * Tokenizer sederhana untuk scoring lexical.
  */
-function tokenize(text) {
+function tokenize(text: any) {
   if (!text) return []
   return String(text)
     .toLowerCase()
@@ -1029,7 +1029,7 @@ function tokenize(text) {
  * - Summary/Description match: +10
  * - Group match: +15
  */
-export function searchTools(query, { limit = 8, group = null } = {}) {
+export function searchTools(query: any, { limit = 8, group = null } = {}) {
   const q = (query || '').trim().toLowerCase()
   if (!q) return []
 
@@ -1040,7 +1040,7 @@ export function searchTools(query, { limit = 8, group = null } = {}) {
     if (group && tool.group !== group) continue
 
     const name = tool.name.toLowerCase()
-    const tags = (tool.tags || []).map((t) => t.toLowerCase())
+    const tags = (tool.tags || []).map((t: any) => t.toLowerCase())
     const summary = (tool.summary || '').toLowerCase()
     const description = (tool.description || '').toLowerCase()
     const toolGroup = (tool.group || '').toLowerCase()
@@ -1061,7 +1061,7 @@ export function searchTools(query, { limit = 8, group = null } = {}) {
 
     for (const token of queryTokens) {
       if (name.includes(token)) score += 20
-      if (tags.some((t) => t.includes(token))) score += 15
+      if (tags.some((t: any) => t.includes(token))) score += 15
       if (summary.includes(token)) score += 8
       if (description.includes(token)) score += 5
     }
@@ -1078,7 +1078,7 @@ export function searchTools(query, { limit = 8, group = null } = {}) {
 /**
  * Format dokumentasi detail untuk 1 tool spesifik lengkap dengan contoh pemakaian.
  */
-export function formatToolDocumentation(tool) {
+export function formatToolDocumentation(tool: any) {
   if (!tool) return ''
   const lines = [
     `[TOOL: ${tool.name}] (Grup: ${tool.group}${tool.defer_loading ? ' - Deferred' : ' - Core'})`,
@@ -1088,7 +1088,7 @@ export function formatToolDocumentation(tool) {
 
   if (Array.isArray(tool.examples) && tool.examples.length > 0) {
     lines.push('Contoh Pemakaian Nyata:')
-    tool.examples.forEach((ex, idx) => {
+    tool.examples.forEach((ex: any, idx: any) => {
       lines.push(`  ${idx + 1}. Query: ${JSON.stringify(ex.query)}`)
       if (ex.description) {
         lines.push(`     Keterangan: ${ex.description}`)
@@ -1102,9 +1102,9 @@ export function formatToolDocumentation(tool) {
 /**
  * Format dokumentasi seluruh tool dalam suatu grup beserta contoh pemakaiannya.
  */
-export function formatGroupDocumentation(groupName, toolsList) {
+export function formatGroupDocumentation(groupName: any, toolsList: any) {
   const header = `=== DOKUMENTASI GRUP TOOL: ${groupName.toUpperCase()} ===`
-  const toolDocs = toolsList.map((t) => formatToolDocumentation(t)).join('\n\n')
+  const toolDocs = toolsList.map((t: any) => formatToolDocumentation(t)).join('\n\n')
   return `${header}\n\n${toolDocs}`
 }
 
@@ -1116,7 +1116,7 @@ export function formatGroupDocumentation(groupName, toolsList) {
  * 3. Search query (misal: "search: git commit" atau "?terminal background" atau "screenshot") -> mengembalikan hasil pencarian relevan.
  * 4. Query kosong -> mengembalikan ringkasan grup yang tersedia dan bantuan pencarian.
  */
-export async function resolveReadToolsQuery(query, { customGroups = null } = {}) {
+export async function resolveReadToolsQuery(query: any, { customGroups = null }: any = {}) {
   const raw = (query || '').trim()
 
   // 1. Query kosong: berikan daftar catalog sumber yang tersedia (ala Hermes available_sources)
@@ -1173,10 +1173,10 @@ export async function resolveReadToolsQuery(query, { customGroups = null } = {})
   // grupnya ada dan bagaimana keadaannya.
   const DORMANT_GROUPS = {
     pc_automation:
-      'Grup otomasi PC visual (os-read/os-click/os-type/os-key/os-scroll) DORMAN: tidak direkrut ke prompt karena belum pernah dipakai agen secara nyata (0 call di harness) dan menambah permukaan risiko tanpa pemakaian. os-open (buka file/URL) dan emergency-stop TETAP tersedia. Pengaktifan: keputusan owner + set dormant:false pada group pc_automation di group-tools.js (jalur X11; Wayland belum didukung).'
+      'Grup otomasi PC visual (os-read/os-click/os-type/os-key/os-scroll) DORMAN: tidak direkrut ke prompt karena belum pernah dipakai agen secara nyata (0 call di harness) dan menambah permukaan risiko tanpa pemakaian. os-open (buka file/URL) dan emergency-stop TETAP tersedia. Pengaktifan: keputusan owner + set dormant:false pada group pc_automation di group-tools.ts (jalur X11; Wayland belum didukung).'
   }
   const normalizedLower = raw.toLowerCase()
-  const dormantHit = DORMANT_GROUPS[normalizedLower]
+  const dormantHit = (DORMANT_GROUPS as Record<string, string>)[normalizedLower]
   if (dormantHit) {
     return {
       success: false,

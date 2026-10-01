@@ -6,9 +6,9 @@
 // trajectory log dilakukan TERPUSAT di toolDispatcher (sama seperti sebelumnya).
 import { logSubAgentSpawn as trajectoryLogSub } from '../../../api/trajectory'
 import { getLearnedSkill, bumpLearnedSkillUse } from '../../../api/db.js'
-import { formatSkillFolderBundle as formatSkillFolderBundleImport } from '../../../api/skills/skillFolder.js'
+import { formatSkillFolderBundle as formatSkillFolderBundleImport } from '../../../api/skills/skillFolder.ts'
 
-// Param skillFolder.js ter-infer never[] dari default []; buka lewat cast lokal.
+// Param skillFolder.ts ter-infer never[] dari default []; buka lewat cast lokal.
 const formatBundle = formatSkillFolderBundleImport as unknown as (
   o: {
     name?: string
@@ -137,8 +137,8 @@ export const buildWaitReport = (agents: SubagentRow[] = []) => {
 export const runAgentTool = async (tool: string, query: string, ctx: ToolCtx) => {
   const { targetSetChatData, currentSignal } = ctx
   if (tool === 'spawn_subagent') {
-    const { subagentStore } = await import('../../../api/subagent/subagentStore.js')
-    const { runSubagentTurn } = await import('../../../api/subagent/subagentExecutor.js')
+    const { subagentStore } = await import('../../../api/subagent/subagentStore.ts')
+    const { runSubagentTurn } = await import('../../../api/subagent/subagentExecutor.ts')
     const parts = (query || '').split('||')
     const name = parts[0]?.trim() || 'Worker-Agent'
     const role = parts[1]?.trim() || 'Technical Specialist'
@@ -177,7 +177,7 @@ export const runAgentTool = async (tool: string, query: string, ctx: ToolCtx) =>
     }
   }
   if (tool === 'wait_subagents') {
-    const { subagentStore } = await import('../../../api/subagent/subagentStore.js')
+    const { subagentStore } = await import('../../../api/subagent/subagentStore.ts')
     const parts = (query || '').split('||')
     const targetIdsRaw = parts[0]?.trim() || 'all'
     const maxWaitSeconds = parseInt(parts[1]?.trim() || '40', 10) || 40
@@ -245,7 +245,7 @@ export const runAgentTool = async (tool: string, query: string, ctx: ToolCtx) =>
     return buildWaitReport(finalAgents)
   }
   if (tool === 'send_message') {
-    const { runSubagentTurn } = await import('../../../api/subagent/subagentExecutor.js')
+    const { runSubagentTurn } = await import('../../../api/subagent/subagentExecutor.ts')
     const parts = (query || '').split('||')
     const targetId = parts[0]?.trim()
     const msgText = parts[1]?.trim()
@@ -266,7 +266,7 @@ export const runAgentTool = async (tool: string, query: string, ctx: ToolCtx) =>
     return { success: false, error: `Sub-Agent error: ${runResult.error}` }
   }
   if (tool === 'list_subagents') {
-    const { subagentStore } = await import('../../../api/subagent/subagentStore.js')
+    const { subagentStore } = await import('../../../api/subagent/subagentStore.ts')
     const filter = query ? query.trim().toLowerCase() : null
     const list = (await subagentStore.listSubagents(filter as unknown as null)) as SubagentRow[]
     if (!list || list.length === 0) {
@@ -281,7 +281,7 @@ export const runAgentTool = async (tool: string, query: string, ctx: ToolCtx) =>
     return { success: true, data: `Daftar Sub-Agent Terdaftar:\n${summary}` }
   }
   if (tool === 'kill_subagent') {
-    const { killSubagentExecution } = await import('../../../api/subagent/subagentExecutor.js')
+    const { killSubagentExecution } = await import('../../../api/subagent/subagentExecutor.ts')
     const parts = (query || '').split('||')
     const targetId = parts[0]?.trim()
     if (!targetId) {
@@ -292,7 +292,7 @@ export const runAgentTool = async (tool: string, query: string, ctx: ToolCtx) =>
   }
   if (tool === 'read-tools') {
     const rawQuery = (query || '').trim()
-    const { resolveReadToolsQuery, group_tools, browserExtensionStatusLine } = await import('../../../api/tools/group-tools.js')
+    const { resolveReadToolsQuery, group_tools, browserExtensionStatusLine } = await import('../../../api/tools/group-tools.ts')
     const dynamicGroups = (await group_tools().catch(() => ({}))) as unknown as null
     const resolveQuery = resolveReadToolsQuery as unknown as (
       q: string,
@@ -330,7 +330,7 @@ export const runAgentTool = async (tool: string, query: string, ctx: ToolCtx) =>
     }
 
     const { parseSkillQuery, extractSkillSubfile } = await import(
-      '../../../api/skills/skillFolder.js'
+      '../../../api/skills/skillFolder.ts'
     )
     const { skillName, subpath } = parseSkillQuery(rawQuery)
 

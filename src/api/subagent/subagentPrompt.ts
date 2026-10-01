@@ -2,7 +2,7 @@
  * Generator System Prompt untuk Sub-Agent Abelink
  * Murni utilitarian, berorientasi hasil, tanpa beban persona/obrolan santai.
  */
-export function buildSubagentSystemPrompt({ role, goal, coreToolsText, groupToolsText, builtinPluginsText = '' }) {
+export function buildSubagentSystemPrompt({ role, goal, coreToolsText, groupToolsText, builtinPluginsText = '' }: any = {}) {
   return `Kamu adalah SUB-AGENT SPESIALIS otonom dalam sistem Abelink.
 Kamu bekerja di lingkungan terisolasi untuk menyelesaikan misi teknis yang didelegasikan langsung oleh LEAD AGENT (ABELINK) atau USER.
 

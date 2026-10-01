@@ -4,7 +4,7 @@
  * guard idempoten. Baseline diambil dari max(releases.json, last tag).
  */
 import { describe, it, expect } from 'vitest'
-import { parse, valid, lt, rcompare } from '../scripts/semver-lite.mjs'
+import { parse, valid, lt, rcompare } from '../scripts/semver-lite.ts'
 
 function pickBaseline(lastTagVersion, existingReleases) {
   const releasesMax = (existingReleases || [])

@@ -10,7 +10,7 @@ import {
   recordUsage,
   getUsageSummary,
   LEDGER_KINDS
-} from '../src/api/trading/wallet.js'
+} from '../src/api/trading/wallet.ts'
 
 // Buku kas & alokasi — fondasi wallet self-funding Abelink (100% lokal Dexie).
 

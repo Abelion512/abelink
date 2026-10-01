@@ -1,5 +1,5 @@
 // Proof 1 of 2 — PURE IMPORT (post-merge audit PR #26).
-// taskRuntime.js loads in stock Bun with no browser globals and no IndexedDB
+// taskRuntime.ts loads in stock Bun with no browser globals and no IndexedDB
 // shim installed. Lifecycle needs storage (see proof 2:
 // scripts/headless-task-runtime-lifecycle.mjs).
 import assert from 'node:assert/strict'
@@ -11,7 +11,7 @@ for (const g of ['window', 'localStorage', 'indexedDB']) {
   }
 }
 
-const rt = await import('../src/api/engine/taskRuntime.js')
+const rt: any = await import('../src/api/engine/taskRuntime.ts')
 for (const fn of [
   'createTask', 'getTask', 'getTaskWithSteps', 'listTasks', 'startTask',
   'startTaskStep', 'checkpointStep', 'transitionTask', 'pauseTask',

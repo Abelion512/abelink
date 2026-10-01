@@ -26,16 +26,16 @@ const ADMIN_PORT = Number(process.env.ABELINK_MV3_ADMIN_PORT || 49002)
 // mensimulasikan bridge setengah-terbuka (crash di tengah respons / sleep).
 // Poll extension yang masuk menggantung tanpa resolusi -> tanpa aktivitas
 // event -> timer idle MV3 tidak tereset -> SW suspensi DI TENGAH POLL.
-let sinkServer = null
+let sinkServer: any = null
 function closeSink() {
-  return new Promise((resolve) => {
-    if (!sinkServer) return resolve()
+  return new Promise<any>((resolve) => {
+    if (!sinkServer) return resolve(undefined)
     try {
-      sinkServer.close(() => resolve())
+      sinkServer.close(() => resolve(undefined))
       sinkServer = null
     } catch {
       sinkServer = null
-      resolve()
+      resolve(undefined)
     }
   })
 }
@@ -45,17 +45,17 @@ function closeSink() {
 // session 'default' di memori dengan token file.
 writeTokenFile(process.env.XDG_DATA_HOME, 'dev', process.env)
 
-function json(res, code, obj) {
+function json(res: any, code: any, obj: any) {
   const body = JSON.stringify(obj)
   res.writeHead(code, { 'Content-Type': 'application/json' })
   res.end(body)
 }
 
-function readBody(req) {
-  return new Promise((resolve) => {
+function readBody(req: any) {
+  return new Promise<any>((resolve) => {
     let size = 0
-    const chunks = []
-    req.on('data', (c) => {
+    const chunks: any = []
+    req.on('data', (c: any) => {
       size += c.length
       if (size > 1e6) {
         req.destroy()
@@ -70,7 +70,7 @@ function readBody(req) {
 }
 
 const server = http.createServer(async (req, res) => {
-  const url = new URL(req.url, 'http://127.0.0.1')
+  const url = new URL(req.url ?? '/', 'http://127.0.0.1')
   try {
     if (req.method === 'POST' && url.pathname === '/start-bridge') {
       await closeSink() // bebaskan port bila mode hold aktif
@@ -90,7 +90,7 @@ const server = http.createServer(async (req, res) => {
       stopBrowserBridge()
       await closeSink()
       const port = Number(process.env.ABELINK_BRIDGE_PORT || 49713)
-      const bound = await new Promise((resolve) => {
+      const bound = await new Promise<any>((resolve) => {
         let tries = 0
         const tryListen = () => {
           tries++
@@ -100,7 +100,7 @@ const server = http.createServer(async (req, res) => {
           })
           sinkServer = s
           s.once('error', (e) => {
-            if (e && e.code === 'EADDRINUSE' && tries < 120) setTimeout(tryListen, 500)
+            if ((e as any)?.code === 'EADDRINUSE' && tries < 120) setTimeout(tryListen, 500)
             else resolve(false)
           })
           s.listen(port, '127.0.0.1', () => resolve(true))
@@ -134,12 +134,12 @@ const server = http.createServer(async (req, res) => {
         // Resolve HANYA saat extension asli mengirim hasil (atau timeout jujur).
         const result = await dispatchCommand(b.session || 'default', b.type || 'read-dom', b.payload ?? {})
         return json(res, 200, { ok: true, result, latency_ms: Date.now() - t0 })
-      } catch (e) {
+      } catch (e: any) {
         return json(res, 200, { ok: false, error: String(e?.message || e), latency_ms: Date.now() - t0 })
       }
     }
     return json(res, 404, { error: 'unknown' })
-  } catch (e) {
+  } catch (e: any) {
     return json(res, 500, { error: String(e?.message || e) })
   }
 })

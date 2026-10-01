@@ -6,8 +6,8 @@
 import path from 'path'
 import { resolveDataHome } from '../sidecar/main/utils/dataHome.ts'
 
-export const parseArgs = (argv) => {
-  const out = {}
+export const parseArgs = (argv: any) => {
+  const out: any = {}
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     if (a.startsWith('--')) {
@@ -19,7 +19,7 @@ export const parseArgs = (argv) => {
   return out
 }
 
-export const harnessRoot = (overrideDir) => {
+export const harnessRoot = (overrideDir: any) => {
   if (overrideDir) return overrideDir
   return path.join(resolveDataHome(process.env), 'abelink', 'harness')
 }

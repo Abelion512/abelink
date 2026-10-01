@@ -11,7 +11,7 @@ const skillsDir = path.join(root, '.agents', 'skills')
 const manifestPath = path.join(root, '.agents', 'manifest.json')
 
 // Must match loader's body extraction exactly (lines.slice(endIdx+1).join('\n'))
-function getSkillBody(content) {
+function getSkillBody(content: any) {
   const lines = content.split('\n')
   let endIdx = -1
   for (let i = 1; i < lines.length; i++) {
@@ -20,11 +20,11 @@ function getSkillBody(content) {
   return endIdx === -1 ? content : lines.slice(endIdx + 1).join('\n')
 }
 
-function getFrontmatter(content) {
+function getFrontmatter(content: any) {
   return content.split(/\n---\s*\n/)[0].replace(/^---\s*\n/, '')
 }
 
-const manifest = { version: 1, skills: {} }
+const manifest: any = { version: 1, skills: {} }
 for (const entry of readdirSync(skillsDir, { withFileTypes: true })) {
   if (!entry.isDirectory()) continue
   const skillPath = path.join(skillsDir, entry.name, 'SKILL.md')
