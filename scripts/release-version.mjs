@@ -7,7 +7,7 @@
 // Kanal alpha: basis ikut jenis commit, counter alpha GLOBAL MONOTON
 // (tidak reset) — pola semantic-release/changesets prerelease:
 // feat di 1.0.0-alpha.4 -> 1.1.0-alpha.5; fix berikut -> 1.0.1-alpha.6.
-import { parse as semverParse, valid as semverValid } from './semver-lite.mjs'
+import { parse as semverParse, valid as semverValid, rcompare as semverRcompare } from './semver-lite.mjs'
 
 export const RELEASE_CHANNEL_ALPHA = 'alpha'
 
@@ -37,6 +37,19 @@ export function bumpRank(commit) {
 }
 
 // Bump tertinggi dari sekumpulan commit (mayoritas konvensi proyek).
+export function selectReleaseBaseline(lastTagVersion, releases = []) {
+  // A prepared-but-untagged release is not part of release history yet.
+  // Once a reachable tag exists, it is the only authoritative baseline.
+  if (lastTagVersion) return lastTagVersion
+
+  const validReleases = (releases || [])
+    .map((release) => release?.version)
+    .filter((version) => semverValid(version))
+    .sort((a, b) => semverRcompare(a, b))
+
+  return validReleases[0] || null
+}
+
 export function detectBumpType(commits) {
   const rank = { major: 3, minor: 2, patch: 1 }
   let best = null

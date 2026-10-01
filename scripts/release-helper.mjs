@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parse as semverParse, valid as semverValid, gt as semverGt, lt as semverLt, rcompare as semverRcompare } from './semver-lite.mjs'
-import { nextVersion, nextAlphaVersion, detectBumpType } from './release-version.mjs'
+import { nextVersion, nextAlphaVersion, detectBumpType, selectReleaseBaseline } from './release-version.mjs'
 const semver = { parse: semverParse, valid: semverValid, gt: semverGt, lt: semverLt, rcompare: semverRcompare }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -413,13 +413,11 @@ export function prepareRelease() {
   // baseline diambil dari releases.json agar tidak mundur ke alpha.1 lalu
   // terjebak guard idempoten selamanya.
   const lastTagVersion = getLastReleaseTag()
-  const releasesMax = existingReleases
-    .map(r => r.version)
-    .filter(v => semver.valid(v))
-    .sort((a, b) => semver.rcompare(a, b))[0] || null
-  const baseline = lastTagVersion && releasesMax
-    ? (semver.lt(lastTagVersion, releasesMax) ? releasesMax : lastTagVersion)
-    : (lastTagVersion || releasesMax)
+  // A prepared release in releases.json is only pending metadata.
+  // Once a reachable tag exists, that tag is the authoritative history baseline.
+  // This prevents an untagged minor/major candidate from turning a later fix
+  // into an accidental patch on top of the pending release.
+  const baseline = selectReleaseBaseline(lastTagVersion, existingReleases)
   const commits = getCommitsSince(lastTagVersion)
 
   const releasable = commits.filter(isReleasable)

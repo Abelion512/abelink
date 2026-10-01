@@ -17,10 +17,15 @@ Format kanal alpha: `MAJOR.MINOR.PATCH-alpha.N`.
 | `feat:` | MINOR (PATCH reset 0) | `1.1.0-alpha.5` |
 | `feat!:`, `BREAKING CHANGE:` | MAJOR (MINOR+PATCH reset 0) | `2.0.0-alpha.5` |
 
-Aturan counter: **global monoton, tidak reset**. Basis boleh turun antar
-rilis (`1.1.0-alpha.5` lalu `1.0.1-alpha.6` valid per SemVer §11 karena
-basis dibandingkan dulu), tapi pipeline selalu menghitung kandidat DARI
-baseline (= rilis maksimum terakhir), jadi hasil tak pernah mundur.
+Aturan counter: **global monoton, tidak reset**. Basis mengikuti tag rilis
+terakhir yang reachable. Entri `releases.json` yang sudah disiapkan tetapi
+belum ditag **bukan baseline baru**. Jadi sebuah pending `1.8.0-alpha.12`
+tidak boleh membuat bugfix setelah tag `1.7.0-alpha.11` berubah menjadi
+`1.8.1-alpha.13`. Bugfix tersebut tetap dihitung dari tag terakhir dan menjadi
+`1.7.1-alpha.12`.
+
+Saat belum ada tag sama sekali, pipeline boleh memakai entri valid tertinggi
+di `releases.json` sebagai fallback bootstrap.
 
 Hanya `feat`/`fix`/`security` yang releasable (tanpa satupun → tidak ada
 rilis). Versi stabil (tanpa suffix) DITOLAK pipeline — promosi stabil manual.
