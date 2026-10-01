@@ -1,33 +1,133 @@
 {
-  "version": "1.6.0-alpha.10",
-  "date": "27 September 2026",
-  "summary": "2 fitur baru dan 4 pembaruan dokumentasi.",
-  "founderReport": "Yang baru untuk Anda: Adapter Promptfoo tipis di atas abelink agent run; Adapter Promptfoo tipis di atas abelink agent run.",
+  "version": "1.7.0-alpha.11",
+  "date": "28 September 2026",
+  "summary": "4 fitur baru, 4 perbaikan dan 23 pembaruan dokumentasi.",
+  "founderReport": "Yang baru untuk Anda: Registry data-driven + smart endpoint + STT/TTS custom; Registry data-driven + smart endpoint normalizer + STT/TTS custom; Kadens rilis mingguan + generator matrix Promptfoo PR46. Lebih stabil: Tauri crate 2.12.0 + smoke tanpa EPIPE; Sejajarkan crate tauri 2.12.0 dengan @tauri-apps/api 2.12.0 + smoke tanpa EPIPE; Smoke sidecar dari cwd netral.",
   "linearUrl": "https://linear.app/abelion/project/abelink-agent-for-linux-10ceec65c326",
   "changes": [
     {
       "type": "AUTO",
-      "msg": "Adapter Promptfoo tipis di atas abelink agent run"
+      "msg": "Registry data-driven + smart endpoint + STT/TTS custom"
     },
     {
       "type": "AUTO",
-      "msg": "Adapter Promptfoo tipis di atas abelink agent run"
+      "msg": "Registry data-driven + smart endpoint normalizer + STT/TTS custom"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Kadens rilis mingguan + generator matrix Promptfoo PR46"
+    },
+    {
+      "type": "AUTO",
+      "msg": "Kadens rilis mingguan + generator matrix Promptfoo PR46"
+    },
+    {
+      "type": "ATM",
+      "msg": "Tauri crate 2.12.0 + smoke tanpa EPIPE"
+    },
+    {
+      "type": "ATM",
+      "msg": "Sejajarkan crate tauri 2.12.0 dengan @tauri-apps/api 2.12.0 + smoke tanpa EPIPE"
+    },
+    {
+      "type": "ATM",
+      "msg": "Smoke sidecar dari cwd netral"
+    },
+    {
+      "type": "ATM",
+      "msg": "Smoke sidecar dari cwd netral — binary compile membaca bunfig.toml cwd"
     },
     {
       "type": "DOCS",
-      "msg": "Regenerasi aset brand dari sumber bersih"
+      "msg": "W2-2 db ke TS — tipe baris Dexie per store, schema v30 beku"
     },
     {
       "type": "DOCS",
-      "msg": "Regenerasi seluruh aset brand dari sumber bersih + hapus music-cover yatim"
+      "msg": "W2-1 tauri-bridge ke TS + tsconfig.renderer.json"
     },
     {
       "type": "DOCS",
-      "msg": "Sweep istilah era warisan + rilis jadi manual"
+      "msg": "W1-5 channel skills ke TS + penutup wave W1"
     },
     {
       "type": "DOCS",
-      "msg": "Sweep istilah era warisan dari seluruh pohon + rilis jadi manual"
+      "msg": "W1-4 channel browser ke TS — browser automation bridge"
+    },
+    {
+      "type": "DOCS",
+      "msg": "W1-3 channels AI ke TS — ai, media, capabilities"
+    },
+    {
+      "type": "DOCS",
+      "msg": "W1-2 channels ringan ke TS — os, telegram, services, music"
+    },
+    {
+      "type": "DOCS",
+      "msg": "W1-1 engine core ke TS — registry + engine entry + pdf-parse-shim"
+    },
+    {
+      "type": "DOCS",
+      "msg": "W0 governance — ratchet no-new-JS + tsc di verify.sh + handoff TS dicabut"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Session log provider registry + smart endpoint"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Session log provider registry + smart endpoint + STT/TTS custom"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Hapus stamp versi basi dari heading Fitur Inti"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Log watcher takeover + handoff TS Fase 1"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Session log perbaikan Bundle main"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Session log perbaikan Bundle main"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Log watcher takeover + handoff TS Fase 1"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Session log 2026-09-27"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Session log cadence rilis mingguan, matrix Promptfoo, audit arsitektur, ponytail ledger"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Ledger debt/gain + status migrasi TS + perf-gate"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Ledger debt/gain + status eksekusi migrasi TS + false-positive perf-gate"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Audit arsitektur read-only + evidence JSONL"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Audit arsitektur read-only + evidence JSONL"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Log brand regen + Promptfoo adapter + rilis manual"
+    },
+    {
+      "type": "DOCS",
+      "msg": "Log brand regen + adapter Promptfoo + uji rilis manual"
     }
   ]
 }

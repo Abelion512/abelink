@@ -2,6 +2,47 @@
 
 Dihasilkan otomatis oleh `scripts/release-helper.mjs` saat release prepare — jangan diedit manual.
 
+## v1.7.0-alpha.11 — 28 September 2026
+
+**Ringkasan:** 4 fitur baru, 4 perbaikan dan 23 pembaruan dokumentasi.
+
+### Fitur Baru
+- Registry data-driven + smart endpoint + STT/TTS custom
+- Registry data-driven + smart endpoint normalizer + STT/TTS custom
+- Kadens rilis mingguan + generator matrix Promptfoo PR46
+- Kadens rilis mingguan + generator matrix Promptfoo PR46
+
+### Perbaikan
+- Tauri crate 2.12.0 + smoke tanpa EPIPE
+- Sejajarkan crate tauri 2.12.0 dengan @tauri-apps/api 2.12.0 + smoke tanpa EPIPE
+- Smoke sidecar dari cwd netral
+- Smoke sidecar dari cwd netral — binary compile membaca bunfig.toml cwd
+
+### Dokumentasi
+- W2-2 db ke TS — tipe baris Dexie per store, schema v30 beku
+- W2-1 tauri-bridge ke TS + tsconfig.renderer.json
+- W1-5 channel skills ke TS + penutup wave W1
+- W1-4 channel browser ke TS — browser automation bridge
+- W1-3 channels AI ke TS — ai, media, capabilities
+- W1-2 channels ringan ke TS — os, telegram, services, music
+- W1-1 engine core ke TS — registry + engine entry + pdf-parse-shim
+- W0 governance — ratchet no-new-JS + tsc di verify.sh + handoff TS dicabut
+- Session log provider registry + smart endpoint
+- Session log provider registry + smart endpoint + STT/TTS custom
+- Hapus stamp versi basi dari heading Fitur Inti
+- Log watcher takeover + handoff TS Fase 1
+- Session log perbaikan Bundle main
+- Session log perbaikan Bundle main
+- Log watcher takeover + handoff TS Fase 1
+- Session log 2026-09-27
+- Session log cadence rilis mingguan, matrix Promptfoo, audit arsitektur, ponytail ledger
+- Ledger debt/gain + status migrasi TS + perf-gate
+- Ledger debt/gain + status eksekusi migrasi TS + false-positive perf-gate
+- Audit arsitektur read-only + evidence JSONL
+- Audit arsitektur read-only + evidence JSONL
+- Log brand regen + Promptfoo adapter + rilis manual
+- Log brand regen + adapter Promptfoo + uji rilis manual
+
 ## v1.6.0-alpha.10 — 27 September 2026
 
 **Ringkasan:** 2 fitur baru dan 4 pembaruan dokumentasi.
