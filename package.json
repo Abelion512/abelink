@@ -21,7 +21,7 @@
     "cron": "bun bin/abelink-cron.ts",
     "cron:daemon": "bun bin/abelink-cron.ts daemon",
     "test:known-issues": "vitest run tests/trading.*.test.js",
-    "test:harness": "node tests/harness/stress-watermark.harness.mjs && node tests/harness/stress-watermark-v2.harness.mjs",
+    "test:harness": "bun tests/harness/stress-watermark.harness.mjs && bun tests/harness/stress-watermark-v2.harness.mjs",
     "perf": "bun evaluation/perf-gate.ts",
     "perf:save": "bun evaluation/perf-gate.ts --save",
     "bench:quick": "bun evaluation/bench-gate.ts",

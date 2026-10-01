@@ -89,6 +89,25 @@ jobs:
       - name: Task registry + adapter import
         run: bun evaluation/smoke.ts
 
+  cli-entries:
+    name: CLI entry smoke (bin/*.ts hidup)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - name: Install dependencies (frozen lockfile)
+        run: bun install --frozen-lockfile
+      - name: CLI headless --help
+        run: bun bin/abelink.ts --help > /dev/null
+      - name: CLI TUI --help
+        run: bun bin/abelink-tui.ts --help > /dev/null
+      - name: CLI cron list
+        run: bun bin/abelink-cron.ts list > /dev/null
+
   rust:
     name: Rust check (src-tauri)
     runs-on: ubuntu-latest
