@@ -2,7 +2,7 @@
 // Regresi: "Menyambung ulang otomatis..." ditulis ke lastError -> popup
 // merah "terputus" padahal loop akan kembali sendiri (noise tiap 5s).
 import { describe, it, expect } from 'vitest'
-import { popupStatus } from '../extension/popup-status.mjs'
+import { popupStatus } from '../extension/src/lib/popup-status'
 
 describe('popupStatus notice vs lastError', () => {
   it('running=true -> hijau, notice/lastError diabaikan', () => {

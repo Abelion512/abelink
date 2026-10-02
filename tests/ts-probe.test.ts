@@ -1,7 +1,7 @@
 // tests/ts-probe.test.ts — probe migrasi JS->TS (M0/B-4, DoD).
 //
 // Tujuan ganda:
-//  1. Membuktikan `vitest.config.mjs` benar-benar MENJALANKAN test .ts. Sebelum
+//  1. Membuktikan `vitest.config.ts` benar-benar MENJALANKAN test .ts. Sebelum
 //     2026-09-26 `include` hanya js/mjs: file ini akan DIAM-DIAM DILEWATI dan
 //     suite tetap hijau (hijau palsu). Bila probe ini hilang dari output vitest,
 //     jaring paritas migrasi bocor.

@@ -31,13 +31,18 @@ browser).
    `id.abelink.bridge.json` prod / `id.abelink.bridge.dev.json` dev, otomatis).
    Untuk memaksa token dibuat, panggil channel `browser:status`
    (mis. lewat `bun run harness` + frame `{"id":1,"action":"browser:status","payload":[]}`).
-2. Buka `chrome://extensions` -> aktifkan **Developer mode** ->
+2. Bangun extension lebih dulu: `bun run build:extension`. Sumbernya
+   `extension/src/**/*.ts`; perintahnya mentranspile ke `extension/**/*.js`
+   (service worker ESM). Folder yang dimuat TETAP `extension/` — tidak ada
+   folder output lain. Setelah mengubah sumber, ulangi build lalu klik
+   **Reload** di `chrome://extensions`.
+3. Buka `chrome://extensions` -> aktifkan **Developer mode** ->
    **Load unpacked** -> pilih folder `extension/` ini.
    ID extension harus `kdcfgmlamndkapaiakhlplckfhmjieml` (di-pin via field
    `key` di manifest; bila beda, native host tidak akan tersambung).
-3. Klik ikon Abelink Bridge -> klik **Sambungkan** (token diambil otomatis
+4. Klik ikon Abelink Bridge -> klik **Sambungkan** (token diambil otomatis
    via helper lokal; tempel manual hanya bila helper belum terpasang).
-4. Dari Abelink: `browser:navigate` ke sebuah URL -> ekstensi membuka tab
+5. Dari Abelink: `browser:navigate` ke sebuah URL -> ekstensi membuka tab
    baru dalam group, men-tag elemen interaktif (maks 80, `data-abelink-id`),
    lalu `browser:action` mengeksekusi klik/type pada `abelinkId` yang dipilih.
 
@@ -88,9 +93,11 @@ berhenti dan catat, jangan lanjut.
 3. **Handshake ditolak tanpa token benar.**
    `curl -s 'http://127.0.0.1:49712/abelink-bridge/handshake?session=default&token=salah'`
    Diharapkan: `{"ok":false,...}` dengan HTTP 401.
-4. **Load extension.** `chrome://extensions` → Developer mode → Load unpacked
-   → folder `extension/`. Klik ikon Abelink Bridge → tempel isi file token →
-   Sambungkan. Diharapkan: popup tidak menampilkan error 401.
+4. **Load extension.** `bun run build:extension` dulu (mentranspile
+   `extension/src/**/*.ts` ke `extension/**/*.js`), lalu `chrome://extensions`
+   → Developer mode → Load unpacked → folder `extension/`. Klik ikon Abelink
+   Bridge → tempel isi file token → Sambungkan. Diharapkan: popup tidak
+   menampilkan error 401.
    Catatan dev/prod: extension (1 profil browser) hanya pairing ke SATU
    instance dalam satu waktu — alihkan port di popup (dev 49713, prod 49712).
 5. **Smoke frame (browser terbuka).** Terminal 2, `bun run harness`, lalu

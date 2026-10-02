@@ -81,12 +81,17 @@ export async function ensureNativeHost({
   const destDir = hostDirFor(dataHome, flavor)
   fs.mkdirSync(destDir, { recursive: true })
 
-  const destMjs = path.join(destDir, 'abelink-bridge-host.mjs')
+  // W8: sumber host pindah ke `extension/src/native-host/abelink-bridge-host.ts`,
+  // jadi salinan runtime ikut ber ekstensi `.ts`. Runtime skrip ini = bun saja:
+  // cabang `node` dihapus karena file `.ts` hanya bisa di-strip tipenya oleh node
+  // >= 22.6, dan K7 sudah menetapkan bun sebagai runtime proyek. Jalur python3 di
+  // wrapper tetap jalur utama sehingga mesin tanpa bun tidak kehilangan helper.
+  const destScript = path.join(destDir, 'abelink-bridge-host.ts')
   const src = typeof sourceFile === 'string' ? sourceFile : sourceFile?.pathname ?? ''
   if (src && fs.existsSync(src)) {
     try {
-      fs.copyFileSync(src, destMjs)
-      fs.chmodSync(destMjs, 0o755)
+      fs.copyFileSync(src, destScript)
+      fs.chmodSync(destScript, 0o755)
     } catch {}
   }
 
@@ -104,7 +109,7 @@ export async function ensureNativeHost({
   const devTokenPy = '(os.environ.get("ABELINK_DATA_HOME") or os.path.join(xdg, "abelink-dev")) + "/browser-bridge-token"'
   const tokenExpr = flavor === 'dev' ? devTokenPy : prodTokenPy
   const wrapperScript = `#!/bin/sh
-# Abelink Bridge native messaging host wrapper (flavor: ${flavorLit}; abelink-bridge-host.mjs fallback)
+# Abelink Bridge native messaging host wrapper (flavor: ${flavorLit}; abelink-bridge-host.ts fallback)
 # STRICT per-flavor: wrapper ${flavorLit} hanya membaca file token ${flavorLit}.
 ABELINK_BRIDGE_FLAVOR=${flavorLit}
 export ABELINK_BRIDGE_FLAVOR
@@ -157,10 +162,8 @@ except Exception as e:
 '
 fi
 
-if command -v bun >/dev/null 2>&1 && [ -f "${destMjs}" ]; then
-  exec bun "${destMjs}" --flavor=${flavorLit}
-elif command -v node >/dev/null 2>&1 && [ -f "${destMjs}" ]; then
-  exec node "${destMjs}" --flavor=${flavorLit}
+if command -v bun >/dev/null 2>&1 && [ -f "${destScript}" ]; then
+  exec bun "${destScript}" --flavor=${flavorLit}
 fi
 `
   fs.writeFileSync(wrapper, wrapperScript)
@@ -187,5 +190,5 @@ fi
       installed.push({ browser: b, file, changed: true })
     }
   }
-  return { ok: true, host: wrapper, script: destMjs, installed }
+  return { ok: true, host: wrapper, script: destScript, installed }
 }

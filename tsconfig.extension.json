@@ -1,0 +1,39 @@
+{
+  // tsconfig.extension.json — permukaan EXTENSION MV3 (`extension/src/**`).
+  //
+  // Dipakai oleh `bun run typecheck:extension`. Sengaja program terpisah dari
+  // gate payung/node/renderer karena dua hal:
+  //
+  // 1. `types: []` + tanpa Node. Kode extension berjalan di service worker
+  //    browser; `fs`/`child_process` tidak boleh bisa dikompilasi di sini.
+  //    Ini mirror disiplin renderer (types:[] tanpa Node), jadi boundary
+  //    "tidak boleh bocor ke Node" dijaga di kedua arah.
+  //    Skrip native-messaging host (`extension/native-host/**`) TIDAK ikut
+  //    program ini: ia dijalankan bun di luar browser dan butuh fs/os/process.
+  //    File-nya dicek oleh program node (lihat tsconfig.node.json).
+  // 2. `chrome.*` dideklarasikan ambient di `extension/src/types/chrome.d.ts`
+  //    (subset, bukan @types/chrome). TypeScript selalu ikut mengompilasi file
+  //    yang di-IMPOR meski tidak ada di `include` — itulah kenapa
+  //    `extension/src/lib/**` (modul murni yang juga dipakai sidecar +
+  //    evaluation) ikut masuk program node/payung lewat import. Modul lib
+  //    dijaga tetap murni: tanpa `chrome`, tanpa DOM, tanpa Node.
+  //
+  // W8 (2026-10-02): `background.ts` TIDAK boleh menghasilkan top-level
+  // `import`/`export` di ARTIFAKT-nya, karena MV3 service worker dimuat sebagai
+  // script klasik. Aturan itu ditegakkan di artifact hasil esbuild
+  // (`scripts/build-extension.ts` + `scripts/verify.sh`), bukan di tsc. Di
+  // sumber, import ke `./lib/*` justru yang diharapkan.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": [],
+    "strict": true,
+    // W8: catch variable kembali ke `any`, bukan `unknown`. Kode warisan
+    // service worker membaca `e?.name`/`e?.message` di 19 titik; dengan
+    // `unknown` setiap titik harus jadi `e instanceof Error ? ... : ...`,
+    // yang mengubah logika penanganan error tanpa perlu. Ini opt-out satu
+    // flag, BUKAN mematikan strict — sisa strict tetap aktif.
+    "useUnknownInCatchVariables": false
+  },
+  "include": ["extension/src/**/*.ts", "extension/src/**/*.d.ts"]
+}

@@ -5,7 +5,7 @@ import {
   renderBrowserObservation,
   resolveObservationRepresentation,
   OBSERVATION_REPRESENTATIONS,
-} from '../extension/browser-observation.mjs'
+} from '../extension/src/lib/browser-observation'
 
 describe('browser observation formatter', () => {
   it('puts semantic page text before interactive controls', () => {

@@ -8,7 +8,7 @@ import crypto from 'node:crypto'
 import { ensureNativeHost, NATIVE_HOST_NAME, NATIVE_HOST_NAME_DEV, EXTENSION_ID, resolveDataHome, hostNameForFlavor, hostDirFor } from '../sidecar/main/browser/native-host.ts'
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..')
-const HOST = path.join(ROOT, 'extension', 'native-host', 'abelink-bridge-host.mjs')
+const HOST = path.join(ROOT, 'extension', 'native-host', 'abelink-bridge-host.ts')
 
 function sendMsg(child, obj) {
   const body = Buffer.from(JSON.stringify(obj), 'utf8')
@@ -124,7 +124,7 @@ describe('installer', () => {
     // Wrapper memakai runtime absolut (bukan env PATH).
     const wrapperSrc = fs.readFileSync(body.path, 'utf8')
     expect(wrapperSrc.startsWith('#!/bin/sh')).toBe(true)
-    expect(wrapperSrc).toContain('abelink-bridge-host.mjs')
+    expect(wrapperSrc).toContain('abelink-bridge-host.ts')
     expect(r1.installed[0].changed).toBe(true)
     const r2 = await ensureNativeHost(opts)
     expect(r2.installed[0].changed).toBe(false)

@@ -39,18 +39,18 @@ function tokenFile() {
   return path.join(xdgBase(), 'abelink', 'browser-bridge-token')
 }
 
-function namespaceIsDev(namespace) {
+function namespaceIsDev(namespace: unknown): boolean {
   return namespace === 'dev' || namespace === '49713'
 }
 
-function writeMsg(obj) {
+function writeMsg(obj: unknown) {
   const body = Buffer.from(JSON.stringify(obj), 'utf8')
   const head = Buffer.alloc(4)
   head.writeUInt32LE(body.length, 0)
   process.stdout.write(Buffer.concat([head, body]))
 }
 
-function handle(msg) {
+function handle(msg: any) {
   if (!msg || msg.type !== 'get-token') {
     writeMsg({ ok: false, error: 'perintah tidak dikenal (hanya get-token)' })
     return
@@ -76,12 +76,14 @@ function handle(msg) {
     } catch {}
     writeMsg({ ok: true, token })
   } catch (e) {
-    writeMsg({ ok: false, error: `token tidak terbaca: ${e.message}` })
+    // Pesan error diteruskan apa adanya; `e` bisa apa saja yang dilemparkan
+    // fs.readFileSync, jadi dip stringify, bukan diasumsikan Error.
+    writeMsg({ ok: false, error: `token tidak terbaca: ${(e as Error)?.message ?? String(e)}` })
   }
 }
 
 let buf = Buffer.alloc(0)
-process.stdin.on('data', (chunk) => {
+process.stdin.on('data', (chunk: Buffer) => {
   buf = Buffer.concat([buf, chunk])
   for (;;) {
     if (buf.length < 4) return

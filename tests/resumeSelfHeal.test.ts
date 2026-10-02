@@ -5,9 +5,9 @@
 // tryAutoResume lama terjebak handshake 401 berulang bila token session-
 // storage BASI-TERISI: helper hanya dikonsultasi bila token KOSONG.
 //
-// background.js adalah script klasik MV3 (tanpa modul, chrome.* global) dan
-// tidak bisa diimport di vitest — kontrak diverifikasi statis ala
-// browser-flavor.test.mjs: segmen tryAutoResume diekstrak lalu diasersi.
+// background.ts adalah sumber service worker MV3 (chrome.* global, tanpa
+// modul) dan tidak bisa diimport di vitest — kontrak diverifikasi statis ala
+// browser-flavor.test.ts: segmen tryAutoResume diekstrak lalu diasersi.
 // Bukti perilaku e2e di Chrome sungguhan: scripts/mv3-keepalive-measure.ts
 // mode s3only (S3c regen token -> dispatch -> pulih tanpa intervensi).
 import { describe, it, expect } from 'vitest'
@@ -15,8 +15,8 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
-const root = join(dirname(fileURLToPath(import.meta.url)), '..', 'extension')
-const bg = readFileSync(join(root, 'background.js'), 'utf8')
+const root = join(dirname(fileURLToPath(import.meta.url)), '..', 'extension', 'src')
+const bg = readFileSync(join(root, 'background.ts'), 'utf8')
 
 // Ekstrak badan tryAutoResume: dari definisi sampai listener alarm berikut.
 const fnMatch = bg.match(/async function tryAutoResume\(\)[\s\S]*?\n}\n\nif \(typeof chrome !== 'undefined' && chrome\.alarms\)/)

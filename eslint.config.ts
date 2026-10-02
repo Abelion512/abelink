@@ -20,6 +20,12 @@ export default [
       '**/node_modules',
       '**/dist',
       '**/dist-sidecar',
+      // W8: artefak extension hasil transpile (`build:extension`) sudah
+      // otomatis berada di .gitignore, tapi ESLint tidak membaca .gitignore,
+      // jadi tetap wajib didaftarkan di sini agar tidak ter-lint dua kali.
+      'extension/lib/**',
+      'extension/background.js',
+      'extension/popup.js',
       '**/out',
       '**/target',
       '**/coverage',
@@ -111,8 +117,10 @@ export default [
   // tidak menggantikan espree untuk .js/.mjs (baseline warning lama stabil).
   // 2026-09-26: `typescript` dipin ke 5.9.x — typescript-eslint 8.x belum
   // mendukung TS 7 (compiler Go) dan menolak jalan sama sekali.
+  // W8: config ini kini bertipe TS, jadi `cfg.files` perlu di-narrow — sebagian
+  // entri `recommended` memang tidak punya properti `files` (kita yang menambahkan).
   ...tseslint.configs.recommended.map((cfg) =>
-    cfg.files ? cfg : { ...cfg, files: ['**/*.{ts,tsx,mts,cts}'] }
+    'files' in cfg && cfg.files ? cfg : { ...cfg, files: ['**/*.{ts,tsx,mts,cts}'] }
   ),
   {
     files: ['**/*.{ts,tsx,mts,cts}'],

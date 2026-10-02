@@ -14,8 +14,19 @@
 //
 // cli/** dan bin/**/*.tsx SUDAH masuk (M2a, 2026-09-26): sebelumnya 114 error,
 // sekarang 0. Lihat docs/PLANNED/2026-09-26_master-migration-program.md (§ M2).
-//
-// W7 (2026-10-02): `tests/**` KELUAR dari config ini — dicek oleh sub-gate
+//  // W8 (2026-10-02): `extension/native-host/**` MASUK ke program node, bukan ke
+  // program extension. Alasannya nyata: skrip native-messaging host itu
+  // dijalankan bun di luar browser (Chrome memanggilnya lewat wrapper shell),
+  // dan ia memakai fs/os/path/process/Buffer. Menaruhnya di program browser
+  // (types: []) akan memaksa kita mematikan batas Node justru di satu-satunya
+  // tempat yang memang butuh Node.
+  //
+  // W8 (2026-10-02): config root (`vite.config.ts`, `vitest.config.ts`,
+  // `vitest.live.config.ts`, `eslint.config.ts`) masuk ke permukaan NODE karena
+  // semuanya tooling sisi proses (bukan renderer). Tanpa ini, rename W8 hanya
+  // mengganti ekstensi tanpa pernah dikompilasi tsc.
+  //
+  // W7 (2026-10-02): `tests/**` KELUAR dari config ini — dicek oleh sub-gate
 // khusus `tsconfig.tests.json` (`bun run typecheck:tests`) dengan opsi
 // longgar (noImplicitAny:false, strict:false) agar rename W7 tidak menuntut
 // pengetikan ulang 150+ file uji (tumpang-tindih dengan W9).
@@ -25,6 +36,8 @@
     "types": ["node"]
   },
   "include": [
+    "*.config.ts",
+    "extension/native-host/**/*.ts",
     "sidecar/**/*.ts",
     "scripts/**/*.ts",
     "evaluation/**/*.ts",
