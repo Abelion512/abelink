@@ -6,33 +6,117 @@ import { getGlobalConfig, abortAllFetches, activeAbortControllers } from '../ai-
 import { isDev } from '../utils/dataHome.ts'
 import { createTelegramGateway, resolveHeadlessTelegramEnabled } from './gateway.ts'
 
+// ---- Surface types (kontrak minimal Telegraf — bukan tipe penuh Telegraf).
+// Dipakai hanya untuk menghapus `any` tanpa mengubah perilaku: mengandalkan
+// `unknown` + narrowing (unknown memaksa narrowing di call-site).
+// Medan ctx dibatasi pada yang benar-benar dibaca di bawah (verifikasi via grep).
+type ChatId = string | number
+type TgSentMessage = { message_id: number }
+type TgTelegramSurface = {
+  getMe: () => Promise<unknown>
+  sendMessage: (chatId: ChatId, text: string, extra?: Record<string, unknown>) => Promise<TgSentMessage>
+  sendChatAction: (chatId: ChatId, action: string) => Promise<unknown>
+  sendDocument: (chatId: ChatId, doc: { source: unknown; filename: string }, extra?: Record<string, unknown>) => Promise<unknown>
+  getFileLink: (fileId: string) => Promise<string>
+  editMessageText: (chatId: ChatId, messageId: number, inlineMessageId: undefined, text: string, extra?: Record<string, unknown>) => Promise<unknown>
+  deleteMessage: (chatId: ChatId, messageId: number) => Promise<unknown>
+}
+type TgChat = { id: ChatId; type?: string; title?: string }
+type TgUser = { id: ChatId; first_name?: string; last_name?: string; username?: string }
+type TgPhotoSize = { file_id: string }
+type TgDocument = { file_id: string; file_name?: string; file_size?: number }
+type TgMessage = { message_id: number; text?: string; document?: TgDocument; photo?: TgPhotoSize[]; caption?: string }
+type CtxSurface = {
+  chat?: TgChat | null
+  from?: TgUser | null
+  message?: TgMessage | null
+  match?: RegExpMatchArray | null
+  update?: unknown
+  updateType?: string
+  reply: (text: string, extra?: Record<string, unknown>) => Promise<TgSentMessage>
+  sendChatAction: (action: string) => Promise<unknown>
+  answerCbQuery: () => Promise<unknown>
+  editMessageReplyMarkup: (markup: Record<string, unknown>) => Promise<unknown>
+  telegram: TgTelegramSurface
+}
+type TelegrafSurface = {
+  command: (cmd: string, fn: (ctx: CtxSurface) => unknown) => unknown
+  on: (ev: string | string[], fn: (ctx: CtxSurface) => unknown) => unknown
+  action: (re: RegExp, fn: (ctx: CtxSurface) => unknown) => unknown
+  catch: (fn: (err: unknown, ctx: CtxSurface) => unknown) => unknown
+  launch: (opts?: Record<string, unknown>) => Promise<void>
+  stop: (signal?: string) => void
+  telegram: TgTelegramSurface
+}
+type TelegrafCtor = new (token: string, opts?: { telegram?: Record<string, unknown> }) => TelegrafSurface
+type HeadlessRunner = (evt: unknown) => unknown
+// Satu pesan UI: bentuk nyata TANPA `role` (role hanya ada di history turunan
+// untuk agen). Balasan keluar menambah `reply`/`toolsUsed` opsional.
+type UiMessage = {
+  id: string | number
+  chatId: string
+  sender: string
+  text: string
+  isGroup?: boolean
+  chatTitle?: string
+  time: string
+  type: string
+  reply?: string
+  toolsUsed?: string[]
+}
+type PendingRequest = { ctx: CtxSurface; chatId: string; text: string; loadingMsgId: number | null; typingInterval: ReturnType<typeof setInterval> }
+type ExecutionDoneData = { chatId?: unknown; result?: { answer?: unknown; toolsUsed?: unknown } | null; msgId?: unknown }
+type SendOutcome = { chatId: string; ok: boolean; error?: string }
+type TgOpResult = { success: boolean; error?: string }
+type BenchmarkReport = {
+  runId?: unknown
+  agentVariant?: unknown
+  model?: unknown
+  gitCommit?: unknown
+  timestamp?: unknown
+  totalDurationMs?: unknown
+  summary?: { passed?: unknown; total?: unknown } | null
+  tasks?: Array<{ status?: unknown; taskId?: unknown; durationMs?: unknown }> | null
+}
+// Penyempitan jujur untuk nilai tak dikenal (pola preseden browserTools.ts).
+const asRecord = (v: unknown): Record<string, unknown> | null =>
+  typeof v === 'object' && v !== null ? (v as Record<string, unknown>) : null
+/** Pesan error dari nilai yang ditangkap; aman untuk non-Error. */
+const errMessage = (e: unknown): string =>
+  e instanceof Error ? e.message : String(asRecord(e)?.message ?? e ?? '')
+type BotConfig = { tgApiRoot?: unknown; tgAdminIds?: unknown }
+const asBotConfig = (): BotConfig => getGlobalConfig() as BotConfig
+/** Kode error Telegram (401/404) dari nilai tak dikenal. */
+const errCodeOf = (e: unknown): unknown => asRecord(asRecord(e)?.response)?.error_code
+
 // Jalur headless (adopsi Hermes H9, M0/B-6). Runner di-inject agar M5 bisa
 // memasang loop agen sidecar tanpa mengubah berkas ini lagi. Selama belum ada
 // runner, gateway memakai default jujurnya ([SKIP]) — tidak pernah memalsukan
 // balasan "selesai".
-let headlessRunner: any = null
+let headlessRunner: HeadlessRunner | null = null
 /** Pasang runner headless: async (evt) => ({ answer }). */
-export const setTelegramHeadlessRunner = (fn: any) => {
-  headlessRunner = typeof fn === 'function' ? fn : null
+export const setTelegramHeadlessRunner = (fn: unknown) => {
+  headlessRunner = typeof fn === 'function' ? (fn as HeadlessRunner) : null
 }
 
-let _Telegraf: any = null
-async function getTelegraf() {
+let _Telegraf: TelegrafCtor | null = null
+async function getTelegraf(): Promise<TelegrafCtor> {
   if (!_Telegraf) {
-    const mod = await import('telegraf')
-    _Telegraf = mod.Telegraf || mod.default?.Telegraf || mod.default
+    const mod = (await import('telegraf')) as Record<string, unknown>
+    const ctor = (mod.Telegraf ?? asRecord(mod.default)?.Telegraf ?? mod.default) as TelegrafCtor
+    _Telegraf = ctor
   }
-  return _Telegraf
+  return _Telegraf as TelegrafCtor
 }
 
-let bot: any = null
+let bot: TelegrafSurface | null = null
 let currentStatus = 'disconnected'
 // Generasi start: startTelegramBot yang lebih baru membatalkan loop retry
 // milik start lama (mencegah start ganda berebut satu token polling).
 let launchGeneration = 0
-export const uiMessageHistory: any[] = []
+export const uiMessageHistory: UiMessage[] = []
 const MAX_UI_HISTORY = 100
-const pendingRequestsMap = new Map<string, any>()
+const pendingRequestsMap = new Map<string, PendingRequest>()
 // msgId yang balasannya sudah terkirim (anti double-respon).
 const completedReplyIds = new Set()
 
@@ -53,7 +137,7 @@ export const stopTelegramBot = () => {
   if (bot) {
     try {
       bot.stop('BOT_STOPPED')
-    } catch (e: any) {
+    } catch (e) {
       console.error('[Telegram] Error stopping bot:', e)
     }
     bot = null
@@ -72,7 +156,7 @@ const agent = new https.Agent({
 const MAX_DOWNLOAD_BYTES = 50 * 1024 * 1024
 
 // Amankan nama file dari Telegram: ambil basename, buang karakter aneh, batasi panjangnya.
-const sanitizeFileName = (rawName: any) => {
+const sanitizeFileName = (rawName: unknown) => {
   const base = path.basename(String(rawName || ''))
   const cleaned = base.replace(/[^a-zA-Z0-9._ -]/g, '_')
   const capped = cleaned.slice(0, 120).trim()
@@ -80,7 +164,7 @@ const sanitizeFileName = (rawName: any) => {
 }
 
 // Pastikan path hasil simpan tetap berada di dalam saveDir (anti path traversal).
-const resolveContainedSavePath = (saveDir: any, fileName: any) => {
+const resolveContainedSavePath = (saveDir: string, fileName: string) => {
   const resolvedDir = path.resolve(saveDir)
   const resolvedPath = path.resolve(resolvedDir, fileName)
   const contained =
@@ -88,8 +172,8 @@ const resolveContainedSavePath = (saveDir: any, fileName: any) => {
   return contained ? resolvedPath : null
 }
 
-export const startTelegramBot = async (token: any) => {
-  if (!token || !token.trim()) {
+export const startTelegramBot = async (token: unknown) => {
+  if (typeof token !== 'string' || !token.trim()) {
     console.error('[Telegram] Token kosong')
     updateStatus('disconnected')
     return
@@ -105,9 +189,9 @@ export const startTelegramBot = async (token: any) => {
   updateStatus('connecting')
 
   try {
-    const config = getGlobalConfig()
-    const telegramOpts: Record<string, any> = { agent }
-    if (config.tgApiRoot && config.tgApiRoot.trim()) {
+    const config = asBotConfig()
+    const telegramOpts: Record<string, unknown> = { agent }
+    if (typeof config.tgApiRoot === 'string' && config.tgApiRoot.trim()) {
       telegramOpts.apiRoot = config.tgApiRoot.trim()
     }
 
@@ -119,8 +203,8 @@ export const startTelegramBot = async (token: any) => {
     // ada perubahan perilaku sama sekali pada jalur renderer.
     const headlessGateway = resolveHeadlessTelegramEnabled()
       ? createTelegramGateway({
-          tgAdminIds: config.tgAdminIds || '',
-          runAgent: async (evt: any) =>
+          tgAdminIds: typeof config.tgAdminIds === 'string' ? config.tgAdminIds : '',
+          runAgent: async (evt: unknown) =>
             headlessRunner ? headlessRunner(evt) : { answer: '[SKIP]: agent loop belum terhubung ke gateway.' }
         })
       : null
@@ -128,10 +212,10 @@ export const startTelegramBot = async (token: any) => {
     // milik start ini. Dicek ulang setiap melewati await.
     const alive = () => myGeneration === launchGeneration && bot === myBot
 
-    if (config.tgAdminIds) {
-      const ids = config.tgAdminIds.split(',').map((s: any) => s.trim()).filter(Boolean)
-      const numericIds: any = []
-      ids.forEach((id: any) => {
+    if (typeof config.tgAdminIds === 'string' && config.tgAdminIds) {
+      const ids = config.tgAdminIds.split(',').map((s: string) => s.trim()).filter(Boolean)
+      const numericIds: string[] = []
+      ids.forEach((id: string) => {
         const cleanId = id.replace(/^@/, '')
         if (/^\d+$/.test(cleanId)) {
           numericIds.push(cleanId)
@@ -144,7 +228,7 @@ export const startTelegramBot = async (token: any) => {
       saveChatIdsToFile()
     }
 
-    bot.command('start', (ctx: any) => {
+    bot.command('start', (ctx: CtxSurface) => {
       const chatId = String(ctx.chat?.id || ctx.from?.id || '')
       const senderUsername = (ctx.from?.username || '').toLowerCase()
       if (chatId) {
@@ -170,7 +254,7 @@ export const startTelegramBot = async (token: any) => {
       }
     })
 
-    bot.command('info', (ctx: any) => {
+    bot.command('info', (ctx: CtxSurface) => {
       ctx.reply(
         '**Daftar Perintah Abelink:**\n\n' +
         '/start - Memulai bot\n' +
@@ -183,7 +267,7 @@ export const startTelegramBot = async (token: any) => {
       )
     })
 
-    bot.command('abort', (ctx: any) => {
+    bot.command('abort', (ctx: CtxSurface) => {
       if (activeAbortControllers.size > 0) {
         abortAllFetches()
         ctx.reply('[INFO]: Membatalkan proses AI saat ini...')
@@ -192,25 +276,25 @@ export const startTelegramBot = async (token: any) => {
       }
     })
 
-    bot.command('accept', async (ctx: any) => {
+    bot.command('accept', async (ctx: CtxSurface) => {
       if (!(await ensureTrustedAdmin(ctx))) return
       const chatId = String(ctx.chat?.id || ctx.from?.id || '')
       sendEvent('tg:command-accept', { chatId })
     })
 
-    bot.command('always', async (ctx: any) => {
+    bot.command('always', async (ctx: CtxSurface) => {
       if (!(await ensureTrustedAdmin(ctx))) return
       const chatId = String(ctx.chat?.id || ctx.from?.id || '')
       sendEvent('tg:command-always', { chatId })
     })
 
-    bot.command('reject', async (ctx: any) => {
+    bot.command('reject', async (ctx: CtxSurface) => {
       if (!(await ensureTrustedAdmin(ctx))) return
       const chatId = String(ctx.chat?.id || ctx.from?.id || '')
       sendEvent('tg:command-reject', { chatId })
     })
 
-    bot.on('text', async (ctx: any) => {
+    bot.on('text', async (ctx: CtxSurface) => {
       const senderId = String(ctx.from?.id || '')
       const senderName = ctx.from?.first_name
         ? `${ctx.from.first_name} ${ctx.from.last_name || ''}`.trim()
@@ -219,10 +303,10 @@ export const startTelegramBot = async (token: any) => {
       const text = ctx.message?.text || ''
 
       const senderUsername = (ctx.from?.username || '').toLowerCase()
-      const config = getGlobalConfig()
-      const adminList = (config.tgAdminIds || '')
+      const config = asBotConfig()
+      const adminList = (typeof config.tgAdminIds === 'string' ? config.tgAdminIds : '')
         .split(',')
-        .map((item: any) => item.trim().toLowerCase().replace(/^@/, ''))
+        .map((item: string) => item.trim().toLowerCase().replace(/^@/, ''))
         .filter(Boolean)
 
       const isAdmin =
@@ -246,9 +330,9 @@ export const startTelegramBot = async (token: any) => {
       if (senderUsername) usernameToChatIdMap.set(senderUsername, chatId)
       saveChatIdsToFile()
 
-      const msgId = `${chatId}-${ctx.message.message_id}`
+      const msgId = `${chatId}-${ctx.message?.message_id}`
 
-      const uiMsgPayload = {
+      const uiMsgPayload: UiMessage = {
         id: msgId,
         chatId: chatId,
         sender: senderName,
@@ -303,16 +387,16 @@ export const startTelegramBot = async (token: any) => {
       })
     })
 
-    bot.on(['document', 'photo'], async (ctx: any) => {
+    bot.on(['document', 'photo'], async (ctx: CtxSurface) => {
       const senderId = String(ctx.from?.id || '')
       const senderName = ctx.from?.first_name ? `${ctx.from.first_name} ${ctx.from.last_name || ''}`.trim() : ctx.from?.username || senderId
       const chatId = String(ctx.chat?.id || senderId)
 
       const senderUsername = (ctx.from?.username || '').toLowerCase()
-      const config = getGlobalConfig()
-      const adminList = (config.tgAdminIds || '')
+      const config = asBotConfig()
+      const adminList = (typeof config.tgAdminIds === 'string' ? config.tgAdminIds : '')
         .split(',')
-        .map((item: any) => item.trim().toLowerCase().replace(/^@/, ''))
+        .map((item: string) => item.trim().toLowerCase().replace(/^@/, ''))
         .filter(Boolean)
       const isAdmin = adminList.includes(senderId.toLowerCase()) || (senderUsername && adminList.includes(senderUsername))
 
@@ -324,19 +408,21 @@ export const startTelegramBot = async (token: any) => {
       try {
         let fileId = ''
         let originalName = ''
+        const msg: TgMessage | null | undefined = ctx.message
 
-        if (ctx.message.document) {
-          fileId = ctx.message.document.file_id
-          originalName = sanitizeFileName(ctx.message.document.file_name || `document_${Date.now()}`)
+        if (msg?.document) {
+          fileId = msg.document.file_id
+          originalName = sanitizeFileName(msg.document.file_name || `document_${Date.now()}`)
           // Tolak lebih awal SEBELUM mengunduh/buffering bila metadata ukuran tersedia.
-          const declaredSize = Number(ctx.message.document.file_size || 0)
+          const declaredSize = Number(msg.document.file_size || 0)
           if (declaredSize > MAX_DOWNLOAD_BYTES) {
             await ctx.reply('[ERROR]: File terlalu besar (batas 50MB). Unduhan dibatalkan.')
             return
           }
-        } else if (ctx.message.photo) {
-          const photo = ctx.message.photo[ctx.message.photo.length - 1]
-          fileId = photo.file_id
+        } else if (msg?.photo) {
+          const photos = msg.photo
+          const photo = photos[photos.length - 1] as TgPhotoSize | undefined
+          fileId = photo?.file_id ?? ''
           originalName = sanitizeFileName(`photo_${Date.now()}.jpg`)
         }
 
@@ -364,7 +450,7 @@ export const startTelegramBot = async (token: any) => {
         // Timeout 60s: unduhan gantung memblokir jalur reply bot.
         const dlCtrl = new AbortController()
         const dlTimer = setTimeout(() => dlCtrl.abort(), 60000)
-        let buffer
+        let buffer: ArrayBuffer
         try {
           const response = await fetch(fileUrl, { signal: dlCtrl.signal })
           buffer = await response.arrayBuffer()
@@ -373,20 +459,20 @@ export const startTelegramBot = async (token: any) => {
         }
         fs.writeFileSync(savePath, Buffer.from(buffer))
 
-        const isPhoto = Boolean(ctx.message.photo)
+        const isPhoto = Boolean(msg?.photo)
         let isImageFile = isPhoto
         const ext = path.extname(originalName).toLowerCase()
         if (['.jpg', '.jpeg', '.png', '.webp', '.bmp'].includes(ext)) {
           isImageFile = true
         }
 
-        let base64Image = null
+        let base64Image: string | null = null
         if (isImageFile && buffer.byteLength <= 10 * 1024 * 1024) {
           const mimeType = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg'
           base64Image = `data:${mimeType};base64,${Buffer.from(buffer).toString('base64')}`
         }
 
-        const caption = ctx.message.caption || ''
+        const caption = msg?.caption || ''
         let text = ''
         if (isImageFile && base64Image) {
           text = `[FILE GAMBAR]: "${savePath}"\n[FRAME GAMBAR]: ${base64Image}\n${caption ? `Instruksi user: ${caption}` : 'Analisis dan jelaskan gambar ini.'}`
@@ -396,8 +482,8 @@ export const startTelegramBot = async (token: any) => {
 
         await ctx.telegram.editMessageText(chatId, statusMsg.message_id, undefined, `[INFO]: Berhasil mengunduh: ${originalName}`)
 
-        const msgId = `${chatId}-${ctx.message.message_id}`
-        const uiMsgPayload = {
+        const msgId = `${chatId}-${msg?.message_id}`
+        const uiMsgPayload: UiMessage = {
           id: msgId,
           chatId: chatId,
           sender: senderName,
@@ -448,18 +534,18 @@ export const startTelegramBot = async (token: any) => {
           isGroup: ctx.chat?.type !== 'private',
           chatSession: recentHistory
         })
-      } catch (e: any) {
+      } catch (e) {
         console.error('Failed to download file from Telegram:', e)
-        ctx.reply(`Gagal mengunduh file: ${e.message}`)
+        ctx.reply(`Gagal mengunduh file: ${errMessage(e)}`)
       }
     })
 
-    bot.command('run', async (ctx: any) => {
+    bot.command('run', async (ctx: CtxSurface) => {
       if (!(await ensureTrustedAdmin(ctx))) return
       await ctx.reply('[SKIP]: Perintah benchmark lewat Telegram belum terhubung ke runner di UI. Jalankan dari terminal: bun run benchmark:run.')
     })
 
-    bot.command('report', async (ctx: any) => {
+    bot.command('report', async (ctx: CtxSurface) => {
       if (!(await ensureTrustedAdmin(ctx))) return
       const chatId = String(ctx.chat?.id || ctx.from?.id || '')
       const res = await sendReport(null, chatId)
@@ -469,14 +555,14 @@ export const startTelegramBot = async (token: any) => {
       // Laporan sukses sudah dikirim langsung oleh sendReport ke chatId ini.
     })
 
-    bot.command('stop', async (ctx: any) => {
+    bot.command('stop', async (ctx: CtxSurface) => {
       if (!(await ensureTrustedAdmin(ctx))) return
       await ctx.reply('[SKIP]: Tidak ada benchmark yang berjalan via Telegram. Runner benchmark berjalan sinkron di terminal.')
     })
 
-    bot.action(/^bmk_(yes|no|opt_\d+)$/, async (ctx: any) => {
+    bot.action(/^bmk_(yes|no|opt_\d+)$/, async (ctx: CtxSurface) => {
       const chatId = String(ctx.chat?.id || ctx.from?.id || '')
-      const answer = ctx.match[1]
+      const answer = ctx.match?.[1] ?? ''
       resolveAskUser(chatId, answer)
       sendEvent('benchmark:ask-response', { chatId, answer })
       await ctx.answerCbQuery()
@@ -484,9 +570,9 @@ export const startTelegramBot = async (token: any) => {
       await ctx.reply(`Jawaban diterima: ${answer}`)
     })
 
-    bot.catch((err: any, ctx: any) => {
-      console.error(`[Telegram] Error for ${ctx?.updateType || 'update'}:`, err?.message || err)
-      const errCode = err?.response?.error_code
+    bot.catch((err: unknown, ctx: CtxSurface) => {
+      console.error(`[Telegram] Error for ${ctx?.updateType || 'update'}:`, errMessage(err))
+      const errCode = errCodeOf(err)
       if (errCode === 401 || errCode === 404) {
         console.warn(`[Telegram] Token error (${errCode}). Menghentikan bot agar tidak polling berulang.`)
         stopTelegramBot()
@@ -496,11 +582,11 @@ export const startTelegramBot = async (token: any) => {
     // Verifikasi token terlebih dahulu sebelum bot.launch() menjalankan loop polling
     try {
       await bot.telegram.getMe()
-    } catch (authErr: any) {
-      console.warn(`[Telegram] Autentikasi token gagal (${authErr.message || authErr}). Bot tidak dijalankan.`)
+    } catch (authErr) {
+      console.warn(`[Telegram] Autentikasi token gagal (${errMessage(authErr)}). Bot tidak dijalankan.`)
       // Hanya matikan bila start ini masih pemilik — jangan bunuh start baru.
       if (alive()) stopTelegramBot()
-      return { success: false, error: authErr.message || 'Token tidak valid' }
+      return { success: false, error: errMessage(authErr) || 'Token tidak valid' }
     }
     if (!alive()) return { success: false, error: 'dibatalkan' }
 
@@ -511,14 +597,16 @@ export const startTelegramBot = async (token: any) => {
     // (Jangan tandai connected sebelum ini: connect-lalu-putus.)
     const LAUNCH_HEALTHY_MS = 25000
     const RETRY_DELAYS_MS = [2000, 4000, 8000, 16000, 30000]
-    const sleep = (ms: any) => new Promise((r) => setTimeout(r, ms))
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
     let launched = false
-    let lastError = null
+    let lastError: unknown = null
     // Kematian loop yang TERLAMBAT (setelah dinyatakan connected): validasi
     // ringan, gagal -> putus jujur (jangan diam-diam mati).
     const noteLateDeath = () => {
       if (!alive()) return
-      bot.telegram.getMe().catch(() => {
+      const b = bot
+      if (!b) return
+      b.telegram.getMe().catch(() => {
         if (alive()) {
           console.warn('[Telegram] Polling mati (terlambat terdeteksi). Memutus.')
           stopTelegramBot()
@@ -530,8 +618,8 @@ export const startTelegramBot = async (token: any) => {
       const lp = bot.launch({ allowedUpdates: ['message', 'callback_query'] })
       lp.then(
         () => noteLateDeath(),
-        (e: any) => {
-          const code = e?.response?.error_code
+        (e: unknown) => {
+          const code = errCodeOf(e)
           if ((code === 401 || code === 404) && alive()) {
             console.warn(`[Telegram] Token error (${code}). Berhenti permanen.`)
             stopTelegramBot()
@@ -540,10 +628,10 @@ export const startTelegramBot = async (token: any) => {
           noteLateDeath()
         }
       )
-      const res = await Promise.race([
+      const res: { ended?: boolean; error?: unknown; started?: boolean } = await Promise.race([
         lp.then(
           () => ({ ended: true }),
-          (e: any) => ({ error: e })
+          (e: unknown) => ({ error: e })
         ),
         sleep(LAUNCH_HEALTHY_MS).then(() => ({ started: true }))
       ])
@@ -554,43 +642,43 @@ export const startTelegramBot = async (token: any) => {
       // Launch gagal cepat (getMe/deleteWebhook di dalamnya).
       lastError = res.error
       {
-        const code = res.error?.response?.error_code
+        const code = errCodeOf(res.error)
         if (code === 401 || code === 404) {
           console.warn(`[Telegram] Token error (${code}). Berhenti permanen.`)
           if (alive()) stopTelegramBot()
-          return { success: false, error: res.error?.message || 'Token tidak valid' }
+          return { success: false, error: errMessage(res.error) || 'Token tidak valid' }
         }
       }
       if (attempt >= RETRY_DELAYS_MS.length) break
       {
         const waitMs = RETRY_DELAYS_MS[attempt]
         console.warn(
-          `[Telegram] Launch gagal (${lastError?.message || lastError}). Retry ${attempt + 1}/${RETRY_DELAYS_MS.length} dalam ${waitMs / 1000}s...`
+          `[Telegram] Launch gagal (${errMessage(lastError)}). Retry ${attempt + 1}/${RETRY_DELAYS_MS.length} dalam ${waitMs / 1000}s...`
         )
         await sleep(waitMs)
       }
     }
     if (!launched || !alive()) {
       if (alive()) stopTelegramBot()
-      return { success: false, error: lastError?.message || 'Gagal menjalankan polling' }
+      return { success: false, error: errMessage(lastError) || 'Gagal menjalankan polling' }
     }
     updateStatus('connected')
     console.log('[Telegram] Bot successfully started and listening')
     return { success: true }
-  } catch (err: any) {
-    console.error('[Telegram] Failed to start bot:', err?.message || err)
+  } catch (err) {
+    console.error('[Telegram] Failed to start bot:', errMessage(err))
     stopTelegramBot()
   }
 }
 
-const formatMarkdownToTelegramHTML = (text: any) => {
+const formatMarkdownToTelegramHTML = (text: unknown) => {
   if (!text) return ''
   let html = String(text)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
   
-  html = html.replace(/```([a-z0-9-]*)\n([\s\S]*?)```/gi, (match, lang, code) => {
+  html = html.replace(/```([a-z0-9-]*)\n([\s\S]*?)```/gi, (match: string, lang: string, code: string) => {
     return lang ? `<pre><code class="language-${lang}">${code}</code></pre>` : `<pre><code>${code}</code></pre>`
   })
   
@@ -604,7 +692,7 @@ const formatMarkdownToTelegramHTML = (text: any) => {
   return html
 }
 
-export const sendTelegramMessage = async (chatId: any, text: any) => {
+export const sendTelegramMessage = async (chatId: ChatId, text: unknown): Promise<TgOpResult> => {
   if (!bot || currentStatus !== 'connected') {
     return { success: false, error: 'Telegram Bot belum terhubung.' }
   }
@@ -614,15 +702,15 @@ export const sendTelegramMessage = async (chatId: any, text: any) => {
     return { success: true }
   } catch {
     try {
-      await bot.telegram.sendMessage(chatId, text)
+      await bot.telegram.sendMessage(chatId, String(text))
       return { success: true }
-    } catch (fallbackErr: any) {
-      return { success: false, error: fallbackErr.message }
+    } catch (fallbackErr) {
+      return { success: false, error: errMessage(fallbackErr) }
     }
   }
 }
 
-export const sendTelegramFile = async (chatId: any, filePath: any, caption = '') => {
+export const sendTelegramFile = async (chatId: ChatId, filePath: string, caption = ''): Promise<TgOpResult> => {
   if (!bot || currentStatus !== 'connected') {
     return { success: false, error: 'Telegram Bot belum terhubung.' }
   }
@@ -638,14 +726,14 @@ export const sendTelegramFile = async (chatId: any, filePath: any, caption = '')
       { caption }
     )
     return { success: true }
-  } catch (err: any) {
-    return { success: false, error: err.message }
+  } catch (err) {
+    return { success: false, error: errMessage(err) }
   }
 }
 
 const adminChatIdsSet = new Set<string>()
 const usernameToChatIdMap = new Map<string, string>()
-const pendingBroadcastQueue: any = []
+const pendingBroadcastQueue: string[] = []
 
 // Chat yang mendaftar via /start tapi BELUM tercantum di daftar admin (pending, tidak dipercaya).
 const pendingChatIdsSet = new Set<string>()
@@ -667,13 +755,13 @@ const ADMIN_IDS_FILE = path.join(ABELINK_DATA_DIR, 'tg_admin_ids.json')
 const loadSavedAdminIds = () => {
   try {
     if (fs.existsSync(ADMIN_IDS_FILE)) {
-      const data = JSON.parse(fs.readFileSync(ADMIN_IDS_FILE, 'utf8'))
+      const data = JSON.parse(fs.readFileSync(ADMIN_IDS_FILE, 'utf8')) as { adminIds?: unknown }
       if (Array.isArray(data.adminIds)) {
-        data.adminIds.forEach((id: any) => authorizedAdminIds.add(String(id)))
+        data.adminIds.forEach((id: unknown) => authorizedAdminIds.add(String(id)))
       }
       console.log(`[Telegram] Loaded ${authorizedAdminIds.size} trusted admin IDs.`)
     }
-  } catch (e: any) {
+  } catch (e) {
     console.error('[Telegram] Error loading saved admin IDs:', e)
   }
 }
@@ -685,17 +773,17 @@ const saveAdminIdsToFile = () => {
       JSON.stringify({ adminIds: Array.from(authorizedAdminIds) }, null, 2),
       'utf8'
     )
-  } catch (e: any) {
+  } catch (e) {
     console.error('[Telegram] Error saving admin IDs to file:', e)
   }
 }
 
 // Daftarkan id admin terpercaya (dari config.tgAdminIds). Dipanggil oleh startTelegramBot;
 // dieksport juga agar modul lain bisa memasang daftar admin secara eksplisit.
-export const setTelegramAdmins = (ids: any) => {
-  const list = Array.isArray(ids) ? ids : [ids]
+export const setTelegramAdmins = (ids: unknown) => {
+  const list: unknown[] = Array.isArray(ids) ? ids : [ids]
   let changed = false
-  list.forEach((raw) => {
+  list.forEach((raw: unknown) => {
     const clean = String(raw || '').trim().toLowerCase().replace(/^@/, '')
     if (/^\d+$/.test(clean) && !authorizedAdminIds.has(clean)) {
       authorizedAdminIds.add(clean)
@@ -707,7 +795,7 @@ export const setTelegramAdmins = (ids: any) => {
 }
 
 // Gate perintah sensitif: wajib ctx.from.id tercantum di daftar admin terpercaya.
-const ensureTrustedAdmin = async (ctx: any) => {
+const ensureTrustedAdmin = async (ctx: CtxSurface) => {
   const senderId = String(ctx.from?.id || '')
   if (senderId && authorizedAdminIds.has(senderId)) return true
   console.warn(`[Telegram] Perintah ditolak: sender ${senderId} bukan admin terpercaya.`)
@@ -722,10 +810,10 @@ const resolveTrustedBroadcastTargets = () => {
   for (const id of authorizedAdminIds) {
     if (adminChatIdsSet.has(id)) trusted.add(id)
   }
-  const config = getGlobalConfig()
-  const adminInputs = (config.tgAdminIds || '')
+  const config = asBotConfig()
+  const adminInputs = (typeof config.tgAdminIds === 'string' ? config.tgAdminIds : '')
     .split(',')
-    .map((id: any) => id.trim().toLowerCase().replace(/^@/, ''))
+    .map((id: string) => id.trim().toLowerCase().replace(/^@/, ''))
     .filter(Boolean)
   for (const input of adminInputs) {
     if (/^\d+$/.test(input)) {
@@ -741,18 +829,19 @@ const resolveTrustedBroadcastTargets = () => {
 const loadSavedChatIds = () => {
   try {
     if (fs.existsSync(CHAT_IDS_FILE)) {
-      const data = JSON.parse(fs.readFileSync(CHAT_IDS_FILE, 'utf8'))
+      const data = JSON.parse(fs.readFileSync(CHAT_IDS_FILE, 'utf8')) as { chatIds?: unknown; usernameMap?: unknown }
       if (Array.isArray(data.chatIds)) {
-        data.chatIds.forEach((id: any) => adminChatIdsSet.add(String(id)))
+        data.chatIds.forEach((id: unknown) => adminChatIdsSet.add(String(id)))
       }
-      if (data.usernameMap && typeof data.usernameMap === 'object') {
-        Object.entries(data.usernameMap).forEach(([user, id]) => {
+      const usernameMap = asRecord(data.usernameMap)
+      if (usernameMap) {
+        Object.entries(usernameMap).forEach(([user, id]) => {
           usernameToChatIdMap.set(user, String(id))
         })
       }
       console.log(`[Telegram] Loaded ${adminChatIdsSet.size} saved admin chat IDs.`)
     }
-  } catch (e: any) {
+  } catch (e) {
     console.error('[Telegram] Error loading saved chat IDs:', e)
   }
 }
@@ -764,7 +853,7 @@ const saveChatIdsToFile = () => {
       usernameMap: Object.fromEntries(usernameToChatIdMap)
     }
     fs.writeFileSync(CHAT_IDS_FILE, JSON.stringify(data, null, 2), 'utf8')
-  } catch (e: any) {
+  } catch (e) {
     console.error('[Telegram] Error saving chat IDs to file:', e)
   }
 }
@@ -782,7 +871,7 @@ const flushPendingBroadcasts = async () => {
   }
 }
 
-const updateStatus = (status: any) => {
+const updateStatus = (status: string) => {
   currentStatus = status
   sendEvent('tg:connection', status)
   if (status === 'connected') {
@@ -793,7 +882,7 @@ const updateStatus = (status: any) => {
 // Cap antrean broadcast: bot offline lama + pengirim rajin = RAM tumbuh
 // tanpa batas + banjir reconnect. Pesan terlama dibuang jujur (log).
 const MAX_BROADCAST_QUEUE = 100
-export const sendTelegramToAdmins = async (text: any) => {
+export const sendTelegramToAdmins = async (text: string) => {
   if (!bot || currentStatus !== 'connected') {
     console.log('[Telegram] Bot belum terhubung. Menampung pesan ke antrean broadcast...')
     pendingBroadcastQueue.push(text)
@@ -821,8 +910,8 @@ export const sendTelegramToAdmins = async (text: any) => {
     } catch {
       try {
         await bot.telegram.sendMessage(chatId, text)
-      } catch (e: any) {
-        console.error(`[Telegram] Gagal mengirim broadcast ke ${chatId}:`, e.message)
+      } catch (e) {
+        console.error(`[Telegram] Gagal mengirim broadcast ke ${chatId}:`, errMessage(e))
       }
     }
   }
@@ -832,19 +921,22 @@ export const sendTelegramToAdmins = async (text: any) => {
 // Kirim event ke renderer lewat stdout JSON-lines (engine meneruskan ke Tauri event system).
 // Protokol registry berbasis baris: satu write = satu frame lengkap, jadi aman
 // dipanggil dari dalam handler mana pun (lihat sendAgentExecutionDone).
-const sendEvent = (event: any, payload: any) => {
+const sendEvent = (event: string, payload: unknown) => {
   try {
     process.stdout.write(JSON.stringify({ event, payload }) + '\n')
   } catch {}
 }
 
-export const broadcastToAdminsSidecar = async (text: any) => {
+export const broadcastToAdminsSidecar = async (text: string) => {
   await sendTelegramToAdmins(text)
   return { success: true }
 }
 
-export const sendAgentExecutionDone = async (data: any) => {
-  const { chatId, result, msgId } = data || {}
+export const sendAgentExecutionDone = async (data: ExecutionDoneData | null | undefined) => {
+  const rec = asRecord(data) ?? {}
+  const chatId: unknown = rec.chatId
+  const result: unknown = rec.result
+  const msgId: unknown = rec.msgId
   // Idempotensi balasan: eksekusi yang sama (msgId sama, mis. efek renderer
   // menyala 2x / channel dipanggil ulang) hanya membalas SEKALI. Tanpa ini
   // user menerima jawaban ganda untuk satu perintah.
@@ -858,19 +950,23 @@ export const sendAgentExecutionDone = async (data: any) => {
       completedReplyIds.delete(first)
     }
   }
-  const reqObj = pendingRequestsMap.get(msgId)
+  const reqObj = msgId !== undefined ? pendingRequestsMap.get(String(msgId)) : undefined
   if (reqObj?.typingInterval) {
     try { clearInterval(reqObj.typingInterval) } catch (_) {}
   }
-  const replyText = result?.answer || 'Selesai diproses.'
+  const answerRaw = result
+  const resultRec = asRecord(answerRaw)
+  const replyValue = resultRec?.answer
+  const replyText = typeof replyValue === 'string' ? replyValue : 'Selesai diproses.'
+  const toolsRaw = resultRec?.toolsUsed
 
-  const uiReplyPayload = {
+  const uiReplyPayload: UiMessage = {
     id: Date.now(),
-    chatId: chatId,
+    chatId: typeof chatId === 'string' ? chatId : String(chatId ?? ''),
     sender: 'Abelink',
     text: reqObj?.text || '',
     reply: replyText,
-    toolsUsed: result?.toolsUsed || [],
+    toolsUsed: Array.isArray(toolsRaw) ? toolsRaw.map((t) => String(t)) : [],
     time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
     type: 'outgoing'
   }
@@ -880,7 +976,7 @@ export const sendAgentExecutionDone = async (data: any) => {
 
   sendEvent('tg:reply-sent', uiReplyPayload)
 
-  if (bot && chatId) {
+  if (bot && typeof chatId === 'string' && chatId) {
     if (reqObj?.loadingMsgId) {
       try {
         await bot.telegram.deleteMessage(chatId, reqObj.loadingMsgId)
@@ -893,7 +989,7 @@ export const sendAgentExecutionDone = async (data: any) => {
     }
   }
 
-  pendingRequestsMap.delete(msgId)
+  if (msgId !== undefined) pendingRequestsMap.delete(String(msgId))
   return { success: true }
 }
 
@@ -903,100 +999,111 @@ export const sendAgentExecutionDone = async (data: any) => {
 // telegram-service.ts ada di sidecar/main/telegram/ -> naik 3 level ke repo root.
 const RESULTS_DIR = fileURLToPath(new URL('../../../benchmark/results/', import.meta.url))
 
-const loadLatestResult = (runId: any) => {
+const loadLatestResult = (runId: unknown): BenchmarkReport | null => {
   try {
     const dir = RESULTS_DIR
     if (!fs.existsSync(dir)) return null
-    let file
-    if (runId) {
-      file = path.join(dir, `${runId}.json`)
+    let file: string
+    if (runId !== null && runId !== undefined && String(runId)) {
+      file = path.join(dir, `${String(runId)}.json`)
       if (!fs.existsSync(file)) return null
     } else {
-      const files = fs.readdirSync(dir).filter(f => f.endsWith('.json')).sort().reverse()
+      const files = fs.readdirSync(dir).filter((f) => f.endsWith('.json')).sort().reverse()
       if (!files.length) return null
-      file = path.join(dir, files[0])
+      file = path.join(dir, files[0] as string)
     }
-    return JSON.parse(fs.readFileSync(file, 'utf8'))
-  } catch (e: any) {
+    return JSON.parse(fs.readFileSync(file, 'utf8')) as BenchmarkReport
+  } catch (e) {
     console.error('[Telegram] Error loading benchmark result:', e)
     return null
   }
 }
 
-export const sendReport = async (runId: any, targetChatId: any) => {
+export const sendReport = async (runId: unknown, targetChatId: unknown) => {
   if (!bot || currentStatus !== 'connected') return { success: false, error: 'Bot not connected.' }
   const report = loadLatestResult(runId)
   if (!report) return { success: false, error: 'No benchmark result found.' }
 
+  const summary = asRecord(report.summary)
+  const passed = Number(summary?.passed ?? 0)
+  const total = Number(summary?.total ?? 0)
+  const gitRaw = report.gitCommit
   const lines = [
     `<b>AbelinkBench Report</b>`,
     `<code>Run:</code> ${escapeHtml(report.runId)}`,
     `<code>Variant:</code> ${escapeHtml(report.agentVariant)}`,
     `<code>Model:</code> ${escapeHtml(report.model)}`,
-    `<code>Git:</code> ${escapeHtml(report.gitCommit?.slice(0, 7) ?? 'unknown')}`,
-    `<code>Time:</code> ${new Date(report.timestamp).toLocaleString('id-ID')}`,
+    `<code>Git:</code> ${escapeHtml(typeof gitRaw === 'string' ? gitRaw.slice(0, 7) : 'unknown')}`,
+    `<code>Time:</code> ${new Date(String(report.timestamp)).toLocaleString('id-ID')}`,
     `<code>Duration:</code> ${Number(report.totalDurationMs)}ms`,
     '',
-    `<b>Summary:</b> ${report.summary.passed}/${report.summary.total} passed (${((report.summary.passed / report.summary.total) * 100).toFixed(1)}%)`
+    `<b>Summary:</b> ${passed}/${total} passed (${total ? ((passed / total) * 100).toFixed(1) : '0.0'}%)`
   ]
 
-  for (const t of report.tasks) {
+  for (const t of report.tasks ?? []) {
     const status = t.status === 'passed' ? 'PASS' : 'FAIL'
     lines.push(`[${status}] ${escapeHtml(t.taskId)} — ${Number(t.durationMs)}ms (${escapeHtml(t.status)})`)
   }
 
   const targets = resolveTrustedBroadcastTargets()
-  const chatIds = targetChatId ? [String(targetChatId)] : Array.from(targets)
+  const chatIds = targetChatId !== null && targetChatId !== undefined && String(targetChatId) ? [String(targetChatId)] : Array.from(targets)
   if (chatIds.length === 0) return { success: false, error: 'No admin targets.' }
 
-  const results: any[] = []
+  const results: SendOutcome[] = []
   for (const chatId of chatIds) {
     try {
       await bot.telegram.sendMessage(chatId, lines.join('\n'), { parse_mode: 'HTML' })
       results.push({ chatId, ok: true })
-    } catch (e: any) {
-      results.push({ chatId, ok: false, error: e.message })
+    } catch (e) {
+      results.push({ chatId, ok: false, error: errMessage(e) })
     }
   }
-  return { sent: results.filter(r => r.ok).length, results }
+  return { sent: results.filter((r) => r.ok).length, results }
 }
 
-export const sendInlineKeyboard = async (chatId: any, question: any, options: any) => {
+type KeyboardOption = string | { label?: unknown; value?: unknown }
+export const sendInlineKeyboard = async (chatId: unknown, question: unknown, options: unknown) => {
   if (!bot || currentStatus !== 'connected') return { success: false, error: 'Bot not connected.' }
-  if (!chatId) return { success: false, error: 'chatId required.' }
+  if (chatId === null || chatId === undefined || !String(chatId)) return { success: false, error: 'chatId required.' }
 
+  const list: KeyboardOption[] = Array.isArray(options) ? (options as KeyboardOption[]) : ['Approve', 'Reject']
   const keyboard = {
-    inline_keyboard: (options || ['Approve', 'Reject']).map((opt: any, i: any) => [
-      { text: opt.label || opt, callback_data: `bmk_${opt.value || `opt_${i}`}` }
-    ])
+    inline_keyboard: list.map((opt: KeyboardOption, i: number) => {
+      const rec = typeof opt === 'object' && opt !== null ? (opt as { label?: unknown; value?: unknown }) : null
+      const label = rec?.label !== undefined ? String(rec.label) : String(opt)
+      const value = rec?.value !== undefined ? String(rec.value) : `opt_${i}`
+      return [{ text: label, callback_data: `bmk_${value}` }]
+    })
   }
 
   try {
-    await bot.telegram.sendMessage(chatId, escapeHtml(String(question)), {
+    await bot.telegram.sendMessage(String(chatId), escapeHtml(String(question)), {
       parse_mode: 'HTML',
       reply_markup: JSON.stringify(keyboard)
     })
     return { success: true }
-  } catch (e: any) {
-    return { success: false, error: e.message }
+  } catch (e) {
+    return { success: false, error: errMessage(e) }
   }
 }
 
 // ---- ask_user correlation: pending registry keyed by chatId ----
 // ask_user mengirim keyboard lalu MENUNGGU jawaban callback bmk_*.
-const askUserWaiters = new Map() // chatId -> { resolve, timer }
+type AskUserWaiter = { resolve: (v: string | null) => void; timer: ReturnType<typeof setTimeout> }
+const askUserWaiters = new Map<string, AskUserWaiter>() // chatId -> { resolve, timer }
 const ASK_USER_TIMEOUT_MS = 120000
 
-const resolveAskUser = (chatId: any, answer: any) => {
-  const w = askUserWaiters.get(String(chatId))
+const resolveAskUser = (chatId: unknown, answer: unknown) => {
+  const key = String(chatId)
+  const w = askUserWaiters.get(key)
   if (!w) return false
   clearTimeout(w.timer)
-  askUserWaiters.delete(String(chatId))
-  w.resolve(answer)
+  askUserWaiters.delete(key)
+  w.resolve(typeof answer === 'string' ? answer : String(answer))
   return true
 }
 
-export const waitForAskUserAnswer = (chatId: any, timeoutMs = ASK_USER_TIMEOUT_MS) =>
+export const waitForAskUserAnswer = (chatId: unknown, timeoutMs = ASK_USER_TIMEOUT_MS): Promise<string | null> =>
   new Promise((resolve) => {
     const key = String(chatId)
     const existing = askUserWaiters.get(key)
@@ -1011,26 +1118,26 @@ export const waitForAskUserAnswer = (chatId: any, timeoutMs = ASK_USER_TIMEOUT_M
     askUserWaiters.set(key, { resolve, timer })
   })
 
-const escapeHtml = (s: any) =>
+const escapeHtml = (s: unknown) =>
   String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
-const progressMessageCache = new Map<string, any>()
+const progressMessageCache = new Map<string, { msgId: number }>()
 
-export const sendProgress = async (taskId: any, status: any, details: any, targetChatId: any) => {
+export const sendProgress = async (taskId: unknown, status: unknown, details: unknown, targetChatId: unknown) => {
   if (!bot || currentStatus !== 'connected') return { success: false, error: 'Bot not connected.' }
 
   const statusLabel = ({ running: 'RUNNING', passed: 'PASS', failed: 'FAIL', error: 'ERROR' } as Record<string, string>)[String(status)] || 'PENDING'
   const text = `<b>Benchmark Progress</b>\n<code>Task:</code> ${escapeHtml(taskId)}\n<code>Status:</code> ${escapeHtml(statusLabel)}\n${escapeHtml(details || '')}`
 
-  const chatIds = targetChatId ? [String(targetChatId)] : Array.from(resolveTrustedBroadcastTargets())
+  const chatIds = targetChatId !== null && targetChatId !== undefined && String(targetChatId) ? [String(targetChatId)] : Array.from(resolveTrustedBroadcastTargets())
   if (chatIds.length === 0) return { success: false, error: 'No admin targets.' }
 
-  const results: any[] = []
+  const results: SendOutcome[] = []
   for (const chatId of chatIds) {
     try {
       const prev = progressMessageCache.get(chatId)
       if (prev) {
-        await bot.telegram.editMessageText(chatId, prev.msgId as number, undefined, text, {
+        await bot.telegram.editMessageText(chatId, prev.msgId, undefined, text, {
           parse_mode: 'HTML',
           reply_markup: JSON.stringify({ inline_keyboard: [] })
         })
@@ -1039,12 +1146,12 @@ export const sendProgress = async (taskId: any, status: any, details: any, targe
         progressMessageCache.set(chatId, { msgId: msg.message_id })
       }
       results.push({ chatId, ok: true })
-    } catch (e: any) {
-      results.push({ chatId, ok: false, error: e.message })
+    } catch (e) {
+      results.push({ chatId, ok: false, error: errMessage(e) })
     }
   }
   if (status === 'passed' || status === 'failed' || status === 'error') {
     progressMessageCache.clear()
   }
-  return { sent: results.filter(r => r.ok).length, results }
+  return { sent: results.filter((r) => r.ok).length, results }
 }
