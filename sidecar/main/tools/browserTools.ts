@@ -6,19 +6,58 @@ import { getWorkspaceDir } from './_shared.ts'
 import { assertContained } from '../utils/fsGuard.ts'
 import { renderBrowserObservation, resolveObservationRepresentation } from '../../../extension/src/lib/browser-observation'
 
+// Kontrak pemanggilan tool (dipakai engine/channels/ai.ts:118 dan
+// engine/channels/os.ts:40): handler menerima query string dan config objek.
+// Bentuk hasil sengaja longgar di field yang dibaca consumer berbeda dengan
+//kunci berbeda (message vs error) — yang ditegakkan hanya kunci yang benar-benar
+// dibaca modul ini.
+export type ToolQuery = string
+export type ToolConfig = { sessionId?: string; [key: string]: unknown }
+export type ToolResult = {
+  success?: boolean
+  message?: string
+  error?: string
+  data?: unknown
+  [key: string]: unknown
+}
+export type ToolHandler = (query: ToolQuery, config: ToolConfig) => Promise<ToolResult>
+export type ToolEntry = {
+  needsApproval?: boolean
+  approvalMessage?: (query: ToolQuery) => string
+  handler: ToolHandler
+}
+
+// Bentuk respons bridge: status-ok flag + payload error opsional.
+type DispatchResponse = { ok?: boolean; error?: string; data?: unknown; [key: string]: unknown }
+
 // Tipe minimal sesi bridge (duck-typing; bentuk lengkap hidup di bridge-core).
-type BridgeSession = { id: string; connected: boolean; [key: string]: any }
+type BridgeSession = { id: string; connected: boolean; [key: string]: unknown }
 type EnsureUpOptions = {
   url?: string | null
   sessionId?: string
   onStatus?: ((msg: string) => unknown) | null
 }
 type ReadDomDeps = {
-  core?: any
-  ensureExtensionUp?: any
-  dispatchCommand?: (...args: any[]) => Promise<any>
+  core?: {
+    listSessions: () => BridgeSession[]
+    dispatchCommand?: (sessionId: string, command: string, payload?: unknown) => Promise<DispatchResponse>
+    getLastUrl?: (id: string) => string | null
+  } | null
+  ensureExtensionUp?: ((opts?: EnsureUpOptions) => Promise<BridgeSession | null>) | null
+  dispatchCommand?: (sessionId: string, command: string, payload?: unknown) => Promise<DispatchResponse>
   getLastUrl?: (sessionId: string) => string | null | undefined
 }
+
+// Hasil auto-launch: `{ok, session?, reason?}`.
+type EnsureBrowserUpResult = { ok?: boolean; session?: BridgeSession; reason?: string | null }
+
+// Bentuk tak dikenal untuk object yang dibaca opsional (DOM extension,
+// respons web, error pihak ketiga): `unknown` memaksa narrowing di call-site.
+type Loose = Record<string, unknown>
+
+/** Pesan error dari nilai yang ditangkap; aman untuk non-Error. */
+const errMessage = (e: unknown): string =>
+  e instanceof Error ? e.message : String((e as Loose | null)?.message ?? e ?? '')
 
 // Extension-first untuk tool browser: coba browser fisik bila ADA sesi yang
 // terhubung (preferensi 'default'), kembalikan null agar caller fallback ke
@@ -48,22 +87,22 @@ const ensureExtensionUp: ((opts?: EnsureUpOptions) => Promise<BridgeSession | nu
     // Transparansi 20s: status handshake diteruskan sebagai event
     // browser:status agar UI/renderer menampilkannya (pola ai:status).
     // onStatus dari pemanggil menang; fallback emit langsung.
-    const emitBrowserStatus = typeof onStatus === 'function'
+    const emitBrowserStatus: (msg: string) => unknown = typeof onStatus === 'function'
       ? onStatus
-      : async (msg: any) => {
+      : async (msg: string) => {
           try {
             const { emit } = await import('../../engine/registry.ts')
             emit('browser:status', msg)
           } catch {}
         }
-    const r: any = await (launcher.ensureBrowserUp as any)({
+    const r = (await launcher.ensureBrowserUp({
       url,
       sessionId,
       autoLaunch: true,
       listSessions: core.listSessions,
-      onStatus: (m: any) => { emitBrowserStatus(m) }
-    })
-    if (r.ok) {
+      onStatus: (m: string) => { emitBrowserStatus(m) }
+    })) as EnsureBrowserUpResult
+    if (r.ok && r.session) {
       ensureExtensionUp.lastReason = null
       return r.session
     }
@@ -76,31 +115,31 @@ const ensureExtensionUp: ((opts?: EnsureUpOptions) => Promise<BridgeSession | nu
 }
 
 const tryExtensionAct = async (
-  payload: any,
+  payload: Loose,
   sessionId = 'default',
   opts: { raw?: boolean } = {}
-): Promise<any> => {
+): Promise<DispatchResponse | null> => {
   try {
     const { listSessions, dispatchCommand } = await import('../browser/bridge-core.ts')
     const sessions = listSessions()
-    const targetSession = payload?.sessionId || sessionId || 'default'
+    const targetSession = (payload?.sessionId as string) || sessionId || 'default'
     let pick = pickConnected(sessions, targetSession)
     if (!pick) {
       const up = await ensureExtensionUp({
         sessionId: targetSession,
-        onStatus: async (m: any) => {
+        onStatus: async (m: string) => {
           try {
             const { emit } = await import('../../engine/registry.ts')
             emit('browser:status', m)
           } catch {}
         }
-      })
+      }) as BridgeSession | null
       if (!up) return null
       pick = up
     }
     if (!pick) return null
     const enriched = { ...payload, sessionId: targetSession }
-    const res: any = await dispatchCommand(pick.id, 'act', enriched)
+    const res = (await dispatchCommand(pick.id, 'act', enriched)) as DispatchResponse
     // raw:true mengembalikan hasil apa adanya (ok maupun !ok) agar caller
     // bisa meneruskan error spesifik extension (mis. mismatch verifikasi
     // teks klik). Default tetap kontrak lama: hanya ok, selain itu null.
@@ -133,20 +172,20 @@ export const NO_EXTENSION_HINT =
   'bila itu pun gagal, laporkan blocked dengan bukti. Jangan meminta user membuka tab manual.'
 
 // E3: gabung reason + hint spesifik. Dipakai browser-navigate saat blocked.
-export const launchBlockMessage = (reason: any) =>
-  `${reason || 'no-handshake'}. ${LAUNCH_REASON_HINT[reason] || LAUNCH_REASON_HINT['no-handshake']}`
+export const launchBlockMessage = (reason: unknown) =>
+  `${reason || 'no-handshake'}. ${LAUNCH_REASON_HINT[String(reason)] || LAUNCH_REASON_HINT['no-handshake']}`
 
 // Baca DOM dari tab aktif ekstensi browser fisik.
-const tryExtensionReadDom = async (sessionId = 'default', deps: ReadDomDeps = {}): Promise<any> => {
+const tryExtensionReadDom = async (sessionId = 'default', deps: ReadDomDeps = {}): Promise<DispatchResponse | null> => {
   try {
     const core = deps.core ?? (await import('../browser/bridge-core.ts'))
     const ensureUp = deps.ensureExtensionUp ?? ensureExtensionUp
     const sessions = core.listSessions()
     const targetSession = sessionId || 'default'
     let pick =
-      sessions.find((s: any) => s.id === targetSession && s.connected) ||
-      sessions.find((s: any) => s.id === 'default' && s.connected) ||
-      sessions.find((s: any) => s.connected)
+      sessions.find((s) => s.id === targetSession && s.connected) ||
+      sessions.find((s) => s.id === 'default' && s.connected) ||
+      sessions.find((s) => s.connected)
     // Sama seperti tryExtensionAct: tidak ada sesi -> bukakan browser OS
     // (bounded) lalu coba lagi, bukan langsung menyerah ke user.
     if (!pick) {
@@ -154,7 +193,11 @@ const tryExtensionReadDom = async (sessionId = 'default', deps: ReadDomDeps = {}
       if (!up) return null
       pick = up
     }
-    const dispatch = deps.dispatchCommand ?? core.dispatchCommand
+    const dispatch = (deps.dispatchCommand ?? core.dispatchCommand) as (
+      sessionId: string,
+      command: string,
+      payload?: unknown
+    ) => Promise<DispatchResponse>
     const attemptRead = async () => {
       try {
         const res = await dispatch(pick.id, 'read-dom', { sessionId: targetSession })
@@ -188,7 +231,7 @@ export const tryExtensionReadDomForTest = tryExtensionReadDom
 
 // Parse target klik: `akN` atau `akN||teks-yang-diharapkan` (verifikasi
 // anti-stale-ID). `||` pertama pemisah; `||` berikutnya bagian expected.
-export function parseClickTarget(query: any) {
+export function parseClickTarget(query: unknown) {
   const raw = String(query ?? '')
   const sep = raw.indexOf('||')
   if (sep < 0) return { id: raw, expected: '' }
@@ -198,14 +241,15 @@ export function parseClickTarget(query: any) {
 // Pure matcher untuk verifikasi teks klik (unit-testable; DOM Element
 // diganti objek duck-type { innerText, getAttribute, value }).
 // expected kosong -> true (jalur lama tanpa biaya tambahan).
-export function elementTextMatches(el: any, expected: any) {
+export function elementTextMatches(el: unknown, expected: unknown) {
   const want = String(expected ?? '').trim().toLowerCase()
   if (!want) return true
-  if (!el) return false
+  if (!el || typeof el !== 'object') return false
+  const node = el as Loose
   const hay = [
-    typeof el.innerText === 'string' ? el.innerText.slice(0, 120) : '',
-    typeof el.getAttribute === 'function' ? (el.getAttribute('aria-label') || '') : '',
-    typeof el.value === 'string' ? el.value : ''
+    typeof node.innerText === 'string' ? node.innerText.slice(0, 120) : '',
+    typeof node.getAttribute === 'function' ? String(node.getAttribute('aria-label') || '') : '',
+    typeof node.value === 'string' ? node.value : ''
   ]
     .join(' ')
     .toLowerCase()
@@ -215,7 +259,7 @@ export function elementTextMatches(el: any, expected: any) {
 // Fetch + parse HTML polos (fallback bila extension tidak tersambung).
 // Dipakai browser-read dan browser-extract (dulu via this['browser-read']
 // yang selalu crash di modul ESM karena this === undefined).
-const browserReadFetch = async (query: any) => {
+const browserReadFetch = async (query: string) => {
   const { extractUrl } = await import('../browser/bridge-core.ts')
   const url = extractUrl(query) || query
   const htmlRes = await fetch(url, {
@@ -224,7 +268,7 @@ const browserReadFetch = async (query: any) => {
   })
   const content = await htmlRes.text()
   const { Parser } = await import('htmlparser2')
-  const cleanedText = await new Promise<string>((resolve, reject) => {
+  const cleanedText = await new Promise<string>((resolve) => {
     let text = ''
     const parser = new Parser({
       ontext: (textChunk) => { text += textChunk },
@@ -243,34 +287,35 @@ const browserReadFetch = async (query: any) => {
   }
 }
 // Simple web fetch tool as fallback for browser research
-const webFetch = async (query: any) => {
+const webFetch = async (query: string) => {
   try {
     const res = await browserReadFetch(query)
-    return { success: true, data: res.data?.raw || res.data?.text || '' }    } catch (e: any) {
-    return { success: false, error: e.message }
+    return { success: true, data: res.data?.raw || res.data?.text || '' }    } catch (e) {
+    return { success: false, error: errMessage(e) }
   }
 }
 
 // Ekstrak link hasil dari DOM halaman google.com/search (pure, unit-testable).
 // Bentuk DOM extension bervariasi -> terima beberapa bentuk umum: array
 // elements {text,href|url}, links [{title,url}], atau html string.
-export function extractGoogleResults(dom: any) {
+export function extractGoogleResults(dom: unknown) {
   if (!dom) return []
-  if (Array.isArray(dom.links)) {
-    return dom.links
-      .filter((l: any) => l && (l.url || l.href))
+  const node = (typeof dom === 'object' ? dom : {}) as Loose
+  if (Array.isArray(node.links)) {
+    return (node.links as Loose[])
+      .filter((l) => l && (l.url || l.href))
       .slice(0, 5)
-      .map((l: any) => ({ title: l.title || l.text || 'Web Result', url: l.url || l.href, snippet: l.snippet || '' }))
+      .map((l) => ({ title: String(l.title || l.text || 'Web Result'), url: String(l.url || l.href), snippet: String(l.snippet || '') }))
   }
-  const els = Array.isArray(dom.elements) ? dom.elements : Array.isArray(dom) ? dom : null
+  const els = (Array.isArray(node.elements) ? node.elements : Array.isArray(dom) ? dom : null) as Loose[] | null
   if (els) {
     const links = els
-      .filter((e: any) => e && (e.href || e.url) && !/google\.com\/(search|url)/.test(e.href || e.url || ''))
+      .filter((e) => e && (e.href || e.url) && !/google\.com\/(search|url)/.test(String(e.href || e.url || '')))
       .slice(0, 5)
-      .map((e: any) => ({ title: e.text || e.title || 'Web Result', url: e.href || e.url, snippet: e.snippet || '' }))
+      .map((e) => ({ title: String(e.text || e.title || 'Web Result'), url: String(e.href || e.url), snippet: String(e.snippet || '') }))
     if (links.length > 0) return links
   }
-  const html = typeof dom === 'string' ? dom : dom.html || dom.markdown || ''
+  const html = typeof dom === 'string' ? dom : String(node.html || node.markdown || '')
   if (typeof html !== 'string' || !html) return []
   const hrefs = [...html.matchAll(/<a[^>]+href="(https?:\/\/[^"]+)"[^>]*>([^<]{3,120})<\/a>/g)]
     .map((m) => ({ title: m[2].trim(), url: m[1] }))
@@ -281,15 +326,15 @@ export function extractGoogleResults(dom: any) {
 // Cooldown pencarian web: DDG melempar rate-limit bila dihantam retry loop.
 // Cache hasil (sukses maupun gagal) 60 detik per query agar loop planner
 // tidak menembak DDG berkali-kali dalam sedetik.
-const searchCooldown = new Map<string, any>()
+const searchCooldown = new Map<string, { at: number; data: ToolResult }>()
 const SEARCH_CACHE_MS = 60000
 let ddgRateLimitedUntil = 0
 let lastDdgWarnAt = 0
 
-export const browserTools: Record<string, any> = {
+export const browserTools: Record<string, ToolEntry> = {
   'browser-search': {
     needsApproval: false,
-    handler: async (query: any, config: any) => {
+    handler: async (query, config) => {
       try {
         const searchQuery = query ? query.trim() : ''
         if (!searchQuery) return { success: false, message: 'Query pencarian kosong.' }
@@ -299,7 +344,7 @@ export const browserTools: Record<string, any> = {
         if (cached && Date.now() - cached.at < SEARCH_CACHE_MS) return cached.data
         // Cache success-only: hanya hasil berisi yang diingat, agar kegagalan
         // tiap layer tidak membekukan query selama 60 detik.
-        const remember = (data: any) => {
+        const remember = (data: ToolResult) => {
           searchCooldown.set(cacheKey, { at: Date.now(), data })
           if (searchCooldown.size > 200) {
             const oldest = searchCooldown.keys().next().value ?? ''
@@ -308,7 +353,7 @@ export const browserTools: Record<string, any> = {
           return data
         }
 
-        let results: any[] = []
+        let results: { title: string; url: string; snippet?: string }[] = []
         let routerErr: string | null = null
         let extErr: string | null = null
 
@@ -318,10 +363,10 @@ export const browserTools: Record<string, any> = {
           try {
             const { searchViaRouter, DEFAULT_ROUTER_ENDPOINT } = await import('./routerSearch.ts')
             const endpoint = process.env.ROUTER_ENDPOINT || DEFAULT_ROUTER_ENDPOINT
-            const apiKey = config?.customApiKey || process.env.ROUTER_API_KEY
+            const apiKey = (config?.customApiKey as string) || process.env.ROUTER_API_KEY
             results = await searchViaRouter(searchQuery, { endpoint, apiKey })
-          } catch (rErr: any) {
-            routerErr = rErr?.message || String(rErr)
+          } catch (rErr) {
+            routerErr = errMessage(rErr)
             if (Date.now() - lastDdgWarnAt > 30000) {
               lastDdgWarnAt = Date.now()
               console.warn('[browser-search] router search failed, trying next layer:', routerErr)
@@ -338,13 +383,13 @@ export const browserTools: Record<string, any> = {
             const pick = pickConnected(listSessions(), targetSession)
             if (!pick) throw new Error('extension tidak tersambung')
             const gUrl = `https://www.google.com/search?q=${encodeURIComponent(searchQuery)}`
-            const nav: any = await dispatchCommand(pick.id, 'navigate', { url: gUrl, sessionId: targetSession })
+            const nav = (await dispatchCommand(pick.id, 'navigate', { url: gUrl, sessionId: targetSession })) as DispatchResponse
             if (!nav || !nav.ok) throw new Error(nav?.error || 'navigate google gagal')
             const ext = await tryExtensionReadDom(targetSession)
             results = extractGoogleResults(ext?.data)
             if (results.length === 0) throw new Error('tidak ada link hasil di DOM google')
-          } catch (e: any) {
-            extErr = e?.message || String(e)
+          } catch (e) {
+            extErr = errMessage(e)
           }
         }
 
@@ -363,17 +408,17 @@ export const browserTools: Record<string, any> = {
                 results = searchRes.results.slice(0, 5).map((r) => ({
                   title: r.title,
                   url: r.url,
-                  snippet: r.description || (r as any).snippet || ''
+                  snippet: String(r.description || (r as unknown as Loose).snippet || '')
                 }))
               }
-            } catch (ddgErr: any) {
-              const isAnomaly = /anomaly|too quickly|rate limit|429/i.test(ddgErr?.message || '')
+            } catch (ddgErr) {
+              const isAnomaly = /anomaly|too quickly|rate limit|429/i.test(errMessage(ddgErr))
               if (isAnomaly) {
                 ddgRateLimitedUntil = Date.now() + 60000
               }
               if (Date.now() - lastDdgWarnAt > 30000) {
                 lastDdgWarnAt = Date.now()
-                console.warn('[browser-search] duck-duck-scrape failed, trying HTTP fallback:', ddgErr?.message || ddgErr)
+                console.warn('[browser-search] duck-duck-scrape failed, trying HTTP fallback:', errMessage(ddgErr))
               }
             }
           }
@@ -402,10 +447,10 @@ export const browserTools: Record<string, any> = {
                   snippet: snippetMatches[i]?.[1] || ''
                 })
               }
-            } catch (fetchErr: any) {
+            } catch (fetchErr) {
               if (Date.now() - lastDdgWarnAt > 30000) {
                 lastDdgWarnAt = Date.now()
-                console.error('[browser-search] HTTP fallback error:', fetchErr?.message || fetchErr)
+                console.error('[browser-search] HTTP fallback error:', errMessage(fetchErr))
               }
             }
           }
@@ -423,7 +468,7 @@ export const browserTools: Record<string, any> = {
 
         const formatted = results
           .map(
-            (r: any, idx: any) =>
+            (r, idx) =>
               `${idx + 1}. [${r.title}](${r.url})\n   Snippet: ${String(r.snippet || '').replace(/\n+/g, ' ')}`
           )
           .join('\n\n')
@@ -432,14 +477,14 @@ export const browserTools: Record<string, any> = {
           success: true,
           data: `[HASIL PENCARIAN WEB UNTUK: "${searchQuery}"]\n\n${formatted}`
         })
-      } catch (err: any) {
-        return { success: false, message: `Gagal melakukan web search: ${err.message}` }
+      } catch (err) {
+        return { success: false, message: `Gagal melakukan web search: ${errMessage(err)}` }
       }
     }
   },
   'browser-navigate': {
     needsApproval: false,
-    handler: async (query: any, config: any) => {
+    handler: async (query, config) => {
       try {
         const { listSessions, dispatchCommand, getBrowserConfig } = await import('../browser/bridge-core.ts')
         const { parseNavigateQuery } = await import('../browser/nav-query.ts')
@@ -465,13 +510,13 @@ export const browserTools: Record<string, any> = {
           }
           if (pick) {
             extensionAttempted = true
-            let res: any = null
+            let res: DispatchResponse | null = null
             try {
               // Tanpa flag adoptUserTab: jangan pernah curi tab user — teruskan
               // flag ke extension; extension hanya boleh pakai tab primer sesi,
               // tab yatim milik sendiri, atau tab baru. Extension menolak pakai
               // tab user -> error jujur di bawah (bukan fallback diam-diam).
-              res = await dispatchCommand(pick.id, 'navigate', { url, sessionId: targetSession, adoptUserTab })
+              res = (await dispatchCommand(pick.id, 'navigate', { url, sessionId: targetSession, adoptUserTab })) as DispatchResponse
             } catch {
               res = null
             }
@@ -492,14 +537,14 @@ export const browserTools: Record<string, any> = {
           return { success: false, error: launchBlockMessage(failReason) }
         }
         return await webFetch(url)
-      } catch (e: any) {
-        return { success: false, error: e.message }
+      } catch (e) {
+        return { success: false, error: errMessage(e) }
       }
     }
   },
   'browser-read': {
     needsApproval: false,
-    handler: async (query: any, config: any) => {
+    handler: async (query, config) => {
       try {
         const q = String(query ?? '').trim()
         const { extractUrl } = await import('../browser/bridge-core.ts')
@@ -516,7 +561,7 @@ export const browserTools: Record<string, any> = {
         if (ext) {
           // PR46 representation switch: ABELINK_BROWSER_OBSERVATION = raw |
           // semantic-first (default). Unset env keeps prior behavior.
-          const representation = resolveObservationRepresentation(process.env.ABELINK_BROWSER_OBSERVATION as any)
+          const representation = resolveObservationRepresentation(process.env.ABELINK_BROWSER_OBSERVATION)
           return {
             success: true,
             data: renderBrowserObservation(ext.data, { representation }),
@@ -535,14 +580,14 @@ export const browserTools: Record<string, any> = {
           error:
             'browser-read: tidak ada sesi extension dan tidak ada URL untuk dibaca (auto-launch sudah dicoba bila aktif). Panggil browser-navigate <url-lengkap>, lalu browser-read lagi. Bila navigate gagal juga, laporkan blocked dengan bukti.'
         }
-      } catch (e: any) {
-        return { success: false, error: e.message }
+      } catch (e) {
+        return { success: false, error: errMessage(e) }
       }
     }
   },
   'browser-ask': {
     needsApproval: false,
-    handler: async (query: any, config: any) => {
+    handler: async (query, config) => {
       const reason = String(query || 'Membutuhkan interaksi langsung pengguna di browser').trim()
       return {
         success: true,
@@ -556,10 +601,10 @@ export const browserTools: Record<string, any> = {
   },
   'browser-click': {
     needsApproval: false,
-    handler: async (query: any, config: any) => {
+    handler: async (query, config) => {
       const targetSession = config?.sessionId || 'default'
       const { id, expected } = parseClickTarget(query)
-      const payload: Record<string, any> = { abelinkId: normalizeAbelinkId(id), action: 'click' }
+      const payload: Loose = { abelinkId: normalizeAbelinkId(id), action: 'click' }
       // Backward compatible: field expectedText hanya dikirim bila ada.
       if (expected) payload.expectedText = expected
       const ext = await tryExtensionAct(payload, targetSession, expected ? { raw: true } : undefined)
@@ -576,7 +621,7 @@ export const browserTools: Record<string, any> = {
   },
   'browser-type': {
     needsApproval: false,
-    handler: async (query: any, config: any) => {
+    handler: async (query, config) => {
       const targetSession = config?.sessionId || 'default'
       const raw = String(query ?? '')
       let id = ''
@@ -603,7 +648,7 @@ export const browserTools: Record<string, any> = {
   },
   'browser-scroll': {
     needsApproval: false,
-    handler: async (query: any, config: any) => {
+    handler: async (query, config) => {
       const targetSession = config?.sessionId || 'default'
       const dir = String(query ?? '').trim().toLowerCase().startsWith('up') ? 'up' : 'down'
       const ext = await tryExtensionAct({ action: 'scroll', value: { direction: dir, amount: 600 } }, targetSession)
@@ -616,7 +661,7 @@ export const browserTools: Record<string, any> = {
   },
   'browser-back': {
     needsApproval: false,
-    handler: async (_query: any, config: any) => {
+    handler: async (_query, config) => {
       const targetSession = config?.sessionId || 'default'
       const ext = await tryExtensionAct({ action: 'back' }, targetSession)
       if (ext) return { success: true, data: ext.data, via: 'extension' }
@@ -628,7 +673,7 @@ export const browserTools: Record<string, any> = {
   },
   'browser-forward': {
     needsApproval: false,
-    handler: async (_query: any, config: any) => {
+    handler: async (_query, config) => {
       const targetSession = config?.sessionId || 'default'
       const ext = await tryExtensionAct({ action: 'forward' }, targetSession)
       if (ext) return { success: true, data: ext.data, via: 'extension' }
@@ -640,7 +685,7 @@ export const browserTools: Record<string, any> = {
   },
   'browser-reload': {
     needsApproval: false,
-    handler: async (_query: any, config: any) => {
+    handler: async (_query, config) => {
       const targetSession = config?.sessionId || 'default'
       const ext = await tryExtensionAct({ action: 'reload' }, targetSession)
       if (ext) return { success: true, data: ext.data, via: 'extension' }
@@ -652,7 +697,7 @@ export const browserTools: Record<string, any> = {
   },
   'browser-ask-user': {
     needsApproval: false,
-    handler: async (query: any) => {
+    handler: async (_query) => {
       return {
         success: false,
         error: 'browser-ask-user: Blocked - requires UI interaction.'
@@ -661,9 +706,9 @@ export const browserTools: Record<string, any> = {
   },
   'browser-script': {
     needsApproval: true,
-    approvalMessage: (query: any) =>
+    approvalMessage: (query) =>
       `Abelink ingin mengeksekusi script JavaScript di browser Anda (berpotensi mengakses data halaman/sesi login):\n\n${query}`,
-    handler: async (query: any, config: any) => {
+    handler: async (query, config) => {
       const targetSession = config?.sessionId || 'default'
       const ext = await tryExtensionAct({ action: 'script', value: String(query ?? '') }, targetSession)
       if (ext) return { success: true, data: ext.data, via: 'extension' }
@@ -675,7 +720,7 @@ export const browserTools: Record<string, any> = {
   },
   'browser-extract': {
     needsApproval: false,
-    handler: async (query: any, config: any) => {
+    handler: async (query, config) => {
       const targetSession = config?.sessionId || 'default'
       const ext = await tryExtensionAct({ action: 'extract', value: String(query ?? '') }, targetSession)
       if (ext) return { success: true, data: ext.data, via: 'extension' }
@@ -685,10 +730,11 @@ export const browserTools: Record<string, any> = {
       const { getLastUrl } = await import('../browser/bridge-core.ts')
       const resolved = resolveExtractQuery(query, { hasSession: false, lastUrl: getLastUrl(targetSession) ?? '' })
       if (!resolved.ok) return { success: false, error: resolved.error }
+      if (!resolved.url) return { success: false, error: 'browser-extract: URL kosong' }
       try {
         return await browserReadFetch(resolved.url)
-      } catch (e: any) {
-        return { success: false, error: e.message }
+      } catch (e) {
+        return { success: false, error: errMessage(e) }
       }
     }
   },
@@ -697,7 +743,7 @@ export const browserTools: Record<string, any> = {
   // tagger 80-elemen (teks soal, artikel).
   'browser-snapshot': {
     needsApproval: false,
-    handler: async (query: any, config: any) => {
+    handler: async (query, config) => {
       const targetSession = config?.sessionId || 'default'
       const ext = await tryExtensionAct({ action: 'snapshot' }, targetSession)
       if (ext) return { success: true, data: ext.data, via: 'extension' }
@@ -708,7 +754,7 @@ export const browserTools: Record<string, any> = {
   // Query: teks yang ditunggu (mis. "Soal No" atau "Mulai Tanding").
   'browser-wait-for': {
     needsApproval: false,
-    handler: async (query: any, config: any) => {
+    handler: async (query, config) => {
       const targetSession = config?.sessionId || 'default'
       const text = String(query ?? '').trim()
       if (!text) return { success: false, error: 'browser-wait-for butuh teks pada query.' }
@@ -719,7 +765,7 @@ export const browserTools: Record<string, any> = {
   },
   'browser-close': {
     needsApproval: false,
-    handler: async (_query: any, config: any) => {
+    handler: async (_query, config) => {
       const targetSession = config?.sessionId || 'default'
       const ext = await tryExtensionAct({ action: 'close' }, targetSession)
       if (ext) return { success: true, data: ext.data, via: 'extension' }
@@ -728,7 +774,7 @@ export const browserTools: Record<string, any> = {
   },
   'browser-screenshot': {
     needsApproval: false,
-    handler: async (query: any, config: any) => {
+    handler: async (query, config) => {
       const targetSession = config?.sessionId || 'default'
       const ext = await tryExtensionAct({ action: 'screenshot', value: String(query ?? '') }, targetSession)
       if (ext) {
@@ -741,8 +787,8 @@ export const browserTools: Record<string, any> = {
           fs.mkdirSync(path.dirname(guarded.path), { recursive: true })
           fs.writeFileSync(guarded.path, Buffer.from(m[1], 'base64'))
           return { success: true, data: guarded.path, via: 'extension' }
-        } catch (e: any) {
-          return { success: false, error: e.message }
+        } catch (e) {
+          return { success: false, error: errMessage(e) }
         }
       }
       return {
@@ -753,8 +799,8 @@ export const browserTools: Record<string, any> = {
   },
   'browser-download': {
     needsApproval: true,
-    approvalMessage: (query: any) => `Abelink ingin mendownload file dari browser:\n\n${query}`,
-    handler: async (query: any, config: any) => {
+    approvalMessage: (query) => `Abelink ingin mendownload file dari browser:\n\n${query}`,
+    handler: async (query, config) => {
       const targetSession = config?.sessionId || 'default'
       const [urlPart, ...rest] = String(query ?? '').split('||')
       const { extractUrl } = await import('../browser/bridge-core.ts')
@@ -774,8 +820,8 @@ export const browserTools: Record<string, any> = {
             type: response.headers.get('content-type')
           }
         }
-      } catch (e: any) {
-        return { success: false, error: e.message }
+      } catch (e) {
+        return { success: false, error: errMessage(e) }
       }
     }
   }
