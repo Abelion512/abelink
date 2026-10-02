@@ -47,7 +47,7 @@ const elapsedMs = latRuns[1].ms
 
 const dims = smoke.report.dimensions
 const tested = Object.entries(dims).filter(([, v]) => v !== null)
-const failedDims = tested.filter(([, v]) => v < 1).map(([k]) => k)
+const failedDims = tested.filter((e): e is [string, number] => e[1] !== null && e[1] < 1).map(([k]) => k)
 
 console.log('[bench-gate] AbelinkBench 1.0 — offline architecture gate')
 console.log('─'.repeat(60))

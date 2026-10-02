@@ -1,10 +1,9 @@
 {
-  "rule": "@typescript-eslint/no-explicit-any",
-  "measured": "2026-10-03 (ratchet any, PR 3/5: telegram-service.ts 85 -> 0)",
+  "measured": "2026-10-03 (ratchet any, PR 4/5: abelink-eval.ts 68 -> 0, plus bench-gate.ts tsc fix)",
   "zones": {
-    "contract": 1856,
+    "contract": 1788,
     "tests": 208
   },
-  "max": 2064,
+  "max": 1996,
   "note": "CI menolak kalau angka nyata MELEBIHI nilai di sini. Kalau angka turun, baseline WAJIB ikut dikecilkan di PR yang sama supaya ratchet benar-benar mengatup. Dihitung per zona: perbaikan di tests/ tidak boleh menutupi additions di zona kontrak produksi."
 }
