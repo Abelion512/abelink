@@ -7,7 +7,7 @@
 - **GAIN** = perbaikan terukur yang sudah didapat (angka, bukan perasaan).
 - Aturan: marker tanpa entri ledger = test merah; entri tanpa marker = hapus entri.
 
-## DEBT (dari marker `ponytail:` di kode — sinkron dengan tests/ponytailLedger.test.mjs)
+## DEBT (dari marker `ponytail:` di kode — sinkron dengan tests/ponytailLedger.test.ts)
 
 | Ref | Lokasi | Keputusan | Kriteria naik |
 |---|---|---|---|
@@ -20,7 +20,7 @@
 | P-07 | `sidecar/main/services/gemini-web.ts` | Rantai kata kunci tunggal (tanpa map per versi) | Bila versi model baru gagal resolve |
 | P-08 | `sidecar/main/browser/native-host.ts` | Python literals wajib double-quote (batasan -c) | Bila migrasi dari `python -c` |
 | P-09 | `bin/abelink.ts` + `bin/abelink-tui.ts` | auto-mkdir workspace (cermin TUI) | Bila tool mulai validasi workspace sendiri |
-| P-10 | `tests/cli-tui-v2.test.mjs` | spawn + stdin.end (execFile `input:` hang di env ini) | Bila execFile bekerja di env CI baru |
+| P-10 | `tests/cli-tui-v2.test.ts` | spawn + stdin.end (execFile `input:` hang di env ini) | Bila execFile bekerja di env CI baru |
 | P-11 | `scripts/bump-version.ts` + `release-version.ts` | regex footer, bukan parser Conventional-Commits penuh | Bila kasus commit nyata yang salah klasifikasi |
 | P-12 | `scripts/release-helper.ts` | delete+recreate PR data (bukan merge) | Bila ada state rilis yang layak di-merge |
 | P-13 | `evaluation/bench/boundary-abelink.ts` | clamp trace 4k (di bawah bridge clamp 20k) | Bila trace pendek dibutuhkan penuh |

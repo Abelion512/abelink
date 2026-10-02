@@ -1,0 +1,19 @@
+{
+  // tsconfig.tests.json — sub-gate khusus tests/ (W7).
+  //
+  // Kenapa terpisah: tests/ direname massal .mjs/.js -> .ts di W7 dengan
+  // prinsip "semantik test tidak berubah" (K9). Strict penuh (noImplicitAny)
+  // menuntut pengetikan ulang 150+ file uji yang tumpang-tindih dengan W9 —
+  // diluar lingkup W7. Gate di sini: tsc valid secara sintaks + tipe eksplisit
+  // yang sudah ada dicek, implicit any dibiarkan (catch-all W9).
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    "noImplicitAny": false,
+    "strict": false,
+    "strictNullChecks": false,
+    "strictFunctionTypes": false
+  },
+  "include": ["tests/**/*.ts", "tests/**/*.tsx", "src/types/*.d.ts", "sidecar/types/**/*.d.ts"]
+}

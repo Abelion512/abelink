@@ -191,7 +191,9 @@ export const fsTools: Record<string, any> = {
           try {
             const mammothNs = await import('mammoth')
             const mammoth = mammothNs.default ?? mammothNs
-            const result = await mammoth.extractRawText({ buffer })
+            // Cast any (W7): union tipe ambient + tipe bawaan paket bikin akses
+            // properti gagal; runtime sudah aman (dipanggil di try/catch).
+            const result = await (mammoth as any).extractRawText({ buffer })
             rawText = result.value
           } catch (docxErr: any) {
             return { success: false, error: `Gagal membaca DOCX: ${docxErr.message}` }
