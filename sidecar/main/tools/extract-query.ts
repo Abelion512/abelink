@@ -3,7 +3,20 @@
 // = error eksplisit (bukan fetch buta yang berujung 403 + klaim halu).
 import { extractUrl } from '../browser/bridge-core.ts'
 
-export function resolveExtractQuery(query: any, { hasSession = false, lastUrl = null } = {}) {
+// Discriminated union: `ok` jadi literal, bukan `boolean`, supaya call-site
+// bisa menyempit ke cabang yang tepat tanpa cast.
+// `error` ditandai `?: undefined` di cabang sukses supaya consumer boleh
+// membaca `r.error` tanpa narrowing (dipakai test kontrak
+// tests/browser-extract-contract.test.ts) TANPA kehilangan diskriminan `ok`.
+export type ExtractQueryResult =
+  | { ok: true; url: string; error?: undefined }
+  | { ok: true; url: null; via: 'extension'; error?: undefined }
+  | { ok: false; error: string }
+
+export function resolveExtractQuery(
+  query: unknown,
+  { hasSession = false, lastUrl = null as string | null }: { hasSession?: boolean; lastUrl?: string | null } = {}
+): ExtractQueryResult {
   const q = String(query ?? '').trim()
   const url = extractUrl(q)
   if (url) return { ok: true, url }

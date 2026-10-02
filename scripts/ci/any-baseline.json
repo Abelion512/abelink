@@ -1,10 +1,10 @@
 {
   "rule": "@typescript-eslint/no-explicit-any",
-  "measured": "2026-10-02 (ratchet any, PR 1/5: evaluation/pr46-matrix.ts 132 -> 0)",
+  "measured": "2026-10-02 (ratchet any, PR 2/5: browserTools.ts 87 + extract-query.ts 4 -> 0)",
   "zones": {
-    "contract": 2029,
+    "contract": 1941,
     "tests": 208
   },
-  "max": 2237,
+  "max": 2149,
   "note": "CI menolak kalau angka nyata MELEBIHI nilai di sini. Kalau angka turun, baseline WAJIB ikut dikecilkan di PR yang sama supaya ratchet benar-benar mengatup. Dihitung per zona: perbaikan di tests/ tidak boleh menutupi additions di zona kontrak produksi."
 }
