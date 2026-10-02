@@ -21,7 +21,7 @@
 - **Desktop Shell Security:** `rfd` 0.15 native approval dialogs rendered on the Rust main thread, deny-by-default IPC allowlist (`cmd_node_bridge.rs`), CSP declared in both `tauri.conf.json` and `index.html`
 - **AI Backend:** Gemini Web RPC (Native Bridge, `sidecar/main/services/gemini-web.ts`) / Groq API / LM Studio (Local, `localhost:1234`) / Cerebras / Custom OpenAI-compatible Endpoint
 - **Embeddings/Memory:** `@huggingface/transformers` (Transformers.js) fully local embeddings via WASM inside a Web Worker (`src/api/embedding.worker.ts`; model `Xenova/paraphrase-multilingual-MiniLM-L12-v2`, 384 dimensions, hash-model fallback in lite mode)
-- **Local Database & Vector Search:** `dexie` (IndexedDB wrapper, schema version 22, 12 stores) and `@orama/orama` for Hybrid Full-Text & Vector search (memory/archive/document/turn-pair indexes)
+- **Local Database & Vector Search:** `dexie` (IndexedDB wrapper, schema version 30, 14 stores) and `@orama/orama` for Hybrid Full-Text & Vector search (memory/archive/document/turn-pair indexes)
 - **Voice/Audio:** Groq API Speech-to-Text (`whisper-large-v3`, optional `whisper-large-v3-turbo`) plus a local Whisper worker (`src/api/whisperWorker.ts`), Edge-TTS (`msedge-tts`, voice: `id-ID-ArdiNeural`, served by the sidecar `tts-speak` channel), Web Audio API Voice Activity Detection via `src/hooks/useVAD.ts`
 - **Media/Integrations:** `youtube-transcript-plus`, `ytmusic-api` (YouTube Music), `yt-search`, `googleapis` (Calendar/Drive/Gmail via sidecar `google:*` channels)
 - **Communication:** `telegraf` (Telegram Bot Framework, `sidecar/main/telegram/telegram-service.ts`)

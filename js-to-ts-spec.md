@@ -1,5 +1,11 @@
 # SPEC: Penyelesaian Migrasi JS → TS 100% (Abelink)
 
+> CATATAN EPISTEMIK: §5–§9, §12, dan §15 dokumen ini adalah rencana kerja
+> agen pelaksana, BUKAN standar yang ditetapkan owner. Keputusan yang menyentuh
+> alur kerja owner wajib ditelusuri ke dokumen owner atau primary source
+> upstream — preseden: koreksi W8 memakai dokumentasi resmi Chrome tentang
+> extension service worker (https://developer.chrome.com/docs/extensions/develop/concepts/service-workers/basics).
+
 Tanggal: 2026-09-28
 Status: **EKSEKUSI BERJALAN** — W0 ✓ (PR #87), W1 ✓ (PR #88–#92, sidecar/engine 100% .ts, 9/9 channel); W2 boundary src/api berikutnya; sisanya belum.
 Pemilik keputusan: Abelion512 (via interview 2026-09-28)
@@ -28,7 +34,7 @@ Akar hukum: melanjutkan `docs/PLANNED/2026-09-26_master-migration-program.md` (P
 | K6 | Config root | **Semua ke TS** (vite, eslint, vitest, vitest.live) |
 | K7 | Runtime | **Semua entry `node` → `bun`** (selaras AGENTS.md: script first-party = bun) |
 | K8 | Any policy | Keputusan agent: **error di zona kontrak, warn di zona UI** |
-| K9 | Tests | **Ikut .ts penuh** (semua 169 file) |
+| K9 | Tests | **Ikut .ts penuh** (semua 174 file) |
 | K10 | Handoff marker | **Hapus + arsipkan** — tidak boleh ada dua "pemilik" dokumen migrasi |
 | K11 | PR cadence | Keputusan agent: minim konflik + standar kerja → **satu slice = satu PR, sekuensial, merge sebelum slice berikut** |
 | K12 | Anti-tabrakan | Keputusan agent: pre-flight abort signal + namespace branch |
@@ -54,7 +60,7 @@ Akar hukum: melanjutkan `docs/PLANNED/2026-09-26_master-migration-program.md` (P
 | `sidecar/` | 18 | 0 | 44 | 0 | `engine.mjs` entry + `engine/` + `main/` |
 | `scripts/` | 0 | 0 | 17 | 0 | Termasuk `sync-version.mjs`, `verify.sh` helper |
 | `evaluation/` | 0 | 0 | 31 | 0 | Bench harness + PR46 measurement plane |
-| `tests/` | 169 | 0 | (termasuk) | 1 | Volume rename terbesar |
+| `tests/` | 174 | 0 | (termasuk) | 1 | Volume rename terbesar |
 | `cli/` | 18 | 0 | — | 6 | Sisa `.mjs` di `cli/core`, `cli/tui` |
 | `bin/` | 3 | 0 | — | 1 | `abelink.mjs`, `abelink-tui.mjs`, `abelink-cron.mjs` |
 | Root configs | 2 | 0 | 2 | 0 | `vite.config.js`, `eslint.config.mjs`, `vitest*.config.mjs` |
@@ -160,7 +166,7 @@ DoD: semua gate hijau, dokumen lama tidak lagi "aktif", tidak ada rename.
 
 ### W7 — Tests .ts penuh (K9)
 
-- 169 file test → `.ts` per-cluster (cli-tui, harness, dexie/db, provider, benchmark, subagent, dst). Rename + minimal typing; SEMANTIK TEST TIDAK BOLEH BERUBAH (prinsip parity-first: ekspektasi test = kontrak).
+- 174 file test → `.ts` per-cluster (cli-tui, harness, dexie/db, provider, benchmark, subagent, dst). Rename + minimal typing; SEMANTIK TEST TIDAK BOLEH BERUBAH (prinsip parity-first: ekspektasi test = kontrak).
 - Test live `*.live.test.*` tetap terpisah (`test:live`), tidak masuk gate default.
 - `tests/harness/*.mjs` (stress harness, dijalankan `node` → `bun`) ikut konversi.
 - Baseline jumlah test diverifikasi: pass count ≥ baseline W0 (16 skip tetap skip).
@@ -477,7 +483,7 @@ engine + registry + 9 channel (1.580 baris) 100% TS. Smoke dual-path (hot + cold
 | W4 | components+pages 100% TS | MERGED (#114) |
 | W5 | sidecar core 38 file: infra leaf (11) + capabilities/google (18) + browser/tools/telegram/plugins/pc-agent/ai-bridge (20, 892 err tsc ditutup) | MERGED (#115, squash 651774dc) |
 | W6 | scripts/evaluation/bin → .ts + entry node→bun | MERGED (#116, squash b5b57c03) |
-| W7 | tests → .ts (173 rename) + sub-gate `typecheck:tests` | MERGED (#117, squash ddbb8d65) |
+| W7 | tests → .ts (174 file; 173 rename + 1 pre-existing) + sub-gate `typecheck:tests` | MERGED (#117, squash ddbb8d65) |
 | W8 | configs root + extension → .ts, service worker ESM (Chrome >= 91) | MERGED (#118, squash 698aef2d) |
 | W9 | ratchet any-policy (baseline 2369, per zona) + sinkronisasi AGENTS.md/ARCHITECTURE.md + laporan 5W1H | DONE |
 
