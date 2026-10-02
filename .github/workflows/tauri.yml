@@ -61,18 +61,23 @@ jobs:
       # `typecheck:tests` = sub-gate W7 (tsconfig.tests.json) untuk 174 berkas
       # tests/ yang sudah .ts; gate ini longgar (noImplicitAny/strict off) karena
       # pengetikan penuh 150+ test ditunda ke W9, tapi sintaks tetap wajib valid.
+      # `typecheck:extension` = sub-gate W8 (tsconfig.extension.json) untuk
+      # extension/src/**; strict penuh, types:[] supaya tidak bisa bocor ke Node.
       - name: Typecheck (tsc)
         run: |
           bun run typecheck
           bun run typecheck:node
           bun run typecheck:renderer
           bun run typecheck:tests
+          bun run typecheck:extension
       # Ratchet W0 (js-to-ts-spec.md): dilarang menambah file .js/.jsx/.mjs
       # baru di zona migrasi selama program migrasi TS berjalan (blocker B-13).
       - name: No-new-JS ratchet (zona migrasi)
         run: bash scripts/ci/no-new-js.sh
       - name: Unit tests (vitest)
         run: bunx vitest run
+      - name: Extension build (transpile .ts -> .js, service worker ESM)
+        run: bun run build:extension
       - name: Extension gate (ID pin, token path, flavor isolation)
         run: bunx vitest run tests/browser-e2e.test.ts tests/native-host.test.ts tests/browser-flavor.test.ts
       - name: Frontend build (vite)

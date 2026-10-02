@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { shouldOverlay } from '../extension/overlay-policy.mjs'
+import { shouldOverlay } from '../extension/src/lib/overlay-policy'
 describe('shouldOverlay', () => {
   it('tidak pasang veil saat await-user', () => {
     expect(shouldOverlay({ awaitingUser: true, overlayStopped: false })).toBe(false)

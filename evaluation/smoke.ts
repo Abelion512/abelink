@@ -409,7 +409,7 @@ import {
 import {
   renderBrowserObservation,
   resolveObservationRepresentation,
-} from '../extension/browser-observation.mjs'
+} from '../extension/src/lib/browser-observation'
 import { ARCH_AXIS_IN_BENCH_PATH } from './abelink-adapter.ts'
 
 assert.equal(PR46_TOTAL_FIXTURES, 30, 'PR46 matrix = 30 fixture')

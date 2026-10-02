@@ -1,4 +1,4 @@
-// vitest.live.config.mjs — gate TERPISAH untuk test yang butuh jaringan atau
+// vitest.live.config.ts — gate TERPISAH untuk test yang butuh jaringan atau
 // layanan hidup (9Router :20128, bot Telegram, browser bridge sungguhan).
 //
 // Konteks (M0/B-8): test live pernah flaky (5–27s, kadang lewat batas) dan

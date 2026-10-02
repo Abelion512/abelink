@@ -1,8 +1,22 @@
 import { defineConfig } from "vite";
+import type { Rollup } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
 const host = process.env.TAURI_DEV_HOST;
+
+// Lazy db<->oramaStore (pemutus siklus) + vectorMemory (kebijakan transformers)
+// disengaja: modul inti memang di main chunk, dynamic import di sana untuk
+// lazy-init, bukan code-split. Rollup menandai ini sebagai warning,
+// jadi kita bungkam — perilaku lain diteruskan ke handler default.
+const onwarn: Rollup.WarningHandlerWithDefault = (warning, defaultHandler) => {
+  if (
+    warning?.message?.includes('dynamically imported') &&
+    warning?.message?.includes('statically imported')
+  )
+    return
+  defaultHandler(warning)
+};
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
@@ -36,17 +50,7 @@ export default defineConfig(async () => ({
     // Pisah vendor berat ke chunk sendiri: cache stabil + load paralel.
     // (Lihat plan optimasi bundle: entry 2.4MB didominasi depTransitif ini.)
     rollupOptions: {
-      // Lazy db<->oramaStore (pemutus siklus) + vectorMemory (kebijakan
-      // transformers) disengaja: modul inti memang di main chunk, dynamic
-      // import di sana untuk lazy-init, bukan code-split. Bungkam warn itu saja.
-      onwarn(warning, warn) {
-        if (
-          warning?.message?.includes('dynamically imported') &&
-          warning?.message?.includes('statically imported')
-        )
-          return
-        warn(warning)
-      },
+      onwarn,
       output: {
         manualChunks: {
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],

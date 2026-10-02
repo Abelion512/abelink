@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 // Helper murni yang diekstrak dari taggerFn: diberi daftar elemen semu,
 // harus mengembalikan yang di dalam <main> lebih dulu, maks 200.
-import { rankTaggerElements } from '../extension/tagger-rank.mjs'
+import { rankTaggerElements } from '../extension/src/lib/tagger-rank'
 describe('rankTaggerElements', () => {
   it('main-first, cap 200', () => {
     const els = [

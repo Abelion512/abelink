@@ -4,7 +4,7 @@ import path from 'node:path'
 import { normalizeAbelinkId } from '../browser/bridge-core.ts'
 import { getWorkspaceDir } from './_shared.ts'
 import { assertContained } from '../utils/fsGuard.ts'
-import { renderBrowserObservation, resolveObservationRepresentation } from '../../../extension/browser-observation.mjs'
+import { renderBrowserObservation, resolveObservationRepresentation } from '../../../extension/src/lib/browser-observation'
 
 // Tipe minimal sesi bridge (duck-typing; bentuk lengkap hidup di bridge-core).
 type BridgeSession = { id: string; connected: boolean; [key: string]: any }

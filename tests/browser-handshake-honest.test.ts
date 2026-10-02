@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { popupStatus } from '../extension/popup-status.mjs'
+import { popupStatus } from '../extension/src/lib/popup-status'
 
 describe('popupStatus', () => {
   it('probe ok tapi loop mati = bukan tersambung', () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { resolveSessionTab } from '../extension/tab-identity.mjs'
+import { resolveSessionTab } from '../extension/src/lib/tab-identity'
 
 describe('resolveSessionTab', () => {
   it('tolak primer yang URL-nya berubah dari focusedUrl sesi', () => {

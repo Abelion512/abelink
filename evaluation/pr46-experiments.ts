@@ -11,7 +11,7 @@
 // models and never invents a comparison; a comparison is reported valid only
 // when every fixed variable matches and exactly the intended variable differs.
 
-import { OBSERVATION_REPRESENTATIONS } from '../extension/browser-observation.mjs'
+import { OBSERVATION_REPRESENTATIONS } from '../extension/src/lib/browser-observation'
 
 export const EXPERIMENT_KINDS = Object.freeze({
   BASELINE_VS_CANDIDATE: 'baseline-vs-candidate',

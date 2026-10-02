@@ -6,16 +6,18 @@ echo "[0/9] Bootstrap (bun install, port/cargo cleanup)"
 bash scripts/dev.sh --no-launch
 echo "[1/9] Unit tests (vitest)"
 bunx vitest run
-echo "[1b/9] Extension syntax (service worker klasik: tanpa import/export + manifest valid)"
+echo "[1b/9] Extension build (transpile .ts->.js, service worker ESM)"
+bun run build:extension
 node --check extension/background.js
 node --check extension/popup.js
-node -e "JSON.parse(require('fs').readFileSync('extension/manifest.json','utf8')); if(require('fs').readFileSync('extension/background.js','utf8').match(/^(import|export)\s/m)) { console.error('background.js: import/export ilegal untuk service worker klasik'); process.exit(1) }"
+node -e "const fs=require('fs'); const m=JSON.parse(fs.readFileSync('extension/manifest.json','utf8')); if(m.manifest_version!==3){console.error('manifest_version harus 3');process.exit(1)} if(m.background.type!=='module'){console.error('background.type harus \"module\" (Chrome >= 91) — service worker ESM');process.exit(1)} for(const f of [m.background.service_worker,m.action.default_popup]){if(!fs.existsSync('extension/'+f)){console.error('artefak hilang: '+f);process.exit(1)}}"
 echo "[2/9] ESLint (0 error; warning = tech-debt terdaftar)"
 bun run lint
-echo "[2b/9] Typecheck (tsc: gate payung + sub-gate node + tests) — W0 spec js-to-ts-spec.md"
+echo "[2b/9] Typecheck (tsc: gate payung + sub-gate node + tests + extension) — W0 spec js-to-ts-spec.md"
 bun run typecheck
 bun run typecheck:node
 bun run typecheck:tests
+bun run typecheck:extension
 echo "[3/9] Crypto harness (watermark signing)"
 bun run test:harness
 echo "[4/9] Perf gate (regresi performa nyata >15% = gagal)"

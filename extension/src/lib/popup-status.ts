@@ -3,7 +3,30 @@
 // pairing = { flavor, port } | null.
 // notice = status transien non-error (mis. "Menyambung ulang otomatis..."):
 // dirender KUNING (warn), bukan merah — merah hanya untuk lastError nyata.
-export const popupStatus = ({ running, lastError, notice, pairing } = {}) => {
+export interface PopupPairing {
+  flavor: string
+  port: number
+}
+
+export interface PopupStatusInput {
+  running?: boolean
+  lastError?: unknown
+  notice?: unknown
+  pairing?: PopupPairing | null
+}
+
+export interface PopupStatusResult {
+  pill: string
+  kind: 'ok' | 'warn' | 'err'
+  text: string
+}
+
+export const popupStatus = ({
+  running,
+  lastError,
+  notice,
+  pairing,
+}: PopupStatusInput = {}): PopupStatusResult => {
   if (running === true) {
     const pin = pairing ? ` [${pairing.flavor} :${pairing.port} terpin]` : ' [belum pilih flavor]'
     return { pill: 'tersambung', kind: 'ok', text: `Tersambung${pin}. Menunggu perintah...` }

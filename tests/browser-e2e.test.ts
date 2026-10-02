@@ -237,7 +237,7 @@ describe('bridge — publish gate: path kanonik, isolasi flavor, pin ID', () => 
     fs.mkdirSync(path.join(configHome, 'google-chrome'), { recursive: true })
     try {
       const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..')
-      const host = path.join(root, 'extension', 'native-host', 'abelink-bridge-host.mjs')
+      const host = path.join(root, 'extension', 'native-host', 'abelink-bridge-host.ts')
       const rProd = await ensureNativeHost({ configHome, dataHome: path.join(tmp, 'xdg', 'abelink'), sourceFile: { pathname: host } })
       const rDev = await ensureNativeHost({ configHome, dataHome: path.join(tmp, 'xdg', 'abelink-dev'), sourceFile: { pathname: host }, flavor: 'dev' })
       expect(rProd.ok).toBe(true)

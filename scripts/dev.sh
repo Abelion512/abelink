@@ -43,7 +43,7 @@ set -euo pipefail
 # --- config -------------------------------------------------------------------
 BUN_VERSION="${BUN_VERSION:-1.3.14}"   # MUST match .github/workflows/tauri.yml
 BUN_INSTALL="${BUN_INSTALL:-$HOME/.bun}"
-EXPECTED_PORT="${EXPECTED_PORT:-1420}" # vite dev port (see vite.config.js)
+EXPECTED_PORT="${EXPECTED_PORT:-1420}" # vite dev port (see vite.config.ts)
 SCRIPT_NAME="$(basename "$0")"
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$PROJECT_ROOT"

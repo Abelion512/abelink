@@ -3,16 +3,17 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
-// Kanonik flavor hidup di extension/background.js (script klasik MV3, tanpa
-// modul). Test ini membaca literal langsung + meng-hardcode ekspektasi
-// (test boleh hardcode expected values; tak ada modul flavor terpisah).
+// Kanonik flavor hidup di extension/src/background.ts (service worker MV3 yang
+// di-bundle jadi script klasik tanpa modul). Test ini membaca literal langsung
+// di sumber + meng-hardcode ekspektasi (test boleh hardcode expected values;
+// tak ada modul flavor terpisah).
 
-const root = join(dirname(fileURLToPath(import.meta.url)), '..', 'extension')
+const root = join(dirname(fileURLToPath(import.meta.url)), '..', 'extension', 'src')
 const read = (f) => readFileSync(join(root, f), 'utf8')
 
 describe('flavor mapping kanonik', () => {
-  it('port prod/dev + host native benar (literal di background.js)', () => {
-    const bg = read('background.js')
+  it('port prod/dev + host native benar (literal di background.ts)', () => {
+    const bg = read('background.ts')
     for (const lit of [
       'prod: 49712',
       'dev: 49713',
@@ -25,8 +26,8 @@ describe('flavor mapping kanonik', () => {
 })
 
 describe('anti-drift pairing terpin', () => {
-  it('background.js resume terpagar pairing', () => {
-    const bg = read('background.js')
+  it('background.ts resume terpagar pairing', () => {
+    const bg = read('background.ts')
     // tryAutoResume wajib menolak tanpa pairing (tanpa auto-switch sisa):
     // Gabungan: lastError jujur + jadwalkan ulang, TANPA handshake/loop.
     const segMatch = bg.match(/if \(!pairing\)([\s\S]*?)let cfg = await getCfg\(\)/)
@@ -36,8 +37,8 @@ describe('anti-drift pairing terpin', () => {
     expect(segMatch[1]).not.toMatch(/apiGet|running\s*=\s*true|[^a-zA-Z]loop\(\)/)
   })
 
-  it('popup.js tanpa silent auto-pilih-port-hidup', () => {
-    const pop = read('popup.js')
+  it('popup.ts tanpa silent auto-pilih-port-hidup', () => {
+    const pop = read('popup.ts')
     expect(pop).not.toMatch(/alive\.find|alive\[0\]/)
     expect(pop).toContain('probe.pairing')
     expect(pop).toContain('pilih flavor sekali')
@@ -46,7 +47,7 @@ describe('anti-drift pairing terpin', () => {
 
 describe('isolasi flavor strict: getTokenViaNativeHost', () => {
   it('tidak ada fallback cross-flavor (hosts array multi-elemen untuk dev)', () => {
-    const bg = read('background.js')
+    const bg = read('background.ts')
     // Verifikasi bahwa konstruksi hosts-array dengan fallback lintas flavor sudah dihapus.
     // Pola lama: `[primary, 'id.abelink.bridge']` saat primary = dev host.
     // Setelah fix: hostNameForPort(port) dipakai langsung (single host, no array for fallback).
@@ -55,7 +56,7 @@ describe('isolasi flavor strict: getTokenViaNativeHost', () => {
   })
 
   it('getTokenViaNativeHost menggunakan satu host tanpa loop fallback', () => {
-    const bg = read('background.js')
+    const bg = read('background.ts')
     // Cari fungsi getTokenViaNativeHost dan verifikasi tidak ada 'for' loop di dalamnya
     // (fallback array loop dihapus; kini langsung sendNativeMessage ke satu host).
     const fnMatch = bg.match(/async function getTokenViaNativeHost[\s\S]*?\n}/)
@@ -69,7 +70,7 @@ describe('isolasi flavor strict: getTokenViaNativeHost', () => {
   })
 
   it('host dev tidak pernah fall back ke id.abelink.bridge (prod)', () => {
-    const bg = read('background.js')
+    const bg = read('background.ts')
     // Cari blok di dalam getTokenViaNativeHost saja -- bukan di tempat lain.
     const fnMatch = bg.match(/async function getTokenViaNativeHost[\s\S]*?\n}/)
     expect(fnMatch).not.toBeNull()
@@ -81,7 +82,7 @@ describe('isolasi flavor strict: getTokenViaNativeHost', () => {
 
 describe('loop survivability (popup-close disconnect)', () => {
   it('loop() punya reentrancy guard (keepalive vs resume tak bisa ganda)', () => {
-    const bg = read('background.js')
+    const bg = read('background.ts')
     expect(bg).toContain('loopActive')
     expect(bg).toMatch(/if \(loopActive\) return/)
     // keepalive alarm tidak memanggil loop() buta saat pollAbort null
@@ -90,7 +91,7 @@ describe('loop survivability (popup-close disconnect)', () => {
   })
 
   it('jadwal resume menulis status jujur (bukan hijau palsu)', () => {
-    const bg = read('background.js')
+    const bg = read('background.ts')
     expect(bg).toMatch(/Menyambung ulang otomatis/)
   })
 })
