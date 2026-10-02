@@ -1,4 +1,4 @@
-{// tsconfig.node.json — permukaan NODE (sidecar, scripts, evaluation, tests).
+{// tsconfig.node.json — permukaan NODE (sidecar, scripts, evaluation).
 //
 // Dipakai oleh script `bun run typecheck:node`. Sengaja dipisah dari gate
 // payung: permukaan ini boleh memakai API Node (fs, path, child_process).
@@ -14,6 +14,11 @@
 //
 // cli/** dan bin/**/*.tsx SUDAH masuk (M2a, 2026-09-26): sebelumnya 114 error,
 // sekarang 0. Lihat docs/PLANNED/2026-09-26_master-migration-program.md (§ M2).
+//
+// W7 (2026-10-02): `tests/**` KELUAR dari config ini — dicek oleh sub-gate
+// khusus `tsconfig.tests.json` (`bun run typecheck:tests`) dengan opsi
+// longgar (noImplicitAny:false, strict:false) agar rename W7 tidak menuntut
+// pengetikan ulang 150+ file uji (tumpang-tindih dengan W9).
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
@@ -23,8 +28,6 @@
     "sidecar/**/*.ts",
     "scripts/**/*.ts",
     "evaluation/**/*.ts",
-    "tests/**/*.ts",
-    "tests/**/*.tsx",
     "cli/**/*.ts",
     "cli/**/*.tsx",
     "bin/**/*.ts",

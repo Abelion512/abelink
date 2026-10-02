@@ -476,16 +476,27 @@ engine + registry + 9 channel (1.580 baris) 100% TS. Smoke dual-path (hot + cold
 | W3 | hooks+utils+contexts 100% TS | MERGED (#110) |
 | W4 | components+pages 100% TS | MERGED (#114) |
 | W5 | sidecar core 38 file: infra leaf (11) + capabilities/google (18) + browser/tools/telegram/plugins/pc-agent/ai-bridge (20, 892 err tsc ditutup) | MERGED (#115, squash 651774dc) |
-| W6 | scripts/evaluation/bin → .ts + entry node→bun | BERIKUTNYA |
-| W7 | tests → .ts | PLAN |
+| W6 | scripts/evaluation/bin → .ts + entry node→bun | MERGED (#116, squash b5b57c03) |
+| W7 | tests → .ts (173 rename) + sub-gate `typecheck:tests` | PR #117 |
 | W8 | configs + extension → .ts | PLAN |
-| W9 | final sweep + eskalasi any-policy (599 warning no-explicit-any zona kontrak) + laporan 5W1H | PLAN |
+| W9 | final sweep + eskalasi any-policy (2342 warning no-explicit-any pasca-W7) + laporan 5W1H | PLAN |
 
 ### Baseline pengukuran (anti-klaim-kosong, permintaan owner)
-- Test: 1788 → 1810 → **1836 pass / 16 skip** pasca-W5 (nol regresi di setiap PR; W5 menambah test yang menunjuk file .ts).
-- Files: sisa .js produktif pasca-W5 hanya scripts/evaluation/bin (W6), tests (W7), configs+extension (W8).
-- Gate per PR: 3x tsc exit 0 + lint 0 error (warning no-explicit-any zona kontrak = recorded W9) + vitest + vite build + evaluation smoke + engine:ready = 1 (86 aksi).
-- Lint warning W5: 599 no-explicit-any (zona kontrak sidecar/cli/renderer-agent) — eskalasi kebijakan any di W9.
+- Test: 1788 → 1810 → **1836 pass / 16 skip** dan tetap persis 1836/16 sampai W7 (nol regresi di setiap PR; rename + cast W7 tidak boleh mengubah satu pun ekspektasi — K9).
+- Files: sisa .js produktif pasca-W7 hanya configs root + `extension/` (W8).
+- Gate per PR: **4x** tsc exit 0 (payung + node + renderer + tests sejak W7) + lint 0 error (warning no-explicit-any zona kontrak = recorded W9) + vitest + vite build + evaluation smoke + engine:ready = 1 (86 aksi).
+- Lint warning: 599 (W5) → 2342 (W7). Kenaikan ini artefak cakupan, bukan regresi: `.mjs` tidak pernah masuk scope `typescript-eslint`, begitu di-`.ts` ikut di-lint. Tetap recorded debt untuk W9.
+
+### Catatan arsitektur ATM (bukan wave migrasi — masuk antrean setelah W9)
+
+**Client-server split, bukan CLI-as-engine.** Referensi mutlak owner (hermes-agent, opencode) memakai pemisahan: satu proses engine terpisah yang bisa `serve` (STDIO atau socket), lalu client tipis di atasnya — TUI, GUI, gateway, SDK. Abelink saat ini masih memosisikan CLI/entry sebagai proses engine itu sendiri; switch runtime node ke bun di W6 hanya menyangkut runtime binary, bukan pemisahan proses.
+
+Implikasi kalau nanti dikerjakan (harus jadi PLAN terpisah, tidak dicampur ke migrasi TS):
+- Sidecar engine sudah paling dekat ke peran "server" (dispatcher stdio + 86 aksi pada wire frame). Yang belum ada adalah mode `serve` yang bisa diaklamai lewat alamat, ditambah client tipis di atasnya.
+- Kontrak beku yang harus dihormati: wire frame engine, delimiter double-pipe `NATIVE_TOOLS`, serta `APPROVAL_ACTIONS` di `cmd_node_bridge.rs`. Dialog approval native ada di sisi Rust, jadi memindahkan client ke proses lain tidak boleh menghilangkan kemampuan approval.
+- Bukti verifikasi harus tetap sama: pakai harness lokal (`harness_append`) supaya perbandingan GUI vs headless memakai bukti yang sama.
+
+Arahan owner lain (MCP stdio + Streamable HTTP, fix extension connect tanpa delay) tetap TODO/PLAN pascamigrasi.
 
 ### Pola teknis yang stabil (utk W2-8c + W3)
 1. Augmentasi Window.api tak terlihat di program node-zone → cast lokal `{ api?: ... }`.

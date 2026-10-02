@@ -58,11 +58,15 @@ jobs:
       # (src, sidecar, scripts, evaluation, tests, cli, bin) sudah 0 error,
       # termasuk 3 berkas TUI yang sebelumnya 114 error. Jika langkah ini merah,
       # ada berkas .ts/.tsx baru yang belum bertipe — jangan di-soft-fail-kan lagi.
+      # `typecheck:tests` = sub-gate W7 (tsconfig.tests.json) untuk 174 berkas
+      # tests/ yang sudah .ts; gate ini longgar (noImplicitAny/strict off) karena
+      # pengetikan penuh 150+ test ditunda ke W9, tapi sintaks tetap wajib valid.
       - name: Typecheck (tsc)
         run: |
           bun run typecheck
           bun run typecheck:node
           bun run typecheck:renderer
+          bun run typecheck:tests
       # Ratchet W0 (js-to-ts-spec.md): dilarang menambah file .js/.jsx/.mjs
       # baru di zona migrasi selama program migrasi TS berjalan (blocker B-13).
       - name: No-new-JS ratchet (zona migrasi)
@@ -70,7 +74,7 @@ jobs:
       - name: Unit tests (vitest)
         run: bunx vitest run
       - name: Extension gate (ID pin, token path, flavor isolation)
-        run: bunx vitest run tests/browser-e2e.test.mjs tests/native-host.test.mjs tests/browser-flavor.test.mjs
+        run: bunx vitest run tests/browser-e2e.test.ts tests/native-host.test.ts tests/browser-flavor.test.ts
       - name: Frontend build (vite)
         run: bun run build
 

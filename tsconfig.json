@@ -9,10 +9,17 @@
   // M2a (2026-09-26): `cli/**` + `bin/**/*.tsx` SUDAH masuk. Diukur 114 error
   // sebelum pengetikan; sekarang 0, jadi gate ini berlaku penuh untuk TUI.
   //
-  // Sub-gate: tsconfig.node.json (sidecar/scripts/evaluation/tests) lewat
+  // Sub-gate: tsconfig.node.json (sidecar/scripts/evaluation) lewat
   // `bun run typecheck:node`. Sub-gate renderer BELUM dibuat: src/** belum
   // punya berkas .ts, dan tsc menolak config tanpa input (TS18003) — dibuat saat
   // berkas .ts pertama mendarat di M2/M6.
+  //
+  // W7 (2026-10-02): `tests/**` KELUAR dari gate payung ini — 173 file uji
+  // direname .mjs/.js -> .ts dengan prinsip "semantik test tidak berubah" (K9)
+  // dan dicek oleh sub-gate terpisah `tsconfig.tests.json`
+  // (`bun run typecheck:tests`). Alasan: pengetikan penuh 150+ file uji
+  // tumpang-tindih dengan eskalasi any-policy W9 (double work), sementara
+  // gate payung harus tetap 0 error tanpa melonggarkan opsi strict.
   "extends": "./tsconfig.base.json",
   "include": [
     "src/**/*.ts",
@@ -20,8 +27,6 @@
     "sidecar/**/*.ts",
     "scripts/**/*.ts",
     "evaluation/**/*.ts",
-    "tests/**/*.ts",
-    "tests/**/*.tsx",
     "cli/**/*.ts",
     "cli/**/*.tsx",
     "bin/**/*.ts",

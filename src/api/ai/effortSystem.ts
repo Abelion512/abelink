@@ -32,7 +32,10 @@ export const EffortPolicy = Object.freeze({
   forLevel(level: { value: string }) {
     const p = (CANONICAL as Record<string, unknown>)[level.value]
     if (!p) throw new Error(`No canonical policy for effort level: ${level.value}`)
-    return p
+    // Record<string, any> (bukan unknown): W7 — tests mengakses dimensi policy
+    // (execution_step_budget, workflow_enabled, ...) langsung; akses properti
+    // di unknown selalu TS2339. Widening murni tipe, tanpa efek runtime.
+    return p as Record<string, any>
   },
 })
 
@@ -184,8 +187,16 @@ export class EscalationEvent {
 }
 
 export class ResolvedEffort {
-  [key: string]: unknown
-  constructor(requested_level: unknown, initial_level: unknown, effective_level: unknown, policy: unknown, resolution_reason: unknown, escalations: unknown[] = []) {
+  // Field dideklarasikan eksplisit (W7): tanpa ini, read site menyelesaikan
+  // tipe lewat index signature unknown -> TS2339 di tests (initial_level.value,
+  // policy.execution_step_budget, dst.). any = widening tipe saja; runtime sama.
+  requested_level: any
+  initial_level: any
+  effective_level: any
+  policy: any
+  resolution_reason: any
+  escalations: any[]
+  constructor(requested_level: unknown, initial_level: unknown, effective_level: unknown, policy: any, resolution_reason: unknown, escalations: unknown[] = []) {
     this.requested_level = requested_level
     this.initial_level = initial_level
     this.effective_level = effective_level
@@ -590,7 +601,9 @@ export class ModelProviderAdapter {
    * Apply the canonical effort policy to a provider request without mutating the policy.
    * Subclasses override for provider-specific parameter injection.
    */
-  applyEffort(request: Record<string, unknown>, effortPolicy: EffortPolicyShape) {
+  // Param diperluas (W7): pemanggil sah memakai canonical policy dari
+  // EffortPolicy.forLevel (Record<string, any>); runtime tidak berubah.
+  applyEffort(request: Record<string, unknown>, effortPolicy: EffortPolicyShape | Record<string, any>) {
     // Default implementation: provider-agnostic envelope carrying the canonical policy
     // plus observability metadata. Provider limits belong to the request/metadata, not the
     // canonical policy.
@@ -619,7 +632,7 @@ export class TokenBudgetProviderAdapter extends ModelProviderAdapter {
     this.tokenBudgetByLevel = tokenBudgetByLevel
   }
 
-  applyEffort(request: Record<string, unknown>, effortPolicy: EffortPolicyShape) {
+  applyEffort(request: Record<string, unknown>, effortPolicy: EffortPolicyShape | Record<string, any>) {
     const budget = this.tokenBudgetByLevel[effortPolicy.level.value] ?? 4096
     return {
       ...super.applyEffort(request, effortPolicy),

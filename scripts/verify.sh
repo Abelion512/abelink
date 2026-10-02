@@ -12,9 +12,10 @@ node --check extension/popup.js
 node -e "JSON.parse(require('fs').readFileSync('extension/manifest.json','utf8')); if(require('fs').readFileSync('extension/background.js','utf8').match(/^(import|export)\s/m)) { console.error('background.js: import/export ilegal untuk service worker klasik'); process.exit(1) }"
 echo "[2/9] ESLint (0 error; warning = tech-debt terdaftar)"
 bun run lint
-echo "[2b/9] Typecheck (tsc: gate payung + sub-gate node) — W0 spec js-to-ts-spec.md"
+echo "[2b/9] Typecheck (tsc: gate payung + sub-gate node + tests) — W0 spec js-to-ts-spec.md"
 bun run typecheck
 bun run typecheck:node
+bun run typecheck:tests
 echo "[3/9] Crypto harness (watermark signing)"
 bun run test:harness
 echo "[4/9] Perf gate (regresi performa nyata >15% = gagal)"
