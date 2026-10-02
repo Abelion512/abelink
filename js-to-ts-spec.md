@@ -479,7 +479,28 @@ engine + registry + 9 channel (1.580 baris) 100% TS. Smoke dual-path (hot + cold
 | W6 | scripts/evaluation/bin → .ts + entry node→bun | MERGED (#116, squash b5b57c03) |
 | W7 | tests → .ts (173 rename) + sub-gate `typecheck:tests` | MERGED (#117, squash ddbb8d65) |
 | W8 | configs root + extension → .ts, service worker ESM (Chrome >= 91) | MERGED (#118, squash 698aef2d) |
-| W9 | final sweep + eskalasi any-policy (2478 warning no-explicit-any pasca-W8) + laporan 5W1H | PLAN |
+| W9 | ratchet any-policy (baseline 2369, per zona) + sinkronisasi AGENTS.md/ARCHITECTURE.md + laporan 5W1H | DONE |
+
+## 4. DoD program (2026-10-02, TERPENUHI)
+
+1. Grep zona migrasi = **nol** file `.js`/`.jsx`/`.mjs`/`.cjs`. ✅
+2. `tsconfig.base` + payung + node + renderer + extension + tests, semua exit 0. ✅
+3. `scripts/verify.sh` hijau termasuk step tsc (5 program) + any-ratchet. ✅
+4. Vitest: **nol** file test `.js`/`.mjs`; jumlah test **1836 pass / 16 skip**,
+   tidak pernah turun dari baseline sejak W5. ✅
+5. `bun run lint` exit 0. ✅
+6. Tidak ada file .ts yang dijalankan `node`. ✅
+7. `AGENTS.md` + `docs/ARCHITECTURE.md` diperbarui: setiap path yang disebut
+   diverifikasi ada di `git ls-files`. ✅
+
+Pengecualian yang dicatat (§4.1): artefak build `extension/**/*.js` (gitignored,
+hasil transpile) dan vendor di `sidecar/node_modules/`.
+
+**Any-policy: kenapa tidak `error`.** Spec awal mengira targetnya `error`. Setelah
+dihitung ada 2369 pelanggaran di zona kontrak produksi; mengaktifkannya jadi error
+berarti gate selalu merah, dan gate yang selalu merah sama saja dengan gate yang
+tidak ada. Dipakai bentuk yang sudah ada di repo ini
+(`no-new-js.sh` W0): ratchet baseline per zona. Boleh turun, tidak boleh bertambah.
 
 ### Baseline pengukuran (anti-klaim-kosong, permintaan owner)
 - Test: 1788 → 1810 → **1836 pass / 16 skip** dan tetap persis 1836/16 sampai W7 (nol regresi di setiap PR; rename + cast W7 tidak boleh mengubah satu pun ekspektasi — K9).

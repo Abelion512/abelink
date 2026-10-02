@@ -1,0 +1,10 @@
+{
+  "rule": "@typescript-eslint/no-explicit-any",
+  "measured": "2026-10-02 (W9, pasca-W8)",
+  "zones": {
+    "contract": 2161,
+    "tests": 208
+  },
+  "max": 2369,
+  "note": "CI menolak kalau angka nyata MELEBIHI nilai di sini. Kalau angka turun, baseline WAJIB ikut dikecilkan di PR yang sama supaya ratchet benar-benar mengatup. Dihitung per zona: perbaikan di tests/ tidak boleh menutupi additions di zona kontrak produksi."
+}

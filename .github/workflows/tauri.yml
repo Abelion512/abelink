@@ -74,6 +74,13 @@ jobs:
       # baru di zona migrasi selama program migrasi TS berjalan (blocker B-13).
       - name: No-new-JS ratchet (zona migrasi)
         run: bash scripts/ci/no-new-js.sh
+      # Ratchet W9: `any` eksplisit yang sudah ada adalah debt warisan, tapi
+      # TIDAK BOLEH bertambah. Dijaga per zona (contract / tests) supaya perbaikan
+      # di test tidak menutupi additions di zona kontrak produksi. Baseline
+      # terukur di scripts/ci/any-baseline.json — kalau turun, ikut turunkan
+      # sekalian di PR yang sama, kalau tidak ratchet tidak mengatup.
+      - name: Any-ratchet (tidak boleh bertambah)
+        run: bash scripts/ci/any-ratchet.sh
       - name: Unit tests (vitest)
         run: bunx vitest run
       - name: Extension build (transpile .ts -> .js, service worker ESM)
