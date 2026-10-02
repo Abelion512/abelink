@@ -477,15 +477,36 @@ engine + registry + 9 channel (1.580 baris) 100% TS. Smoke dual-path (hot + cold
 | W4 | components+pages 100% TS | MERGED (#114) |
 | W5 | sidecar core 38 file: infra leaf (11) + capabilities/google (18) + browser/tools/telegram/plugins/pc-agent/ai-bridge (20, 892 err tsc ditutup) | MERGED (#115, squash 651774dc) |
 | W6 | scripts/evaluation/bin → .ts + entry node→bun | MERGED (#116, squash b5b57c03) |
-| W7 | tests → .ts (173 rename) + sub-gate `typecheck:tests` | PR #117 |
-| W8 | configs + extension → .ts | PLAN |
-| W9 | final sweep + eskalasi any-policy (2342 warning no-explicit-any pasca-W7) + laporan 5W1H | PLAN |
+| W7 | tests → .ts (173 rename) + sub-gate `typecheck:tests` | MERGED (#117, squash ddbb8d65) |
+| W8 | configs root + extension → .ts, service worker ESM (Chrome >= 91) | MERGED (#118, squash 698aef2d) |
+| W9 | final sweep + eskalasi any-policy (2478 warning no-explicit-any pasca-W8) + laporan 5W1H | PLAN |
 
 ### Baseline pengukuran (anti-klaim-kosong, permintaan owner)
 - Test: 1788 → 1810 → **1836 pass / 16 skip** dan tetap persis 1836/16 sampai W7 (nol regresi di setiap PR; rename + cast W7 tidak boleh mengubah satu pun ekspektasi — K9).
 - Files: sisa .js produktif pasca-W7 hanya configs root + `extension/` (W8).
-- Gate per PR: **4x** tsc exit 0 (payung + node + renderer + tests sejak W7) + lint 0 error (warning no-explicit-any zona kontrak = recorded W9) + vitest + vite build + evaluation smoke + engine:ready = 1 (86 aksi).
-- Lint warning: 599 (W5) → 2342 (W7). Kenaikan ini artefak cakupan, bukan regresi: `.mjs` tidak pernah masuk scope `typescript-eslint`, begitu di-`.ts` ikut di-lint. Tetap recorded debt untuk W9.
+- Gate per PR: **5x** tsc exit 0 (payung + node + renderer + tests sejak W7 + extension sejak W8) + lint 0 error (warning no-explicit-any zona kontrak = recorded W9) + vitest + vite build + evaluation smoke + engine:ready = 1 (86 aksi).
+- Lint warning: 599 (W5) → 2342 (W7) → 2478 (W8). Kenaikan ini artefak cakupan, bukan regresi: `.mjs`/`.js` tidak pernah masuk scope `typescript-eslint`, begitu di-`.ts` ikut di-lint. Tetap recorded debt untuk W9.
+- Files: pasca-W8 tidak ada lagi file JS sumber di zona migrasi. Sisa yang tersisa adalah artefak build `extension/*.js` (hasil transpile, gitignored) dan satu file vendor `sidecar/node_modules/`.
+
+### Koreksi W8: jangan pakai dokumen ini sebagai standar
+
+Rencana W8 di §W8 (`extension/src/**.ts` + bundel esbuild + folder output
+`dist-extension/`) adalah hasil karangan sendiri, BUKAN standar Abelink. Owner
+menegur hal ini dengan tepat saat wave itu berjalan. Yang menggantikan:
+
+1. `docs/REFERENCE-LIBRARY.md` — peta referensi yang sebenarnya ditetapkan owner
+   (entri #15 `ChromeDevTools/chrome-devtools-mcp`).
+2. Dokumentasi resmi Chrome untuk extension service worker.
+
+Temuan yang membatalkan desain bundel: extension service worker boleh **modul
+ES** (`"background": {"type": "module"}`, Chrome >= 91). Aturan lama "background.js
+wajib klasik tanpa import" di `verify.sh` adalah batasan warisan kita sendiri.
+Karena ESM diizinkan, bundel tidak perlu — cukup transpile `.ts` → `.js` dengan
+struktur modul dipertahankan, dan target "Load unpacked" tetap `extension/`.
+
+**Pelajaran governance:** dokumen hasil kerja agen (spec ini) adalah catatan
+rencana, bukan rujukan berwenang. Keputusan yang menyentuh alur kerja owner
+harus ditelusuri ke dokumen yang owner tetapkan atau ke primary source upstream.
 
 ### Catatan arsitektur ATM (bukan wave migrasi — masuk antrean setelah W9)
 
