@@ -1,0 +1,1824 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full overflow-hidden">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Abelink AI OS</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+      
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['-apple-system','BlinkMacSystemFont','Inter','Segoe UI','sans-serif'],
+            mono: ['ui-monospace','JetBrains Mono','Menlo','monospace'],
+          },
+          colors: {
+            gold: {
+              300: '#93c5fd',
+              400: '#60a5fa',
+              500: '#0a84ff',
+              600: '#0066cc',
+              700: '#004999',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    html, body {
+      height: 100vh;
+      width: 100vw;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: #03060f;
+    }
+
+    /* PURE INDEPENDENT FLOATING GLASS (Luxury Penthouse Frosted Refraction) */
+    .floating-glass {
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 40%, rgba(13, 19, 33, 0.72) 100%);
+      backdrop-filter: blur(28px) saturate(180%);
+      -webkit-backdrop-filter: blur(28px) saturate(180%);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      box-shadow: 0 12px 32px -4px rgba(0, 0, 0, 0.55), inset 0 1.5px 1px 0 rgba(255, 255, 255, 0.22);
+      transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+                  box-shadow 0.22s ease,
+                  border-color 0.22s ease;
+    }
+    .floating-glass:hover {
+      border-color: rgba(212, 175, 55, 0.4);
+      box-shadow: 0 16px 36px -4px rgba(0, 0, 0, 0.65), 0 0 20px -4px rgba(212, 175, 55, 0.18);
+    }
+
+    .glass-pill {
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(15, 23, 42, 0.8) 100%);
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.45), inset 0 1px 1px rgba(255, 255, 255, 0.25);
+    }
+
+    /* Column Transitions */
+    .card-column {
+      transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.28s ease;
+      will-change: transform, opacity;
+    }
+    .left-hidden {
+      transform: translateX(-110%);
+      opacity: 0;
+      pointer-events: none;
+    }
+    .right-hidden {
+      transform: translateX(110%);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* Card Accordion Transitions */
+    .card-body {
+      transition: max-height 0.28s cubic-bezier(0.4, 0, 0.2, 1), 
+                  opacity 0.2s ease, 
+                  margin-top 0.2s ease;
+      overflow: hidden;
+    }
+    .card-body.collapsed {
+      max-height: 0 !important;
+      opacity: 0 !important;
+      margin-top: 0 !important;
+      pointer-events: none;
+    }
+    .collapsed-state .collapse-icon {
+      transform: rotate(-90deg);
+    }
+    .collapse-icon {
+      transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+<body class="bg-[#03060f] text-white font-sans h-screen w-screen overflow-hidden select-none relative flex flex-col justify-between p-0 box-border">
+
+  <!-- Panoramic Penthouse City Backdrop (High-contrast, seamless dusk) -->
+  <div class="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+    <div class="absolute inset-0 bg-cover bg-center"
+         style="background:linear-gradient(135deg,#0a0a12 0%,#0d1b2e 50%,#0a0a12 100%); filter: brightness(0.85) contrast(1.1);">
+    </div>
+    <!-- Smooth dusk gradient overlay -->
+    <div class="absolute inset-0 bg-gradient-to-b from-[#03060f]/45 via-transparent to-[#03060f]/80"></div>
+    <!-- Soft warm ambient interior lighting -->
+    <div class="absolute -top-20 -left-20 w-[500px] h-[500px] bg-blue-500/10 rounded-full blur-[140px]"></div>
+    <div class="absolute top-10 right-10 w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[150px]"></div>
+  </div>
+
+  <!-- Ambient Gold Stardust Canvas -->
+  <canvas id="ambient-canvas" class="fixed inset-0 pointer-events-none z-[1] opacity-25"></canvas>
+
+  <!-- BORDERLESS HEADER (No branding clutter, dead-centered omnibar) -->
+  <header class="relative z-40 w-full h-13 shrink-0 px-6 py-2.5 flex items-center justify-between pointer-events-none">
+    
+    <!-- TOP-LEFT: Single Navigation Icon with Slide-down Hover Dropdown -->
+    <div class="relative group pointer-events-auto z-50">
+      <button 
+        id="nav-master-btn" 
+        class="glass-pill px-3 py-2 rounded-2xl flex items-center space-x-2 hover:border-blue-400/60 hover:shadow-[0_0_16px_rgba(10,132,255,0.35)] transition-all duration-300 group-hover:scale-105"
+        title="Abelink OS Navigation (Hover to expand)"
+      >
+        <div class="w-5 h-5 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center transition-transform duration-300 group-hover:rotate-90">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <rect x="3" y="3" width="7" height="7" rx="1.5"></rect>
+            <rect x="14" y="3" width="7" height="7" rx="1.5"></rect>
+            <rect x="14" y="14" width="7" height="7" rx="1.5"></rect>
+            <rect x="3" y="14" width="7" height="7" rx="1.5"></rect>
+          </svg>
+        </div>
+        <span class="text-xs font-semibold text-white/90 group-hover:text-white transition">Menu</span>
+        <svg class="w-3 h-3 text-white/40 group-hover:text-blue-400 transition-transform duration-300 group-hover:translate-y-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </button>
+
+      <!-- Dropdown Cascading / Sliding Down on Hover -->
+      <div class="absolute left-0 top-full mt-2 w-64 floating-glass rounded-2xl p-2 shadow-2xl opacity-0 pointer-events-none -translate-y-4 group-hover:opacity-100 group-hover:pointer-events-auto group-hover:translate-y-0 transition-all duration-300 ease-out z-50">
+        <div class="px-2.5 py-1.5 border-b mb-1 flex items-center justify-between">
+          <span class="text-[9.5px] font-bold tracking-wider uppercase text-blue-400">Abelink System</span>
+          <span class="text-[8px] text-white/40">Hotkeys 1-6</span>
+        </div>
+
+        <div class="space-y-1">
+          <!-- 1. Home -->
+          <div onclick="switchPage('home')" id="nav-item-home" class="flex items-center space-x-2.5 p-2 rounded-xl bg-blue-500/20 text-blue-400 transition cursor-pointer hover:scale-[1.02]">
+            <div class="w-6 h-6 rounded-lg bg-blue-500/25 flex items-center justify-center shrink-0">
+              <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/></svg>
+            </div>
+            <div class="flex-1 overflow-hidden">
+              <div class="text-xs font-semibold leading-tight text-white">Dashboard</div>
+              <div class="text-[8px] text-white/45">Home overview & widgets</div>
+            </div>
+            <kbd class="text-[8px] font-mono px-1.5 py-0.5 rounded bg-white/10 text-blue-400">1</kbd>
+          </div>
+
+          <!-- 2. Projects -->
+          <div onclick="switchPage('projects')" id="nav-item-projects" class="flex items-center space-x-2.5 p-2 rounded-xl text-white/70 hover:text-white hover:bg-white/10 transition cursor-pointer hover:scale-[1.02]">
+            <div class="w-6 h-6 rounded-lg bg-white/5 flex items-center justify-center shrink-0">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+            </div>
+            <div class="flex-1 overflow-hidden">
+              <div class="text-xs font-semibold leading-tight">Projects</div>
+              <div class="text-[8px] text-white/45">Git workspaces & repos</div>
+            </div>
+            <kbd class="text-[8px] font-mono px-1.5 py-0.5 rounded bg-white/10 text-white/40">2</kbd>
+          </div>
+
+          <!-- 3. Memory -->
+          <div onclick="switchPage('memory')" id="nav-item-memory" class="flex items-center space-x-2.5 p-2 rounded-xl text-white/70 hover:text-white hover:bg-white/10 transition cursor-pointer hover:scale-[1.02]">
+            <div class="w-6 h-6 rounded-lg bg-white/5 flex items-center justify-center shrink-0">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 4.44-5.04zM14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-4.44-5.04z"/></svg>
+            </div>
+            <div class="flex-1 overflow-hidden">
+              <div class="text-xs font-semibold leading-tight">Memory</div>
+              <div class="text-[8px] text-white/45">Neural context & embeddings</div>
+            </div>
+            <kbd class="text-[8px] font-mono px-1.5 py-0.5 rounded bg-white/10 text-white/40">3</kbd>
+          </div>
+
+          <!-- 4. Studio -->
+          <div onclick="switchPage('studio')" id="nav-item-studio" class="flex items-center space-x-2.5 p-2 rounded-xl text-white/70 hover:text-white hover:bg-white/10 transition cursor-pointer hover:scale-[1.02]">
+            <div class="w-6 h-6 rounded-lg bg-white/5 flex items-center justify-center shrink-0">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></svg>
+            </div>
+            <div class="flex-1 overflow-hidden">
+              <div class="text-xs font-semibold leading-tight">AI Studio</div>
+              <div class="text-[8px] text-white/45">Terminal, Vision, Browser</div>
+            </div>
+            <kbd class="text-[8px] font-mono px-1.5 py-0.5 rounded bg-white/10 text-white/40">4</kbd>
+          </div>
+
+          <!-- 5. Network -->
+          <div onclick="switchPage('network')" id="nav-item-network" class="flex items-center space-x-2.5 p-2 rounded-xl text-white/70 hover:text-white hover:bg-white/10 transition cursor-pointer hover:scale-[1.02]">
+            <div class="w-6 h-6 rounded-lg bg-white/5 flex items-center justify-center shrink-0">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+            </div>
+            <div class="flex-1 overflow-hidden">
+              <div class="text-xs font-semibold leading-tight">Telemetry</div>
+              <div class="text-[8px] text-white/45">Bandwidth & diagnostics</div>
+            </div>
+            <kbd class="text-[8px] font-mono px-1.5 py-0.5 rounded bg-white/10 text-white/40">5</kbd>
+          </div>
+
+          <!-- 6. Settings -->
+          <div onclick="switchPage('settings')" id="nav-item-settings" class="flex items-center space-x-2.5 p-2 rounded-xl text-white/70 hover:text-white hover:bg-white/10 transition cursor-pointer hover:scale-[1.02]">
+            <div class="w-6 h-6 rounded-lg bg-white/5 flex items-center justify-center shrink-0">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="3" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            </div>
+            <div class="flex-1 overflow-hidden">
+              <div class="text-xs font-semibold leading-tight">Settings</div>
+              <div class="text-[8px] text-white/45">Preferences & agent params</div>
+            </div>
+            <kbd class="text-[8px] font-mono px-1.5 py-0.5 rounded bg-white/10 text-white/40">6</kbd>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DEAD-CENTERED SEARCH + PANORAMA VIEW TOGGLE -->
+    <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center space-x-2 pointer-events-auto z-40 w-full max-w-lg justify-center px-4">
+      <div class="glass-pill rounded-full px-4 py-1.5 flex items-center space-x-2.5 hover:border-blue-400/50 transition group flex-1 max-w-sm shadow-lg">
+        <svg class="w-3.5 h-3.5 text-white/40 group-focus-within:text-blue-400 transition" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input 
+          id="global-search-input"
+          type="text" 
+          placeholder="Ask, speak, or give me a task..." 
+          class="bg-transparent text-xs w-full focus:outline-none placeholder-white/40 text-white font-light"
+          onkeydown="if(event.key==='Enter') executeQuickPrompt(this.value)"
+        />
+        <div class="flex items-center space-x-2 text-white/50">
+          <button class="hover:text-blue-400 transition p-0.5" title="Voice Input" onclick="toggleVoiceOrChat()">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            </svg>
+          </button>
+          <button class="hover:text-blue-400 transition p-0.5" title="Vision Scan" onclick="switchPage('studio')">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+              <circle cx="12" cy="13" r="4"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- View Toggle Button -->
+      <button onclick="toggleWideView()" id="wide-view-btn" class="glass-pill px-3 py-1.5 rounded-full text-[10.5px] font-medium text-white/70 hover:text-white hover:border-blue-400/50 flex items-center space-x-1.5 transition shrink-0 shadow-lg" title="Toggle Cards (Press \)">
+        <svg class="w-3 h-3 text-blue-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+        </svg>
+        <span id="wide-btn-text">Panorama</span>
+      </button>
+    </div>
+
+    <!-- TOP RIGHT: Status Metrics, Time, Weather, and Profile -->
+    <div class="flex items-center space-x-3 text-xs font-medium pointer-events-auto">
+      <div class="text-right leading-tight">
+        <div class="text-xs font-semibold text-white/95" id="header-time">14:32</div>
+        <div class="text-[8.5px] text-white/50">Mon, Oct 6, 2025</div>
+      </div>
+
+      <!-- Weather Badge -->
+      <div class="flex items-center space-x-1 px-2.5 py-1 rounded-full glass-pill text-[9.5px]">
+        <span class="text-blue-400 text-xs">☀️</span>
+        <span class="font-semibold text-white/95" data-live="clock-temp">--</span>
+        <span class="text-white/45 text-[8px] pl-0.5">lokal</span>
+      </div>
+
+      <!-- Profile Avatar -->
+      <div class="relative cursor-pointer" onclick="switchPage('settings')" title="OS Settings">
+        <div 
+          data-avatar-fallback 
+          alt="Abel profile"
+          class="w-7 h-7 rounded-full object-cover shadow-[0_0_12px_rgba(10,132,255,0.4)] hover:scale-105 transition"
+        / style="width:100%;height:100%;border-radius:9999px;background:linear-gradient(135deg,#0a84ff,#004999);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;">A</div>
+        <span class="absolute bottom-0 right-0 w-2 h-2 bg-emerald-400 border-[#03060f] rounded-full"></span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Restore Floating Handles (Visible only if user manually collapses) -->
+  <button id="left-restore-btn" onclick="toggleLeftCards()" style="display: none;" class="fixed left-2 top-1/2 -translate-y-1/2 z-40 glass-pill px-2 py-3 rounded-2xl text-blue-400 hover:text-white hover:bg-blue-500/20 transition shadow-2xl items-center space-x-1" title="Show Context & Tools">
+    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg>
+  </button>
+
+  <button id="right-restore-btn" onclick="toggleRightCards()" style="display: none;" class="fixed right-2 top-1/2 -translate-y-1/2 z-40 glass-pill px-2 py-3 rounded-2xl text-blue-400 hover:text-white hover:bg-blue-500/20 transition shadow-2xl items-center space-x-1" title="Show Workspace & Tasks">
+    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>
+  </button>
+
+  <!-- PAGE 1: HOME WORKSPACE -->
+  <main id="page-home" class="relative z-10 w-full flex-1 min-h-0 flex items-stretch justify-between px-4 pb-2.5 pt-0 overflow-hidden pointer-events-none" style="display: flex;">
+    
+    <!-- LEFT SECTION: FLOATING CARDS -->
+    <div class="flex items-stretch space-x-3 pointer-events-auto h-full">
+      <div id="left-floating-col" class="card-column w-64 lg:w-72 shrink-0 h-full flex flex-col justify-between space-y-2 z-20 pointer-events-auto">
+        
+        <!-- 1. FLOATING MEMORY CARD -->
+        <div id="card-memory" class="floating-glass rounded-2xl p-2.5 relative group flex-1 flex flex-col min-h-0">
+          <div class="flex items-center justify-between pb-1.5 border-b cursor-pointer shrink-0" onclick="toggleCard('card-memory')">
+            <div class="flex items-center space-x-2">
+              <div class="w-5 h-5 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <rect x="4" y="4" width="16" height="16" rx="2" transform="rotate(45 12 12)"></rect>
+                </svg>
+              </div>
+              <div>
+                <h3 class="text-xs font-semibold text-white/95 leading-none">Memory</h3>
+                <span class="text-[8px] text-white/45">Recent context</span>
+              </div>
+            </div>
+            <button class="collapse-icon text-white/40 hover:text-white p-0.5 rounded transition">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+          </div>
+
+          <div class="card-body opacity-100 mt-1.5 space-y-1 overflow-y-auto no-scrollbar flex-1">
+            <div class="flex items-center space-x-2 p-1.5 rounded-xl hover:bg-white/[0.08] transition cursor-pointer" onclick="switchPage('projects')">
+              <div class="w-5 h-5 rounded-md bg-blue-500/15 text-blue-400 flex items-center justify-center shrink-0">
+                <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"></rect></svg>
+              </div>
+              <div class="overflow-hidden">
+                <p class="text-[10px] font-medium text-white/90 truncate leading-tight">SIBERMu - Semester 3</p>
+                <p class="text-[7.5px] text-white/45">Sistem Informasi • --</p>
+              </div>
+            </div>
+
+            <div class="flex items-center space-x-2 p-1.5 rounded-xl hover:bg-white/[0.08] transition cursor-pointer" onclick="switchPage('projects')">
+              <div class="w-5 h-5 rounded-md bg-blue-600/15 text-blue-300 flex items-center justify-center shrink-0">
+                <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+              </div>
+              <div class="overflow-hidden">
+                <p class="text-[10px] font-medium text-white/90 truncate leading-tight">Abelink v1.0.0-alpha.4</p>
+                <p class="text-[7.5px] text-white/45">GitHub • --</p>
+              </div>
+            </div>
+
+            <div class="flex items-center space-x-2 p-1.5 rounded-xl hover:bg-white/[0.08] transition cursor-pointer" onclick="switchPage('studio')">
+              <div class="w-5 h-5 rounded-md bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0">
+                <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle></svg>
+              </div>
+              <div class="overflow-hidden">
+                <p class="text-[10px] font-medium text-white/90 truncate leading-tight">BTC / USDT Analysis</p>
+                <p class="text-[7.5px] text-white/45">Market • --</p>
+              </div>
+            </div>
+
+            <div class="flex items-center space-x-2 p-1.5 rounded-xl hover:bg-white/[0.08] transition cursor-pointer" onclick="switchPage('memory')">
+              <div class="w-5 h-5 rounded-md bg-blue-600/20 border-blue-400/40 text-blue-300 flex items-center justify-center shrink-0">
+                <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path></svg>
+              </div>
+              <div class="overflow-hidden">
+                <p class="text-[10px] font-medium text-white/90 truncate leading-tight">Study Plan (S1)</p>
+                <p class="text-[7.5px] text-white/45">Education • --</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="pt-1 border-t border-white/5 shrink-0 flex justify-between items-center">
+            <span onclick="switchPage('memory')" class="text-[8.5px] text-blue-400 hover:text-blue-300 cursor-pointer transition">View all →</span>
+          </div>
+        </div>
+
+        <!-- 2. FLOATING TOOLS CARD -->
+        <div id="card-tools" class="floating-glass rounded-2xl p-2.5 relative group shrink-0">
+          <div class="flex items-center justify-between pb-1 border-b cursor-pointer" onclick="toggleCard('card-tools')">
+            <h3 class="text-xs font-semibold text-white/95 leading-none">Tools</h3>
+            <button class="collapse-icon text-white/40 hover:text-white p-0.5 rounded transition">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+          </div>
+
+          <div class="card-body max-h-[110px] opacity-100 mt-1.5">
+            <div class="grid grid-cols-4 gap-1.5 text-center">
+              <div class="p-1 rounded-xl bg-white/[0.04] hover:bg-white/[0.1] transition flex flex-col items-center cursor-pointer" onclick="switchPage('studio')">
+                <div class="w-5 h-5 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center mb-0.5">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="10" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line></svg>
+                </div>
+                <span class="text-[9px] font-medium text-white/95 leading-tight">Browser</span>
+                <span class="text-[7px] text-emerald-400">--</span>
+              </div>
+
+              <div class="p-1 rounded-xl bg-white/[0.04] hover:bg-white/[0.1] transition flex flex-col items-center cursor-pointer" onclick="switchPage('studio')">
+                <div class="w-5 h-5 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center mb-0.5">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                </div>
+                <span class="text-[9px] font-medium text-white/95 leading-tight">Vision</span>
+                <span class="text-[7px] text-blue-400">--</span>
+              </div>
+
+              <div class="p-1 rounded-xl bg-white/[0.04] hover:bg-white/[0.1] transition flex flex-col items-center cursor-pointer" onclick="switchPage('studio')">
+                <div class="w-5 h-5 rounded-lg bg-zinc-700/30 text-white/40 flex items-center justify-center mb-0.5">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line></svg>
+                </div>
+                <span class="text-[9px] font-medium text-white/95 leading-tight">Screen</span>
+                <span class="text-[7px] text-white/40">--</span>
+              </div>
+
+              <div class="p-1 rounded-xl bg-white/[0.04] hover:bg-white/[0.1] transition flex flex-col items-center cursor-pointer" onclick="switchPage('studio')">
+                <div class="w-5 h-5 rounded-lg bg-blue-600/20 text-blue-300 flex items-center justify-center mb-0.5">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+                </div>
+                <span class="text-[9px] font-medium text-white/95 leading-tight">Terminal</span>
+                <span class="text-[7px] text-emerald-400">--</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CENTER STAGE: CLEAN PANORAMA (Unobstructed Skyline View) -->
+    <section id="center-stage" class="flex-1 h-full flex flex-col justify-between py-1 px-4 z-10 overflow-hidden relative pointer-events-auto min-h-0">
+      
+      <!-- Greeting Header -->
+      <div class="flex flex-col items-center text-center shrink-0 pt-0.5">
+        <h1 class="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-white drop-shadow-[0_4px_24px_rgba(0,0,0,0.9)]">
+          Abelink WebUI <span style="font-size:.5em;color:#7fb3ff">(prototipe lokal)</span>
+        </h1>
+
+        <!-- Hermes Active Pill -->
+        <div class="mt-2">
+          <div class="glass-pill rounded-full px-3.5 py-1 flex items-center space-x-2 shadow-xl cursor-pointer hover:border-blue-400/50 hover:scale-105 transition" onclick="toggleVoiceOrChat()">
+            <div class="relative">
+              <div data-avatar-fallback class="w-4 h-4 rounded-full object-cover" alt="Hermes" style="width:100%;height:100%;border-radius:9999px;background:linear-gradient(135deg,#0a84ff,#004999);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;">A</div>
+              <span class="absolute bottom-0 right-0 w-1.5 h-1.5 bg-emerald-400 border-[#121622] rounded-full animate-ping"></span>
+            </div>
+            <div class="flex items-center space-x-1.5 text-xs">
+              <span class="text-[10px] font-semibold text-white">Agent</span>
+              <span class="text-[9px] text-emerald-400 font-medium">local</span>
+              <span class="text-white/45 text-[9px]">• local prototype</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SPACIOUS UNOBSTRUCTED PANORAMIC VISTA -->
+      <div class="flex-1 w-full min-h-0 pointer-events-none"></div>
+
+      <!-- BOTTOM CONTROLS (Rendered in Persistent Bar below) -->
+      <div class="h-10"></div>
+    </section>
+
+    <!-- RIGHT FLOATING COLUMN -->
+    <div id="right-floating-col" class="card-column w-64 lg:w-72 shrink-0 h-full flex flex-col justify-between space-y-2 z-20 pointer-events-auto">
+      
+      <!-- 3. FLOATING WORKSPACE CARD -->
+      <div id="card-workspace" class="floating-glass rounded-2xl p-2.5 relative group shrink-0">
+        <div class="flex items-center justify-between pb-1 border-b cursor-pointer" onclick="toggleCard('card-workspace')">
+          <div class="flex items-center space-x-2">
+            <div class="w-5 h-5 rounded-md bg-blue-500/20 text-blue-400 flex items-center justify-center">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <rect x="2" y="7" width="20" height="14" rx="2"></rect>
+                <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-xs font-semibold text-white/95 leading-none">Workspace</h3>
+              <span class="text-[8px] text-white/45">Current focus</span>
+            </div>
+          </div>
+          <button class="collapse-icon text-white/40 hover:text-white p-0.5 rounded transition">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+        </div>
+
+        <div class="card-body max-h-[85px] opacity-100 mt-1">
+          <div class="flex items-center justify-between p-1.5 rounded-xl bg-white/[0.04] hover:border-blue-400/30 transition cursor-pointer" onclick="switchPage('projects')">
+            <div class="flex items-center space-x-2">
+              <div class="w-5 h-5 rounded-lg bg-blue-500/15 text-blue-400 flex items-center justify-center">
+                <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                  <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                </svg>
+              </div>
+              <div>
+                <p class="text-[9.5px] font-semibold text-white/95">Research & Learning</p>
+                <p class="text-[7.5px] text-white/45">SIBERMu - Sistem Informasi</p>
+              </div>
+            </div>
+            <span class="text-white/40 text-xs">›</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. FLOATING CURRENT ACTIVITY CARD -->
+      <div id="card-activity" class="floating-glass rounded-2xl p-2.5 relative group shrink-0">
+        <div class="flex items-center justify-between pb-1 border-b cursor-pointer" onclick="toggleCard('card-activity')">
+          <div class="flex items-center space-x-2">
+            <div class="w-5 h-5 rounded-md bg-blue-500/20 text-blue-400 flex items-center justify-center">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 14 14"></polyline>
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-xs font-semibold text-white/95 leading-none">Current Activity</h3>
+              <span class="text-[8px] text-white/45" id="activity-count">3 active</span>
+            </div>
+          </div>
+          <button class="collapse-icon text-white/40 hover:text-white p-0.5 rounded transition">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+        </div>
+
+        <div id="activity-list" data-live="sessions" class="card-body max-h-[90px] opacity-100 mt-1 space-y-1 overflow-y-auto no-scrollbar">
+          <div class="flex items-center justify-between text-[9px] p-1 rounded-lg hover:bg-white/[0.04]">
+            <div class="flex items-center space-x-1.5 overflow-hidden">
+              <span class="w-1.5 h-1.5 rounded-full bg-blue-400 shadow-[0_0_6px_rgba(10,132,255,1)] animate-pulse shrink-0"></span>
+              <span class="text-white/90 font-medium truncate">Browsing SIBERMu LMS</span>
+            </div>
+            <span class="text-white/45 text-[7.5px] shrink-0">2m ago</span>
+          </div>
+
+          <div class="flex items-center justify-between text-[9px] p-1 rounded-lg hover:bg-white/[0.04]">
+            <div class="flex items-center space-x-1.5 overflow-hidden">
+              <span class="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_6px_rgba(10,132,255,0.7)] shrink-0"></span>
+              <span class="text-white/90 font-medium truncate">Analyzing course material</span>
+            </div>
+            <span class="text-white/45 text-[7.5px] shrink-0">2m ago</span>
+          </div>
+
+          <div class="flex items-center justify-between text-[9px] p-1 rounded-lg hover:bg-white/[0.04]">
+            <div class="flex items-center space-x-1.5 overflow-hidden">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)] shrink-0"></span>
+              <span class="text-white/90 font-medium truncate">Updating memory context</span>
+            </div>
+            <span class="text-white/45 text-[7.5px] shrink-0">1m ago</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5. FLOATING SYSTEM TELEMETRY CARD -->
+      <div id="card-system" class="floating-glass rounded-2xl p-2.5 relative group shrink-0">
+        <div class="flex items-center justify-between pb-1 border-b cursor-pointer" onclick="toggleCard('card-system')">
+          <div class="flex items-center space-x-2">
+            <div class="w-5 h-5 rounded-md bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <rect x="2" y="3" width="20" height="14" rx="2"></rect>
+                <line x1="8" y1="21" x2="16" y2="21"></line>
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-xs font-semibold text-white/95 leading-none">System</h3>
+              <span class="text-[8px] text-white/45">Current focus</span>
+            </div>
+          </div>
+          <button class="collapse-icon text-white/40 hover:text-white p-0.5 rounded transition">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+        </div>
+
+        <div class="card-body max-h-[110px] opacity-100 mt-1 space-y-1">
+          <div class="flex items-center space-x-1.5">
+            <svg class="w-2.5 h-2.5 text-white/50" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <rect x="2" y="3" width="20" height="14" rx="2"></rect>
+            </svg>
+            <div>
+              <div class="text-[9.5px] font-semibold text-white/95 leading-tight">Linux Mint Cinnamon</div>
+              <div class="text-[7.5px] text-white/45">Asus Vivobook A412F</div>
+            </div>
+          </div>
+
+          <div>
+            <div class="flex justify-between text-[7.5px] mb-0.5">
+              <span class="text-white/60">RAM</span>
+              <span class="text-white/95 font-mono">1.9 GB / 7.7 GB</span>
+            </div>
+            <div class="w-full bg-white/10 rounded-full h-1 overflow-hidden">
+              <div class="bg-gradient-to-r from-blue-500 to-blue-400 h-full rounded-full shadow-[0_0_8px_rgba(10,132,255,0.7)]" style="width: 25%"></div>
+            </div>
+          </div>
+
+          <div>
+            <div class="flex justify-between text-[7.5px] mb-0.5">
+              <span class="text-white/60">Storage</span>
+              <span class="text-white/95 font-mono">42.6 GB / 235 GB</span>
+            </div>
+            <div class="w-full bg-white/10 rounded-full h-1 overflow-hidden">
+              <div class="bg-gradient-to-r from-blue-600 to-blue-500 h-full rounded-full shadow-[0_0_8px_rgba(181,141,36,0.7)]" style="width: 18%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 6. FLOATING TODAY SCHEDULE CARD -->
+      <div id="card-today" class="floating-glass rounded-2xl p-2.5 relative group flex-1 flex flex-col min-h-0">
+        <div class="flex items-center justify-between pb-1 border-b cursor-pointer shrink-0" onclick="toggleCard('card-today')">
+          <div class="flex items-center space-x-2">
+            <div class="w-5 h-5 rounded-md bg-blue-500/20 text-blue-400 flex items-center justify-center">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-xs font-semibold text-white/95 leading-none">Today</h3>
+              <span class="text-[8px] text-white/45">Mon, Oct 6, 2025</span>
+            </div>
+          </div>
+          <button class="collapse-icon text-white/40 hover:text-white p-0.5 rounded transition">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+        </div>
+
+        <div id="schedule-list" class="card-body opacity-100 mt-1 space-y-1 text-[9px] overflow-y-auto no-scrollbar flex-1">
+          <div class="flex items-center space-x-1.5 p-1 rounded-lg hover:bg-white/[0.04]">
+            <svg class="w-2 h-2 text-blue-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle></svg>
+            <div class="flex-1 flex justify-between">
+              <span class="text-white/90 font-medium truncate">SIBERMu - IMK</span>
+              <span class="text-white/45 text-[8px]">08:00 - 10:00</span>
+            </div>
+          </div>
+
+          <div class="flex items-center space-x-1.5 p-1 rounded-lg hover:bg-white/[0.04]">
+            <svg class="w-2 h-2 text-blue-300 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle></svg>
+            <div class="flex-1 flex justify-between">
+              <span class="text-white/90 font-medium truncate">SIBERMu - MATDAS</span>
+              <span class="text-white/45 text-[8px]">10:00 - 12:00</span>
+            </div>
+          </div>
+
+          <div class="flex items-center space-x-1.5 p-1 rounded-lg hover:bg-white/[0.04]">
+            <svg class="w-2 h-2 text-blue-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle></svg>
+            <div class="flex-1 flex justify-between">
+              <span class="text-white/90 font-medium truncate">Study / Project Abelink</span>
+              <span class="text-white/45 text-[8px]">13:00 - 17:00</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- PAGE 2: PROJECTS & WORKSPACE (ELEVATED TO HOME DESIGN STANDARD) -->
+  <main id="page-projects" class="relative z-10 w-full flex-1 min-h-0 flex items-stretch justify-between px-4 pb-2.5 pt-0 overflow-hidden pointer-events-none" style="display: none;">
+    
+    <!-- LEFT WING: Active Repositories & Workspaces -->
+    <div class="w-64 lg:w-72 shrink-0 h-full flex flex-col justify-between space-y-2 z-20 pointer-events-auto">
+      
+      <!-- Repositories Stream Card -->
+      <div class="floating-glass rounded-2xl p-2.5 flex-1 flex flex-col min-h-0">
+        <div class="flex items-center justify-between pb-1.5 border-b shrink-0">
+          <div class="flex items-center space-x-2">
+            <div class="w-5 h-5 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+            </div>
+            <div>
+              <h3 class="text-xs font-semibold text-white/95 leading-none">Workspaces</h3>
+              <span class="text-[8px] text-white/45">4 synchronized</span>
+            </div>
+          </div>
+          <button onclick="openNewTaskModal()" class="text-blue-400 hover:text-white p-0.5 rounded transition" title="Add Repo">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          </button>
+        </div>
+
+        <div class="space-y-1 mt-1.5 overflow-y-auto no-scrollbar flex-1">
+          <!-- Active Project 1 -->
+          <div class="p-2 rounded-xl bg-blue-500/15 cursor-pointer hover:scale-[1.01] transition">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] font-semibold text-white">Abelink OS Companion</span>
+              <span class="text-[7.5px] px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-400 font-mono">active</span>
+            </div>
+            <p class="text-[7.5px] text-white/60 mt-0.5 font-mono">branch: main (v1.0.0-alpha.4)</p>
+            <div class="flex justify-between items-center text-[7px] text-white/40 mt-1">
+              <span>commit --</span>
+              <span class="text-blue-400">98% synced</span>
+            </div>
+          </div>
+
+          <!-- Project 2 -->
+          <div class="p-2 rounded-xl bg-white/[0.04] hover:border-blue-400/30 cursor-pointer transition">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] font-semibold text-white/90">SIBERMu - Semester 3</span>
+              <span class="text-[7.5px] px-1.5 py-0.2 rounded-full bg-blue-500/20 text-blue-400 font-mono">lms-sync</span>
+            </div>
+            <p class="text-[7.5px] text-white/50 mt-0.5 font-mono">Sistem Informasi • IMK & MATDAS</p>
+            <div class="flex justify-between items-center text-[7px] text-white/40 mt-1">
+              <span>updated 2m ago</span>
+              <span class="text-emerald-400">clean</span>
+            </div>
+          </div>
+
+          <!-- Project 3 -->
+          <div class="p-2 rounded-xl bg-white/[0.04] hover:border-blue-400/30 cursor-pointer transition">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] font-semibold text-white/90">Crypto Quant Bot</span>
+              <span class="text-[7.5px] px-1.5 py-0.2 rounded-full bg-white/10 text-white/60 font-mono">standby</span>
+            </div>
+            <p class="text-[7.5px] text-white/50 mt-0.5 font-mono">BTC / USDT Signal Scanner</p>
+            <div class="flex justify-between items-center text-[7px] text-white/40 mt-1">
+              <span>updated --</span>
+              <span class="text-blue-400">evaluating</span>
+            </div>
+          </div>
+
+          <!-- Project 4 -->
+          <div class="p-2 rounded-xl bg-white/[0.04] hover:border-blue-400/30 cursor-pointer transition">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] font-semibold text-white/90">Study Plan (S1)</span>
+              <span class="text-[7.5px] px-1.5 py-0.2 rounded-full bg-white/10 text-white/60 font-mono">roadmap</span>
+            </div>
+            <p class="text-[7.5px] text-white/50 mt-0.5 font-mono">Degree milestone completion</p>
+            <div class="flex justify-between items-center text-[7px] text-white/40 mt-1">
+              <span>updated --</span>
+              <span class="text-white/60">42% credits</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="pt-1.5 border-t shrink-0 flex justify-between items-center">
+          <span class="text-[8px] text-white/45">Local repo sync: auto</span>
+          <span class="text-[8px] text-blue-400 hover:underline cursor-pointer" onclick="showToast('Git pull finished')">Pull latest</span>
+        </div>
+      </div>
+
+      <!-- Quick Action Pill for Workspace -->
+      <div class="floating-glass rounded-2xl p-2.5 shrink-0 flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span class="text-[9px] text-white/80 font-mono">daemon: git-watcher:ok</span>
+        </div>
+        <button onclick="showToast('Indexed 1,420 source files')" class="text-[8px] px-2 py-0.5 rounded-lg bg-white/10 text-blue-400 hover:text-white transition">Re-index</button>
+      </div>
+    </div>
+
+    <!-- CENTER VIEW: Clean Skyline with Project Hero Status -->
+    <div class="flex-1 h-full flex flex-col justify-between py-1 px-4 z-10 overflow-hidden relative pointer-events-auto min-h-0 text-center">
+      <div class="shrink-0 pt-0.5">
+        <h2 class="text-2xl sm:text-3xl font-extrabold text-white drop-shadow-[0_4px_24px_rgba(0,0,0,0.9)]">Abelink OS Core</h2>
+        <div class="mt-1 flex items-center justify-center space-x-2">
+          <span class="glass-pill px-3 py-0.5 rounded-full text-[9px] text-blue-400">Active Repository</span>
+          <span class="text-white/40 text-[9px] font-mono">hash: 9f4a81b</span>
+        </div>
+      </div>
+
+      <div class="flex-1 min-h-0 pointer-events-none"></div>
+      <div class="h-10"></div>
+    </div>
+
+    <!-- RIGHT WING: Git Inspector & Commit History -->
+    <div class="w-64 lg:w-72 shrink-0 h-full flex flex-col justify-between space-y-2 z-20 pointer-events-auto">
+      
+      <!-- Git Branch Inspector -->
+      <div class="floating-glass rounded-2xl p-2.5 shrink-0">
+        <div class="flex items-center justify-between pb-1 border-b">
+          <div class="flex items-center space-x-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+            <h3 class="text-xs font-semibold text-white/95 leading-none">Git Inspector</h3>
+          </div>
+          <span class="text-[8px] font-mono text-emerald-400">up to date</span>
+        </div>
+        <div class="mt-1.5 space-y-1 text-[8.5px]">
+          <div class="flex justify-between text-white/70"><span>Origin</span><span class="font-mono text-white">github.com/Abelion512</span></div>
+          <div class="flex justify-between text-white/70"><span>Branch</span><span class="font-mono text-blue-400">main*</span></div>
+          <div class="flex justify-between text-white/70"><span>Staged files</span><span class="font-mono text-emerald-400">0 pending</span></div>
+        </div>
+      </div>
+
+      <!-- Recent Commit Log -->
+      <div class="floating-glass rounded-2xl p-2.5 flex-1 flex flex-col min-h-0">
+        <div class="flex items-center justify-between pb-1 border-b shrink-0">
+          <h3 class="text-xs font-semibold text-white/95 leading-none">Recent Commits</h3>
+          <span class="text-[8px] text-white/40">4 recorded</span>
+        </div>
+        <div class="space-y-1.5 mt-1.5 overflow-y-auto no-scrollbar flex-1 text-[8.5px]">
+          <div class="p-1.5 rounded-xl bg-white/[0.04]">
+            <div class="flex justify-between text-white font-medium">
+              <span class="truncate">feat: elevate glass cards & pages</span>
+              <span class="text-white/40 text-[7px] shrink-0">--</span>
+            </div>
+            <p class="text-[7.5px] text-blue-400/80 font-mono mt-0.5">sha: 9f4a81b • Abel</p>
+          </div>
+          <div class="p-1.5 rounded-xl bg-white/[0.04]">
+            <div class="flex justify-between text-white/90 font-medium">
+              <span class="truncate">ui: pure gold palette & 100vh lock</span>
+              <span class="text-white/40 text-[7px] shrink-0">--</span>
+            </div>
+            <p class="text-[7.5px] text-white/40 font-mono mt-0.5">sha: c38b10e • Abel</p>
+          </div>
+          <div class="p-1.5 rounded-xl bg-white/[0.04]">
+            <div class="flex justify-between text-white/90 font-medium">
+              <span class="truncate">fix: center layout omnibar alignment</span>
+              <span class="text-white/40 text-[7px] shrink-0">--</span>
+            </div>
+            <p class="text-[7.5px] text-white/40 font-mono mt-0.5">sha: 12de94a • Abel</p>
+          </div>
+        </div>
+        <div class="pt-1 border-t shrink-0 flex justify-between items-center">
+          <span class="text-[7.5px] text-white/40">Remote: HTTPS</span>
+          <button onclick="switchPage('home')" class="text-[8px] text-blue-400 hover:text-white transition">← Dashboard</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- PAGE 3: NEURAL MEMORY (ELEVATED TO HOME DESIGN STANDARD) -->
+  <main id="page-memory" class="relative z-10 w-full flex-1 min-h-0 flex items-stretch justify-between px-4 pb-2.5 pt-0 overflow-hidden pointer-events-none" style="display: none;">
+    
+    <!-- LEFT WING: Semantic Knowledge Clusters -->
+    <div class="w-64 lg:w-72 shrink-0 h-full flex flex-col justify-between space-y-2 z-20 pointer-events-auto">
+      
+      <div class="floating-glass rounded-2xl p-2.5 flex-1 flex flex-col min-h-0">
+        <div class="flex items-center justify-between pb-1.5 border-b shrink-0">
+          <div class="flex items-center space-x-2">
+            <div class="w-5 h-5 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 4.44-5.04zM14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-4.44-5.04z"/></svg>
+            </div>
+            <div>
+              <h3 class="text-xs font-semibold text-white/95 leading-none">Knowledge Graph</h3>
+              <span class="text-[8px] text-white/45">Semantic vector clusters</span>
+            </div>
+          </div>
+          <span class="text-[8px] font-mono text-emerald-400">RAG Ready</span>
+        </div>
+
+        <div class="space-y-1 mt-1.5 overflow-y-auto no-scrollbar flex-1">
+          <div class="p-2 rounded-xl bg-blue-500/15 cursor-pointer transition">
+            <div class="flex justify-between items-center">
+              <span class="text-[10px] font-semibold text-white">SIBERMu - Informatics</span>
+              <span class="text-[7.5px] text-blue-400 font-mono">482 nodes</span>
+            </div>
+            <p class="text-[7.5px] text-white/60 mt-0.5">HCI, Fitts's Law, discrete math theorems, schema designs.</p>
+          </div>
+
+          <div class="p-2 rounded-xl bg-white/[0.04] hover:border-blue-400/30 cursor-pointer transition">
+            <div class="flex justify-between items-center">
+              <span class="text-[10px] font-semibold text-white/90">Hermes Agent Loop</span>
+              <span class="text-[7.5px] text-emerald-400 font-mono">312 nodes</span>
+            </div>
+            <p class="text-[7.5px] text-white/50 mt-0.5">Tool routing policies, reasoning scratchpads, memory synthesis.</p>
+          </div>
+
+          <div class="p-2 rounded-xl bg-white/[0.04] hover:border-blue-400/30 cursor-pointer transition">
+            <div class="flex justify-between items-center">
+              <span class="text-[10px] font-semibold text-white/90">Crypto Quant Models</span>
+              <span class="text-[7.5px] text-white/60 font-mono">240 nodes</span>
+            </div>
+            <p class="text-[7.5px] text-white/50 mt-0.5">BTC orderbook depth, funding rate arbitrage formulas.</p>
+          </div>
+
+          <div class="p-2 rounded-xl bg-white/[0.04] hover:border-blue-400/30 cursor-pointer transition">
+            <div class="flex justify-between items-center">
+              <span class="text-[10px] font-semibold text-white/90">Personal Preferences</span>
+              <span class="text-[7.5px] text-white/60 font-mono">94 nodes</span>
+            </div>
+            <p class="text-[7.5px] text-white/50 mt-0.5">Surabaya timezones, academic calendar, music playlists.</p>
+          </div>
+        </div>
+
+        <div class="pt-1.5 border-t shrink-0 flex justify-between items-center">
+          <span class="text-[8px] text-white/45">Embeddings: text-embedding-3</span>
+          <span class="text-[8px] text-blue-400 hover:underline cursor-pointer" onclick="showToast('ChromaDB re-indexing complete')">Sync RAG</span>
+        </div>
+      </div>
+
+      <!-- Vector DB Metric -->
+      <div class="floating-glass rounded-2xl p-2.5 shrink-0">
+        <div class="flex justify-between text-[7.5px] mb-1">
+          <span class="text-white/60">Vector Context Window</span>
+          <span class="text-blue-400 font-mono">128k / 200k tokens</span>
+        </div>
+        <div class="w-full bg-white/10 rounded-full h-1 overflow-hidden">
+          <div class="bg-gradient-to-r from-blue-500 to-blue-400 h-full rounded-full" style="width: 64%"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CENTER VIEW -->
+    <div class="flex-1 h-full flex flex-col justify-between py-1 px-4 z-10 overflow-hidden relative pointer-events-auto min-h-0 text-center">
+      <div class="shrink-0 pt-0.5">
+        <h2 class="text-2xl sm:text-3xl font-extrabold text-white drop-shadow-[0_4px_24px_rgba(0,0,0,0.9)]">Neural Memory Core</h2>
+        <div class="mt-1 flex items-center justify-center space-x-2">
+          <span class="glass-pill px-3 py-0.5 rounded-full text-[9px] text-emerald-400 border-emerald-400/40">Vector RAG Synced</span>
+          <span class="text-white/40 text-[9px] font-mono">RAG: belum tersambung</span>
+        </div>
+      </div>
+
+      <div class="flex-1 min-h-0 pointer-events-none"></div>
+      <div class="h-10"></div>
+    </div>
+
+    <!-- RIGHT WING: Episodic Recollection Stream -->
+    <div class="w-64 lg:w-72 shrink-0 h-full flex flex-col justify-between space-y-2 z-20 pointer-events-auto">
+      
+      <div class="floating-glass rounded-2xl p-2.5 flex-1 flex flex-col min-h-0">
+        <div class="flex items-center justify-between pb-1 border-b shrink-0">
+          <div class="flex items-center space-x-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <h3 class="text-xs font-semibold text-white/95 leading-none">Episodic Stream</h3>
+          </div>
+          <span class="text-[8px] text-white/40">Real-time log</span>
+        </div>
+
+        <div class="space-y-1.5 mt-1.5 overflow-y-auto no-scrollbar flex-1 text-[8.5px]">
+          <div class="p-1.5 rounded-xl bg-white/[0.04]">
+            <div class="flex justify-between text-white font-medium">
+              <span>Retrieved IMK Exam Prep</span>
+              <span class="text-[7px] text-white/40">14:15 WIB</span>
+            </div>
+            <p class="text-[7.5px] text-white/50 mt-0.5">Injected 14 reference cards into Hermes working context window.</p>
+          </div>
+
+          <div class="p-1.5 rounded-xl bg-white/[0.04]">
+            <div class="flex justify-between text-white/90 font-medium">
+              <span>Indexed Abelink Architecture</span>
+              <span class="text-[7px] text-white/40">11:02 WIB</span>
+            </div>
+            <p class="text-[7.5px] text-white/50 mt-0.5">Recorded local agent loop specs & sandboxed Chromium browser.</p>
+          </div>
+
+          <div class="p-1.5 rounded-xl bg-white/[0.04]">
+            <div class="flex justify-between text-white/90 font-medium">
+              <span>BTC Divergence Alert</span>
+              <span class="text-[7px] text-white/40">08:45 WIB</span>
+            </div>
+            <p class="text-[7.5px] text-white/50 mt-0.5">Logged bullish volume expansion on 4h timeframe.</p>
+          </div>
+        </div>
+
+        <div class="pt-1 border-t shrink-0 flex justify-between items-center">
+          <span class="text-[7.5px] text-white/40">Database: ChromaDB</span>
+          <button onclick="switchPage('home')" class="text-[8px] text-blue-400 hover:text-white transition">← Dashboard</button>
+        </div>
+      </div>
+
+      <!-- Memory Accuracy Gauge -->
+      <div class="floating-glass rounded-2xl p-2.5 shrink-0 flex items-center justify-between">
+        <div>
+          <span class="text-[7.5px] text-white/50 block">Episodic Retention</span>
+          <span class="text-xs font-bold text-emerald-400 font-mono">99.4% Accuracy</span>
+        </div>
+        <button onclick="showToast('Memory database optimized')" class="text-[8px] px-2 py-1 rounded-lg bg-blue-500/20 text-blue-400 hover:text-white transition">Optimize</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- PAGE 4: AI STUDIO & APPS (ELEVATED TO HOME DESIGN STANDARD) -->
+  <main id="page-studio" class="relative z-10 w-full flex-1 min-h-0 flex items-stretch justify-between px-4 pb-2.5 pt-0 overflow-hidden pointer-events-none" style="display: none;">
+    
+    <!-- LEFT WING: Studio Tools Grid -->
+    <div class="w-64 lg:w-72 shrink-0 h-full flex flex-col justify-between space-y-2 z-20 pointer-events-auto">
+      
+      <div class="floating-glass rounded-2xl p-2.5 flex-1 flex flex-col min-h-0">
+        <div class="flex items-center justify-between pb-1.5 border-b shrink-0">
+          <div class="flex items-center space-x-2">
+            <div class="w-5 h-5 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></svg>
+            </div>
+            <div>
+              <h3 class="text-xs font-semibold text-white/95 leading-none">Studio Suites</h3>
+              <span class="text-[8px] text-white/45">Autonomous tooling</span>
+            </div>
+          </div>
+          <span class="text-[8px] font-mono text-emerald-400">4 Online</span>
+        </div>
+
+        <div class="space-y-1 mt-1.5 overflow-y-auto no-scrollbar flex-1">
+          <!-- Tool 1: Neural Terminal -->
+          <div class="p-2 rounded-xl bg-blue-500/15 cursor-pointer hover:scale-[1.01] transition">
+            <div class="flex justify-between items-center">
+              <span class="text-[10px] font-semibold text-white">Neural Terminal</span>
+              <span class="text-[7.5px] px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-400 font-mono">bash:ready</span>
+            </div>
+            <p class="text-[7.5px] text-white/60 mt-0.5">Autonomous shell execution, local package management & build loops.</p>
+          </div>
+
+          <!-- Tool 2: Vision OCR Lab -->
+          <div class="p-2 rounded-xl bg-white/[0.04] hover:border-blue-400/30 cursor-pointer transition">
+            <div class="flex justify-between items-center">
+              <span class="text-[10px] font-semibold text-white/90">Vision & OCR Lab</span>
+              <span class="text-[7.5px] px-1.5 py-0.2 rounded-full bg-blue-500/20 text-blue-400 font-mono">active</span>
+            </div>
+            <p class="text-[7.5px] text-white/50 mt-0.5">Screen OCR, whiteboard parsing, UI inspection and flowchart synthesis.</p>
+          </div>
+
+          <!-- Tool 3: Autonomous Browser -->
+          <div class="p-2 rounded-xl bg-white/[0.04] hover:border-blue-400/30 cursor-pointer transition">
+            <div class="flex justify-between items-center">
+              <span class="text-[10px] font-semibold text-white/90">Chromium Agent</span>
+              <span class="text-[7.5px] px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-400 font-mono">headless</span>
+            </div>
+            <p class="text-[7.5px] text-white/50 mt-0.5">Direct login to SIBERMu LMS, downloading syllabus & lecture notes.</p>
+          </div>
+
+          <!-- Tool 4: Audio Synthesis -->
+          <div class="p-2 rounded-xl bg-white/[0.04] hover:border-blue-400/30 cursor-pointer transition">
+            <div class="flex justify-between items-center">
+              <span class="text-[10px] font-semibold text-white/90">Audio & Voice TTS</span>
+              <span class="text-[7.5px] px-1.5 py-0.2 rounded-full bg-white/10 text-white/60 font-mono">idle</span>
+            </div>
+            <p class="text-[7.5px] text-white/50 mt-0.5">Neural whisper engine for speech-to-text & low latency voice replies.</p>
+          </div>
+        </div>
+
+        <div class="pt-1.5 border-t shrink-0 flex justify-between items-center">
+          <span class="text-[8px] text-white/45">Sandbox: Linux namespace</span>
+          <button onclick="showToast('New sandboxed process initialized')" class="text-[8px] text-blue-400 hover:text-white transition">+ New Sandbox</button>
+        </div>
+      </div>
+
+      <!-- Quick Launch Pill -->
+      <div class="floating-glass rounded-2xl p-2.5 shrink-0 flex items-center justify-between">
+        <span class="text-[8px] text-white/60">PTY: belum tersambung</span>
+        <span class="text-[8px] text-emerald-400 font-mono">0.2% CPU</span>
+      </div>
+    </div>
+
+    <!-- CENTER VIEW -->
+    <div class="flex-1 h-full flex flex-col justify-between py-1 px-4 z-10 overflow-hidden relative pointer-events-auto min-h-0 text-center">
+      <div class="shrink-0 pt-0.5">
+        <h2 class="text-2xl sm:text-3xl font-extrabold text-white drop-shadow-[0_4px_24px_rgba(0,0,0,0.9)]">AI Tool Pipeline</h2>
+        <div class="mt-1 flex items-center justify-center space-x-2">
+          <span class="glass-pill px-3 py-0.5 rounded-full text-[9px] text-blue-400">Hermes Tool Dispatcher</span>
+          <span class="text-white/40 text-[9px] font-mono">Latency: 12ms</span>
+        </div>
+      </div>
+
+      <div class="flex-1 min-h-0 pointer-events-none"></div>
+      <div class="h-10"></div>
+    </div>
+
+    <!-- RIGHT WING: Live Terminal & Process Monitor -->
+    <div class="w-64 lg:w-72 shrink-0 h-full flex flex-col justify-between space-y-2 z-20 pointer-events-auto">
+      
+      <div class="floating-glass rounded-2xl p-2.5 flex-1 flex flex-col min-h-0">
+        <div class="flex items-center justify-between pb-1 border-b shrink-0">
+          <div class="flex items-center space-x-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></span>
+            <h3 class="text-xs font-semibold text-white/95 leading-none">Terminal Output</h3>
+          </div>
+          <span class="text-[7.5px] font-mono text-white/40">pty0: live</span>
+        </div>
+
+        <div class="mt-1.5 p-2 rounded-xl bg-black/40 font-mono text-[7.5px] text-emerald-400 overflow-y-auto no-scrollbar flex-1 space-y-0.5 leading-relaxed">
+          <p class="text-white/50">$ abelink-agent --mode autonomous</p>
+          <p>[OK] local prototype bound to :8080</p>
+          <p>[LMS] Checking session token on SIBERMu...</p>
+          <p class="text-blue-400">[200] Session valid. Downloaded IMK_w04.pdf</p>
+          <p>[OCR] Parsed 18 pages. 0 errors detected.</p>
+          <p class="text-white/70">[SYNC] ChromaDB vectors updated (+24 nodes)</p>
+          <p class="text-emerald-400 animate-pulse">_ idle awaiting next instruction</p>
+        </div>
+
+        <div class="pt-1 border-t shrink-0 flex justify-between items-center">
+          <button onclick="showToast('Cleared terminal buffer')" class="text-[7.5px] text-white/40 hover:text-white transition">Clear buffer</button>
+          <button onclick="switchPage('home')" class="text-[8px] text-blue-400 hover:text-white transition">← Dashboard</button>
+        </div>
+      </div>
+
+      <!-- Quick Command Input -->
+      <div class="floating-glass rounded-2xl p-2 shrink-0 flex items-center space-x-1.5">
+        <span class="text-blue-400 font-mono text-xs">›</span>
+        <input type="text" placeholder="Run tool command..." class="bg-transparent text-[8.5px] text-white w-full focus:outline-none placeholder-white/30" onkeydown="if(event.key==='Enter'){showToast('Executed: '+this.value); this.value='';}">
+      </div>
+    </div>
+  </main>
+
+  <!-- PAGE 5: NETWORK & TELEMETRY (ELEVATED TO HOME DESIGN STANDARD) -->
+  <main id="page-network" class="relative z-10 w-full flex-1 min-h-0 flex items-stretch justify-between px-4 pb-2.5 pt-0 overflow-hidden pointer-events-none" style="display: none;">
+    
+    <!-- LEFT WING: Bandwidth & Connectivity -->
+    <div class="w-64 lg:w-72 shrink-0 h-full flex flex-col justify-between space-y-2 z-20 pointer-events-auto">
+      
+      <div class="floating-glass rounded-2xl p-2.5 flex-1 flex flex-col min-h-0">
+        <div class="flex items-center justify-between pb-1.5 border-b shrink-0">
+          <div class="flex items-center space-x-2">
+            <div class="w-5 h-5 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+            </div>
+            <div>
+              <h3 class="text-xs font-semibold text-white/95 leading-none">Network Bandwidth</h3>
+              <span class="text-[8px] text-emerald-400">gateway: belum tersambung</span>
+            </div>
+          </div>
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+        </div>
+
+        <div class="space-y-2 mt-2 flex-1 overflow-y-auto no-scrollbar">
+          <!-- Download Speed -->
+          <div class="p-2 rounded-xl bg-white/[0.04]">
+            <span class="text-[7.5px] text-white/50 block">Downstream</span>
+            <div class="flex items-baseline space-x-2">
+              <span class="text-2xl font-black text-white font-mono" data-live="net-idle">--</span>
+              <span class="text-xs text-emerald-400 font-mono">Mbps ↓</span>
+            </div>
+            <div class="w-full bg-white/10 rounded-full h-1 overflow-hidden mt-1.5">
+              <div class="bg-emerald-400 h-full rounded-full" style="width: 78%"></div>
+            </div>
+          </div>
+
+          <!-- Upload Speed -->
+          <div class="p-2 rounded-xl bg-white/[0.04]">
+            <span class="text-[7.5px] text-white/50 block">Upstream</span>
+            <div class="flex items-baseline space-x-2">
+              <span class="text-xl font-bold text-white/90 font-mono">42.1</span>
+              <span class="text-xs text-blue-400 font-mono">Mbps ↑</span>
+            </div>
+            <div class="w-full bg-white/10 rounded-full h-1 overflow-hidden mt-1.5">
+              <div class="bg-blue-400 h-full rounded-full" style="width: 42%"></div>
+            </div>
+          </div>
+
+          <!-- Latency Telemetry -->
+          <div class="p-2 rounded-xl bg-white/[0.04] space-y-1 text-[8px]">
+            <div class="flex justify-between text-white/60"><span>DNS Latency</span><span class="text-white font-mono">4ms (1.1.1.1)</span></div>
+            <div class="flex justify-between text-white/60"><span>Singapore Edge</span><span class="text-emerald-400 font-mono">18ms</span></div>
+            <div class="flex justify-between text-white/60"><span>Packet Loss</span><span class="text-emerald-400 font-mono">0.00%</span></div>
+          </div>
+        </div>
+
+        <div class="pt-1.5 border-t shrink-0 flex justify-between items-center">
+          <span class="text-[8px] text-white/45">Wi-Fi 6 (5 GHz)</span>
+          <button onclick="showToast('Speedtest belum tersambung')" class="text-[8px] text-blue-400 hover:text-white transition">Run Speedtest</button>
+        </div>
+      </div>
+
+      <!-- Quick IP Pill -->
+      <div class="floating-glass rounded-2xl p-2.5 shrink-0 flex items-center justify-between text-[8px]">
+        <span class="text-white/60">Public IPv4: 180.244.xx.xx</span>
+        <span class="text-emerald-400 font-mono">TLS 1.3 Active</span>
+      </div>
+    </div>
+
+    <!-- CENTER VIEW -->
+    <div class="flex-1 h-full flex flex-col justify-between py-1 px-4 z-10 overflow-hidden relative pointer-events-auto min-h-0 text-center">
+      <div class="shrink-0 pt-0.5">
+        <h2 class="text-2xl sm:text-3xl font-extrabold text-white drop-shadow-[0_4px_24px_rgba(0,0,0,0.9)]">Host Diagnostics</h2>
+        <div class="mt-1 flex items-center justify-center space-x-2">
+          <span class="glass-pill px-3 py-0.5 rounded-full text-[9px] text-emerald-400 border-emerald-400/40">Hardware Healthy</span>
+          <span class="text-white/40 text-[9px] font-mono">Thermals: 44°C • Silent</span>
+        </div>
+      </div>
+
+      <div class="flex-1 min-h-0 pointer-events-none"></div>
+      <div class="h-10"></div>
+    </div>
+
+    <!-- RIGHT WING: System Host & Edge Gateways -->
+    <div class="w-64 lg:w-72 shrink-0 h-full flex flex-col justify-between space-y-2 z-20 pointer-events-auto">
+      
+      <!-- Host Specs -->
+      <div class="floating-glass rounded-2xl p-2.5 shrink-0">
+        <div class="flex items-center space-x-2 pb-1 border-b">
+          <div class="w-4 h-4 rounded bg-white/10 flex items-center justify-center text-white text-[9px]">💻</div>
+          <div>
+            <h3 class="text-xs font-semibold text-white/95 leading-tight">Asus Vivobook A412F</h3>
+            <span class="text-[7.5px] text-white/40 font-mono">Linux Mint Cinnamon</span>
+          </div>
+        </div>
+        <div class="mt-1.5 space-y-1 text-[8px]">
+          <div class="flex justify-between text-white/70"><span>Kernel</span><span class="font-mono text-white">5.15.0-89-generic</span></div>
+          <div class="flex justify-between text-white/70"><span>CPU Load</span><span class="font-mono text-emerald-400">8% (4 Cores)</span></div>
+          <div class="flex justify-between text-white/70"><span>RAM Used</span><span class="font-mono text-blue-400">1.9 GB / 7.7 GB</span></div>
+        </div>
+      </div>
+
+      <!-- Edge Cloud Clusters -->
+      <div class="floating-glass rounded-2xl p-2.5 flex-1 flex flex-col min-h-0">
+        <div class="flex items-center justify-between pb-1 border-b shrink-0">
+          <h3 class="text-xs font-semibold text-white/95 leading-none">Cloud Edge Routing</h3>
+          <span class="text-[8px] text-emerald-400 font-mono">connected</span>
+        </div>
+
+        <div class="space-y-1.5 mt-1.5 overflow-y-auto no-scrollbar flex-1 text-[8.5px]">
+          <div class="p-1.5 rounded-xl bg-white/[0.04] flex justify-between items-center">
+            <div>
+              <span class="text-white font-medium block">Google Cloud Singapore</span>
+              <span class="text-[7px] text-white/40">Primary Agent Cluster</span>
+            </div>
+            <span class="text-emerald-400 font-mono text-[8px]">18ms</span>
+          </div>
+
+          <div class="p-1.5 rounded-xl bg-white/[0.04] flex justify-between items-center">
+            <div>
+              <span class="text-white/90 font-medium block">Jakarta Telkom Edge</span>
+              <span class="text-[7px] text-white/40">SIBERMu LMS Mirror</span>
+            </div>
+            <span class="text-emerald-400 font-mono text-[8px]">9ms</span>
+          </div>
+
+          <div class="p-1.5 rounded-xl bg-white/[0.04] flex justify-between items-center">
+            <div>
+              <span class="text-white/90 font-medium block">Tokyo Secondary Fallback</span>
+              <span class="text-[7px] text-white/40">Backup ChromaDB Node</span>
+            </div>
+            <span class="text-blue-400 font-mono text-[8px]">64ms</span>
+          </div>
+        </div>
+
+        <div class="pt-1 border-t shrink-0 flex justify-between items-center">
+          <span class="text-[7.5px] text-white/40">All nodes operational</span>
+          <button onclick="switchPage('home')" class="text-[8px] text-blue-400 hover:text-white transition">← Dashboard</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- PAGE 6: SETTINGS & PREFERENCES (ELEVATED TO HOME DESIGN STANDARD) -->
+  <main id="page-settings" class="relative z-10 w-full flex-1 min-h-0 flex items-stretch justify-between px-4 pb-2.5 pt-0 overflow-hidden pointer-events-none" style="display: none;">
+    
+    <!-- LEFT WING: Agent Parameters -->
+    <div class="w-64 lg:w-72 shrink-0 h-full flex flex-col justify-between space-y-2 z-20 pointer-events-auto">
+      
+      <div class="floating-glass rounded-2xl p-2.5 flex-1 flex flex-col min-h-0">
+        <div class="flex items-center justify-between pb-1.5 border-b shrink-0">
+          <div class="flex items-center space-x-2">
+            <div class="w-5 h-5 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="3" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            </div>
+            <div>
+              <h3 class="text-xs font-semibold text-white/95 leading-none">Agent Config</h3>
+              <span class="text-[8px] text-white/45">local prototype</span>
+            </div>
+          </div>
+          <span class="text-[8px] font-mono text-blue-400">v1.0.0</span>
+        </div>
+
+        <div class="space-y-2 mt-2 flex-1 overflow-y-auto no-scrollbar text-xs">
+          <div>
+            <label class="text-[8px] text-white/60 block mb-0.5">Model Engine</label>
+            <select class="w-full bg-[#0d1322] border-white/15 rounded-xl px-2 py-1 text-[9px] text-white focus:outline-none">
+              <option value="hermes">Hermes (Multi-Modal Orchestration)</option>
+              <option value="claude">Gemini 2.5 Flash Autonomous</option>
+            </select>
+          </div>
+
+          <div>
+            <div class="flex justify-between text-[8px] text-white/60 mb-0.5">
+              <span>Agent Temperature</span>
+              <span class="font-mono text-blue-400" id="temp-val-display">0.70</span>
+            </div>
+            <input type="range" min="0" max="1" step="0.05" value="0.70" class="w-full accent-blue-400 h-1 bg-white/10 rounded-lg cursor-pointer" oninput="document.getElementById('temp-val-display').innerText = parseFloat(this.value).toFixed(2)">
+          </div>
+
+          <div>
+            <label class="text-[8px] text-white/60 block mb-0.5">Default Fallback Strategy</label>
+            <select class="w-full bg-[#0d1322] border-white/15 rounded-xl px-2 py-1 text-[9px] text-white focus:outline-none">
+              <option>ChromaDB Vector Search First</option>
+              <option>Web Search & Retrieval First</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="pt-1.5 border-t shrink-0 flex justify-between items-center">
+          <span class="text-[8px] text-white/45">Saved to os.json</span>
+          <button onclick="showToast('Agent parameters updated')" class="text-[8px] text-blue-400 hover:text-white transition">Save Params</button>
+        </div>
+      </div>
+
+      <!-- Quick Preset -->
+      <div class="floating-glass rounded-2xl p-2.5 shrink-0 flex items-center justify-between text-[8px]">
+        <span class="text-white/60">Execution Profile</span>
+        <span class="text-emerald-400 font-mono">Academic / Fast</span>
+      </div>
+    </div>
+
+    <!-- CENTER VIEW -->
+    <div class="flex-1 h-full flex flex-col justify-between py-1 px-4 z-10 overflow-hidden relative pointer-events-auto min-h-0 text-center">
+      <div class="shrink-0 pt-0.5">
+        <h2 class="text-2xl sm:text-3xl font-extrabold text-white drop-shadow-[0_4px_24px_rgba(0,0,0,0.9)]">System Preferences</h2>
+        <div class="mt-1 flex items-center justify-center space-x-2">
+          <span class="glass-pill px-3 py-0.5 rounded-full text-[9px] text-blue-400">Abelink AI OS</span>
+          <span class="text-white/40 text-[9px] font-mono">lokal • User Abel</span>
+        </div>
+      </div>
+
+      <div class="flex-1 min-h-0 pointer-events-none"></div>
+      <div class="h-10"></div>
+    </div>
+
+    <!-- RIGHT WING: Glassmorphism & Keyboard Shortcuts -->
+    <div class="w-64 lg:w-72 shrink-0 h-full flex flex-col justify-between space-y-2 z-20 pointer-events-auto">
+      
+      <!-- Glass Settings -->
+      <div class="floating-glass rounded-2xl p-2.5 shrink-0">
+        <div class="flex items-center space-x-1.5 pb-1 border-b">
+          <span class="text-blue-400 text-xs">✨</span>
+          <h3 class="text-xs font-semibold text-white/95 leading-none">Glassmorphism</h3>
+        </div>
+        <div class="mt-1.5 space-y-1.5 text-[8px]">
+          <div>
+            <div class="flex justify-between text-white/60 mb-0.5"><span>Backdrop Blur</span><span class="font-mono text-blue-400">28px</span></div>
+            <input type="range" min="8" max="48" value="28" class="w-full accent-blue-400 h-1 bg-white/10 rounded-lg cursor-pointer">
+          </div>
+        </div>
+      </div>
+
+      <!-- Hotkeys Guide -->
+      <div class="floating-glass rounded-2xl p-2.5 flex-1 flex flex-col min-h-0">
+        <div class="flex items-center justify-between pb-1 border-b shrink-0">
+          <h3 class="text-xs font-semibold text-white/95 leading-none">Hotkeys & Navigation</h3>
+          <span class="text-[8px] text-white/40">Global</span>
+        </div>
+
+        <div class="space-y-1 mt-1.5 overflow-y-auto no-scrollbar flex-1 text-[8px]">
+          <div class="flex justify-between items-center p-1 rounded-lg bg-white/[0.04]">
+            <span class="text-white/70">Dashboard</span><kbd class="px-1.5 py-0.5 rounded bg-white/10 font-mono text-blue-400">1</kbd>
+          </div>
+          <div class="flex justify-between items-center p-1 rounded-lg bg-white/[0.04]">
+            <span class="text-white/70">Projects</span><kbd class="px-1.5 py-0.5 rounded bg-white/10 font-mono text-blue-400">2</kbd>
+          </div>
+          <div class="flex justify-between items-center p-1 rounded-lg bg-white/[0.04]">
+            <span class="text-white/70">Memory Graph</span><kbd class="px-1.5 py-0.5 rounded bg-white/10 font-mono text-blue-400">3</kbd>
+          </div>
+          <div class="flex justify-between items-center p-1 rounded-lg bg-white/[0.04]">
+            <span class="text-white/70">Toggle Left Cards</span><kbd class="px-1.5 py-0.5 rounded bg-white/10 font-mono text-blue-400">[</kbd>
+          </div>
+          <div class="flex justify-between items-center p-1 rounded-lg bg-white/[0.04]">
+            <span class="text-white/70">Toggle Right Cards</span><kbd class="px-1.5 py-0.5 rounded bg-white/10 font-mono text-blue-400">]</kbd>
+          </div>
+          <div class="flex justify-between items-center p-1 rounded-lg bg-white/[0.04]">
+            <span class="text-white/70">Panorama View</span><kbd class="px-1.5 py-0.5 rounded bg-white/10 font-mono text-blue-400">\</kbd>
+          </div>
+        </div>
+
+        <div class="pt-1 border-t shrink-0 flex justify-between items-center">
+          <span class="text-[7.5px] text-white/40">Full keyboard control</span>
+          <button onclick="switchPage('home')" class="text-[8px] text-blue-400 hover:text-white transition">← Dashboard</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- PERSISTENT BOTTOM CONTROLS TRAY (Space Song + Voice Capsule + Quick Actions) -->
+  <footer class="relative z-30 w-full px-4 pb-2.5 pt-0 pointer-events-none flex justify-center">
+    <div class="w-full max-w-2xl flex items-center justify-between gap-2.5 pointer-events-auto">
+      
+      <!-- Space Song Mini Player -->
+      <div class="glass-pill rounded-full px-3 py-1.5 flex items-center space-x-2 shadow-xl hover:border-blue-400/40 transition cursor-pointer shrink-0" onclick="toggleMusicPlayback()">
+        <div class="relative w-6 h-6 rounded-md overflow-hidden shrink-0">
+          <div data-avatar-fallback alt="Space Song" class="w-full h-full object-cover" style="width:100%;height:100%;border-radius:9999px;background:linear-gradient(135deg,#0a84ff,#004999);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;">A</div>
+          <div id="music-equalizer" class="absolute inset-0 bg-black/40 flex items-center justify-center space-x-0.5">
+            <span class="w-0.5 h-2.5 bg-blue-400 rounded animate-bounce"></span>
+            <span class="w-0.5 h-3 bg-blue-400 rounded animate-bounce [animation-delay:0.1s]"></span>
+            <span class="w-0.5 h-1.5 bg-blue-400 rounded animate-bounce [animation-delay:0.2s]"></span>
+          </div>
+        </div>
+        <div class="leading-none pr-1">
+          <span class="text-[9.5px] font-semibold text-white block">Space Song</span>
+          <span class="text-[7.5px] text-white/45">Beach House</span>
+        </div>
+      </div>
+
+      <!-- Voice Capsule with Dynamic Waveform -->
+      <div class="flex-1 glass-pill rounded-full px-3.5 py-1.5 flex items-center justify-between shadow-2xl hover:border-blue-400/40 transition">
+        <button onclick="toggleVoiceOrChat()" class="w-6 h-6 rounded-full bg-blue-500/25 text-blue-400 flex items-center justify-center hover:scale-110 transition shadow-[0_0_12px_rgba(10,132,255,0.4)]" title="Voice Input">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+          </svg>
+        </button>
+        
+        <div class="flex items-center space-x-2 px-2 cursor-pointer" onclick="toggleVoiceOrChat()">
+          <div class="flex items-center space-x-0.5 h-3" id="voice-waves">
+            <span class="w-0.5 h-2 bg-blue-400 rounded-full animate-bounce"></span>
+            <span class="w-0.5 h-3 bg-blue-400 rounded-full animate-bounce [animation-delay:0.15s]"></span>
+            <span class="w-0.5 h-2 bg-blue-400/70 rounded-full animate-bounce [animation-delay:0.3s]"></span>
+            <span class="w-0.5 h-2.5 bg-blue-400 rounded-full animate-bounce [animation-delay:0.1s]"></span>
+            <span class="w-0.5 h-1.5 bg-blue-400/60 rounded-full animate-bounce [animation-delay:0.25s]"></span>
+          </div>
+          <span id="voice-status-text" class="text-[9.5px] font-medium text-white/95 pl-1">Listening...</span>
+        </div>
+
+        <div class="flex items-center space-x-1.5 text-white/50">
+          <button onclick="switchPage('studio')" class="hover:text-blue-400 transition p-1" title="Vision Scan">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+              <circle cx="12" cy="13" r="4"/>
+            </svg>
+          </button>
+          <button onclick="switchPage('network')" class="hover:text-blue-400 transition p-1" title="Screen Broadcast">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <rect x="2" y="3" width="20" height="14" rx="2"></rect>
+              <line x1="8" y1="21" x2="16" y2="21"></line>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="glass-pill rounded-full px-3 py-1.5 hidden sm:flex items-center space-x-2.5 shadow-xl text-white/60 shrink-0">
+        <button onclick="openNewTaskModal()" class="hover:text-blue-400 transition flex items-center space-x-1 font-medium text-blue-400" title="Create Task">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          <span class="text-[8.5px]">New Task</span>
+        </button>
+        <button onclick="switchPage('projects')" class="hover:text-blue-400 transition flex items-center space-x-1" title="Open Project">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z"/></svg>
+          <span class="text-[8.5px]">Projects</span>
+        </button>
+        <button onclick="switchPage('studio')" class="hover:text-blue-400 transition flex items-center space-x-1" title="Automation">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          <span class="text-[8.5px]">Automations</span>
+        </button>
+      </div>
+
+    </div>
+  </footer>
+
+  <!-- MODAL: Create New Task for Hermes Agent -->
+  <div id="new-task-modal" class="fixed inset-0 z-50 flex items-center justify-center pointer-events-none opacity-0 transition-opacity duration-300">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-md cursor-pointer" onclick="closeNewTaskModal()"></div>
+    
+    <div class="modal-content relative z-10 floating-glass rounded-3xl p-6 w-full max-w-md shadow-2xl scale-95 transition-transform duration-300 pointer-events-auto">
+      <div class="flex items-center justify-between pb-3 border-b">
+        <div class="flex items-center space-x-2">
+          <div class="w-7 h-7 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-white">Create New Agent Task</h3>
+            <p class="text-[9.5px] text-white/50">Dispatch a job to local prototype</p>
+          </div>
+        </div>
+        <button onclick="closeNewTaskModal()" class="text-white/40 hover:text-white p-1 rounded-lg hover:bg-white/10 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+
+      <form id="new-task-form" onsubmit="handleCreateTask(event)" class="mt-4 space-y-3.5 text-xs">
+        <div>
+          <label class="block text-white/70 mb-1 font-medium">Task Description / Prompt</label>
+          <input 
+            type="text" 
+            id="task-title-input" 
+            required 
+            placeholder="e.g. SIBERMu - IMK Assignment Preparation" 
+            class="w-full bg-white/[0.06] border-white/15 focus:border-blue-400 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none transition"
+          />
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-white/70 mb-1 font-medium">Category</label>
+            <select id="task-category-select" class="w-full bg-[#0d1322] border-white/15 focus:border-blue-400 rounded-xl px-3 py-2 text-white focus:outline-none">
+              <option value="Education">SIBERMu Education</option>
+              <option value="Development">Abelink OS Dev</option>
+              <option value="Finance">Crypto / Trading</option>
+              <option value="System">System Maintenance</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-white/70 mb-1 font-medium">Priority</label>
+            <select id="task-priority-select" class="w-full bg-[#0d1322] border-white/15 focus:border-blue-400 rounded-xl px-3 py-2 text-white focus:outline-none">
+              <option value="High">🔥 High Priority</option>
+              <option value="Normal" selected>⚡ Normal</option>
+              <option value="Background">🌱 Background</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-white/70 mb-1 font-medium">Assigned Agent</label>
+          <div class="flex items-center space-x-2 p-2.5 rounded-xl bg-white/[0.04]">
+            <div data-avatar-fallback class="w-5 h-5 rounded-full object-cover" alt="Hermes" style="width:100%;height:100%;border-radius:9999px;background:linear-gradient(135deg,#0a84ff,#004999);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;">A</div>
+            <span class="text-white font-medium text-xs">local prototype</span>
+            <span class="text-emerald-400 text-[10px] ml-auto font-mono">Autonomous</span>
+          </div>
+        </div>
+
+        <div class="pt-2 flex items-center justify-end space-x-2">
+          <button type="button" onclick="closeNewTaskModal()" class="px-3.5 py-2 rounded-xl bg-white/10 text-white/70 hover:text-white hover:bg-white/15 transition">
+            Cancel
+          </button>
+          <button type="submit" class="px-4 py-2 rounded-xl bg-blue-500 text-slate-950 font-bold hover:bg-blue-400 transition shadow-lg flex items-center space-x-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            <span>Dispatch Task</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Notification Box -->
+  <div id="toast-box" class="fixed bottom-6 right-6 z-50 glass-pill px-4 py-2 rounded-xl text-white text-xs shadow-2xl flex items-center space-x-2 translate-y-16 opacity-0 transition-all duration-300 pointer-events-none">
+    <span class="text-blue-400">⚡</span>
+    <span id="toast-msg">Notification message</span>
+  </div>
+
+  <script>
+    // 1. PAGE ROUTING & NAVIGATION
+    const pageList = ['home', 'projects', 'memory', 'studio', 'network', 'settings'];
+    let currentPage = 'home';
+
+    function switchPage(targetPage) {
+      if (!pageList.includes(targetPage)) return;
+      currentPage = targetPage;
+
+      pageList.forEach(p => {
+        const el = document.getElementById('page-' + p);
+        if (el) {
+          el.style.display = (p === targetPage) ? 'flex' : 'none';
+        }
+
+        const navItem = document.getElementById('nav-item-' + p);
+        if (navItem) {
+          if (p === targetPage) {
+            navItem.className = "flex items-center space-x-2.5 p-2 rounded-xl bg-blue-500/20 text-blue-400 transition cursor-pointer hover:scale-[1.02]";
+            const iconWrap = navItem.querySelector('div:first-child');
+            if (iconWrap) iconWrap.className = "w-6 h-6 rounded-lg bg-blue-500/25 flex items-center justify-center shrink-0";
+          } else {
+            navItem.className = "flex items-center space-x-2.5 p-2 rounded-xl text-white/70 hover:text-white hover:bg-white/10 transition cursor-pointer hover:scale-[1.02]";
+            const iconWrap = navItem.querySelector('div:first-child');
+            if (iconWrap) iconWrap.className = "w-6 h-6 rounded-lg bg-white/5 flex items-center justify-center shrink-0";
+          }
+        }
+      });
+
+      const wideBtn = document.getElementById('wide-view-btn');
+      if (wideBtn) {
+        wideBtn.style.display = (targetPage === 'home') ? 'flex' : 'none';
+      }
+
+      showToast(`Navigated to ${targetPage.charAt(0).toUpperCase() + targetPage.slice(1)}`);
+    }
+
+    // 2. FLOATING CARDS COLLAPSE / EXPAND
+    function toggleLeftCards() {
+      const leftCol = document.getElementById('left-floating-col');
+      const leftRestoreBtn = document.getElementById('left-restore-btn');
+      if (!leftCol) return;
+      
+      leftCol.classList.toggle('left-hidden');
+      const isHidden = leftCol.classList.contains('left-hidden');
+      
+      if (leftRestoreBtn) {
+        leftRestoreBtn.style.display = isHidden ? 'flex' : 'none';
+      }
+      checkWideState();
+    }
+
+    function toggleRightCards() {
+      const rightCol = document.getElementById('right-floating-col');
+      const rightRestoreBtn = document.getElementById('right-restore-btn');
+      if (!rightCol) return;
+      
+      rightCol.classList.toggle('right-hidden');
+      const isHidden = rightCol.classList.contains('right-hidden');
+      
+      if (rightRestoreBtn) {
+        rightRestoreBtn.style.display = isHidden ? 'flex' : 'none';
+      }
+      checkWideState();
+    }
+
+    function toggleWideView() {
+      const leftCol = document.getElementById('left-floating-col');
+      const rightCol = document.getElementById('right-floating-col');
+      if (!leftCol || !rightCol) return;
+
+      const isBothHidden = leftCol.classList.contains('left-hidden') && 
+                           rightCol.classList.contains('right-hidden');
+
+      if (isBothHidden) {
+        if (leftCol.classList.contains('left-hidden')) toggleLeftCards();
+        if (rightCol.classList.contains('right-hidden')) toggleRightCards();
+      } else {
+        if (!leftCol.classList.contains('left-hidden')) toggleLeftCards();
+        if (!rightCol.classList.contains('right-hidden')) toggleRightCards();
+      }
+    }
+
+    function checkWideState() {
+      const leftCol = document.getElementById('left-floating-col');
+      const rightCol = document.getElementById('right-floating-col');
+      if (!leftCol || !rightCol) return;
+
+      const leftHidden = leftCol.classList.contains('left-hidden');
+      const rightHidden = rightCol.classList.contains('right-hidden');
+      const btnText = document.getElementById('wide-btn-text');
+
+      if (btnText) {
+        btnText.textContent = (leftHidden && rightHidden) ? "Show Cards" : "Panorama";
+      }
+    }
+
+    function toggleCard(cardId) {
+      const card = document.getElementById(cardId);
+      if (!card) return;
+      const body = card.querySelector('.card-body');
+      if (!body) return;
+
+      const isCollapsed = body.classList.contains('collapsed');
+      if (isCollapsed) {
+        body.classList.remove('collapsed');
+        card.classList.remove('collapsed-state');
+      } else {
+        body.classList.add('collapsed');
+        card.classList.add('collapsed-state');
+      }
+    }
+
+    // 3. TASK DISPATCH MODAL
+    function openNewTaskModal() {
+      const modal = document.getElementById('new-task-modal');
+      if (!modal) return;
+      modal.classList.remove('pointer-events-none', 'opacity-0');
+      modal.classList.add('pointer-events-auto', 'opacity-100');
+      const content = modal.querySelector('.modal-content');
+      if (content) {
+        content.classList.remove('scale-95');
+        content.classList.add('scale-100');
+      }
+      setTimeout(() => {
+        const inp = document.getElementById('task-title-input');
+        if (inp) inp.focus();
+      }, 100);
+    }
+
+    function closeNewTaskModal() {
+      const modal = document.getElementById('new-task-modal');
+      if (!modal) return;
+      const content = modal.querySelector('.modal-content');
+      if (content) {
+        content.classList.remove('scale-100');
+        content.classList.add('scale-95');
+      }
+      modal.classList.remove('opacity-100');
+      modal.classList.add('opacity-0');
+      setTimeout(() => {
+        modal.classList.remove('pointer-events-auto');
+        modal.classList.add('pointer-events-none');
+      }, 250);
+    }
+
+    function handleCreateTask(e) {
+      e.preventDefault();
+      const titleInput = document.getElementById('task-title-input');
+      const title = titleInput ? titleInput.value.trim() : 'New Task';
+
+      const actList = document.getElementById('activity-list');
+      if (actList) {
+        const newItem = document.createElement('div');
+        newItem.className = "flex items-center justify-between text-[9px] p-1 rounded-lg bg-white/[0.08] transition";
+        newItem.innerHTML = `
+          <div class="flex items-center space-x-1.5 overflow-hidden">
+            <span class="w-1.5 h-1.5 rounded-full bg-blue-400 shadow-[0_0_6px_rgba(10,132,255,1)] animate-ping shrink-0"></span>
+            <span class="text-white font-semibold truncate">${title}</span>
+          </div>
+          <span class="text-blue-400 text-[7.5px] font-mono shrink-0 font-medium">Just now</span>
+        `;
+        actList.insertBefore(newItem, actList.firstChild);
+      }
+
+      closeNewTaskModal();
+      if (titleInput) titleInput.value = '';
+      showToast(`Dispatched to Hermes: "${title}"`);
+    }
+
+    function executeQuickPrompt(text) {
+      if (!text || !text.trim()) return;
+      showToast(`Hermes processing prompt: "${text.trim()}"`);
+      const omni = document.getElementById('global-search-input');
+      if (omni) omni.value = '';
+    }
+
+    // 4. AUDIO & VOICE CONTROLS
+    let isListening = true;
+    function toggleVoiceOrChat() {
+      isListening = !isListening;
+      const statusText = document.getElementById('voice-status-text');
+      const waveBars = document.querySelectorAll('#voice-waves span');
+
+      if (isListening) {
+        if (statusText) statusText.innerText = 'Listening...';
+        waveBars.forEach(b => b.classList.add('animate-bounce'));
+        showToast('Voice mode active: Hermes listening');
+      } else {
+        if (statusText) statusText.innerText = 'Voice paused';
+        waveBars.forEach(b => b.classList.remove('animate-bounce'));
+        showToast('Voice paused.');
+      }
+    }
+
+    let isPlaying = true;
+    function toggleMusicPlayback() {
+      isPlaying = !isPlaying;
+      const eq = document.getElementById('music-equalizer');
+      if (isPlaying) {
+        if (eq) eq.style.opacity = '1';
+        showToast('Playing: Space Song - Beach House');
+      } else {
+        if (eq) eq.style.opacity = '0.3';
+        showToast('Music playback paused.');
+      }
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast-box');
+      const text = document.getElementById('toast-msg');
+      if (!toast || !text) return;
+      text.innerText = msg;
+      toast.classList.remove('translate-y-16', 'opacity-0');
+      toast.classList.add('translate-y-0', 'opacity-100');
+      
+      clearTimeout(window.toastTimer);
+      window.toastTimer = setTimeout(() => {
+        toast.classList.add('translate-y-16', 'opacity-0');
+        toast.classList.remove('translate-y-0', 'opacity-100');
+      }, 2500);
+    }
+
+    // Keyboard Hotkeys
+    window.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+      if (e.key === '[') toggleLeftCards();
+      if (e.key === ']') toggleRightCards();
+      if (e.key === '\\') toggleWideView();
+      if (e.key === '1') switchPage('home');
+      if (e.key === '2') switchPage('projects');
+      if (e.key === '3') switchPage('memory');
+      if (e.key === '4') switchPage('studio');
+      if (e.key === '5') switchPage('network');
+      if (e.key === '6') switchPage('settings');
+      if (e.key === 'n' || e.key === 'N') openNewTaskModal();
+    });
+
+    // 5. AMBIENT PARTICLES CANVAS
+    (function initAmbientParticles() {
+      const canvas = document.getElementById('ambient-canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      let particles = [];
+      let width = (canvas.width = window.innerWidth);
+      let height = (canvas.height = window.innerHeight);
+
+      window.addEventListener('resize', () => {
+        width = canvas.width = window.innerWidth;
+        height = canvas.height = window.innerHeight;
+      });
+
+      class Particle {
+        constructor() { this.reset(); }
+        reset() {
+          this.x = Math.random() * width;
+          this.y = Math.random() * height;
+          this.size = Math.random() * 1.3 + 0.3;
+          this.vx = (Math.random() - 0.5) * 0.2;
+          this.vy = -(Math.random() * 0.2 + 0.06);
+          this.alpha = Math.random() * 0.35 + 0.1;
+          this.color = '212, 175, 55';
+        }
+        update() {
+          this.x += this.vx;
+          this.y += this.vy;
+          if (this.y < -10 || this.x < -10 || this.x > width + 10) {
+            this.reset();
+            this.y = height + 10;
+          }
+        }
+        draw() {
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(${this.color}, ${this.alpha})`;
+          ctx.fill();
+        }
+      }
+
+      for (let i = 0; i < 20; i++) particles.push(new Particle());
+
+      function loop() {
+        ctx.clearRect(0, 0, width, height);
+        particles.forEach(p => { p.update(); p.draw(); });
+        requestAnimationFrame(loop);
+      }
+      loop();
+    })();
+  </script>
+
+<script>
+// Fase 1 wiring (DESIGN.md §3): hanya endpoint nyata. Gagal = label jujur.
+(function(){
+  function setLive(name, text){
+    document.querySelectorAll('[data-live="'+name+'"]').forEach(function(el){ el.textContent = text; });
+  }
+  fetch('/health').then(function(r){return r.json();}).then(function(h){
+    setLive('clock-temp', h.ok ? 'online' : 'offline');
+  }).catch(function(){ setLive('clock-temp', 'offline'); });
+  fetch('/api/chat-readonly').then(function(r){return r.json();}).then(function(d){
+    var list = document.querySelector('[data-live="sessions"]');
+    if(list && d.sessions){
+      list.innerHTML = '';
+      d.sessions.forEach(function(s){
+        var li = document.createElement('li');
+        li.className = 'text-[9px] text-white/70';
+        li.textContent = s.title + ' (contoh/sintetis, ' + s.messageCount + ' pesan)';
+        list.appendChild(li);
+      });
+    }
+  }).catch(function(){});
+  // reduced-motion: matikan stardust
+  if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+    var c = document.getElementById('ambient-canvas'); if(c) c.style.display = 'none';
+  }
+})();
+</script>
+</body>
+</html>
