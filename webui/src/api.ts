@@ -6,5 +6,5 @@ export type Snapshot = {
 export async function fetchSnapshot(): Promise<Snapshot> {
   const res = await fetch('/api/snapshot')
   if (!res.ok) throw new Error(`snapshot ${res.status}`)
-  return res.json() as Promise<Snapshot>
+  const j = await res.json(); if (!j || !Array.isArray((j as {sessions?: unknown}).sessions)) throw new Error('snapshot bad-shape'); return j as Snapshot
 }
