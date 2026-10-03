@@ -38,6 +38,7 @@
   "include": [
     "*.config.ts",
     "extension/native-host/**/*.ts",
+    "webui-server/**/*.ts",
     "sidecar/**/*.ts",
     "scripts/**/*.ts",
     "evaluation/**/*.ts",

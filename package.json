@@ -34,6 +34,7 @@
     "sync-version": "bun scripts/sync-version.ts",
     "brand:icons": "bash scripts/apply-brand-assets.sh",
     "harness": "bun sidecar/engine.ts",
+    "web": "bun webui-server/serve.ts",
     "harness:export": "bun scripts/harness-export.ts",
     "harness:diagnose": "bun scripts/harness-diagnose.ts",
     "live:tui": "bun scripts/live-tui-smoke.ts",
