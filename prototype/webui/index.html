@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Abelink — Prototipe WebUI (Fase B)</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 1rem; }
+  button { margin-right: .5rem; padding: .5rem 1rem; }
+  pre { background: #f4f4f4; padding: 1rem; overflow-x: auto; }
+  video { max-width: 100%; border: 1px solid #ccc; }
+</style>
+</head>
+<body>
+<h1>Abelink — Prototipe WebUI (Fase B)</h1>
+<p>Prototipe berdampingan. Read-only + camera preview lokal saja. Tanpa kirim ke mana pun.</p>
+
+<section>
+<h2>1. Health</h2>
+<button id="btn-health" type="button">Cek health</button>
+<pre id="out-health">(belum dicek)</pre>
+</section>
+
+<section>
+<h2>2. Sesi (read-only)</h2>
+<button id="btn-sessions" type="button">Tampilkan sesi</button>
+<pre id="out-sessions">(belum dimuat)</pre>
+</section>
+
+<section>
+<h2>3. Camera preview (lokal saja)</h2>
+<button id="btn-camera" type="button">Nyalakan preview</button>
+<video id="preview" autoplay playsinline muted></video>
+<pre id="out-camera">(kamera mati)</pre>
+</section>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+$("btn-health").addEventListener("click", async () => {
+  const out = $("out-health");
+  try {
+    const r = await fetch("/health");
+    out.textContent = r.status + " " + await r.text();
+  } catch (e) {
+    out.textContent = "gagal: " + e;
+  }
+});
+
+$("btn-sessions").addEventListener("click", async () => {
+  const out = $("out-sessions");
+  try {
+    const r = await fetch("/api/chat-readonly");
+    const j = await r.json();
+    out.textContent = JSON.stringify(j, null, 2);
+  } catch (e) {
+    out.textContent = "gagal: " + e;
+  }
+});
+
+// Preview LOKAL saja: stream getUserMedia dipasang ke <video>, tidak dikirim
+// ke server / ke mana pun (tidak ada upload, tidak ada WebSocket kirim frame).
+$("btn-camera").addEventListener("click", async () => {
+  const out = $("out-camera");
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    $("preview").srcObject = stream;
+    out.textContent = "preview lokal aktif (tidak dikirim ke mana pun)";
+  } catch (e) {
+    out.textContent = "kamera gagal: " + e;
+  }
+});
+</script>
+</body>
+</html>
