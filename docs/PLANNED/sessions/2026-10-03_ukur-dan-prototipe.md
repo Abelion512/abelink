@@ -28,3 +28,8 @@
 
 ## Verifikasi akhir
 - `typecheck:node` exit 0, status bersih, HEAD `e890de5b` sync origin/main.
+
+## Tambahan — WebUI Fase 1 (PR #134, `da07fe4b`)
+- DESIGN.md: keputusan LAYAK dengan 3 syarat (berdampingan, tanpa build, mock-out bertahap) + tabel penyesuaian ke tema `abelink` + peta endpoint + 1 pengecualian tercatat (Tailwind CDN tetap, debt Fase 2).
+- dashboard.html: transformasi controller (2 delegasi gagal) — aksen #0a84ff, borderless, fonts/unsplash hapus, angka palsu → "belum tersambung", fetch health/sesi E2E 200, traversal 404.
+- Mentahan `design/` frozen utuh.
