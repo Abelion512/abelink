@@ -90,7 +90,9 @@ interface ChromeTabGroupsApi {
   get(groupId: number): Promise<Record<string, any>>
   query(info: Record<string, any>): Promise<Record<string, any>[]>
   onUpdated: ChromeEvent<(groupId: number, changeInfo: Record<string, any>, group: Record<string, any>) => void>
-  onRemoved: ChromeEvent<(groupId: number) => void>
+  // onRemoved menerima TabGroup (bukan groupId number) — sesuai Chrome docs
+  // https://developer.chrome.com/docs/extensions/reference/api/tabGroups#event-onRemoved
+  onRemoved: ChromeEvent<(group: { id?: number }) => void>
 }
 
 interface ChromeRuntimeApi {

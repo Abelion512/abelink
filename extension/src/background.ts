@@ -20,10 +20,40 @@ const PORT_LABELS: Record<number, string> = { 49712: 'Prod', 49713: 'Dev' }
 // test tests/browser-flavor.test.mjs membaca literal di bawah langsung).
 const FLAVOR_PORTS = { prod: 49712, dev: 49713 }
 const NATIVE_HOSTS = { prod: 'id.abelink.bridge', dev: 'id.abelink.bridge.dev' }
-function flavorForPort(port: any) {
+// Tipe permukaan bridge (kontrak dari call-site, bukan tipe chrome penuh).
+// Refs (aturan owner): unknown + narrowing —
+// https://www.typescriptlang.org/docs/handbook/release-notes/typescript-3-0.html
+// catch longgar by design (useUnknownInCatchVariables:false, keputusan W8) —
+// https://www.typescriptlang.org/docs/handbook/release-notes/typescript-4-4.html
+type BridgeCfg = { session: string; token: string; port: number }
+type TokenVia = { token: string; detail: string }
+type ApiResult = { status: number; body: Record<string, unknown> }
+type BridgeCommand = { id?: string; type: string; payload?: BridgePayload }
+// Payload wire sidecar: semua field opsional, bentuk beda per tipe perintah.
+type BridgePayload = {
+  sessionId?: string; task?: string; status?: string; autoClose?: boolean
+  action?: string; value?: unknown; expectedText?: string | null
+  abelinkId?: string | null; text?: string; reason?: string; goal?: string
+}
+type NavigateOpts = { url: string; reuse?: boolean; adoptUserTab?: boolean }
+type ActPayload = { abelinkId?: string | null; action?: string; value?: unknown; expectedText?: string | null }
+type ActionArgs = { abelinkId?: string | null; action: string; value?: unknown; expectedText?: string | null }
+// Elemen ter-tag: HTMLElement + field dinamis yang dibaca tagger/actionFn.
+type TaggedDomEl = HTMLElement & { value?: string; href?: string; placeholder?: string }
+type ActionEl = HTMLElement & { value?: unknown }
+type TaggedEl = {
+  abelinkId: string; tag: string; type: string; text: string; placeholder: string
+  ariaLabel: string; href: string; inViewport: boolean; x: number; y: number
+}
+type GroupState = { taskId: string | undefined; groupId: number | null; colorIdx: number }
+type AwaitUser = { reason: string; tabId?: number; url: string; goal: string; since: number }
+type InflightEntry = { id: string | undefined; cfg: BridgeCfg }
+type OverlayArgs = { mode: string; text?: string; session?: string }
+type AdoptOpts = { adoptUserTab?: boolean }
+function flavorForPort(port: number) {
   return Number(port) === FLAVOR_PORTS.dev ? 'dev' : 'prod'
 }
-function hostNameForPort(port: any) {
+function hostNameForPort(port: number) {
   return NATIVE_HOSTS[flavorForPort(port)]
 }
 // Pairing terpin: { flavor, port, hostName }. Dibuat saat klik Pakai/Connect
@@ -59,7 +89,7 @@ async function getPairing() {
   }
   return null
 }
-async function setPairing(port: any) {
+async function setPairing(port: number) {
   const p = Number(port)
   if (!KNOWN_PORTS.includes(p)) return null
   const pairing = { flavor: flavorForPort(p), port: p, hostName: hostNameForPort(p) }
@@ -75,7 +105,7 @@ const NAV_TIMEOUT_MS = 60000
 const SETTLE_MS = 2000
 
 let running = false
-let pollAbort: any = null
+let pollAbort: AbortController | null = null
 // loopActive = guard reentrancy: keepalive alarm + tryAutoResume + start
 // bisa memanggil loop() bersamaan (pollAbort==null juga benar saat sleep
 // sehat) -> dua loop /poll berebut perintah yang sama. Satu loop saja.
@@ -96,13 +126,13 @@ async function getCfg() {
   }
 }
 
-function base(cfg: any) {
+function base(cfg: BridgeCfg) {
   return `http://127.0.0.1:${cfg.port}/abelink-bridge`
 }
 
 // Token per-port (dev & prod = sidecar berbeda = token berbeda). Legacy
 // `bridgeToken` tunggal dipakai sebagai fallback terakhir.
-async function getPortToken(port: any) {
+async function getPortToken(port: number): Promise<string> {
   try {
     const kept = await chrome.storage.local.get('bridgeTokens')
     if (kept?.bridgeTokens?.[port]) return kept.bridgeTokens[port]
@@ -114,7 +144,7 @@ async function getPortToken(port: any) {
   return ''
 }
 
-async function setPortToken(port: any, token: any) {
+async function setPortToken(port: number, token: string) {
   try {
     const kept = await chrome.storage.local.get('bridgeTokens')
     const map = (kept && typeof kept.bridgeTokens === 'object' ? kept.bridgeTokens : {}) || {}
@@ -161,7 +191,7 @@ async function probePorts() {
 }
 
 // GET dengan token via query (kontrak bridge: token ada di ?token=).
-async function apiGet(cfg: any, path: any, extraQuery = '') {
+async function apiGet(cfg: BridgeCfg, path: string, extraQuery = ''): Promise<ApiResult> {
   const res = await fetch(
     `${base(cfg)}/${path}?session=${encodeURIComponent(cfg.session)}&token=${encodeURIComponent(cfg.token)}${extraQuery}`,
     { method: 'GET' }
@@ -169,7 +199,7 @@ async function apiGet(cfg: any, path: any, extraQuery = '') {
   return { status: res.status, body: await res.json().catch(() => ({})) }
 }
 
-async function apiPost(cfg: any, path: any, body: any) {
+async function apiPost(cfg: BridgeCfg, path: string, body: unknown) {
   const res = await fetch(`${base(cfg)}/${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -254,7 +284,7 @@ async function loop() {
   }
 }
 
-function sleep(ms: any) {
+function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms))
 }
 
@@ -265,7 +295,7 @@ function sleep(ms: any) {
 // Minta token langsung ke helper lokal (tanpa copas). `port` memilih
 // namespace token (dev 49713 vs prod): tanpa ini token prod dipakai ke dev
 // dan sebaliknya -> 401 silih-berganti.
-async function getTokenViaNativeHost(port: any) {
+async function getTokenViaNativeHost(port: number): Promise<TokenVia> {
   // STRICT: satu host per flavor. Tidak ada fallback lintas flavor.
   // Dev port (49713) = id.abelink.bridge.dev ONLY.
   // Prod port (49712) = id.abelink.bridge ONLY.
@@ -288,13 +318,13 @@ async function getTokenViaNativeHost(port: any) {
 }
 
 // -------------------------------------------------------------- commands
-async function execute(cfg: any, command: any) {
+async function execute(cfg: BridgeCfg, command: BridgeCommand) {
   const { type } = command
   const { payload } = command
 
   // Handle group session commands from browser-use
   if (type === 'group-session') {
-    const { task, status, autoClose } = payload || {}
+    const { task, status, autoClose } = payload ?? ({} as BridgePayload)
     if (!task) return { ok: false, error: 'task wajib.' }
     delete overlayStopped[cfg.session || 'default'] // task baru = resume eksplisit
     if (task) sessionTask[cfg.session || 'default'] = task
@@ -305,7 +335,7 @@ async function execute(cfg: any, command: any) {
   // Task selesai: tandai grup (✅/❌) + tutup tab grup hanya bila autoClose.
   // Error tidak pernah auto-close (disisakan untuk inspeksi).
   if (type === 'task-done') {
-    const { task, status, autoClose } = payload || {}
+    const { task, status, autoClose } = payload ?? ({} as BridgePayload)
     const done = await finishTaskGroup(cfg.session || 'default', task, status || 'done', !!autoClose)
     return { ok: true, data: JSON.stringify(done) }
   }
@@ -330,11 +360,11 @@ async function execute(cfg: any, command: any) {
 
   switch (type) {
     case 'navigate':
-      return navigate(payload, targetSession)
+      return navigate(payload as NavigateOpts, targetSession)
     case 'read-dom':
       return readDom(targetSession)
     case 'act':
-      return act(payload, targetSession)
+      return act(payload as ActPayload, targetSession)
     case 'show':
       return showTab(targetSession)
     default:
@@ -342,7 +372,7 @@ async function execute(cfg: any, command: any) {
   }
 }
 
-async function runCommand(cfg: any, command: any) {
+async function runCommand(cfg: BridgeCfg, command: BridgeCommand) {
   let result
   const sessionKey = command.payload?.sessionId || cfg.session || 'default'
   inflight[sessionKey] = { id: command.id, cfg }
@@ -389,7 +419,7 @@ async function runCommand(cfg: any, command: any) {
 const GROUP_COLORS = ['grey', 'blue', 'yellow', 'green', 'pink', 'purple', 'cyan', 'red']
 const STATUS_ICON = { loading: '⏳', reading: '📖', acting: '🖱️', idle: '🟢', done: '✅', error: '❌' }
 
-function colorForIndex(idx: any) {
+function colorForIndex(idx: number) {
   return GROUP_COLORS[idx % GROUP_COLORS.length]
 }
 
@@ -399,35 +429,35 @@ function colorForIndex(idx: any) {
 // menolak (TS7053) although runtime-nya benar.
 
 // Track active group per session: sessionId -> { taskId, groupId, colorIdx }
-const activeGroups: Record<string, any> = {}
+const activeGroups: Record<string, GroupState> = {}
 
 // Nama task terakhir per sesi (untuk grouping tab navigate tanpa label task).
-const sessionTask: Record<string, any> = {}
+const sessionTask: Record<string, string> = {}
 
 // URL fokus tercatat per sesi: di-set tiap navigate sukses. Bila tab primer
 // URL-nya berubah tanpa navigate tercatat (user menavigasi manual), tab
 // ditolak agar caller recovery jujur (bukan membaca tab yang salah).
-const sessionFocusedUrl: Record<string, any> = {}
+const sessionFocusedUrl: Record<string, string> = {}
 
 // Tab primer per sesi: SATU tab primer per sessionId (single primary per
 // session), tetapi grup sesi boleh menampung N tab (multi-tab per grup,
 // budget MAX_TABS_PER_SESSION). SEMUA navigate dalam satu task memakai ulang
 // tab primer ini (anti ledakan tab). Tab baru hanya untuk task baru / perintah
 // eksplisit / guard anti-curi (tab yatim yang ternyata milik sesi lain).
-const primaryTabs: Record<string, any> = {}
+const primaryTabs: Record<string, number | undefined> = {}
 
 // ------------------------------------------------- overlay lock (Fase A)
 // Full-veil lock: saat agent bekerja di tab sesi, veil transparan menelan
 // input user + pill tengah-bawah berisi status + tombol Stop (scope sesi-tab).
 // Stop user = observasi jujur, bukan retry buta (aturan di planning.js).
-const OVERLAY_STOP_MSG = (s: any) =>
+const OVERLAY_STOP_MSG = (s: string) =>
   `[STOP OVERLAY] User menekan Stop di tab browser (sesi "${s}"). Berhenti total untuk sesi-tab ini: JANGAN panggil tool browser* lagi. Akhiri dengan answer + is_done:true + task_status yang jujur (blocked bila tugas belum selesai).`
 // Flag stop per sesi + perintah inflight per sesi (di-resolve saat Stop diklik).
-const overlayStopped: Record<string, any> = {}
-const inflight: Record<string, any> = {}
+const overlayStopped: Record<string, boolean> = {}
+const inflight: Record<string, InflightEntry> = {}
 // Co-pilot HITL: sesi yang menunggu user — veil TIDAK dipasang (user butuh
 // tabnya), hanya pill pasif non-blocking. Bentuk: {reason, tabId, url, goal, since}.
-const awaitingUser: Record<string, any> = {}
+const awaitingUser: Record<string, AwaitUser> = {}
 
 async function saveSessionState() {
   try {
@@ -451,19 +481,19 @@ async function loadSessionState() {
 }
 
 // Ikon judul grup: ✅ selesai, ❌ gagal, ⏳ selain itu (dikerjakan).
-function iconFor(status: any) {
+function iconFor(status: string) {
   if (status === 'done') return STATUS_ICON.done
   if (status === 'error' || status === 'failed') return STATUS_ICON.error
   return STATUS_ICON.loading
 }
 
 // Format judul grup: "(icon) <task>", maks 32 char nama task.
-function groupTitle(status: any, task: any) {
+function groupTitle(status: string, task: string | undefined) {
   const safeTask = String(task || 'untitled').slice(0, 32)
   return `${iconFor(status)} ${safeTask}`
 }
 
-async function getPrimaryTab(sessionId: any) {
+async function getPrimaryTab(sessionId: string) {
   await loadSessionState()
   const id = primaryTabs[sessionId]
   if (id == null) return null
@@ -489,7 +519,7 @@ async function targetTabForSession(sessionId = 'default') {
   // Tolak primer yang URL-nya berubah dari focusedUrl sesi (salinan inline
   // resolveSessionTab dari extension/tab-identity.mjs; abaikan hash).
   const focused = sessionFocusedUrl[sessionId] ?? null
-  const stripHash = (u: any) => String(u || '').split('#')[0]
+  const stripHash = (u: string | null | undefined) => String(u || '').split('#')[0]
   if (primary && primary.url?.startsWith('http')) {
     if (focused == null || stripHash(primary.url) === stripHash(focused)) return primary
     console.warn(`[Abelink] tolak tab primer sesi "${sessionId}": URL berubah (${primary.url} != ${focused})`)
@@ -512,7 +542,7 @@ async function targetTabForSession(sessionId = 'default') {
   return null
 }
 
-async function ensureGroup(sessionId: any, task: any, status: any, autoClose = false, anchorTabId: any = null) {
+async function ensureGroup(sessionId: string, task: string | undefined, status: string, autoClose = false, anchorTabId: number | null = null) {
   const colorIdx = (activeGroups[sessionId]?.colorIdx || 0) % GROUP_COLORS.length
   const color = colorForIndex(colorIdx)
 
@@ -560,13 +590,13 @@ async function ensureGroup(sessionId: any, task: any, status: any, autoClose = f
   }
 
   const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true })
-  let allGroups: any = []
+  let allGroups: Record<string, unknown>[] = []
   if (activeTab) {
     try {
       allGroups = await chrome.tabGroups.query({ windowId: activeTab.windowId })
     } catch { allGroups = [] }
   }
-  const existing = allGroups.find((g: any) => g.title === name)
+  const existing = allGroups.find((g) => (g as { title?: string }).title === name)
 
   if (!existing) {
     // Buat group baru dari tab aktif
@@ -578,8 +608,9 @@ async function ensureGroup(sessionId: any, task: any, status: any, autoClose = f
     groupId = created
     await chrome.tabGroups.update(groupId, { color, title: name })
   } else {
-    groupId = existing.id
-    await chrome.tabGroups.update(groupId, { color, title: name })
+    const eg = existing as { id?: number }
+    groupId = eg.id ?? null
+    await chrome.tabGroups.update(groupId!, { color, title: name })
   }
 
   activeGroups[sessionId] = { taskId: task, groupId, colorIdx: (colorIdx + 1) % GROUP_COLORS.length }
@@ -587,18 +618,18 @@ async function ensureGroup(sessionId: any, task: any, status: any, autoClose = f
   return groupId
 }
 
-async function abelinkGroupDone(groupId: any, taskId: any) {
+async function abelinkGroupDone(groupId: number | null, taskId: string | undefined) {
   if (groupId == null) return
   await chrome.tabGroups.update(groupId, { title: groupTitle('done', taskId) })
 }
 
-async function abelinkGroupError(groupId: any, taskId: any) {
+async function abelinkGroupError(groupId: number | null, taskId: string | undefined) {
   if (groupId == null) return
   await chrome.tabGroups.update(groupId, { title: groupTitle('error', taskId) })
 }
 
 // Tutup semua tab dalam satu grup. Mengembalikan jumlah tab ditutup.
-async function closeGroupTabs(groupId: any) {
+async function closeGroupTabs(groupId: number | null) {
   if (groupId == null) return 0
   const tabs = await chrome.tabs.query({ groupId })
   for (const t of tabs) {
@@ -609,7 +640,7 @@ async function closeGroupTabs(groupId: any) {
 
 // Selesaikan grup task sesi: tandai ✅/❌ + tutup tab hanya bila autoClose
 // dan status bukan error (tab error selalu disisakan untuk inspeksi).
-async function finishTaskGroup(sessionId: any, task: any, status = 'done', autoClose = false) {
+async function finishTaskGroup(sessionId: string, task: string | undefined, status = 'done', autoClose = false) {
   await hideOverlayDom(sessionId) // tab sukses disisakan terbuka: veil wajib lepas
   delete overlayStopped[sessionId]
   const label = task || sessionTask[sessionId] || 'browser'
@@ -631,7 +662,7 @@ async function finishTaskGroup(sessionId: any, task: any, status = 'done', autoC
 }
 
 // Tutup tab grup aktif sesi (tombol manual). Mengembalikan jumlah ditutup.
-async function closeActiveGroupTabs(sessionId: any) {
+async function closeActiveGroupTabs(sessionId: string) {
   await hideOverlayDom(sessionId)
   delete overlayStopped[sessionId]
   const group = activeGroups[sessionId]
@@ -649,7 +680,7 @@ async function closeActiveGroupTabs(sessionId: any) {
 // Masukkan tab ke grup sesi (format judul ikut status). Dipakai navigate
 // agar setiap tab yang dibuka Abelink langsung ber-grup. Error DILEMPAR ke
 // caller (dilaporkan di hasil, bukan ditelan) - pelajaran 7 tab yatim.
-async function groupTabIntoSession(sessionId: any, tabId: any, task: any, status = 'acting') {
+async function groupTabIntoSession(sessionId: string, tabId: number, task: string | undefined, status = 'acting') {
   const sid = String(sessionId ?? 'default')
   // Anti-curi: tab yang sudah bergrup milik sesi LAIN jangan ditarik paksa
   // (chrome.tabs.group akan mencabutnya dari grup pemilik). Buat tab sendiri
@@ -692,7 +723,7 @@ const MAX_TABS_PER_SESSION = 6
 // diadopsi bila opts.adoptUserTab eksplisit (izin user). Tidak pernah
 // menyentuh tab PRIMER sesi lain (anti-curi antar-sesi): daftar id primer
 // milik sesi lain dikecualikan eksplisit.
-async function adoptOrphanTab(sessionId: any, url: any, excludeTabIds = [], opts: any = {}) {
+async function adoptOrphanTab(sessionId: string, url: string, excludeTabIds: unknown[] = [], opts: AdoptOpts = {}) {
   try {
     const sid = String(sessionId ?? 'default')
     const adoptUserTab = opts.adoptUserTab === true
@@ -718,7 +749,7 @@ async function adoptOrphanTab(sessionId: any, url: any, excludeTabIds = [], opts
 }
 
 // Buat tab dengan budget: grup sesi penuh -> pakai-ulang tab grup terlama.
-async function createBoundedTab(sessionId: any, url: any) {
+async function createBoundedTab(sessionId: string, url: string) {
   try {
     const group = activeGroups[sessionId]
     if (group?.groupId != null) {
@@ -735,7 +766,7 @@ async function createBoundedTab(sessionId: any, url: any) {
   return { tab, reused: false }
 }
 
-async function navigate({ url, reuse = true, adoptUserTab = false }: any, sessionId = 'default') {  // Tab PRIMER per task dipakai ulang (anti ledakan tab). Tab baru hanya bila
+async function navigate({ url, reuse = true, adoptUserTab = false }: NavigateOpts, sessionId = 'default') {  // Tab PRIMER per task dipakai ulang (anti ledakan tab). Tab baru hanya bila
   // belum ada / sudah ditutup / reuse=false eksplisit. Tidak merebut fokus.
   // adoptUserTab=true (izin eksplisit user): boleh adopsi tab tak-bergrup
   // ber-URL-cocok; default false = hanya blank milik sendiri atau tab baru.
@@ -761,7 +792,7 @@ async function navigate({ url, reuse = true, adoptUserTab = false }: any, sessio
       await saveSessionState()
     }
   }
-  await waitForLoad(tab.id, NAV_TIMEOUT_MS)
+  await waitForLoad(tab.id!, NAV_TIMEOUT_MS)
   await sleep(SETTLE_MS)
   // Setiap tab yang dibuka Abelink langsung masuk grup sesi (judul ikut task
   // terakhir sesi, atau hostname bila belum ada task).
@@ -774,16 +805,16 @@ async function navigate({ url, reuse = true, adoptUserTab = false }: any, sessio
     }
   }
   let group = null
-  let effectiveTabId = tab.id
+  let effectiveTabId = tab.id as number
   try {
-    const res = await groupTabIntoSession(sessionId, tab.id, label, 'acting')
+    const res = await groupTabIntoSession(sessionId, tab.id!, label, 'acting')
     // Anti-curi: bila tab ternyata milik sesi lain, pakai tab pengganti.
-    effectiveTabId = res?.tabId ?? tab.id
+    effectiveTabId = res?.tabId ?? tab.id!
     group = { grouped: true, groupId: res?.groupId ?? null, replaced: !!res?.replaced }
   } catch (e) {
     group = { grouped: false, error: String(e?.message || e) }
   }
-  const dom = await readDomInTab(effectiveTabId)
+  const dom = await readDomInTab(effectiveTabId!)
   if (!dom.ok) return { ...dom, group }
   // Catat URL fokus sesi HANYA bila navigate sukses (DOM terbaca).
   sessionFocusedUrl[sessionId] = url
@@ -806,7 +837,7 @@ async function navigate({ url, reuse = true, adoptUserTab = false }: any, sessio
   }
 }
 
-async function waitForLoad(tabId: any, timeoutMs: any) {
+async function waitForLoad(tabId: number, timeoutMs: number) {
   try {
     const cur = await chrome.tabs.get(tabId)
     if (cur?.status === 'complete') return
@@ -816,7 +847,7 @@ async function waitForLoad(tabId: any, timeoutMs: any) {
       chrome.tabs.onUpdated.removeListener(listener)
       resolve()
     }, timeoutMs)
-    const listener = (id: any, info: any) => {
+    const listener = (id: number, info: Record<string, unknown>) => {
       if (id === tabId && info.status === 'complete') {
         clearTimeout(timer)
         chrome.tabs.onUpdated.removeListener(listener)
@@ -834,7 +865,7 @@ async function readDom(sessionId = 'default') {
       ok: false,
       error: 'Tidak ada tab aktif http(s) untuk sesi ini. Buka halaman dulu atau pakai navigate.'
     }
-  return readDomInTab(tab.id)
+  return readDomInTab(tab.id!)
 }
 
 async function showTab(sessionId = 'default') {
@@ -849,7 +880,7 @@ async function showTab(sessionId = 'default') {
 // DI-SERIALISASI ke konteks halaman - self-contained (lihat taggerFn/actionFn).
 // Isolated world: bisa chrome.runtime.sendMessage, tidak bentrok CSS situs
 // (Shadow DOM). Listener basi jadi no-op via guard HOST_ID.
-function overlayFn({ mode, text, session }: any) {
+function overlayFn({ mode, text, session }: OverlayArgs) {
   const HOST_ID = 'abelink-agent-lock'
   if (mode === 'hide') {
     const gone = document.getElementById(HOST_ID)
@@ -948,7 +979,7 @@ function overlayFn({ mode, text, session }: any) {
   ;(document.documentElement || document.body).appendChild(host)
   // Blokir keyboard di luar pill (klik sudah ditelan veil). Guard HOST_ID
   // membuat listener basi dari show sebelumnya jadi no-op.
-  const guard = (e: any) => {
+  const guard = (e: KeyboardEvent) => {
     if (!document.getElementById(HOST_ID)) return
     const path = typeof e.composedPath === 'function' ? e.composedPath() : []
     if (path.includes(stop)) return
@@ -960,7 +991,7 @@ function overlayFn({ mode, text, session }: any) {
   return { ok: true, shown: true }
 }
 
-async function setOverlay(tabId: any, mode: any, text = '', session = 'default') {
+async function setOverlay(tabId: number, mode: string, text = '', session = 'default') {
   const [injection] = await chrome.scripting.executeScript({
     target: { tabId },
     args: [{ mode, text, session }],
@@ -971,13 +1002,13 @@ async function setOverlay(tabId: any, mode: any, text = '', session = 'default')
 
 // Pasang veil (best-effort). Dipanggil ulang tiap perintah tab berhasil
 // karena navigasi menghapus DOM injeksi (lihat runCommand).
-async function ensureOverlay(sessionId: any) {
+async function ensureOverlay(sessionId: string) {
   try {
     if (overlayStopped[sessionId]) return
     if (awaitingUser[sessionId]) return // co-pilot: veil mati saat await-user
     const tab = await targetTabForSession(sessionId)
     if (!tab) return
-    await setOverlay(tab.id, 'show', sessionTask[sessionId] || 'browser', sessionId)
+    await setOverlay(tab.id!, 'show', sessionTask[sessionId] || 'browser', sessionId)
   } catch {
     /* overlay tidak boleh menggagalkan tool */
   }
@@ -985,22 +1016,22 @@ async function ensureOverlay(sessionId: any) {
 
 // Pill pasif co-pilot: tanpa veil, tanpa keydown-guard, tidak memblokir.
 // Dipasang saat sesi menunggu user agar tab tetap bisa dipakai.
-async function ensurePassivePill(sessionId: any) {
+async function ensurePassivePill(sessionId: string) {
   try {
     const tab = await targetTabForSession(sessionId)
     if (!tab) return
     const reason = awaitingUser[sessionId]?.reason || 'menunggu user'
-    await setOverlay(tab.id, 'passive', `Abelink menunggu — ${reason}`, sessionId)
+    await setOverlay(tab.id!, 'passive', `Abelink menunggu — ${reason}`, sessionId)
   } catch {
     /* pill tidak boleh menggagalkan tool */
   }
 }
 
 // Hapus veil dari DOM. Flag stop TIDAK ikut dihapus (lihat stop handler).
-async function hideOverlayDom(sessionId: any) {
+async function hideOverlayDom(sessionId: string) {
   try {
     const tab = await targetTabForSession(sessionId)
-    if (tab) await setOverlay(tab.id, 'hide', '', sessionId)
+    if (tab) await setOverlay(tab.id!, 'hide', '', sessionId)
   } catch {
     /* abaikan */
   }
@@ -1037,20 +1068,20 @@ function taggerFn() {
   // halaman (Function.prototype.toString) tetap identik dengan sebelumnya.
   const MAIN_SCOPE = 'main, [role="main"], article'
   const scopeRoots = [...document.querySelectorAll(MAIN_SCOPE)]
-  const inMain = new Set<any>()
+  const inMain = new Set<Element>()
   for (const root of scopeRoots) {
     for (const el of root.querySelectorAll(SELECTORS)) inMain.add(el)
   }
   const docEls = [...document.querySelectorAll(SELECTORS)]
   const els = [...docEls.filter((el) => inMain.has(el)), ...docEls.filter((el) => !inMain.has(el))]
-  const out: any[] = []
+  const out: TaggedEl[] = []
   const MAX = 200
   const MAX_TEXT = 120
   let n = 1
   const vh = window.innerHeight || document.documentElement.clientHeight || 800
   const vw = window.innerWidth || document.documentElement.clientWidth || 1200
 
-  for (const el of els as any[]) {
+  for (const el of els as TaggedDomEl[]) {
     if (out.length >= MAX) break
     const rect = el.getBoundingClientRect()
     if (rect.width < 3 || rect.height < 3) continue
@@ -1077,8 +1108,8 @@ function taggerFn() {
       y: Math.round(rect.y + window.scrollY)
     })
   }
-  const mainRoot: any = document.querySelector(MAIN_SCOPE) || document.body
-  const pageText = String(mainRoot?.innerText || '')
+  const mainRoot = document.querySelector(MAIN_SCOPE) || document.body
+  const pageText = String((mainRoot as HTMLElement)?.innerText || '')
     .replace(/\n{3,}/g, '\n\n')
     .trim()
     .slice(0, 5000)
@@ -1086,7 +1117,7 @@ function taggerFn() {
   return { title: document.title, url: location.href, text: pageText, elements: out }
 }
 
-async function readDomInTab(tabId: any) {
+async function readDomInTab(tabId: number) {
   const [injection] = await chrome.scripting.executeScript({ target: { tabId }, func: taggerFn })
   if (!injection?.result) return { ok: false, error: 'Gagal membaca DOM (hasil injection kosong).' }
   return { ok: true, data: JSON.stringify(injection.result) }
@@ -1145,15 +1176,16 @@ function snapshotPage(full = false) {
   return { title: document.title, url: location.href, text, at: Date.now() }
 }
 
-async function actionFn({ abelinkId, action, value, expectedText }: any) {
-  const el: any = abelinkId ? document.querySelector(`[data-abelink-id="${abelinkId}"]`) : null
+async function actionFn({ abelinkId, action, value, expectedText }: ActionArgs) {
+  const el = (abelinkId ? document.querySelector(`[data-abelink-id="${abelinkId}"]`) : null) as ActionEl | null
   if (abelinkId && !el)
     return {
       ok: false,
       error: `Elemen ${abelinkId} tidak ditemukan (DOM berubah? Panggil read-dom lagi).`
     }
+  const target = el as ActionEl
 
-  const sleep = (ms: any) => new Promise((resolve) => setTimeout(resolve, ms))
+  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
   // Visual helper kursor & ripple ala browser-use
   const ensureStyles = () => {
@@ -1188,7 +1220,7 @@ async function actionFn({ abelinkId, action, value, expectedText }: any) {
     document.documentElement.appendChild(s)
   }
 
-  const showCursorAt = async (x: any, y: any) => {
+  const showCursorAt = async (x: number, y: number) => {
     ensureStyles()
     let cur = document.getElementById('abelink-cursor-pointer')
     if (!cur) {
@@ -1208,7 +1240,7 @@ async function actionFn({ abelinkId, action, value, expectedText }: any) {
     await sleep(200)
   }
 
-  const triggerRippleAt = (x: any, y: any) => {
+  const triggerRippleAt = (x: number, y: number) => {
     ensureStyles()
     const rip = document.createElement('div')
     rip.className = 'abelink-click-ripple'
@@ -1239,9 +1271,9 @@ async function actionFn({ abelinkId, action, value, expectedText }: any) {
         const want = String(expectedText ?? '').trim()
         if (want) {
           const hay = [
-            typeof el.innerText === 'string' ? el.innerText.slice(0, 120) : '',
-            typeof el.getAttribute === 'function' ? (el.getAttribute('aria-label') || '') : '',
-            typeof el.value === 'string' ? el.value : ''
+            typeof target.innerText === 'string' ? target.innerText.slice(0, 120) : '',
+            typeof target.getAttribute === 'function' ? (target.getAttribute('aria-label') || '') : '',
+            typeof target.value === 'string' ? target.value : ''
           ].join(' ')
           if (!hay.toLowerCase().includes(want.toLowerCase())) {
             return {
@@ -1250,9 +1282,9 @@ async function actionFn({ abelinkId, action, value, expectedText }: any) {
             }
           }
         }
-        el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
+        target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
         await sleep(150)
-        const rect = el.getBoundingClientRect()
+        const rect = target.getBoundingClientRect()
         const clickX = Math.round(rect.left + rect.width / 2 + window.scrollX)
         const clickY = Math.round(rect.top + rect.height / 2 + window.scrollY)
 
@@ -1267,32 +1299,32 @@ async function actionFn({ abelinkId, action, value, expectedText }: any) {
           clientX: Math.round(rect.left + rect.width / 2),
           clientY: Math.round(rect.top + rect.height / 2)
         }
-        el.dispatchEvent(new PointerEvent('pointerdown', opts))
-        el.dispatchEvent(new MouseEvent('mousedown', opts))
-        el.focus()
+        target.dispatchEvent(new PointerEvent('pointerdown', opts))
+        target.dispatchEvent(new MouseEvent('mousedown', opts))
+        target.focus()
         await sleep(50)
-        el.dispatchEvent(new PointerEvent('pointerup', opts))
-        el.dispatchEvent(new MouseEvent('mouseup', opts))
-        el.click()
+        target.dispatchEvent(new PointerEvent('pointerup', opts))
+        target.dispatchEvent(new MouseEvent('mouseup', opts))
+        target.click()
 
         hideCursor(700)
         break
       }
       case 'type': {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
+        target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
         await sleep(150)
-        const rect = el.getBoundingClientRect()
+        const rect = target.getBoundingClientRect()
         const focusX = Math.round(rect.left + Math.min(20, rect.width / 2) + window.scrollX)
         const focusY = Math.round(rect.top + rect.height / 2 + window.scrollY)
 
         await showCursorAt(focusX, focusY)
         triggerRippleAt(focusX, focusY)
-        el.focus()
+        target.focus()
         await sleep(100)
 
         const textToType = String(value ?? '')
-        if (el.isContentEditable) {
-          document.execCommand('selectAll', false, null as any)
+        if (target.isContentEditable) {
+          document.execCommand('selectAll', false, undefined)
           if (textToType.length > 0 && textToType.length <= 40) {
             for (const char of textToType) {
               document.execCommand('insertText', false, char)
@@ -1316,35 +1348,35 @@ async function actionFn({ abelinkId, action, value, expectedText }: any) {
               if (descriptor && descriptor.set) {
                 descriptor.set.call(el, currVal)
               } else {
-                el.value = currVal
+                target.value = currVal
               }
-              el.dispatchEvent(new KeyboardEvent('keydown', { key: char, code: `Key${char.toUpperCase()}`, bubbles: true }))
-              el.dispatchEvent(new InputEvent('beforeinput', { data: char, inputType: 'insertText', bubbles: true }))
-              el.dispatchEvent(new Event('input', { bubbles: true }))
-              el.dispatchEvent(new KeyboardEvent('keyup', { key: char, code: `Key${char.toUpperCase()}`, bubbles: true }))
+              target.dispatchEvent(new KeyboardEvent('keydown', { key: char, code: `Key${char.toUpperCase()}`, bubbles: true }))
+              target.dispatchEvent(new InputEvent('beforeinput', { data: char, inputType: 'insertText', bubbles: true }))
+              target.dispatchEvent(new Event('input', { bubbles: true }))
+              target.dispatchEvent(new KeyboardEvent('keyup', { key: char, code: `Key${char.toUpperCase()}`, bubbles: true }))
               await sleep(18 + Math.floor(Math.random() * 22))
             }
           } else {
             if (descriptor && descriptor.set) {
               descriptor.set.call(el, textToType)
             } else {
-              el.value = textToType
+              target.value = textToType
             }
-            el.dispatchEvent(new Event('input', { bubbles: true }))
+            target.dispatchEvent(new Event('input', { bubbles: true }))
           }
-          el.dispatchEvent(new Event('change', { bubbles: true }))
+          target.dispatchEvent(new Event('change', { bubbles: true }))
         }
 
         hideCursor(500)
         break
       }
       case 'select': {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' })
         await sleep(100)
-        el.focus()
-        el.value = value
-        el.dispatchEvent(new Event('input', { bubbles: true }))
-        el.dispatchEvent(new Event('change', { bubbles: true }))
+        target.focus()
+        target.value = value
+        target.dispatchEvent(new Event('input', { bubbles: true }))
+        target.dispatchEvent(new Event('change', { bubbles: true }))
         break
       }
       case 'press': {
@@ -1365,9 +1397,10 @@ async function actionFn({ abelinkId, action, value, expectedText }: any) {
         break
       }
       case 'scroll': {
+        const sv = value as { direction?: unknown; amount?: unknown } | null
         const px =
-          value && typeof value === 'object'
-            ? (value.direction === 'up' ? -1 : 1) * (Number(value.amount) || 600)
+          sv && typeof sv === 'object'
+            ? (sv.direction === 'up' ? -1 : 1) * (Number(sv.amount) || 600)
             : Number(value) || 600
         window.scrollBy({ top: px, behavior: 'smooth' })
         await sleep(250)
@@ -1389,7 +1422,8 @@ async function actionFn({ abelinkId, action, value, expectedText }: any) {
       case 'wait-for': {
         // Tunggu teks muncul (ala wait_for CDP): poll ringan, maks ~15 detik.
         // value: { text: "Soal No" } atau string langsung.
-        const needle = String((value && value.text) || value || '').trim().toLowerCase()
+        const wv = value as { text?: unknown } | null
+        const needle = String((wv && wv.text) || value || '').trim().toLowerCase()
         if (!needle) return { ok: false, error: 'wait-for butuh teks pada field value.' }
         const t0 = Date.now()
         for (;;) {
@@ -1408,7 +1442,7 @@ async function actionFn({ abelinkId, action, value, expectedText }: any) {
   }
 }
 
-async function act({ abelinkId, action, value, expectedText }: any, sessionId = 'default') {
+async function act({ abelinkId, action, value, expectedText }: ActPayload, sessionId = 'default') {
   if (action === 'close') {
     const closed = await closeActiveGroupTabs(sessionId)
     return { ok: true, data: JSON.stringify({ closed }) }
@@ -1421,27 +1455,27 @@ async function act({ abelinkId, action, value, expectedText }: any, sessionId = 
   // chrome.scripting/chrome.tabs tidak ada di konteks halaman.
   if (action === 'back' || action === 'go-back') {
     try {
-      await chrome.tabs.goBack(tab.id)
+      await chrome.tabs.goBack(tab.id!)
       await sleep(500)
-      return readDomInTab(tab.id)
+      return readDomInTab(tab.id!)
     } catch (e) {
       return { ok: false, error: `browser-back gagal: ${String(e?.message || e)}` }
     }
   }
   if (action === 'forward' || action === 'go-forward') {
     try {
-      await chrome.tabs.goForward(tab.id)
+      await chrome.tabs.goForward(tab.id!)
       await sleep(500)
-      return readDomInTab(tab.id)
+      return readDomInTab(tab.id!)
     } catch (e) {
       return { ok: false, error: `browser-forward gagal: ${String(e?.message || e)}` }
     }
   }
   if (action === 'reload' || action === 'refresh') {
     try {
-      await chrome.tabs.reload(tab.id)
+      await chrome.tabs.reload(tab.id!)
       await sleep(1000)
-      return readDomInTab(tab.id)
+      return readDomInTab(tab.id!)
     } catch (e) {
       return { ok: false, error: `browser-reload gagal: ${String(e?.message || e)}` }
     }
@@ -1455,27 +1489,27 @@ async function act({ abelinkId, action, value, expectedText }: any, sessionId = 
     const trimmed = code.trim().toLowerCase().replace(/;\s*$/, '')
     if (trimmed === 'window.history.back()' || trimmed === 'history.back()') {
       try {
-        await chrome.tabs.goBack(tab.id)
+        await chrome.tabs.goBack(tab.id!)
         await sleep(500)
-        return readDomInTab(tab.id)
+        return readDomInTab(tab.id!)
       } catch (e) {
         return { ok: false, error: `history.back gagal: ${String(e?.message || e)}` }
       }
     }
     if (trimmed === 'window.history.forward()' || trimmed === 'history.forward()') {
       try {
-        await chrome.tabs.goForward(tab.id)
+        await chrome.tabs.goForward(tab.id!)
         await sleep(500)
-        return readDomInTab(tab.id)
+        return readDomInTab(tab.id!)
       } catch (e) {
         return { ok: false, error: `history.forward gagal: ${String(e?.message || e)}` }
       }
     }
     if (trimmed === 'window.location.reload()' || trimmed === 'location.reload()') {
       try {
-        await chrome.tabs.reload(tab.id)
+        await chrome.tabs.reload(tab.id!)
         await sleep(1000)
-        return readDomInTab(tab.id)
+        return readDomInTab(tab.id!)
       } catch (e) {
         return { ok: false, error: `location.reload gagal: ${String(e?.message || e)}` }
       }
@@ -1483,10 +1517,10 @@ async function act({ abelinkId, action, value, expectedText }: any, sessionId = 
 
     try {
       const [scr] = await chrome.scripting.executeScript({
-        target: { tabId: tab.id },
+        target: { tabId: tab.id! },
         world: 'MAIN',
         args: [code],
-        func: (c: any) => {
+        func: (c: string) => {
           try {
             const fn = new Function(`return (() => {\n${c}\n})()`)
             const out = fn()
@@ -1552,8 +1586,8 @@ async function act({ abelinkId, action, value, expectedText }: any, sessionId = 
     delete overlayStopped[sessionId]
     delete awaitingUser[sessionId]
     try {
-      const label = value && typeof value === 'object' ? value.text : value
-      const r = await setOverlay(tab.id, 'show', String(label || ''), sessionId)
+      const label = value && typeof value === 'object' ? (value as { text?: unknown }).text : value
+      const r = await setOverlay(tab.id!, 'show', String(label || ''), sessionId)
       return { ok: true, data: JSON.stringify(r) }
     } catch (e) {
       return { ok: false, error: `overlay-show gagal: ${String(e?.message || e)}` }
@@ -1563,7 +1597,7 @@ async function act({ abelinkId, action, value, expectedText }: any, sessionId = 
   // (tanpa veil, tanpa keydown-guard, non-blocking). Dipanggil sidecar
   // saat browser-ask masuk pause-state.
   if (action === 'overlay-passive') {
-    const v = value && typeof value === 'object' ? value : {}
+    const v = (value && typeof value === 'object' ? value : {}) as { reason?: unknown; text?: unknown; goal?: unknown }
     awaitingUser[sessionId] = {
       reason: String(v.reason || v.text || 'menunggu user'),
       tabId: tab.id,
@@ -1572,7 +1606,7 @@ async function act({ abelinkId, action, value, expectedText }: any, sessionId = 
       since: Date.now()
     }
     try {
-      const r = await setOverlay(tab.id, 'passive', `Abelink menunggu — ${awaitingUser[sessionId].reason}`, sessionId)
+      const r = await setOverlay(tab.id!, 'passive', `Abelink menunggu — ${awaitingUser[sessionId].reason}`, sessionId)
       return { ok: true, data: JSON.stringify({ ...r, awaitUser: awaitingUser[sessionId] }) }
     } catch (e) {
       return { ok: false, error: `overlay-passive gagal: ${String(e?.message || e)}` }
@@ -1580,7 +1614,7 @@ async function act({ abelinkId, action, value, expectedText }: any, sessionId = 
   }
   if (action === 'overlay-hide') {
     try {
-      const r = await setOverlay(tab.id, 'hide', '', sessionId)
+      const r = await setOverlay(tab.id!, 'hide', '', sessionId)
       return { ok: true, data: JSON.stringify(r) }
     } catch (e) {
       return { ok: false, error: `overlay-hide gagal: ${String(e?.message || e)}` }
@@ -1589,7 +1623,7 @@ async function act({ abelinkId, action, value, expectedText }: any, sessionId = 
 
   // --- Aksi DOM via injeksi halaman (click/type/select/press/scroll/extract) ---
   const [injection] = await chrome.scripting.executeScript({
-    target: { tabId: tab.id },
+    target: { tabId: tab.id! },
     args: [{ abelinkId: abelinkId || null, action, value: value ?? null, expectedText: expectedText ?? null }],
     func: actionFn
   })
@@ -1599,7 +1633,7 @@ async function act({ abelinkId, action, value, expectedText }: any, sessionId = 
   // read-dom ulang agar caller menerima DOM ter-tag terbaru.
   if (action === 'extract' || action === 'snapshot' || action === 'wait-for') return step
   await sleep(300)
-  return readDomInTab(tab.id)
+  return readDomInTab(tab.id!)
 }
 
 // ------------------------------------------------------------- lifecycle
@@ -1801,7 +1835,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   return true // async response
 })
 
-let resumeTimeout: any = null
+let resumeTimeout: ReturnType<typeof setTimeout> | null = null
 // Backoff eksponensial auto-resume: 5s -> 10s -> 20s -> 30s (cap).
 // Tanpa ini setiap 401/putus men-jadwal ulang 5s flat selamanya — error
 // yang sama ditulis ulang tiap siklus dan popup merah berkedip nonstop.
@@ -2015,7 +2049,7 @@ chrome.runtime.onStartup.addListener(() => {
 // Listener tab & group agar state activeGroups sinkron secara reaktif
 if (typeof chrome !== 'undefined') {
   if (chrome.tabGroups?.onRemoved) {
-    chrome.tabGroups.onRemoved.addListener((group: any) => {
+    chrome.tabGroups.onRemoved.addListener((group: { id?: number }) => {
       for (const [s, g] of Object.entries(activeGroups)) {
         if (g?.groupId === group.id) {
           delete activeGroups[s]
