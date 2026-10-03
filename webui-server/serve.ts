@@ -4,6 +4,7 @@
 import { readFile } from 'node:fs/promises'
 import { join, normalize, sep, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { ensurePushToken, readPushToken, readSnapshot, writeSnapshot } from './snapshot.ts'
 
 const here: string =
   // @ts-expect-error import.meta.dir hanya ada di Bun
@@ -36,10 +37,39 @@ async function handleFetch(req: Request, portOf: () => number): Promise<Response
   const url = new URL(req.url)
   if (url.pathname === '/health')
     return Response.json({ ok: true, proto: 'abelink-web', port: portOf() })
+  if (url.pathname === '/api/snapshot') {
+    const snap = await readSnapshot()
+    return Response.json(snap ?? { sessions: [], note: 'belum tersambung' })
+  }
+  if (url.pathname === '/api/push-snapshot') {
+    if (req.method !== 'POST') return new Response('method-not-allowed', { status: 405 })
+    const want = (await readPushToken()) ?? ''
+    const got = req.headers.get('x-abelink-token') ?? ''
+    if (!want || !timingSafeEqualStr(got, want))
+      return new Response('unauthorized', { status: 401 })
+    let body: unknown
+    try {
+      body = await req.json()
+    } catch {
+      return new Response('bad-request', { status: 400 })
+    }
+    const sessions = (body as { sessions?: unknown }).sessions
+    if (!Array.isArray(sessions)) return new Response('bad-request', { status: 400 })
+    await writeSnapshot({ sessions: sessions as never, note: '' })
+    return Response.json({ ok: true })
+  }
   return serveStatic(url.pathname)
 }
 
+function timingSafeEqualStr(a: string, b: string): boolean {
+  if (a.length !== b.length) return false
+  let diff = 0
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  return diff === 0
+}
+
 export async function startWebServer(port: number) {
+  await ensurePushToken()
   const B = typeof Bun !== 'undefined' ? Bun : undefined
   if (B) {
     const server = B.serve({
@@ -52,8 +82,23 @@ export async function startWebServer(port: number) {
   const { createServer } = await import('node:http')
   let actualPort = port
   const server = createServer(async (req, res) => {
+    const chunks: Buffer[] = []
+    for await (const c of req) chunks.push(c as Buffer)
+    const body = Buffer.concat(chunks)
     const url = new URL(req.url ?? '/', 'http://127.0.0.1')
-    const r = await handleFetch(new Request(url.toString()), () => actualPort)
+    const headers = new Headers()
+    for (const [k, v] of Object.entries(req.headers)) {
+      if (typeof v === 'string') headers.set(k, v)
+      else if (Array.isArray(v)) headers.set(k, v.join(', '))
+    }
+    const r = await handleFetch(
+      new Request(url.toString(), {
+        method: req.method ?? 'GET',
+        headers,
+        body: body.length && req.method !== 'GET' && req.method !== 'HEAD' ? body : undefined,
+      }),
+      () => actualPort,
+    )
     res.writeHead(r.status, Object.fromEntries(r.headers.entries()))
     res.end(Buffer.from(await r.arrayBuffer()))
   })

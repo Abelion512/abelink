@@ -969,6 +969,11 @@ export async function saveSession(
       updatePayload.workspaceRoot = existing.workspaceRoot
     }
     await db.sessions.put(updatePayload)
+    // Jembatan snapshot web (best-effort, fire-and-forget — tanpa ubah logika/skema).
+    try {
+      const { pushSnapshotAuto } = await import('./snapshotPush')
+      pushSnapshotAuto()
+    } catch { /* best-effort: diam */ }
     return true
   } catch (error) {
     console.error('Error in saveSession:', error)
