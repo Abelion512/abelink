@@ -18,6 +18,9 @@
 # Build output
 # ─────────────────────────────────────────────────────────────────
 /dist/
+# WebUI: build output + deps terisolasi (terban ulang via `bun run build` di webui/).
+/webui/dist/
+/webui/node_modules/
 /out/
 /build/
 /dist-sidecar/
