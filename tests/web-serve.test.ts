@@ -9,6 +9,6 @@ describe('web serve fondasi', () => {
     expect(h.ok).toBe(true)
     const t = await fetch(`${base}/..%2f..%2fpackage.json`)
     expect(t.status).toBe(404)
-    srv.close()
+    await srv.close()
   })
 })

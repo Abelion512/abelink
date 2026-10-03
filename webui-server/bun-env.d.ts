@@ -1,5 +1,6 @@
 // Bentuk MINIMAL Bun global yang dipakai serve.ts — bukan peta API penuh.
 // Tanpa dep baru (bun-types dilarang constraint plan); naikkan bila pemakaian bertambah.
+// DEBT: pola ambient-minimal — wajib perpanjang deklarasi ini setiap pemakaian Bun baru.
 declare const Bun: {
   serve(opts: {
     hostname: string

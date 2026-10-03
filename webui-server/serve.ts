@@ -47,7 +47,7 @@ export async function startWebServer(port: number) {
       port,
       fetch: (req: Request) => handleFetch(req, () => server.port),
     })
-    return { port: server.port as number, close: () => server.stop() }
+    return { port: server.port as number, close: async () => { server.stop() } }
   }
   const { createServer } = await import('node:http')
   let actualPort = port
@@ -59,11 +59,11 @@ export async function startWebServer(port: number) {
   })
   await new Promise<void>((resolve) => server.listen(port, '127.0.0.1', resolve))
   actualPort = (server.address() as { port: number }).port
-  return { port: actualPort, close: () => server.close() }
+  return { port: actualPort, close: async () => { server.close() } }
 }
 
 if (import.meta.main) {
-  let port = 49719
+  let port: number | undefined
   for (let p = 49719; p < 49719 + 100; p++) {
     try {
       const c = await Bun.connect({ hostname: '127.0.0.1', port: p })
@@ -73,8 +73,11 @@ if (import.meta.main) {
       break
     }
   }
+  if (port === undefined) throw new Error('no free port in 49719-49818')
   const srv = await startWebServer(port)
   const url = `http://127.0.0.1:${srv.port}`
   console.log(`abelink-web listening on ${url}`)
-  Bun.spawn(['xdg-open', url], { stdout: 'ignore', stderr: 'ignore' })
+  try {
+    Bun.spawn(['xdg-open', url], { stdout: 'ignore', stderr: 'ignore' })
+  } catch { /* headless/ENOENT: server tetap jalan */ }
 }
