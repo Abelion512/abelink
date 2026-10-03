@@ -98,7 +98,16 @@ dideklarasikan eksplisit.
 **Syarat:** kalau capability MCP masuk lewat jalur ini, `validation.ts` yang ada
 harus tetap dipakai. Jangan buat jalur pintas yang melewati validasi `inputSchema`.
 
-## 3. Abelink sebagai MCP server (P3, opt-in — perlu keputusan owner)
+## 3. Abelink sebagai MCP server (P3 — DITOLAK owner, 2026-10-03)
+
+> Prinsip owner: Abelink adalah agent mutlak — tidak bisa dikendalikan agent
+> lain, hanya collaboration. Sebaliknya agent lain bisa dikontrol Abelink.
+
+P3 (mengekspos tool Abelink ke agent luar via MCP server) **bertentangan
+dengan prinsip ini dan tidak dikerjakan**. M1/M2 (MCP client: stdio + header)
+tetap valid — itu arah Abelink mengendalikan tool luar, konsisten dengan prinsip.
+
+Yang TIDAK jadi dikerjakan (arsip alasan, bukan rencana):
 
 chrome-devtools-mcp adalah **MCP server**. Kalau pemilik Abelink ingin agent
 luar (Cursor, Claude Code, MCP client lain) bisa memakai browser Abelink, itu
