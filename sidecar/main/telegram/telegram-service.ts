@@ -118,7 +118,7 @@ export const uiMessageHistory: UiMessage[] = []
 const MAX_UI_HISTORY = 100
 const pendingRequestsMap = new Map<string, PendingRequest>()
 // msgId yang balasannya sudah terkirim (anti double-respon).
-const completedReplyIds = new Set()
+const completedReplyIds = new Set<string>()
 
 
 export const getConnectionStatus = () => {
@@ -947,7 +947,7 @@ export const sendAgentExecutionDone = async (data: ExecutionDoneData | null | un
     completedReplyIds.add(String(msgId))
     if (completedReplyIds.size > 200) {
       const first = completedReplyIds.values().next().value
-      completedReplyIds.delete(first)
+      if (first !== undefined) completedReplyIds.delete(first)
     }
   }
   const reqObj = msgId !== undefined ? pendingRequestsMap.get(String(msgId)) : undefined
