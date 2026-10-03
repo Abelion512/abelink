@@ -5,6 +5,7 @@ import { readFile } from 'node:fs/promises'
 import { join, normalize, sep, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ensurePushToken, readPushToken, readSnapshot, writeSnapshot } from './snapshot.ts'
+import { loadAllowFile } from './approval.ts'
 
 const here: string =
   // @ts-expect-error import.meta.dir hanya ada di Bun
@@ -70,6 +71,7 @@ function timingSafeEqualStr(a: string, b: string): boolean {
 
 export async function startWebServer(port: number) {
   await ensurePushToken()
+  await loadAllowFile() // Fase home read-only: dimuat + diuji, belum memblokir yang live
   const B = typeof Bun !== 'undefined' ? Bun : undefined
   if (B) {
     const server = B.serve({
